@@ -1,0 +1,7 @@
+black
+flake8
+mypy
+Sphinx
+sphinx-autobuild
+sphinx-autodoc-typehints
+sphinx-rtd-theme
