@@ -5,3 +5,5 @@ Sphinx
 sphinx-autobuild
 sphinx-autodoc-typehints
 sphinx-rtd-theme
+matplotlib
+numpy
