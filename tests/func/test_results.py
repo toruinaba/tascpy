@@ -5,5 +5,10 @@ class Test_results:
     def test_result(self):
         path = Path('./data/W-N.txt')
         with tp.Reader(path) as f:
-            res = tp.Results(f)
-        assert res.dict
+            res = tp.Experimental_data(f)
+        data = res["P_total"]
+        print(data.to_dict())
+        step = res.get_step(10)
+        # print(step.to_dict())
+        # assert res.dict
+

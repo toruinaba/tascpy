@@ -1,9 +1,28 @@
 from typing import Any, List, Union
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 
 @dataclass
-class Result:
+class Cell:
+    """単一データ格納クラス
+    """
+    ch: str
+    """チャンネル"""
+    name: str
+    """名前"""
+    unit: str
+    """単位"""
+    step: int
+    """ステップ"""
+    data: Union[float, bool, None]
+    """計測データ"""
+
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class Channel:
     """チャンネルデータ単一格納クラス
 
     チャンネルデータ(タスクの列)を格納するデータクラス.
@@ -67,8 +86,38 @@ class Result:
         """絶対値最小"""
         return min([abs(x) for x in self.removed_data])
 
+    def to_dict(self):
+        return asdict(self)
 
-class Results:
+
+@dataclass
+class Step:
+    """単一ステップ格納クラス
+    """
+    def __init__(self, chs, names, units, step, row):
+        self.chs = chs
+        self.names = names
+        self.dict = {
+            x: Cell(x, y, z, step, w)
+            for x, y, z, w in zip(chs, names, units, row)
+        }
+
+    def __getitem__(self, item):
+        if item in self.names:
+            ch = self.chs[self.names.index(item)]
+            return self.dict[ch]
+        else:
+            return self.dict[item]
+
+    def __repr__(self):
+        return str(self.dict)
+
+    def to_dict(self):
+        rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
+        return rtn_dict
+
+
+class Experimental_data:
     """全計測結果格納クラス
     """
 
@@ -98,15 +147,15 @@ class Results:
         all_lines = f.io.readlines()
         self.title = all_lines[self.TITLE_ROW].rstrip()
         rows = [x.rstrip() for x in all_lines]
-        self.chs, self.names, units, data = self._data_from_rows(rows)
+        self.chs, self.names, self.units, data = self._data_from_rows(rows)
         cols = [x for x in zip(*data)]
         self.steps = self._extract_steps(rows)
         self.date = self._extract_date(rows)
         self.time = self._extract_time(rows)
         self.dict = {
-            x: Result(x, y, z, w)
-            for x, y, z, w in zip(self.chs, self.names, units, cols)
-        }  
+            x: Channel(x, y, z, w)
+            for x, y, z, w in zip(self.chs, self.names, self.units, cols)
+        }
 
     def __getitem__(self, item):
         if item in self.names:
@@ -125,7 +174,12 @@ class Results:
         if step_num < 1:
             raise ValueError("ステップは1以上を設定してください.")
         row = [x.data[step_num - 1] for x in self.dict.values()]
-        return row
+        step = Step(self.chs, self.names, self.units, step_num, row)
+        return step
+
+    def to_dict(self):
+        rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
+        return rtn_dict
     
     def _data_from_rows(self, rows):
         chs = self._extract_ch(rows[self.CH_ROW])
