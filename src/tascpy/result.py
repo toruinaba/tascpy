@@ -1,3 +1,4 @@
+import sys
 from typing import Any, List, Union
 from dataclasses import dataclass, asdict
 
@@ -112,6 +113,60 @@ class Step:
     def __repr__(self):
         return str(self.dict)
 
+    def plot_const_x(
+        self,
+        x: List[float],
+        y: Union[List[str], List[List[str]]],
+        ax=None,
+        **kwargs
+    ):
+        if ax:
+            if isinstance(y[0], str):
+                y_val = [self[name].data for name in y]
+                ax.plot(x, y_val, **kwargs)
+            elif isinstance(y[0], list):
+                for names in y:
+                    y_val = [self[name].data for name in names]
+                    ax.plot(x, y_val, **kwargs)
+            return ax
+        else:
+            from matplotlib import pyplot as plt
+            fig = plt.figure()
+            if isinstance(y[0], str):
+                y_val = [self[name].data for name in y]
+                plt.plot(x, y_val, **kwargs)
+            elif isinstance(y[0], list):
+                for names in y:
+                    y_val = [self[name].data for name in names]
+                    plt.plot(x, y_val, **kwargs)
+
+    def plot_const_y(
+        self,
+        y: List[float],
+        x: Union[List[str], List[List[str]]],
+        ax=None,
+        **kwargs
+    ):
+        if ax:
+            if isinstance(x[0], str):
+                x_val = [self[name].data for name in x]
+                ax.plot(x_val, y, **kwargs)
+            elif isinstance(x[0], list):
+                for names in x:
+                    x_val = [self[name].data for name in names]
+                    ax.plot(x_val, y, **kwargs)
+            return ax
+        else:
+            from matplotlib import pyplot as plt
+            fig = plt.figure()
+            if isinstance(x[0], str):
+                x_val = [self[name].data for name in x]
+                plt.plot(x_val, y, **kwargs)
+            elif isinstance(x[0], list):
+                for names in x:
+                    x_val = [self[name].data for name in names]
+                    plt.plot(x_val, y, **kwargs)
+
     def to_dict(self):
         rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
         return rtn_dict
@@ -176,6 +231,57 @@ class Experimental_data:
         row = [x.data[step_num - 1] for x in self.dict.values()]
         step = Step(self.chs, self.names, self.units, step_num, row)
         return step
+
+    def plot_history(self, y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
+        if ax:
+            if isinstance(y, str):
+                ax.plot(self.steps, self[y].data, label=y, **kwargs)
+                ax.set_xlabel("Step")
+                ax.set_ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
+            elif isinstance(y, list):
+                for name in y:
+                    ax.plot(self.steps, self[name].data, label=name, **kwargs)
+            return ax
+        else:
+            from matplotlib import pyplot as plt
+            fig = plt.figure()
+            if isinstance(y, str):
+                plt.plot(self.steps, self[y].data, **kwargs)
+                plt.xlabel("Step")
+                plt.ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
+            elif isinstance(y, list):
+                for name in y:
+                    plt.plot(self.steps, self[name].data, **kwargs)
+
+    def plot_xy(self, x: Union[List[str], str], y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
+        if ax:
+            if isinstance(x, str) and isinstance(y, str):
+                ax.plot(self[x].data, self[y].data, label=y, **kwargs)
+                ax.set_xlabel(f"{self[x].name} [{self[x].unit}]" if show_unit else self[x].name)
+                ax.set_ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
+            elif isinstance(x, list) and isinstance(y, list):
+                if len(x) != len(y):
+                    raise ValueError("凡例の数が一致しません.")
+                for name_x, name_y in zip(x, y):
+                    ax.plot(self[name_x].data, self[name_y].data, label=y, **kwargs)
+                    ax.set_xlabel(f"{self[name_x].name} [{self[name_x].unit}]" if show_unit else self[name_x].name)
+                    ax.set_ylabel(f"{self[name_y].name} [{self[name_y].unit}]" if show_unit else self[name_y].name)
+            return ax
+        else:
+            from matplotlib import pyplot as plt
+            fig = plt.figure()
+            if isinstance(x, str) and isinstance(y, str):
+                plt.plot(self[x].data, self[y].data, **kwargs)              
+                plt.xlabel(f"{self[x].name} [{self[x].unit}]" if show_unit else self[x].name)
+                plt.ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
+            elif isinstance(x, list) and isinstance(y, list):
+                if len(x) != len(y):
+                    raise ValueError("凡例の数が一致しません")
+                for name_x, name_y in zip(x, y):
+                    plt.plot(self[name_x].data, self[name_y].data, **kwargs)
+                    plt.xlabel(f"{self[name_x].name} [{self[name_x].unit}]" if show_unit else self[name_x].name)
+                    plt.ylabel(f"{self[name_y].name} [{self[name_y].unit}]" if show_unit else self[name_y].name)
+
 
     def to_dict(self):
         rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
