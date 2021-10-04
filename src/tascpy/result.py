@@ -35,6 +35,8 @@ class Channel:
     """名前"""
     unit: str
     """単位"""
+    steps: List[int]
+    """ステップ"""
     data: List[Union[float, bool, None]]
     """データ"""
 
@@ -43,8 +45,13 @@ class Channel:
 
     @property
     def removed_data(self):
-        """Noneの除くデータ"""
+        """Noneを除くデータ"""
         return [x for x in self.data if x is not None]
+
+    @property
+    def removed_step(self):
+        """Noneのデータを除くステップ"""
+        return [self.steps[x] for x in range(len(self.data)) if self.data[x] is not None]
 
     @property
     def max(self):
@@ -86,6 +93,26 @@ class Channel:
     def absmin(self):
         """絶対値最小"""
         return min([abs(x) for x in self.removed_data])
+
+    def fetch_near_step(self, value, method=0, maxstep=None):
+        """値検索関数
+        引数に対して一番近い値を検索.
+        method=0の場合は距離絶対値最小
+        method=1は指定値以下の距離絶対値最小
+        method=2は指定値以上の距離絶対値最小
+        """
+        if maxstep:
+            obj_data = [x for x in self.data[:maxstep - 1] if x is not None]
+        else:
+            obj_data = [x for x in self.data if x is not None]
+        if method == 0:
+            distances = [abs(x - value) for x in obj_data]
+        elif method == 1:
+            distances = [abs(x - value) for x in obj_data if x - value < 0]
+        elif method == 2:
+            distances = [abs(x - value) for x in obj_data if x - value < 0]
+        near_value = obj_data[distances.index(min(distances))]
+        return self.data.index(near_value) + 1
 
     def to_dict(self):
         return asdict(self)
@@ -208,7 +235,7 @@ class Experimental_data:
         self.date = self._extract_date(rows)
         self.time = self._extract_time(rows)
         self.dict = {
-            x: Channel(x, y, z, w)
+            x: Channel(x, y, z, self.steps, w)
             for x, y, z, w in zip(self.chs, self.names, self.units, cols)
         }
 
@@ -231,6 +258,10 @@ class Experimental_data:
         row = [x.data[step_num - 1] for x in self.dict.values()]
         step = Step(self.chs, self.names, self.units, step_num, row)
         return step
+
+    def get_near_step(self, item: str, value: float, method=0, maxstep=None):
+        target = self[item].fetch_near_step(value, method=method, maxstep=maxstep)
+        return self.get_step(target)
 
     def plot_history(self, y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
         if ax:
