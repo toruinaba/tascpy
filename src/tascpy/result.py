@@ -1,5 +1,5 @@
 import sys
-from typing import Any, List, Union
+from typing import Any, List, Dict, Union
 from dataclasses import dataclass, asdict
 
 
@@ -224,20 +224,26 @@ class Experimental_data:
     DATA_START_COL = 3
     """計測データ開始列"""
 
-    def __init__(self, f):
+    def __init__(
+        self,
+        title: str,
+        chs: List[str],
+        names: List[str],
+        units: List[str],
+        steps: List[int],
+        date: List[str],
+        time: List[str],
+        data: Dict[str, Channel]
+    ):
         """初期化関数"""
-        all_lines = f.io.readlines()
-        self.title = all_lines[self.TITLE_ROW].rstrip()
-        rows = [x.rstrip() for x in all_lines]
-        self.chs, self.names, self.units, data = self._data_from_rows(rows)
-        cols = [x for x in zip(*data)]
-        self.steps = self._extract_steps(rows)
-        self.date = self._extract_date(rows)
-        self.time = self._extract_time(rows)
-        self.dict = {
-            x: Channel(x, y, z, self.steps, w)
-            for x, y, z, w in zip(self.chs, self.names, self.units, cols)
-        }
+        self.title = title
+        self.chs = chs
+        self.names = names
+        self.units = units
+        self.steps = steps
+        self.date = date
+        self.time = time
+        self.dict = data
 
     def __getitem__(self, item):
         if item in self.names:
@@ -246,7 +252,7 @@ class Experimental_data:
         else:
             return self.dict[item]
 
-    def get_step(self, step_num: int):
+    def fetch_step(self, step_num: int):
         """指定ステップ取得関数
 
         指定ステップの計測値一覧を取得する関数
@@ -259,9 +265,9 @@ class Experimental_data:
         step = Step(self.chs, self.names, self.units, step_num, row)
         return step
 
-    def get_near_step(self, item: str, value: float, method=0, maxstep=None):
+    def fetch_near_step(self, item: str, value: float, method=0, maxstep=None):
         target = self[item].fetch_near_step(value, method=method, maxstep=maxstep)
-        return self.get_step(target)
+        return self.fetch_step(target)
 
     def plot_history(self, y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
         if ax:
@@ -313,43 +319,69 @@ class Experimental_data:
                     plt.xlabel(f"{self[name_x].name} [{self[name_x].unit}]" if show_unit else self[name_x].name)
                     plt.ylabel(f"{self[name_y].name} [{self[name_y].unit}]" if show_unit else self[name_y].name)
 
-
     def to_dict(self):
         rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
         return rtn_dict
-    
-    def _data_from_rows(self, rows):
-        chs = self._extract_ch(rows[self.CH_ROW])
-        names = self._extract_names(rows[self.NAME_ROW])
-        units = self._extract_units(rows[self.UNIT_ROW])
-        data = self._extract_data(rows)
+
+    @classmethod
+    def load(cls, f):
+        """IOストリームからのクラス定義
+        """
+        all_lines = f.io.readlines()
+        title = all_lines[cls.TITLE_ROW].rstrip()
+        rows = [x.rstrip() for x in all_lines]
+        chs, names, units, data = cls._data_from_rows(rows)
+        cols = [x for x in zip(*data)]
+        steps = cls._extract_steps(rows)
+        date = cls._extract_date(rows)
+        time = cls._extract_time(rows)
+        data = {
+            x: Channel(x, y, z, steps, w)
+            for x, y, z, w in zip(chs, names, units, cols)
+        }
+        return cls(title, chs, names, units, steps, date, time, data)
+
+    @classmethod
+    def _data_from_rows(cls, rows):
+        chs = cls._extract_ch(rows[cls.CH_ROW])
+        names = cls._extract_names(rows[cls.NAME_ROW])
+        units = cls._extract_units(rows[cls.UNIT_ROW])
+        data = cls._extract_data(rows)
         return chs, names, units, data
 
-    def _extract_ch(self, ch_row):
-        return ch_row.split(self.DELIMITER)[self.DATA_START_COL:]
+    @classmethod
+    def _extract_ch(cls, ch_row):
+        return ch_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
 
-    def _extract_names(self, name_row):
-        return name_row.split(self.DELIMITER)[self.DATA_START_COL:]
+    @classmethod
+    def _extract_names(cls, name_row):
+        return name_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
 
-    def _extract_units(self, unit_row):
-        return unit_row.split(self.DELIMITER)[self.DATA_START_COL:]
+    @classmethod
+    def _extract_units(cls, unit_row):
+        return unit_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
 
-    def _extract_steps(self, rows):
-        return [int(x.split(self.DELIMITER)[self.STEP_COL]) for x in rows[self.DATA_START_ROW:]]
+    @classmethod
+    def _extract_steps(cls, rows):
+        return [int(x.split(cls.DELIMITER)[cls.STEP_COL]) for x in rows[cls.DATA_START_ROW:]]
 
-    def _extract_date(self, rows):
-        return [x.split('\t')[self.DATE_COL] for x in rows[self.DATA_START_ROW:]]
+    @classmethod
+    def _extract_date(cls, rows):
+        return [x.split('\t')[cls.DATE_COL] for x in rows[cls.DATA_START_ROW:]]
     
-    def _extract_time(self, rows):
-        return [x.split('\t')[self.TIME_COL] for x in rows[self.DATA_START_ROW:]]
+    @classmethod
+    def _extract_time(cls, rows):
+        return [x.split('\t')[cls.TIME_COL] for x in rows[cls.DATA_START_ROW:]]
 
-    def _extract_data(self, rows):
+    @classmethod
+    def _extract_data(cls, rows):
         return [
-            tuple(map(self._opt_float, x.split('\t')[self.DATA_START_COL:]))
-            for x in rows[self.DATA_START_ROW:]
+            tuple(map(cls._opt_float, x.split('\t')[cls.DATA_START_COL:]))
+            for x in rows[cls.DATA_START_ROW:]
         ]
 
-    def _opt_float(self, value: str, nan = None):
+    @staticmethod
+    def _opt_float(value: str, nan = None):
         try:
             return float(value)
         except ValueError:
