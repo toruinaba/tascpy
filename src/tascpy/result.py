@@ -1,5 +1,5 @@
 import sys
-from typing import Any, List, Dict, Union
+from typing import Any, List, Dict, Tuple, Union
 from dataclasses import dataclass, asdict
 
 
@@ -18,7 +18,7 @@ class Cell:
     data: Union[float, bool, None]
     """計測データ"""
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
@@ -40,61 +40,65 @@ class Channel:
     data: List[Union[float, bool, None]]
     """データ"""
 
-    def __getitem__(self, i):
+    def __getitem__(self, i) -> Union[float, bool, None]:
         return self.data[i]
 
     @property
-    def removed_data(self):
+    def removed_data(self) -> List[Union[float, bool]]:
         """Noneを除くデータ"""
         return [x for x in self.data if x is not None]
 
     @property
-    def removed_step(self):
+    def removed_step(self) -> List[int]:
         """Noneのデータを除くステップ"""
-        return [self.steps[x] for x in range(len(self.data)) if self.data[x] is not None]
+        return [
+            self.steps[x] for x in range(len(self.data)) if self.data[x] is not None
+        ]
 
     @property
-    def max(self):
+    def max(self) -> float:
         """最大値"""
         return max(self.removed_data)
 
     @property
-    def maxrow(self):
+    def maxrow(self) -> int:
         """最大値インデックス"""
         return self.data.index(self.max)
 
     @property
-    def maxstep(self):
+    def maxstep(self) -> int:
         """最大値ステップ"""
         return self.maxrow + 1
 
     @property
-    def min(self):
+    def min(self) -> float:
         """最小値"""
         return min(self.removed_data)
 
     @property
-    def minrow(self):
+    def minrow(self) -> int:
         """最小値インデックス"""
         return self.data.index(self.min)
 
     @property
-    def minstep(self):
+    def minstep(self) -> int:
         """最小値ステップ"""
         return self.minrow + 1
 
     @property
-    def absmax(self):
+    def absmax(self) -> float:
         """絶対値最大"""
         abs_list = [abs(x) for x in self.removed_data]
         return max(abs_list)
 
     @property
-    def absmin(self):
+    def absmin(self) -> float:
         """絶対値最小"""
         return min([abs(x) for x in self.removed_data])
 
-    def fetch_near_step(self, value, method=0, maxstep=None):
+    def fetch_near_step(
+        self, value, method=0, maxstep=None
+    ) -> int:
         """値検索関数
         引数に対して一番近い値を検索.
         method=0の場合は距離絶対値最小
@@ -114,7 +118,14 @@ class Channel:
         near_value = obj_data[distances.index(min(distances))]
         return self.data.index(near_value) + 1
 
-    def to_dict(self):
+    def extract_data(self, steps: List[int]):
+        """対象ステップのデータ抽出
+        """
+        idxs = [self.steps.index(x) for x in steps]
+        extracted = [self.data[x] for x in idxs]
+        return Channel(self.ch, self.name, self.unit, steps, extracted)
+
+    def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
@@ -130,14 +141,14 @@ class Step:
             for x, y, z, w in zip(chs, names, units, row)
         }
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> Cell:
         if item in self.names:
             ch = self.chs[self.names.index(item)]
             return self.dict[ch]
         else:
             return self.dict[item]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.dict)
 
     def plot_const_x(
@@ -194,7 +205,7 @@ class Step:
                     x_val = [self[name].data for name in names]
                     plt.plot(x_val, y, **kwargs)
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
         return rtn_dict
 
@@ -245,14 +256,14 @@ class Experimental_data:
         self.time = time
         self.dict = data
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> Channel:
         if item in self.names:
             ch = self.chs[self.names.index(item)]
             return self.dict[ch]
         else:
             return self.dict[item]
 
-    def fetch_step(self, step_num: int):
+    def fetch_step(self, step_num: int) -> Step:
         """指定ステップ取得関数
 
         指定ステップの計測値一覧を取得する関数
@@ -265,9 +276,36 @@ class Experimental_data:
         step = Step(self.chs, self.names, self.units, step_num, row)
         return step
 
-    def fetch_near_step(self, item: str, value: float, method=0, maxstep=None):
+    def fetch_near_step(
+        self, 
+        item: str,
+        value: float,
+        method=0,
+        maxstep=None
+    ) -> Step:
         target = self[item].fetch_near_step(value, method=method, maxstep=maxstep)
         return self.fetch_step(target)
+
+    def extract_data(
+        self,
+        names: List[str]=None,
+        steps: List[int]=None
+    ):
+        if not names and steps:
+            raise ValueError("ステップか名称のどちらかが必要です")
+        if steps:
+            idxs = [self.steps.index(x) for x in steps]
+        else:
+            idxs = list(range(len(self.steps)))
+        if names:
+            ch_objs = [self[name] for name in names]
+        chs = [x.ch for x in ch_objs]
+        names = [x.name for x in ch_objs]
+        units = [x.unit for x in ch_objs]
+        date = [self.date[x] for x in idxs]
+        time = [self.time[x] for x in idxs]
+        data = {x.ch: x.extract_data(steps) for x in ch_objs}
+        return Experimental_data(self.title, chs, names, units, steps, date, time, data)
 
     def plot_history(self, y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
         if ax:
@@ -319,7 +357,7 @@ class Experimental_data:
                     plt.xlabel(f"{self[name_x].name} [{self[name_x].unit}]" if show_unit else self[name_x].name)
                     plt.ylabel(f"{self[name_y].name} [{self[name_y].unit}]" if show_unit else self[name_y].name)
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
         return rtn_dict
 
@@ -342,7 +380,9 @@ class Experimental_data:
         return cls(title, chs, names, units, steps, date, time, data)
 
     @classmethod
-    def _data_from_rows(cls, rows):
+    def _data_from_rows(
+        cls, rows
+    ) -> Tuple[List[str], List[str], List[str], List[List[Union[float, bool, None]]]]:
         chs = cls._extract_ch(rows[cls.CH_ROW])
         names = cls._extract_names(rows[cls.NAME_ROW])
         units = cls._extract_units(rows[cls.UNIT_ROW])
@@ -350,38 +390,38 @@ class Experimental_data:
         return chs, names, units, data
 
     @classmethod
-    def _extract_ch(cls, ch_row):
+    def _extract_ch(cls, ch_row) -> List[str]:
         return ch_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
 
     @classmethod
-    def _extract_names(cls, name_row):
+    def _extract_names(cls, name_row) -> List[str]:
         return name_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
 
     @classmethod
-    def _extract_units(cls, unit_row):
+    def _extract_units(cls, unit_row) -> List[str]:
         return unit_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
 
     @classmethod
-    def _extract_steps(cls, rows):
+    def _extract_steps(cls, rows) -> List[int]:
         return [int(x.split(cls.DELIMITER)[cls.STEP_COL]) for x in rows[cls.DATA_START_ROW:]]
 
     @classmethod
-    def _extract_date(cls, rows):
+    def _extract_date(cls, rows) -> List[str]:
         return [x.split('\t')[cls.DATE_COL] for x in rows[cls.DATA_START_ROW:]]
     
     @classmethod
-    def _extract_time(cls, rows):
+    def _extract_time(cls, rows) -> List[str]:
         return [x.split('\t')[cls.TIME_COL] for x in rows[cls.DATA_START_ROW:]]
 
     @classmethod
-    def _extract_data(cls, rows):
+    def _extract_data(cls, rows) -> List[List[Union[float, bool, None]]]:
         return [
             tuple(map(cls._opt_float, x.split('\t')[cls.DATA_START_COL:]))
             for x in rows[cls.DATA_START_ROW:]
         ]
 
     @staticmethod
-    def _opt_float(value: str, nan = None):
+    def _opt_float(value: str, nan = None) -> Union[float, bool, None]:
         try:
             return float(value)
         except ValueError:
