@@ -1,7 +1,10 @@
 # Tascpy
+タスク計測データ処理用のPythonライブラリ
 ## Version
 0.0.2
-## 
+## Requirement
+matplotlib
+## Installation
 ## Example
 ```python
 import tascpy
@@ -45,3 +48,5 @@ plt.show()
 # 抽出データのcsvアウトプット
 extracted.to_csv("./data/extracted_W-N.csv")
 ```
+## Note
+## Author
