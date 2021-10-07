@@ -1,5 +1,6 @@
 from typing import Any, List, Dict, Union
 from dataclasses import dataclass, asdict
+from pathlib import Path
 
 
 @dataclass
@@ -27,6 +28,11 @@ class Channel:
     def removed_data(self) -> List[Union[float, bool]]:
         """Noneを除くデータ"""
         return [x for x in self.data if x is not None]
+
+    @property
+    def str_data(self) -> List[str]:
+        """None, Falseを変換したデータ"""
+        return [self._to_str(x) for x in self.data]
 
     @property
     def removed_step(self) -> List[int]:
@@ -107,3 +113,23 @@ class Channel:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    def to_csv(self, output_path: Union[Path, str], delimiter=",") -> None:
+        if isinstance(output_path, str):
+            output_path = Path(output_path)
+        ch_line = delimiter.join(["CH", self.ch])
+        name_line = delimiter.join(["NAME", self.name])
+        unit_line = delimiter.join(["UNIT"], self.unit)
+        data_lines = [delimiter.join([str(x), y]) for x, y in zip(self.steps, self.str_data)]
+        all_lines = [ch_line, name_line, unit_line] + data_lines
+        all_txt = "\n".join(all_lines)
+        with open(output_path, "w") as f:
+            f.write(all_txt)
+
+    def _to_str(self, value: Union[float, bool, None]) -> str:
+        if isinstance(value, bool):
+            return "*******"
+        elif value is None:
+            return "none"
+        else:
+            return str(value)

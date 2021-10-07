@@ -1,4 +1,5 @@
 from typing import Any, List, Dict, Tuple, Union
+from pathlib import Path
 
 from .channel import Channel
 from .step import Step
@@ -153,6 +154,20 @@ class Experimental_data:
     def to_dict(self) -> Dict[str, Any]:
         rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}
         return rtn_dict
+
+    def to_csv(self, output_path: Union[Path, str], delimiter=",") -> None:
+        if isinstance(output_path, str):
+            output_path = Path(output_path)
+        ch_line = delimiter.join(["CH"] + self.chs)
+        name_line = delimiter.join(["NAME"] + self.names)
+        unit_line = delimiter.join(["UNIT"] + self.units)
+        datas = [self.dict[x].str_data for x in self.chs]
+        data_lines = [delimiter.join(x) for x in zip(*datas)]
+        data_lines_with_step = [delimiter.join([str(x), y]) for x, y in zip(self.steps, data_lines)]
+        all_lines = [ch_line, name_line, unit_line] + data_lines_with_step
+        all_txt = "\n".join(all_lines)
+        with open(output_path, "w") as f:
+            f.write(all_txt)
 
     @classmethod
     def load(cls, f):
