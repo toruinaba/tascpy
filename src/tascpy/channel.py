@@ -2,6 +2,8 @@ from typing import Any, List, Dict, Union
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
+from .cell import Cell
+
 
 @dataclass
 class Channel:
@@ -22,7 +24,7 @@ class Channel:
     """データ"""
 
     def __getitem__(self, i) -> Union[float, bool, None]:
-        return self.data[i]
+        return Cell(self.ch, self.name, self.name, self.steps[i], self.data[i])
 
     @property
     def removed_data(self) -> List[Union[float, bool]]:
