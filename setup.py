@@ -7,7 +7,7 @@ from setuptools import find_packages
 
 setup(
     name="tascpy",
-    version="0.0.2",
+    version="0.0.3",
     description="Data processing for tasc data.",
     author="1500197",
     author_email="",
