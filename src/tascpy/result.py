@@ -215,16 +215,16 @@ class Experimental_data:
 
     @classmethod
     def _extract_date(cls, rows) -> List[str]:
-        return [x.split('\t')[cls.DATE_COL] for x in rows[cls.DATA_START_ROW:]]
+        return [x.split(cls.DELIMITER)[cls.DATE_COL] for x in rows[cls.DATA_START_ROW:]]
     
     @classmethod
     def _extract_time(cls, rows) -> List[str]:
-        return [x.split('\t')[cls.TIME_COL] for x in rows[cls.DATA_START_ROW:]]
+        return [x.split(cls.DELIMITER)[cls.TIME_COL] for x in rows[cls.DATA_START_ROW:]]
 
     @classmethod
     def _extract_data(cls, rows) -> List[List[Union[float, bool, None]]]:
         return [
-            tuple(map(cls._opt_float, x.split('\t')[cls.DATA_START_COL:]))
+            tuple(map(cls._opt_float, x.split(cls.DELIMITER)[cls.DATA_START_COL:]))
             for x in rows[cls.DATA_START_ROW:]
         ]
 
