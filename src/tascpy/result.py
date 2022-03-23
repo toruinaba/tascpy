@@ -203,7 +203,7 @@ class Experimental_data:
 
     @classmethod
     def _extract_names(cls, name_row) -> List[str]:
-        return name_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
+        return [x.strip('"').strip("'") for x in name_row.split(cls.DELIMITER)[cls.DATA_START_COL:]]
 
     @classmethod
     def _extract_units(cls, unit_row) -> List[str]:
