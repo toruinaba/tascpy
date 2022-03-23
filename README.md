@@ -1,7 +1,7 @@
 # Tascpy
 タスク計測データ処理用のPythonライブラリ
 ## Version
-0.0.3
+0.0.4
 ## Requirement
 matplotlib
 ## Installation
@@ -129,6 +129,8 @@ extracted.to_csv("./data/extracted_W-N.csv")
 ```
 ## Note
 21.11.30 README更新
+
+22.3.23 デリミタ参照を修正
 
 ## Author
 toruinaba
