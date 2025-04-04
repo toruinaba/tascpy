@@ -7,8 +7,8 @@ class Test_results:
         path = Path('./data/W-N.txt')
         with tp.Reader(path) as f:
             res = tp.Experimental_data.load(f)
-        # res.plot_history("P_total")
-        # res.plot_xy("梁変位", "P_total")
+        res.plot_history("P_total")
+        res.plot_xy("梁変位", "P_total")
         req_steps = list(range(1, 400))
         req_names = ["P_total", "梁変位", "b11", "b21", "b31", "b41", "b51", "b12", "b22", "b32", "b42", "b52"]
         extracted = res.extract_data(names=req_names, steps=req_steps)
