@@ -7,3 +7,4 @@ sphinx-autodoc-typehints
 sphinx-rtd-theme
 matplotlib
 numpy
+pytest

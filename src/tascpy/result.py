@@ -4,6 +4,8 @@ from pathlib import Path
 from .channel import Channel
 from .step import Step
 
+from .plot_utils import plot_helper
+
 class Experimental_data:
     """全計測結果格納クラス
     """
@@ -85,7 +87,7 @@ class Experimental_data:
         names: List[str]=None,
         steps: List[int]=None
     ):
-        if not names and steps:
+        if not names and not steps:
             raise ValueError("ステップか名称のどちらかが必要です")
         if steps:
             idxs = [self.steps.index(x) for x in steps]
@@ -93,6 +95,8 @@ class Experimental_data:
             idxs = list(range(len(self.steps)))
         if names:
             ch_objs = [self[name] for name in names]
+        else:
+            ch_objs = list(self.dict.values())
         chs = [x.ch for x in ch_objs]
         names = [x.name for x in ch_objs]
         units = [x.unit for x in ch_objs]
@@ -102,25 +106,12 @@ class Experimental_data:
         return Experimental_data(self.title, chs, names, units, steps, date, time, data)
 
     def plot_history(self, y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
-        if ax:
-            if isinstance(y, str):
-                ax.plot(self.steps, self[y].data, label=y, **kwargs)
-                ax.set_xlabel("Step")
-                ax.set_ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
-            elif isinstance(y, list):
-                for name in y:
-                    ax.plot(self.steps, self[name].data, label=name, **kwargs)
-            return ax
-        else:
-            from matplotlib import pyplot as plt
-            fig = plt.figure()
-            if isinstance(y, str):
-                plt.plot(self.steps, self[y].data, **kwargs)
-                plt.xlabel("Step")
-                plt.ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
-            elif isinstance(y, list):
-                for name in y:
-                    plt.plot(self.steps, self[name].data, **kwargs)
+        if isinstance(y, str):
+            x_data = self.steps
+            y_data = self[y].data
+            x_label = "Step"
+            y_label = f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name
+            return plot_helper(x_data, y_data, x_label, y_label, ax, **kwargs)
 
     def plot_xy(self, x: Union[List[str], str], y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
         if ax:
@@ -181,6 +172,10 @@ class Experimental_data:
         steps = cls._extract_steps(rows)
         date = cls._extract_date(rows)
         time = cls._extract_time(rows)
+        
+        # Import Channel here to allow for mocking in tests
+        from .channel import Channel
+        
         data = {
             x: Channel(x, y, z, steps, w)
             for x, y, z, w in zip(chs, names, units, cols)
@@ -207,7 +202,7 @@ class Experimental_data:
 
     @classmethod
     def _extract_units(cls, unit_row) -> List[str]:
-        return unit_row.split(cls.DELIMITER)[cls.DATA_START_COL:]
+        return [x.strip('"').strip("'") for x in unit_row.split(cls.DELIMITER)[cls.DATA_START_COL:]]
 
     @classmethod
     def _extract_steps(cls, rows) -> List[int]:

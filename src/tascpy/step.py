@@ -1,7 +1,8 @@
 from typing import Any, List, Dict, Union
-from dataclasses import dataclass\
+from dataclasses import dataclass
     
 from .cell import Cell
+from .plot_utils import plot_helper
 
 @dataclass
 class Step:
@@ -32,25 +33,15 @@ class Step:
         ax=None,
         **kwargs
     ):
-        if ax:
-            if isinstance(y[0], str):
-                y_val = [self[name].data for name in y]
-                ax.plot(x, y_val, **kwargs)
-            elif isinstance(y[0], list):
-                for names in y:
-                    y_val = [self[name].data for name in names]
-                    ax.plot(x, y_val, **kwargs)
-            return ax
-        else:
-            from matplotlib import pyplot as plt
-            fig = plt.figure()
-            if isinstance(y[0], str):
-                y_val = [self[name].data for name in y]
-                plt.plot(x, y_val, **kwargs)
-            elif isinstance(y[0], list):
-                for names in y:
-                    y_val = [self[name].data for name in names]
-                    plt.plot(x, y_val, **kwargs)
+        if isinstance(y[0], str):
+            y_val = [self[name].data for name in y]
+            return plot_helper(x, y_val, ax=ax, **kwargs)
+        elif isinstance(y[0], list):
+            result = None
+            for names in y:
+                y_val = [self[name].data for name in names]
+                result = plot_helper(x, y_val, ax=ax, **kwargs)
+            return result
 
     def plot_const_y(
         self,
@@ -59,25 +50,15 @@ class Step:
         ax=None,
         **kwargs
     ):
-        if ax:
-            if isinstance(x[0], str):
-                x_val = [self[name].data for name in x]
-                ax.plot(x_val, y, **kwargs)
-            elif isinstance(x[0], list):
-                for names in x:
-                    x_val = [self[name].data for name in names]
-                    ax.plot(x_val, y, **kwargs)
-            return ax
-        else:
-            from matplotlib import pyplot as plt
-            fig = plt.figure()
-            if isinstance(x[0], str):
-                x_val = [self[name].data for name in x]
-                plt.plot(x_val, y, **kwargs)
-            elif isinstance(x[0], list):
-                for names in x:
-                    x_val = [self[name].data for name in names]
-                    plt.plot(x_val, y, **kwargs)
+        if isinstance(x[0], str):
+            x_val = [self[name].data for name in x]
+            return plot_helper(x_val, y, ax=ax, **kwargs)
+        elif isinstance(x[0], list):
+            result = None
+            for names in x:
+                x_val = [self[name].data for name in names]
+                result = plot_helper(x_val, y, ax=ax, **kwargs)
+            return result
 
     def to_dict(self) -> Dict[str, Any]:
         rtn_dict = {k: v.to_dict() for k, v in self.dict.items()}

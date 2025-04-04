@@ -23,7 +23,7 @@ class Channel:
     data: List[Union[float, bool, None]]
     """データ"""
 
-    def __getitem__(self, i) -> Union[float, bool, None]:
+    def __getitem__(self, i) -> Cell:
         return Cell(self.ch, self.name, self.name, self.steps[i], self.data[i])
 
     @property
@@ -102,7 +102,7 @@ class Channel:
         elif method == 1:
             distances = [abs(x - value) for x in obj_data if x - value < 0]
         elif method == 2:
-            distances = [abs(x - value) for x in obj_data if x - value < 0]
+            distances = [abs(x - value) for x in obj_data if x - value >= 0]
         near_value = obj_data[distances.index(min(distances))]
         return self.data.index(near_value) + 1
 
@@ -121,7 +121,7 @@ class Channel:
             output_path = Path(output_path)
         ch_line = delimiter.join(["CH", self.ch])
         name_line = delimiter.join(["NAME", self.name])
-        unit_line = delimiter.join(["UNIT"], self.unit)
+        unit_line = delimiter.join(["UNIT", self.unit])
         data_lines = [delimiter.join([str(x), y]) for x, y in zip(self.steps, self.str_data)]
         all_lines = [ch_line, name_line, unit_line] + data_lines
         all_txt = "\n".join(all_lines)
