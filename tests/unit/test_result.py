@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
-from src.tascpy.result import Experimental_data
+from src.tascpy.result import ExperimentalData
 from src.tascpy.channel import Channel
 from src.tascpy.step import Step
 
@@ -29,7 +29,7 @@ class TestExperimentalData:
             "CH3": ch3
         }
         
-        return Experimental_data(title, chs, names, units, steps, date, time, data)
+        return ExperimentalData(title, chs, names, units, steps, date, time, data)
 
     def test_init(self, sample_data):
         """Test Experimental_data initialization"""
@@ -97,7 +97,7 @@ class TestExperimentalData:
         """Test extract_data method with names parameter"""
         # We need to provide steps parameter since the implementation requires it
         extracted = sample_data.extract_data(names=["Test1", "Test3"], steps=[1, 2, 3])
-        assert isinstance(extracted, Experimental_data)
+        assert isinstance(extracted, ExperimentalData)
         assert extracted.chs == ["CH1", "CH3"]
         assert extracted.names == ["Test1", "Test3"]
         assert extracted.units == ["kg", "s"]
@@ -109,7 +109,7 @@ class TestExperimentalData:
     def test_extract_data_with_steps(self, sample_data):
         """Test extract_data method with steps parameter"""
         extracted = sample_data.extract_data(names=["Test1", "Test2"], steps=[1, 3])
-        assert isinstance(extracted, Experimental_data)
+        assert isinstance(extracted, ExperimentalData)
         assert extracted.chs == ["CH1", "CH2"]
         assert extracted.names == ["Test1", "Test2"]
         assert extracted.units == ["kg", "m"]
@@ -258,13 +258,13 @@ class TestExperimentalData:
         ]
         
         # Mock the _extract methods to return predefined values
-        with patch.object(Experimental_data, '_extract_ch', return_value=["CH1", "CH2", "CH3"]), \
-             patch.object(Experimental_data, '_extract_names', return_value=["Test1", "Test2", "Test3"]), \
-             patch.object(Experimental_data, '_extract_units', return_value=["kg", "m", "s"]), \
-             patch.object(Experimental_data, '_extract_steps', return_value=[1, 2, 3]), \
-             patch.object(Experimental_data, '_extract_date', return_value=["2023/01/01", "2023/01/02", "2023/01/03"]), \
-             patch.object(Experimental_data, '_extract_time', return_value=["10:00:00", "11:00:00", "12:00:00"]), \
-             patch.object(Experimental_data, '_extract_data', return_value=[[10.5, 1.5, 100.0], [20.3, 2.3, 200.0], [30.1, None, False]]), \
+        with patch.object(ExperimentalData, '_extract_ch', return_value=["CH1", "CH2", "CH3"]), \
+             patch.object(ExperimentalData, '_extract_names', return_value=["Test1", "Test2", "Test3"]), \
+             patch.object(ExperimentalData, '_extract_units', return_value=["kg", "m", "s"]), \
+             patch.object(ExperimentalData, '_extract_steps', return_value=[1, 2, 3]), \
+             patch.object(ExperimentalData, '_extract_date', return_value=["2023/01/01", "2023/01/02", "2023/01/03"]), \
+             patch.object(ExperimentalData, '_extract_time', return_value=["10:00:00", "11:00:00", "12:00:00"]), \
+             patch.object(ExperimentalData, '_extract_data', return_value=[[10.5, 1.5, 100.0], [20.3, 2.3, 200.0], [30.1, None, False]]), \
              patch('src.tascpy.channel.Channel', autospec=True) as mock_channel:
             
             # Setup mock Channel objects
@@ -279,7 +279,7 @@ class TestExperimentalData:
             mock_channel.side_effect = [mock_ch1, mock_ch2, mock_ch3]
             
             # Load data
-            data = Experimental_data.load(mock_reader)
+            data = ExperimentalData.load(mock_reader)
             
             # Check loaded data
             assert data.title == "Test Data"
@@ -298,20 +298,20 @@ class TestExperimentalData:
 
     def test_opt_float_valid(self):
         """Test _opt_float static method with valid float"""
-        result = Experimental_data._opt_float("10.5")
+        result = ExperimentalData._opt_float("10.5")
         assert result == 10.5
 
     def test_opt_float_none(self):
         """Test _opt_float static method with 'none'"""
-        result = Experimental_data._opt_float("none")
+        result = ExperimentalData._opt_float("none")
         assert result is None
 
     def test_opt_float_invalid(self):
         """Test _opt_float static method with invalid float"""
-        result = Experimental_data._opt_float("invalid")
+        result = ExperimentalData._opt_float("invalid")
         assert result is False
 
     def test_opt_float_with_custom_nan(self):
         """Test _opt_float static method with custom nan value"""
-        result = Experimental_data._opt_float("none", nan="N/A")
+        result = ExperimentalData._opt_float("none", nan="N/A")
         assert result == "N/A"

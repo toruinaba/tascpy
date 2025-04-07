@@ -6,7 +6,7 @@ from .step import Step
 
 from .plot_utils import plot_helper
 
-class Experimental_data:
+class ExperimentalData:
     """全計測結果格納クラス
     """
 
@@ -103,7 +103,7 @@ class Experimental_data:
         date = [self.date[x] for x in idxs]
         time = [self.time[x] for x in idxs]
         data = {x.ch: x.extract_data(steps) for x in ch_objs}
-        return Experimental_data(self.title, chs, names, units, steps, date, time, data)
+        return ExperimentalData(self.title, chs, names, units, steps, date, time, data)
 
     def plot_history(self, y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
         if isinstance(y, str):
