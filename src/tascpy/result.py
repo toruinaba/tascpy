@@ -6,6 +6,7 @@ from .step import Step
 
 from .utils.plot import plot_helper
 
+
 class ExperimentalData:
     """全計測結果格納クラス
     """
@@ -76,10 +77,10 @@ class ExperimentalData:
         self, 
         item: str,
         value: float,
-        method=0,
+        comparison_mode="closest",
         maxstep=None
     ) -> Step:
-        target = self[item].fetch_near_step(value, method=method, maxstep=maxstep)
+        target = self[item].fetch_near_step(value, comparison_mode=comparison_mode, maxstep=maxstep)
         return self.fetch_step(target)
 
     def extract_data(

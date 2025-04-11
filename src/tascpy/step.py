@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from .cell import Cell
 from .utils.plot import plot_helper
 
+
 @dataclass
 class Step:
     """単一ステップ格納クラス

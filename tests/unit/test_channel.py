@@ -52,12 +52,12 @@ class TestChannel:
         assert sample_channel.max == 40.1
 
     def test_maxrow(self, sample_channel):
-        """Test maxrow property"""
-        assert sample_channel.maxrow == 3
+        """Test max_index property"""
+        assert sample_channel.max_index == 3
 
     def test_maxstep(self, sample_channel):
-        """Test maxstep property"""
-        assert sample_channel.maxstep == 4
+        """Test max_step property"""
+        assert sample_channel.max_step == 4
 
     def test_min(self, sample_channel):
         """Test min property"""
@@ -81,7 +81,7 @@ class TestChannel:
             steps=[1, 2, 3],
             data=[10.5, 20.3, 30.1]
         )
-        assert channel.minrow == 0
+        assert channel.min_index == 0
 
     def test_minstep(self, sample_channel):
         """Test minstep property"""
@@ -93,7 +93,7 @@ class TestChannel:
             steps=[1, 2, 3],
             data=[10.5, 20.3, 30.1]
         )
-        assert channel.minstep == 1
+        assert channel.min_step == 1
 
     def test_absmax(self, sample_channel):
         """Test absmax property"""
@@ -119,7 +119,7 @@ class TestChannel:
         )
         assert channel.absmin == 20.3
 
-    def test_fetch_near_step_method0(self, sample_channel):
+    def test_fetch_near_step_closest(self, sample_channel):
         """Test fetch_near_step method with method=0"""
         # Create a channel without None values for fetch_near_step test
         channel = Channel(
@@ -130,13 +130,13 @@ class TestChannel:
             data=[10.5, 20.3, 30.1]
         )
         # Find closest value to 15
-        step = channel.fetch_near_step(15.0, method=0)
+        step = channel.fetch_near_step(15.0, comparison_mode="closest")
         assert step == 1  # The implementation returns 1 instead of 2
 
-    def test_fetch_near_step_with_maxstep(self, sample_channel):
+    def test_fetch_near_step_with_max_step(self, sample_channel):
         """Test fetch_near_step method with maxstep"""
         # Find closest value to 30 with maxstep=3
-        step = sample_channel.fetch_near_step(30.0, method=0, maxstep=3)
+        step = sample_channel.fetch_near_step(30.0, comparison_mode="closest", maxstep=3)
         assert step == 2  # Step 2 has value 20.3, closest to 30 within first 2 steps
 
     def test_extract_data(self, sample_channel):

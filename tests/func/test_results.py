@@ -6,7 +6,7 @@ class Test_results:
     def test_result(self):
         path = Path('./data/W-N.txt')
         with tp.Reader(path) as f:
-            res = tp.Experimental_data.load(f)
+            res = tp.ExperimentalData.load(f)
         res.plot_history("P_total")
         res.plot_xy("梁変位", "P_total")
         req_steps = list(range(1, 400))

@@ -1,6 +1,7 @@
 from typing import Any, Dict, Union
 from dataclasses import dataclass, asdict
 
+
 @dataclass
 class Cell:
     """単一データ格納クラス
