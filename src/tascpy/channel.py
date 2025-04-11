@@ -1,4 +1,4 @@
-from typing import Any, List, Dict, Union
+from typing import Any, List, Dict, Union, Callable, Tuple
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
@@ -136,3 +136,181 @@ class Channel:
             return "none"
         else:
             return str(value)
+
+    def split_by_chunks(self, chunk_size: int) -> List['Channel']:
+        """
+        チャンネルを指定サイズのチャンクに均等に分割します。
+        
+        Args:
+            chunk_size: 各チャンクのサイズ
+            
+        Returns:
+            chunk_size サイズのデータを持つChannelオブジェクトのリスト
+            
+        Raises:
+            ValueError: chunk_size が 1 未満の場合
+        """
+        from .utils.split import split_list_by_chunks
+        
+        steps_chunks = split_list_by_chunks(self.steps, chunk_size)
+        data_chunks = split_list_by_chunks(self.data, chunk_size)
+        
+        return [
+            Channel(
+                ch=self.ch,
+                name=self.name,
+                unit=self.unit,
+                steps=steps_chunk,
+                data=data_chunk
+            )
+            for steps_chunk, data_chunk in zip(steps_chunks, data_chunks)
+        ]
+    
+    def split_by_count(self, count: int) -> List['Channel']:
+        """
+        チャンネルを指定された数の部分チャンネルに分割します。
+        
+        Args:
+            count: 分割後のチャンネル数
+            
+        Returns:
+            count 個のChannelオブジェクトからなるリスト
+            
+        Raises:
+            ValueError: count が 1 未満の場合
+        """
+        from .utils.split import split_list_by_count
+        
+        steps_chunks = split_list_by_count(self.steps, count)
+        data_chunks = split_list_by_count(self.data, count)
+        
+        return [
+            Channel(
+                ch=self.ch,
+                name=self.name,
+                unit=self.unit,
+                steps=steps_chunk,
+                data=data_chunk
+            )
+            for steps_chunk, data_chunk in zip(steps_chunks, data_chunks)
+        ]
+    
+    def split_by_condition(self, condition: Callable[[Union[float, bool, None]], bool]) -> Tuple['Channel', 'Channel']:
+        """
+        条件関数に基づいてチャンネルを2つのチャンネルに分割します。
+        
+        Args:
+            condition: データ値を評価する条件関数
+            
+        Returns:
+            (条件を満たすデータを持つChannel, 条件を満たさないデータを持つChannel) のタプル
+        """
+        from .utils.split import split_list_by_condition
+        
+        # データとステップを組み合わせたアイテムのリストを作成
+        combined_data = list(zip(self.steps, self.data))
+        
+        # アイテムを条件でフィルタリングする関数
+        def combined_condition(item):
+            _, value = item
+            return condition(value)
+        
+        # 条件に基づいて組み合わせを分割
+        satisfied_items, not_satisfied_items = split_list_by_condition(combined_data, combined_condition)
+        
+        # 分割された組み合わせからステップとデータを抽出
+        satisfied_steps = [item[0] for item in satisfied_items]
+        satisfied_data = [item[1] for item in satisfied_items]
+        
+        not_satisfied_steps = [item[0] for item in not_satisfied_items]
+        not_satisfied_data = [item[1] for item in not_satisfied_items]
+        
+        # 新しいChannelオブジェクトを作成
+        satisfied_channel = Channel(
+            ch=self.ch,
+            name=self.name,
+            unit=self.unit,
+            steps=satisfied_steps,
+            data=satisfied_data
+        )
+        
+        not_satisfied_channel = Channel(
+            ch=self.ch,
+            name=self.name,
+            unit=self.unit,
+            steps=not_satisfied_steps,
+            data=not_satisfied_data
+        )
+        
+        return satisfied_channel, not_satisfied_channel
+    
+    def split_at_indices(self, indices: List[int]) -> List['Channel']:
+        """
+        指定されたインデックスでチャンネルを分割します。
+        
+        Args:
+            indices: 分割位置を示すインデックスのリスト（0始まり）
+            
+        Returns:
+            分割後のChannelオブジェクトを要素とするリスト
+        """
+        from .utils.split import split_list_at_indices
+        
+        steps_chunks = split_list_at_indices(self.steps, indices)
+        data_chunks = split_list_at_indices(self.data, indices)
+        
+        return [
+            Channel(
+                ch=self.ch,
+                name=self.name,
+                unit=self.unit,
+                steps=steps_chunk,
+                data=data_chunk
+            )
+            for steps_chunk, data_chunk in zip(steps_chunks, data_chunks)
+        ]
+    
+    def split_by_threshold(self, threshold: float, include_threshold: bool = True) -> Tuple['Channel', 'Channel']:
+        """
+        データ値がしきい値を超えるかどうかに基づいてチャンネルを分割します。
+        
+        Args:
+            threshold: 分割のしきい値
+            include_threshold: Trueの場合、しきい値と等しい値は「以上」として扱う（デフォルトはTrue）
+            
+        Returns:
+            条件に応じて (threshold以上/より大きいのデータを持つChannel, threshold未満/以下のデータを持つChannel) のタプル
+        """
+        # 数値データのみをフィルタリング（None や boolean は除外）
+        def is_valid_number(value):
+            if value is None or isinstance(value, bool):
+                return False
+            return value >= threshold if include_threshold else value > threshold
+        
+        return self.split_by_condition(is_valid_number)
+    
+    def split_by_segments(self, segment_sizes: List[int]) -> List['Channel']:
+        """
+        チャンネルを指定されたサイズのセグメントに分割します。
+        
+        Args:
+            segment_sizes: 各セグメントのサイズを指定するリスト
+            
+        Returns:
+            指定されたサイズに分割されたChannelオブジェクトのリスト
+            
+        Raises:
+            ValueError: セグメントサイズの合計がデータサイズと一致しない場合
+        """
+        if sum(segment_sizes) != len(self.data):
+            raise ValueError(f"セグメントサイズの合計 ({sum(segment_sizes)}) がデータサイズ ({len(self.data)}) と一致しません")
+        
+        # 分割位置をインデックスで計算
+        indices = []
+        current_idx = 0
+        for size in segment_sizes[:-1]:  # 最後のセグメントは残りすべてになるので含めない
+            current_idx += size
+            indices.append(current_idx)
+        
+        # インデックスに基づいて分割
+        return self.split_at_indices(indices)
