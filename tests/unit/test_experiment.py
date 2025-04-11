@@ -1,15 +1,15 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
-from src.tascpy.result import ExperimentalData
+from src.tascpy.experiment import Experiment
 from src.tascpy.channel import Channel
 from src.tascpy.step import Step
 
 
-class TestExperimentalData:
+class TestExperiment:
     @pytest.fixture
     def sample_data(self):
-        """Create a sample Experimental_data for testing"""
+        """Create a sample Experiment for testing"""
         title = "Test Data"
         chs = ["CH1", "CH2", "CH3"]
         names = ["Test1", "Test2", "Test3"]
@@ -29,10 +29,10 @@ class TestExperimentalData:
             "CH3": ch3
         }
         
-        return ExperimentalData(title, chs, names, units, steps, date, time, data)
+        return Experiment(title, chs, names, units, steps, date, time, data)
 
     def test_init(self, sample_data):
-        """Test Experimental_data initialization"""
+        """Test Experiment initialization"""
         assert sample_data.title == "Test Data"
         assert sample_data.chs == ["CH1", "CH2", "CH3"]
         assert sample_data.names == ["Test1", "Test2", "Test3"]
@@ -97,7 +97,7 @@ class TestExperimentalData:
         """Test extract_data method with names parameter"""
         # We need to provide steps parameter since the implementation requires it
         extracted = sample_data.extract_data(names=["Test1", "Test3"], steps=[1, 2, 3])
-        assert isinstance(extracted, ExperimentalData)
+        assert isinstance(extracted, Experiment)
         assert extracted.chs == ["CH1", "CH3"]
         assert extracted.names == ["Test1", "Test3"]
         assert extracted.units == ["kg", "s"]
@@ -109,7 +109,7 @@ class TestExperimentalData:
     def test_extract_data_with_steps(self, sample_data):
         """Test extract_data method with steps parameter"""
         extracted = sample_data.extract_data(names=["Test1", "Test2"], steps=[1, 3])
-        assert isinstance(extracted, ExperimentalData)
+        assert isinstance(extracted, Experiment)
         assert extracted.chs == ["CH1", "CH2"]
         assert extracted.names == ["Test1", "Test2"]
         assert extracted.units == ["kg", "m"]
@@ -258,13 +258,13 @@ class TestExperimentalData:
         ]
         
         # Mock the _extract methods to return predefined values
-        with patch.object(ExperimentalData, '_extract_ch', return_value=["CH1", "CH2", "CH3"]), \
-             patch.object(ExperimentalData, '_extract_names', return_value=["Test1", "Test2", "Test3"]), \
-             patch.object(ExperimentalData, '_extract_units', return_value=["kg", "m", "s"]), \
-             patch.object(ExperimentalData, '_extract_steps', return_value=[1, 2, 3]), \
-             patch.object(ExperimentalData, '_extract_date', return_value=["2023/01/01", "2023/01/02", "2023/01/03"]), \
-             patch.object(ExperimentalData, '_extract_time', return_value=["10:00:00", "11:00:00", "12:00:00"]), \
-             patch.object(ExperimentalData, '_extract_data', return_value=[[10.5, 1.5, 100.0], [20.3, 2.3, 200.0], [30.1, None, False]]), \
+        with patch.object(Experiment, '_extract_ch', return_value=["CH1", "CH2", "CH3"]), \
+             patch.object(Experiment, '_extract_names', return_value=["Test1", "Test2", "Test3"]), \
+             patch.object(Experiment, '_extract_units', return_value=["kg", "m", "s"]), \
+             patch.object(Experiment, '_extract_steps', return_value=[1, 2, 3]), \
+             patch.object(Experiment, '_extract_date', return_value=["2023/01/01", "2023/01/02", "2023/01/03"]), \
+             patch.object(Experiment, '_extract_time', return_value=["10:00:00", "11:00:00", "12:00:00"]), \
+             patch.object(Experiment, '_extract_data', return_value=[[10.5, 1.5, 100.0], [20.3, 2.3, 200.0], [30.1, None, False]]), \
              patch('src.tascpy.channel.Channel', autospec=True) as mock_channel:
             
             # Setup mock Channel objects
@@ -279,7 +279,7 @@ class TestExperimentalData:
             mock_channel.side_effect = [mock_ch1, mock_ch2, mock_ch3]
             
             # Load data
-            data = ExperimentalData.load(mock_reader)
+            data = Experiment.load(mock_reader)
             
             # Check loaded data
             assert data.title == "Test Data"
@@ -298,20 +298,20 @@ class TestExperimentalData:
 
     def test_opt_float_valid(self):
         """Test _opt_float static method with valid float"""
-        result = ExperimentalData._opt_float("10.5")
+        result = Experiment._opt_float("10.5")
         assert result == 10.5
 
     def test_opt_float_none(self):
         """Test _opt_float static method with 'none'"""
-        result = ExperimentalData._opt_float("none")
+        result = Experiment._opt_float("none")
         assert result is None
 
     def test_opt_float_invalid(self):
         """Test _opt_float static method with invalid float"""
-        result = ExperimentalData._opt_float("invalid")
+        result = Experiment._opt_float("invalid")
         assert result is False
 
     def test_opt_float_with_custom_nan(self):
         """Test _opt_float static method with custom nan value"""
-        result = ExperimentalData._opt_float("none", nan="N/A")
+        result = Experiment._opt_float("none", nan="N/A")
         assert result == "N/A"

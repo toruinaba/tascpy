@@ -8,7 +8,7 @@ from .base_data_container import (
     BaseDataContainer
 )
 
-class ExperimentalData(
+class Experiment(
         PlottingMixin,
         DataExtractionMixin,
         IOHandlerMixin,
@@ -36,32 +36,6 @@ class ExperimentalData(
         self.steps = steps
         self.date = date
         self.time = time
-        self.dict = data
-
-    def __getitem__(self, item) -> Channel:
-        return super().__getitem__(item)
-
-
-class ChannelGroup(
-        PlottingMixin,
-        DataExtractionMixin,
-        BaseDataContainer
-    ):
-    """複数のチャンネルをまとめるクラス
-    """
-
-    def __init__(
-        self,
-        chs: List[str],
-        names: List[str],
-        units: List[str],
-        steps: List[int],
-        data: Dict[str, Channel]
-    ):
-        self.chs = chs
-        self.names = names
-        self.units = units
-        self.steps = steps
         self.dict = data
 
     def __getitem__(self, item) -> Channel:

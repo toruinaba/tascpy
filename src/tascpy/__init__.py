@@ -1,2 +1,2 @@
 from .io import Reader
-from .result import ExperimentalData
+from .experiment import Experiment

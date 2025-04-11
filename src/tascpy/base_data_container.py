@@ -96,8 +96,8 @@ class DataExtractionMixin:
         date = [self.date[x] for x in idxs]
         time = [self.time[x] for x in idxs]
         data = {x.ch: x.extract_data(steps) for x in ch_objs}
-        from .result import ExperimentalData  # Avoid circular import
-        return ExperimentalData(self.title, chs, names, units, steps, date, time, data)
+        from .experiment import Experiment  # Avoid circular import
+        return Experiment(self.title, chs, names, units, steps, date, time, data)
 
 
 class IOHandlerMixin:
@@ -217,7 +217,7 @@ class IOHandlerMixin:
 
 
 class BaseDataContainer(ABC):
-    """ExperimentalDataとChannelGroupの抽象基底クラス
+    """ExperimentとChannelGroupの抽象基底クラス
     
     データコンテナの共通機能を提供する抽象基底クラス
     """
