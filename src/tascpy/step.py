@@ -2,7 +2,7 @@ from typing import Any, List, Dict, Union
 from dataclasses import dataclass
     
 from .cell import Cell
-from .plot_utils import plot_helper
+from .utils.plot import plot_helper
 
 @dataclass
 class Step:

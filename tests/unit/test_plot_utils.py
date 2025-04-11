@@ -1,12 +1,12 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from src.tascpy.plot_utils import plot_helper
+from src.tascpy.utils.plot import plot_helper
 
 
 class TestPlotUtils:
     def test_plot_helper_without_ax(self):
         """Test plot_helper without ax parameter"""
-        with patch('src.tascpy.plot_utils.plt') as mock_plt:
+        with patch('src.tascpy.utils.plot.plt') as mock_plt:
             mock_fig = MagicMock()
             mock_plt.figure.return_value = mock_fig
             
@@ -21,7 +21,7 @@ class TestPlotUtils:
 
     def test_plot_helper_with_labels(self):
         """Test plot_helper with x_label and y_label"""
-        with patch('src.tascpy.plot_utils.plt') as mock_plt:
+        with patch('src.tascpy.utils.plot.plt') as mock_plt:
             mock_fig = MagicMock()
             mock_plt.figure.return_value = mock_fig
             
