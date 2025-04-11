@@ -57,7 +57,7 @@ class Channel:
     @property
     def max_step(self) -> int:
         """最大値ステップ"""
-        return self.maxrow + 1
+        return self.max_index + 1
 
     @property
     def min(self) -> float:
@@ -72,7 +72,7 @@ class Channel:
     @property
     def min_step(self) -> int:
         """最小値ステップ"""
-        return self.minrow + 1
+        return self.min_index + 1
 
     @property
     def absmax(self) -> float:
