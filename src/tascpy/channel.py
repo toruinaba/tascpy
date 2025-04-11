@@ -29,7 +29,8 @@ class Channel:
     @property
     def removed_data(self) -> List[Union[float, bool]]:
         """Noneを除くデータ"""
-        return [x for x in self.data if x is not None]
+        from .utils.data import filter_none_values
+        return filter_none_values(self.data)
 
     @property
     def str_data(self) -> List[str]:
@@ -39,9 +40,9 @@ class Channel:
     @property
     def removed_step(self) -> List[int]:
         """Noneのデータを除くステップ"""
-        return [
-            self.steps[x] for x in range(len(self.data)) if self.data[x] is not None
-        ]
+        from .utils.data import filter_with_indices
+        _, indices = filter_with_indices(self.data)
+        return [self.steps[i] for i in indices]
 
     @property
     def max(self) -> float:
@@ -49,12 +50,12 @@ class Channel:
         return max(self.removed_data)
 
     @property
-    def maxrow(self) -> int:
+    def max_index(self) -> int:
         """最大値インデックス"""
         return self.data.index(self.max)
 
     @property
-    def maxstep(self) -> int:
+    def max_step(self) -> int:
         """最大値ステップ"""
         return self.maxrow + 1
 
@@ -64,12 +65,12 @@ class Channel:
         return min(self.removed_data)
 
     @property
-    def minrow(self) -> int:
+    def min_index(self) -> int:
         """最小値インデックス"""
         return self.data.index(self.min)
 
     @property
-    def minstep(self) -> int:
+    def min_step(self) -> int:
         """最小値ステップ"""
         return self.minrow + 1
 
@@ -85,23 +86,23 @@ class Channel:
         return min([abs(x) for x in self.removed_data])
 
     def fetch_near_step(
-        self, value, method=0, maxstep=None
+        self, value, comparison_mode="closest", maxstep=None
     ) -> int:
         """値検索関数
         引数に対して一番近い値を検索.
-        method=0の場合は距離絶対値最小
-        method=1は指定値以下の距離絶対値最小
-        method=2は指定値以上の距離絶対値最小
+        comparison_mode="closest"の場合は距離絶対値最小
+        comparison_mode="less_than"は指定値以下の距離絶対値最小
+        comparison_mode="more_than"は指定値以上の距離絶対値最小
         """
         if maxstep:
             obj_data = [x for x in self.data[:maxstep - 1] if x is not None]
         else:
             obj_data = [x for x in self.data if x is not None]
-        if method == 0:
+        if comparison_mode == "closest":
             distances = [abs(x - value) for x in obj_data]
-        elif method == 1:
+        elif comparison_mode == "less_than":
             distances = [abs(x - value) for x in obj_data if x - value < 0]
-        elif method == 2:
+        elif comparison_mode == "more_than":
             distances = [abs(x - value) for x in obj_data if x - value >= 0]
         near_value = obj_data[distances.index(min(distances))]
         return self.data.index(near_value) + 1
