@@ -1,15 +1,17 @@
-from typing import Any, List, Dict, Tuple, Union
+from typing import Any, List, Dict, Tuple, Union, Callable
 
 from .channel import Channel
 from .base_data_container import (
     PlottingMixin,
     DataExtractionMixin,
+    DataSplitMixin,
     BaseDataContainer
 )
 
 class ChannelGroup(
         PlottingMixin,
         DataExtractionMixin,
+        DataSplitMixin,
         BaseDataContainer
     ):
     """複数のチャンネルをまとめるクラス

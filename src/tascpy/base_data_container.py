@@ -1,4 +1,4 @@
-from typing import Any, List, Dict, Tuple, Union
+from typing import Any, List, Dict, Tuple, Union, Callable
 from pathlib import Path
 from abc import ABC, abstractmethod
 
@@ -6,6 +6,7 @@ from .channel import Channel
 from .step import Step
 
 from .utils.plot import plot_helper
+from .utils.data import filter_with_indices
 
 
 class PlottingMixin:
@@ -93,11 +94,216 @@ class DataExtractionMixin:
         chs = [x.ch for x in ch_objs]
         names = [x.name for x in ch_objs]
         units = [x.unit for x in ch_objs]
-        date = [self.date[x] for x in idxs]
-        time = [self.time[x] for x in idxs]
         data = {x.ch: x.extract_data(steps) for x in ch_objs}
-        from .experiment import Experiment  # Avoid circular import
-        return Experiment(self.title, chs, names, units, steps, date, time, data)
+        from .channel_group import ChannelGroup
+        return ChannelGroup(chs, names, units, steps, data)
+    
+    def remove_none(self):
+        """
+        全てのチャンネルからNone値を同期的に除外した新しいChannelGroupを返します。
+        あるチャンネルでNoneの位置にある値は、他のチャンネルでもNoneとして扱われます。
+    
+        Returns:
+            ChannelGroup: 同期的にNone値を除外した新しいChannelGroupオブジェクト
+        """
+        # 各チャンネルのNoneではない位置のインデックス集合を取得
+        channel_indices = []
+        for ch in self.chs:
+            _, indices = filter_with_indices(self.dict[ch].data)
+            channel_indices.append(set(indices))
+        
+        # 全てのチャンネルで共通してNoneではない位置のインデックスを取得
+        common_indices = set.intersection(*channel_indices)
+        common_indices = sorted(list(common_indices))
+        
+        # 共通インデックスを使用して新しいチャンネルを作成
+        new_data = {}
+        for ch in self.chs:
+            filtered_steps = [self.steps[i] for i in common_indices]
+            filtered_data = [self.dict[ch].data[i] for i in common_indices]
+            
+            new_data[ch] = Channel(
+                ch=ch,
+                name=self.names[self.chs.index(ch)],
+                unit=self.units[self.chs.index(ch)],
+                steps=filtered_steps,
+                data=filtered_data
+            )
+        from .channel_group import ChannelGroup
+        return ChannelGroup(
+            chs=self.chs,
+            names=self.names,
+            units=self.units,
+            steps=filtered_steps,
+            data=new_data
+        )
+
+
+class DataSplitMixin:
+    def __create_split_groups(self, split_channels: Dict[str, List[Channel]]):
+        """
+        分割されたチャンネルからChannelGroupのリストを作成する内部メソッド
+    
+        Args:
+            split_channels: チャンネル名をキー、分割されたChannelのリストを値とする辞書
+    
+        Returns:
+            分割されたChannelGroupオブジェクトのリスト
+        """
+        result = []
+        from .channel_group import ChannelGroup
+        for i in range(len(split_channels[self.chs[0]])):
+            chunk_data = {
+                ch: split_channels[ch][i]
+                for ch in self.chs
+            }
+            
+            # 最初のチャンネルからステップ情報を取得
+            chunk_steps = chunk_data[self.chs[0]].steps
+            chunk_group = ChannelGroup(
+                chs=self.chs,
+                names=self.names,
+                units=self.units,
+                steps=chunk_steps,
+                data=chunk_data
+            )
+            result.append(chunk_group)
+        
+        return result
+
+    def split_by_chunks(self, chunk_size: int):
+        """
+        チャンネルを指定サイズのチャンクに均等に分割します。
+        Args:
+            chunk_size: 各チャンクのサイズ
+        Returns:
+            chunk_size サイズのデータを持つChannelGroupオブジェクトのリスト
+        Raises:
+            ValueError: chunk_size が 1 未満の場合
+        """
+        if chunk_size < 1:
+            raise ValueError("chunk_size must be greater than 0")
+        
+        split_channels = {
+            ch: self.dict[ch].split_by_chunks(chunk_size)
+            for ch in self.chs
+        }
+        
+        return self.__create_split_groups(split_channels)
+    
+    def split_by_count(self, count: int):
+        """
+        チャンネルを指定された数の部分チャンネルに分割します。
+        Args:
+            count: 分割後のチャンネル数
+        Returns:
+            count 個のChannelGroupオブジェクトからなるリスト
+        Raises:
+            ValueError: count が 1 未満の場合
+        """
+        if count < 1:
+            raise ValueError("count must be greater than 0")
+        
+        split_channels = {
+            ch: self.dict[ch].split_by_count(count)
+            for ch in self.chs
+        }
+        
+        return self.__create_split_groups(split_channels)
+
+    def split_at_indices(self, indices: List[int]):
+        """
+        指定されたインデックスでチャンネルグループを分割します。
+        
+        Args:
+            indices: 分割するインデックスのリスト
+            
+        Returns:
+            分割されたChannelGroupオブジェクトのリスト
+        """
+        if not indices:
+            raise ValueError("indices must not be empty")
+        
+        # 各チャンネルを分割
+        split_channels = {
+            ch: self.dict[ch].split_at_indices(indices)
+            for ch in self.chs
+        }
+        return self.__create_split_groups(split_channels)
+
+    def split_by_threshold(self, threshold: float, include_threshold: bool = True):
+        """
+        データ値がしきい値を超えるかどうかに基づいてチャンネルグループを分割します。
+        
+        Args:
+            threshold: 分割のしきい値
+            include_threshold: Trueの場合、しきい値と等しい値は「以上」として扱う（デフォルトはTrue）
+            
+        Returns:
+            しきい値で分割されたChannelGroupオブジェクトのリスト
+        """
+        # 各チャンネルを分割
+        split_channels = {
+            ch: self.dict[ch].split_by_threshold(threshold, include_threshold=include_threshold)
+            for ch in self.chs
+        }
+        return self.__create_split_groups(split_channels)
+
+    def split_by_segments(self, segments: List[Tuple[int, int]]):
+        """
+        指定されたセグメントでチャンネルグループを分割します。
+        
+        Args:
+            segments: 分割するセグメントのリスト（タプル形式で開始インデックスと終了インデックスを指定）
+            
+        Returns:
+            分割されたChannelGroupオブジェクトのリスト
+        """
+        # 各チャンネルを分割
+        split_channels = {
+            ch: self.dict[ch].split_by_segments(segments)
+            for ch in self.chs
+        }
+        
+        return self.__create_split_groups(split_channels)
+
+    def split_by_condition(self, condition: Callable[[Union[float, bool, None]], bool]):
+        """
+        指定された条件でチャンネルグループを分割します。
+        
+        Args:
+            condition: 分割条件
+            
+        Returns:
+            分割されたChannelGroupオブジェクトのリスト
+        """
+        # 各チャンネルを分割
+        split_channels = {
+            ch: self.dict[ch].split_by_condition(condition)
+            for ch in self.chs
+        }
+        
+        return self.__create_split_groups(split_channels)
+
+    def split_by_ref_ch_condition(self, item: str, condition: Callable[[Union[float, bool, None]], bool]):
+        """
+        指定された条件でチャンネルグループを分割します。
+        
+        Args:
+            item: 条件を適用するチャンネル名
+            condition: 分割条件
+            
+        Returns:
+            分割されたChannelGroupオブジェクトのリスト
+        """
+        # 各チャンネルを分割
+        ch = self[item]
+        satisfied_ch, not_satisfied_ch = ch.split_by_condition(condition)
+        satisfied_steps = satisfied_ch.steps
+        not_satisfied_steps = not_satisfied_ch.steps
+        satisfied_ch_group = self.extract_data(satisfied_steps, steps=satisfied_steps)
+        not_satisfied_group = self.extract_data(not_satisfied_steps, steps=not_satisfied_steps)
+        return [satisfied_ch_group, not_satisfied_group]
 
 
 class IOHandlerMixin:

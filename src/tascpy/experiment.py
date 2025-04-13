@@ -4,6 +4,7 @@ from .channel import Channel
 from .base_data_container import (
     PlottingMixin,
     DataExtractionMixin,
+    DataSplitMixin,
     IOHandlerMixin,
     BaseDataContainer
 )
@@ -11,6 +12,7 @@ from .base_data_container import (
 class Experiment(
         PlottingMixin,
         DataExtractionMixin,
+        DataSplitMixin,
         IOHandlerMixin,
         BaseDataContainer
     ):
