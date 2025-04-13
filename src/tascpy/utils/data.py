@@ -346,3 +346,111 @@ def resample_data(data: List[float], original_steps: List[int], new_steps: List[
     )
     
     return resampled_data.tolist()
+
+
+def diff_step(x: list, y: list) -> list:
+    """Calculate step difference between consecutive y values.
+    
+    Args:
+        x (list): x coordinates (not used but kept for consistent interface)
+        y (list): y coordinates
+        
+    Returns:
+        list: Step differences with first value being y[0]
+        
+    Raises:
+        ValueError: If input list is empty
+    """
+    if not y:
+        raise ValueError("Input list cannot be empty")
+        
+    result = [y[0]]  # First value is the initial y value
+    
+    # Calculate differences between consecutive steps
+    for i in range(1, len(y)):
+        diff = y[i] - y[i-1]
+        result.append(diff)
+    
+    return result
+
+
+def diff_xy(x: list, y: list, method: str = 'central') -> list:
+    """Calculate differential coefficient from x, y coordinates.
+    
+    Args:
+        x (list): x coordinates
+        y (list): y coordinates 
+        method (str): Differentiation method ('central', 'forward', or 'backward')
+        
+    Returns:
+        list: Differential coefficients
+    """
+    if len(x) != len(y):
+        raise ValueError("Length of x and y must be same")
+    if len(x) < 2:
+        raise ValueError("Data length must be at least 2 points")
+        
+    result = []
+    n = len(x)
+    
+    if method == 'central':
+        # Forward difference for first point
+        result.append((y[1] - y[0]) / (x[1] - x[0]))
+        
+        # Central difference for middle points
+        for i in range(1, n-1):
+            result.append((y[i+1] - y[i-1]) / (x[i+1] - x[i-1]))
+            
+        # Backward difference for last point
+        result.append((y[-1] - y[-2]) / (x[-1] - x[-2]))
+        
+    elif method == 'forward':
+        # Forward difference for all points except last
+        for i in range(n-1):
+            result.append((y[i+1] - y[i]) / (x[i+1] - x[i]))
+        # Repeat last coefficient for last point    
+        result.append(result[-1])
+        
+    elif method == 'backward':
+        # Repeat first coefficient for first point
+        result.append((y[1] - y[0]) / (x[1] - x[0]))
+        # Backward difference for remaining points
+        for i in range(1, n):
+            result.append((y[i] - y[i-1]) / (x[i] - x[i-1]))
+            
+    else:
+        raise ValueError("Invalid method. Use 'central', 'forward', or 'backward'")
+        
+    return result
+
+
+def integrate_xy(x: list, y: list, initial_value: float = 0.0) -> list:
+    """Calculate integral of y with respect to x using trapezoidal rule.
+    
+    Args:
+        x (list): x coordinates
+        y (list): y coordinates
+        initial_value (float): Initial value of integral (default = 0.0)
+        
+    Returns:
+        list: Integral values at each x point
+        
+    Raises:
+        ValueError: If input lists have different lengths or too short
+    """
+    if len(x) != len(y):
+        raise ValueError("Length of x and y must be same")
+    if len(x) < 2:
+        raise ValueError("Data length must be at least 2 points")
+    
+    result = [initial_value]  # Start with initial value
+    integral = initial_value
+    
+    # Trapezoidal rule integration
+    for i in range(1, len(x)):
+        dx = x[i] - x[i-1]
+        dy_avg = (y[i] + y[i-1]) / 2
+        integral += dx * dy_avg
+        result.append(integral)
+    
+    return result
