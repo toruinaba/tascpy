@@ -2,6 +2,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 from src.tascpy.experiment import Experiment
+from src.tascpy.base_data_container import BaseDataContainer
 from src.tascpy.channel import Channel
 from src.tascpy.step import Step
 
@@ -97,7 +98,7 @@ class TestExperiment:
         """Test extract_data method with names parameter"""
         # We need to provide steps parameter since the implementation requires it
         extracted = sample_data.extract_data(names=["Test1", "Test3"], steps=[1, 2, 3])
-        assert isinstance(extracted, Experiment)
+        assert isinstance(extracted, BaseDataContainer)
         assert extracted.chs == ["CH1", "CH3"]
         assert extracted.names == ["Test1", "Test3"]
         assert extracted.units == ["kg", "s"]
@@ -109,7 +110,7 @@ class TestExperiment:
     def test_extract_data_with_steps(self, sample_data):
         """Test extract_data method with steps parameter"""
         extracted = sample_data.extract_data(names=["Test1", "Test2"], steps=[1, 3])
-        assert isinstance(extracted, Experiment)
+        assert isinstance(extracted, BaseDataContainer)
         assert extracted.chs == ["CH1", "CH2"]
         assert extracted.names == ["Test1", "Test2"]
         assert extracted.units == ["kg", "m"]
