@@ -144,3 +144,39 @@ def split_list_by_threshold(data: List[float], threshold: float) -> Tuple[List[f
         ([5.7, 6.1, 4.0], [1.5, 3.2, 2.9])
     """
     return split_list_by_condition(data, lambda x: x >= threshold)
+
+
+def split_list_by_integers(data: List[T], markers: List[int]) -> List[List[T]]:
+    """
+    整数リストの値に基づいてデータリストを分割します。マーカー値が同じ要素は同じグループに振り分けられます。
+    
+    Args:
+        data: 分割対象のデータリスト
+        markers: 各要素がどのグループに属するかを示す整数リスト（dataと同じ長さ）
+        
+    Returns:
+        分割後のリストを要素とするリスト。各サブリストは同じマーカー値を持つ要素で構成されます。
+        サブリストはマーカー値に基づいて昇順に並べられます。
+        
+    Raises:
+        ValueError: データとマーカーの長さが一致しない場合
+        
+    Examples:
+        >>> from tascpy.utils.split import split_list_by_integers
+        >>> data = ['a', 'b', 'c', 'd', 'e', 'f']
+        >>> markers = [2, 1, 2, 3, 1, 3]
+        >>> split_list_by_integers(data, markers)
+        [['b', 'e'], ['a', 'c'], ['d', 'f']]
+    """
+    if len(data) != len(markers):
+        raise ValueError("データリストとマーカーリストの長さは一致する必要があります")
+    
+    # Create a dictionary to group elements by marker value
+    groups = {}
+    for item, marker in zip(data, markers):
+        if marker not in groups:
+            groups[marker] = []
+        groups[marker].append(item)
+    
+    # Return the grouped elements in order of marker values
+    return [groups[key] for key in sorted(groups.keys())]

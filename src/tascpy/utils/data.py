@@ -2,7 +2,7 @@
 from typing import List, TypeVar, Union, Optional, Any, Tuple, Dict, Callable
 
 T = TypeVar('T')
-
+    
 def filter_none_values(data: List[Optional[T]]) -> List[T]:
     """
     リストから None 値をフィルタリングします。
@@ -39,6 +39,7 @@ def filter_none_values(data: List[Optional[T]]) -> List[T]:
     """
     return [x for x in data if x is not None]
 
+
 def filter_with_indices(data: List[Optional[T]]) -> Tuple[List[T], List[int]]:
     """
     リストから None 値をフィルタリングし、有効な値とそのインデックスを返します。
@@ -66,6 +67,7 @@ def filter_with_indices(data: List[Optional[T]]) -> Tuple[List[T], List[int]]:
             indices.append(i)
     return valid_values, indices
 
+
 def filter_by_condition(data: List[T], condition: Callable[[T], bool]) -> List[T]:
     """
     指定された条件に基づいてデータをフィルタリングします。
@@ -90,6 +92,7 @@ def filter_by_condition(data: List[T], condition: Callable[[T], bool]) -> List[T
     """
     return [x for x in data if condition(x)]
 
+
 def replace_none_values(data: List[Optional[T]], replacement: T) -> List[T]:
     """
     None 値を指定された値に置換します。
@@ -108,6 +111,52 @@ def replace_none_values(data: List[Optional[T]], replacement: T) -> List[T]:
         [1, 0, 3, 0, 5]
     """
     return [x if x is not None else replacement for x in data]
+
+
+def remove_consecutive_duplicates(data: List[T]) -> List[T]:
+    """
+    連続する重複データを削除し、各値の最初の出現のみを残します。
+    
+    連続するデータポイントが同じ値を持つ場合に、その重複を1つだけ残します。
+    データ圧縮や、一定値が連続するセグメントの処理に有用です。
+    
+    Args:
+        data: 処理対象のデータリスト
+    
+    Returns:
+        連続する重複が削除されたリスト
+    
+    Examples:
+        >>> from tascpy.utils.data import remove_consecutive_duplicates
+        >>> data = [1, 1, 2, 2, 2, 3, 4, 4, 1]
+        >>> remove_consecutive_duplicates(data)
+        [1, 2, 3, 4, 1]
+        
+        >>> # None値を含むデータの処理
+        >>> data = [1, None, None, 2, 2, None, 3]
+        >>> remove_consecutive_duplicates(data)
+        [1, None, 2, None, 3]
+        
+        >>> # 空リストの処理
+        >>> remove_consecutive_duplicates([])
+        []
+        
+        >>> # 浮動小数点数の処理
+        >>> data = [1.0, 1.0, 2.5, 2.5, 2.5, 3.0]
+        >>> remove_consecutive_duplicates(data)
+        [1.0, 2.5, 3.0]
+    """
+    if not data:
+        return []
+    
+    result = [data[0]]
+    
+    for i in range(1, len(data)):
+        if data[i] != data[i-1]:
+            result.append(data[i])
+    
+    return result
+
 
 def find_extrema(data: List[Union[float, int]], find_max: bool = True) -> Tuple[Union[float, int], int]:
     """
@@ -348,27 +397,15 @@ def resample_data(data: List[float], original_steps: List[int], new_steps: List[
     return resampled_data.tolist()
 
 
-def diff_step(x: list, y: list) -> list:
-    """Calculate step difference between consecutive y values.
-    
-    Args:
-        x (list): x coordinates (not used but kept for consistent interface)
-        y (list): y coordinates
-        
-    Returns:
-        list: Step differences with first value being y[0]
-        
-    Raises:
-        ValueError: If input list is empty
-    """
-    if not y:
+def diff_step(data: List[float]) -> list:
+    if not data:
         raise ValueError("Input list cannot be empty")
         
-    result = [y[0]]  # First value is the initial y value
+    result = [data[0]]  # First value is the initial y value
     
     # Calculate differences between consecutive steps
-    for i in range(1, len(y)):
-        diff = y[i] - y[i-1]
+    for i in range(1, len(data)):
+        diff = data[i] - data[i-1]
         result.append(diff)
     
     return result

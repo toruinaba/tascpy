@@ -108,6 +108,50 @@ class Channel:
             steps=filtered_steps,
             data=filtered_data
         )
+    
+    def remove_consecutive_duplicates(self) -> 'Channel':
+        """
+        連続する重複データを削除した新しいChannelオブジェクトを返します。
+        
+        連続するデータポイントが同じ値を持つ場合に、その重複を1つだけ残します。
+        データ圧縮や、一定値が連続するセグメントの処理に有用です。
+        
+        Returns:
+            Channel: 連続する重複を削除したデータを持つ新しいChannelオブジェクト
+            
+        Examples:
+            >>> channel = Channel(ch="1", name="Temperature", unit="°C", 
+            ...                   steps=[1, 2, 3, 4, 5, 6, 7], 
+            ...                   data=[20.5, 20.5, 21.0, 21.0, 21.0, 22.0, 22.0])
+            >>> result = channel.remove_consecutive_duplicates()
+            >>> result.data
+            [20.5, 21.0, 22.0]
+            >>> result.steps
+            [1, 3, 6]
+        """
+        from .utils.data import remove_consecutive_duplicates
+        
+        # データから連続する重複を削除する
+        unique_data = remove_consecutive_duplicates(self.data)
+        
+        # 残ったデータに対応するインデックスを特定
+        indices = []
+        last_value = None
+        for i, value in enumerate(self.data):
+            if value != last_value:
+                indices.append(i)
+                last_value = value
+        
+        # インデックスを使用してステップをフィルタリング
+        filtered_steps = [self.steps[i] for i in indices]
+        
+        return Channel(
+            ch=self.ch,
+            name=self.name,
+            unit=self.unit,
+            steps=filtered_steps,
+            data=unique_data
+        )
 
     def fetch_near_step(
         self, value, comparison_mode="closest", maxstep=None
@@ -339,109 +383,42 @@ class Channel:
         # インデックスに基づいて分割
         return self.split_at_indices(indices)
 
-    def split_by_classifier(self, classify_func: Callable[[Union[float, bool, None]], int]) -> List['Channel']:
+    def split_by_integers(self, markers: List[int]) -> List['Channel']:
         """
-        個々のデータ値を分類クラスにマッピングしてチャンネルを分割します。
+        整数リストの値に基づいてチャンネルを分割します。マーカー値が同じデータは同じグループに振り分けられます。
         
         Args:
-            classify_func: データ値を分類クラス（1以上の整数）に変換する関数
-                None、bool値の場合は None を返すことで除外可能
-                
+            markers: 各データ値がどのグループに属するかを示す整数リスト（データと同じ長さ）
+            
         Returns:
-            分類クラスごとに分割されたChannelオブジェクトのリスト（クラス番号順）
+            分割後のChannelオブジェクトのリスト。各Channelは同じマーカー値を持つデータで構成されます。
+            Channelはマーカー値に基づいて昇順に並べられます。
+            
+        Raises:
+            ValueError: データとマーカーの長さが一致しない場合
             
         Examples:
-            # データ値の範囲で3クラスに分類する例
-            def value_classifier(value):
-                if value is None or isinstance(value, bool):
-                    return None
-                if value < 0: return 1    # 負の値
-                if value < 100: return 2   # 中間の値
-                return 3                   # 大きな値
-                
-            channels = channel.split_by_classifier(value_classifier)
+            # データ値を3つのグループに分類
+            markers = [2, 1, 2, 3, 1, 3]  # マーカー値が示す分類グループ
+            channels = channel.split_by_integers(markers)
+            # 結果: [グループ1のChannel, グループ2のChannel, グループ3のChannel]
         """
-        # 分類クラスとそのインデックスをグループ化
-        class_groups = {}
+        from .utils.split import split_list_by_integers
         
-        for i, value in enumerate(self.data):
-            class_label = classify_func(value)
-            if class_label is not None and isinstance(class_label, int) and class_label > 0:
-                if class_label not in class_groups:
-                    class_groups[class_label] = []
-                class_groups[class_label].append(i)
+        if len(self.data) != len(markers):
+            raise ValueError("データリストとマーカーリストの長さは一致する必要があります")
         
-        # 各分類クラスに対応するChannelを作成
+        # ステップとデータをzipして1つのリストにする
+        combined_data = list(zip(self.steps, self.data))
+        
+        # split_list_by_integersを使用して分割
+        grouped_data = split_list_by_integers(combined_data, markers)
+        
+        # 分割された各グループからChannelオブジェクトを作成
         result = []
-        for _, indices in sorted(class_groups.items()):
-            steps = [self.steps[i] for i in indices]
-            data = [self.data[i] for i in indices]
-            channel = Channel(
-                ch=self.ch,
-                name=self.name,
-                unit=self.unit,
-                steps=steps,
-                data=data
-            )
-            result.append(channel)
-        
-        return result
-    
-    def split_by_array_classifier(self, array_classify_func: Callable[[List[Union[float, bool, None]]], List[int]]) -> List['Channel']:
-        """
-        データ配列全体を一括で分類してチャンネルを分割します。
-        
-        Args:
-            array_classify_func: データ値のリストを受け取り、分類クラス（1以上の整数）のリストを返す関数
-                None、bool値に対応する位置には None を返すことで除外可能
-                
-        Returns:
-            分類クラスごとに分割されたChannelオブジェクトのリスト（クラス番号順）
-            
-        Examples:
-            # データの統計量に基づいて分類する例
-            def array_classifier(values):
-                valid_values = [v for v in values if isinstance(v, (int, float)) and v is not None]
-                if not valid_values:
-                    return [None] * len(values)
-                
-                mean_val = sum(valid_values) / len(valid_values)
-                std_dev = (sum((x - mean_val) ** 2 for x in valid_values) / len(valid_values)) ** 0.5
-                
-                result = []
-                for value in values:
-                    if value is None or isinstance(value, bool):
-                        result.append(None)
-                    elif value < mean_val - std_dev:
-                        result.append(1)    # 低値（-1σ未満）
-                    elif value > mean_val + std_dev:
-                        result.append(3)    # 高値（+1σ超）
-                    else:
-                        result.append(2)    # 中間値（±1σ以内）
-                return result
-                
-            channels = channel.split_by_array_classifier(array_classifier)
-        """
-        # データ全体に対して分類を実行
-        class_labels = array_classify_func(self.data)
-        
-        if len(class_labels) != len(self.data):
-            raise ValueError("分類関数の出力長がデータ長と一致しません")
-        
-        # 分類クラスとそのインデックスをグループ化
-        class_groups = {}
-        
-        for i, label in enumerate(class_labels):
-            if label is not None and isinstance(label, int) and label > 0:
-                if label not in class_groups:
-                    class_groups[label] = []
-                class_groups[label].append(i)
-        
-        # 各分類クラスに対応するChannelを作成
-        result = []
-        for _, indices in sorted(class_groups.items()):
-            steps = [self.steps[i] for i in indices]
-            data = [self.data[i] for i in indices]
+        for group in grouped_data:
+            steps = [item[0] for item in group]
+            data = [item[1] for item in group]
             channel = Channel(
                 ch=self.ch,
                 name=self.name,
