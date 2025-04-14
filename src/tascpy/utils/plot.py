@@ -1,6 +1,9 @@
 # Import matplotlib at module level for proper mocking in tests
 from matplotlib import pyplot as plt
 
+plt.rcParams['font.family'] = 'IPAGothic'
+
+
 def plot_helper(x_data, y_data, x_label=None, y_label=None, ax=None, **kwargs):
     """プロット処理の共通ヘルパー関数"""
     if ax:

@@ -3,10 +3,10 @@ import src.tascpy as tp
 from matplotlib import pyplot as plt
 
 class Test_results:
-    def test_result(self):
+    def test_01(self):
         path = Path('./data/W-N.txt')
         with tp.Reader(path) as f:
-            res = tp.ExperimentalData.load(f)
+            res = tp.Experiment.load(f)
         res.plot_history("P_total")
         res.plot_xy("梁変位", "P_total")
         req_steps = list(range(1, 400))
@@ -37,3 +37,35 @@ class Test_results:
         ax3.set_ylim(50, 110.0)
         plt.show()
 
+    def test_02(self):
+        path = Path('./data/W-N.txt')
+        with tp.Reader(path) as f:
+            res = tp.Experiment.load(f)
+        """
+        res.plot_xy("梁変位ﾜｲﾔ", "P_total")
+        plt.show()
+        """
+        pd = res.extract_data(["P_total", "梁変位ﾜｲﾔ"], steps=res.steps)
+        pd_rmn = pd.remove_none()
+        pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(["P_total", "梁変位ﾜｲﾔ"])
+        p = pd_rmdup["P_total"].data
+        cycle = [1.0]
+        for i in range(1, len(p)):
+            if p[i] * p[i-1] < 0:
+                c = cycle[i-1] + 0.5
+                cycle.append(c)
+            else:
+                cycle.append(cycle[i-1])
+        markers = [int(c) for c in cycle]
+        dived = pd_rmdup.split_by_integers(markers)
+        dived_pos = [
+            d.split_by_ref_ch_condition("P_total", lambda x: x > 0.0)[0]
+            for d in dived
+        ]
+        
+        #fig = plt.figure()
+        count = 1
+        #ax = fig.add_subplot(111)
+        for d in dived_pos:
+            d.plot_xy("梁変位ﾜｲﾔ", "P_total", show_x_max=True)
+            plt.show()

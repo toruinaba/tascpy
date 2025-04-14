@@ -19,7 +19,80 @@ class PlottingMixin:
             x_label = "Step"
             y_label = f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name
             return plot_helper(x_data, y_data, x_label, y_label, ax, **kwargs)
-
+    
+    def plot_xy(self, x: Union[List[str], str], y: Union[List[str], str], ax=None, show_unit=True, show_x_max=False, **kwargs):
+        if ax:
+            if isinstance(x, str) and isinstance(y, str):
+                ax.plot(self[x].data, self[y].data, label=y, **kwargs)
+                ax.set_xlabel(f"{self[x].name} [{self[x].unit}]" if show_unit else self[x].name)
+                ax.set_ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
+                
+                # Plot the point with maximum x-value if requested
+                if show_x_max:
+                    max_x_idx = self[x].data.index(max(self[x].data))
+                    xmax = self[x].data[max_x_idx]
+                    ymax = self[y].data[max_x_idx]
+                    ax.plot(xmax, ymax, 'o', color=kwargs.get('color', 'blue'))
+                    # Add text label showing the actual value
+                    ax.text(xmax, ymax, f"{self[x].name}={xmax} {self[x].unit}", 
+                            va='bottom', ha='right')
+                    
+            elif isinstance(x, list) and isinstance(y, list):
+                if len(x) != len(y):
+                    raise ValueError("凡例の数が一致しません.")
+                for name_x, name_y in zip(x, y):
+                    ax.plot(self[name_x].data, self[name_y].data, label=y, **kwargs)
+                    ax.set_xlabel(f"{self[name_x].name} [{self[name_x].unit}]" if show_unit else self[name_x].name)
+                    ax.set_ylabel(f"{self[name_y].name} [{self[name_y].unit}]" if show_unit else self[name_y].name)
+                    
+                    # Plot the point with maximum x-value if requested
+                    if show_x_max:
+                        max_x_idx = self[name_x].data.index(max(self[name_x].data))
+                        xmax = self[name_x].data[max_x_idx]
+                        ymax = self[name_y].data[max_x_idx]
+                        ax.plot(xmax, ymax, 'o', color=kwargs.get('color', 'blue'))
+                        # Add text label showing the actual value
+                        ax.text(xmax, ymax, f"{self[name_x].name}={xmax} {self[name_x].unit}", 
+                                va='bottom', ha='right')
+            return ax
+        else:
+            from matplotlib import pyplot as plt
+            fig = plt.figure()
+            if isinstance(x, str) and isinstance(y, str):
+                plt.plot(self[x].data, self[y].data, **kwargs)              
+                plt.xlabel(f"{self[x].name} [{self[x].unit}]" if show_unit else self[x].name)
+                plt.ylabel(f"{self[y].name} [{self[y].unit}]" if show_unit else self[y].name)
+                
+                # Plot the point with maximum x-value if requested
+                if show_x_max:
+                    max_x_idx = self[x].data.index(max(self[x].data))
+                    xmax = self[x].data[max_x_idx]
+                    ymax = self[y].data[max_x_idx]
+                    plt.plot(xmax, ymax, 'o', color=kwargs.get('color', 'blue'))
+                    # Add text label showing the actual value
+                    plt.text(xmax, ymax, f"{self[x].name}={xmax} {self[x].unit}", 
+                            va='bottom', ha='right')
+                    
+            elif isinstance(x, list) and isinstance(y, list):
+                if len(x) != len(y):
+                    raise ValueError("凡例の数が一致しません")
+                for name_x, name_y in zip(x, y):
+                    plt.plot(self[name_x].data, self[name_y].data, **kwargs)
+                    plt.xlabel(f"{self[name_x].name} [{self[name_x].unit}]" if show_unit else self[name_x].name)
+                    plt.ylabel(f"{self[name_y].name} [{self[name_y].unit}]" if show_unit else self[name_y].name)
+                    
+                    # Plot the point with maximum x-value if requested
+                    if show_x_max:
+                        max_x_idx = self[name_x].data.index(max(self[name_x].data))
+                        xmax = self[name_x].data[max_x_idx]
+                        ymax = self[name_y].data[max_x_idx]
+                        plt.plot(xmax, ymax, 'o', color=kwargs.get('color', 'blue'))
+                        # Add text label showing the actual value
+                        plt.text(xmax, ymax, f"{self[name_x].name}={xmax} {self[name_x].unit}", 
+                                va='bottom', ha='right')
+            
+            return fig
+    """
     def plot_xy(self, x: Union[List[str], str], y: Union[List[str], str], ax=None, show_unit=True, **kwargs):
         if ax:
             if isinstance(x, str) and isinstance(y, str):
@@ -48,7 +121,7 @@ class PlottingMixin:
                     plt.plot(self[name_x].data, self[name_y].data, **kwargs)
                     plt.xlabel(f"{self[name_x].name} [{self[name_x].unit}]" if show_unit else self[name_x].name)
                     plt.ylabel(f"{self[name_y].name} [{self[name_y].unit}]" if show_unit else self[name_y].name)
-
+    """
 
 class DataExtractionMixin:
     """データ抽出機能を提供するMixin"""
@@ -135,6 +208,76 @@ class DataExtractionMixin:
             names=self.names,
             units=self.units,
             steps=filtered_steps,
+            data=new_data
+        )
+    
+    def remove_consecutive_duplicates_across(self, items: List[str]):
+        """
+        複数のチャンネル間で共通の連続重複データを削除した新しいChannelGroupオブジェクトを返します。
+        
+        すべての指定されたチャンネルで、連続するデータポイントが同じ値を持つ場合にのみ、
+        その重複を1つだけ残して削除します。
+        
+        Args:
+            items: 処理対象のチャンネル識別子のリスト
+            
+        Returns:
+            ChannelGroup: 連続する重複を削除したデータを持つ新しいChannelGroupオブジェクト
+            
+        Examples:
+            >>> # self["A"].data = [1.0, 1.0, 2.0, 2.0, 3.0, 3.0]
+            >>> # self["B"].data = [10.0, 20.0, 30.0, 30.0, 40.0, 50.0]
+            >>> # self["C"].data = [5, 5, 2, 2, 8, 8]
+            >>> result = channel_group.remove_consecutive_duplicates_across(["A", "B", "C"])
+            >>> # result["A"].data = [1.0, 1.0, 2.0, 3.0, 3.0]
+            >>> # result["B"].data = [10.0, 20.0, 30.0, 40.0, 50.0]
+            >>> # result["C"].data = [5, 5, 2, 8, 8]
+        """
+        # 指定されたチャンネルを取得
+        channels = [self[item] for item in items]
+        
+        # データの長さが一致しているか確認
+        data_length = len(channels[0].data)
+        if not all(len(channel.data) == data_length for channel in channels):
+            raise ValueError("すべてのチャンネルのデータ長は同じである必要があります")
+        
+        # 保持するインデックスを特定
+        indices_to_keep = []
+        
+        # 最初のインデックスは常に保持
+        indices_to_keep.append(0)
+        
+        # 2番目以降のインデックスをチェック
+        for i in range(1, data_length):
+            # いずれかのチャンネルで値が変化していれば、そのインデックスを保持
+            should_keep = False
+            for channel in channels:
+                if channel.data[i] != channel.data[i-1]:
+                    should_keep = True
+                    break
+            
+            if should_keep:
+                indices_to_keep.append(i)
+        
+        # 新しいChannelGroupを作成
+        new_data = {}
+        for item in self.dict:
+            channel = self[item]
+            new_steps = [channel.steps[i] for i in indices_to_keep]
+            new_values = [channel.data[i] for i in indices_to_keep]
+            new_data[item] = Channel(
+                ch=channel.ch,
+                name=channel.name,
+                unit=channel.unit,
+                steps=new_steps,
+                data=new_values
+            )
+        from .channel_group import ChannelGroup
+        return ChannelGroup(
+            chs=self.chs,
+            names=self.names,
+            units=self.units,
+            steps=[self.steps[i] for i in indices_to_keep] if indices_to_keep else [],
             data=new_data
         )
 
@@ -301,9 +444,67 @@ class DataSplitMixin:
         satisfied_ch, not_satisfied_ch = ch.split_by_condition(condition)
         satisfied_steps = satisfied_ch.steps
         not_satisfied_steps = not_satisfied_ch.steps
-        satisfied_ch_group = self.extract_data(satisfied_steps, steps=satisfied_steps)
-        not_satisfied_group = self.extract_data(not_satisfied_steps, steps=not_satisfied_steps)
+        satisfied_ch_group = self.extract_data(steps=satisfied_steps)
+        not_satisfied_group = self.extract_data(steps=not_satisfied_steps)
         return [satisfied_ch_group, not_satisfied_group]
+
+    def split_by_integers(self, markers: List[int]):
+        """
+        指定したチャンネルのデータに基づいて、整数リストの値でチャンネルグループを分割します。
+        マーカー値が同じデータは同じグループに振り分けられます。
+        
+        Args:
+            item: マーカー値を適用するチャンネル名
+            markers: 各データ値がどのグループに属するかを示す整数リスト（データと同じ長さ）
+            
+        Returns:
+            分割後のChannelGroupオブジェクトのリスト。各ChannelGroupは同じマーカー値を持つデータで構成され、
+            マーカー値に基づいて昇順に並べられます。
+            
+        Raises:
+            ValueError: データとマーカーの長さが一致しない場合
+            
+        Examples:
+            # データ値を3つのグループに分類
+            markers = [2, 1, 2, 3, 1, 3]  # マーカー値が示す分類グループ
+            channel_groups = channel_group.split_by_integers("ch1", markers)
+            # 結果: [グループ1のChannelGroup, グループ2のChannelGroup, グループ3のChannelGroup]
+        """
+        from .utils.split import split_list_by_integers
+        
+        if len(self.steps) != len(markers):
+            raise ValueError(f"{len(self.steps)}vs{len(markers)}:データリストとマーカーリストの長さは一致する必要があります.")
+        
+        # ステップとマーカーの組み合わせを作成
+        step_marker_pairs = list(zip(self.steps, markers))
+        
+        # マーカー値によってステップを分割
+        grouped_steps = split_list_by_integers([pair[0] for pair in step_marker_pairs], markers)
+        
+        # 各グループのChannelGroupオブジェクトを作成
+        result = []
+        from .channel_group import ChannelGroup
+        
+        for steps_group in grouped_steps:
+            # 各チャンネルから該当するステップのデータを抽出
+            channels_data = {}
+            for ch in self.chs:
+                channel = self.dict[ch]
+                # ステップに基づいてチャンネルデータを抽出
+                extracted_channel = channel.extract_data(steps_group)
+                channels_data[ch] = extracted_channel
+            
+            # 新しいChannelGroupオブジェクトを作成
+            channel_group = ChannelGroup(
+                chs=self.chs,
+                names=self.names,
+                units=self.units,
+                steps=steps_group,
+                data=channels_data
+            )
+            result.append(channel_group)
+        
+        return result
 
 
 class IOHandlerMixin:

@@ -5,6 +5,7 @@ from .base_data_container import (
     PlottingMixin,
     DataExtractionMixin,
     DataSplitMixin,
+    IOHandlerMixin,
     BaseDataContainer
 )
 
@@ -12,6 +13,7 @@ class ChannelGroup(
         PlottingMixin,
         DataExtractionMixin,
         DataSplitMixin,
+        IOHandlerMixin,
         BaseDataContainer
     ):
     """複数のチャンネルをまとめるクラス
