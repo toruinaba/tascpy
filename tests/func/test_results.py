@@ -2,6 +2,9 @@ from pathlib import Path
 import src.tascpy as tp
 from matplotlib import pyplot as plt
 
+from src.tascpy.utils.data import diff_step, smooth_data
+from src.tascpy.plugins.load_displacement import cycle_count
+
 class Test_results:
     def test_01(self):
         path = Path('./data/W-N.txt')
@@ -45,27 +48,25 @@ class Test_results:
         res.plot_xy("梁変位ﾜｲﾔ", "P_total")
         plt.show()
         """
-        pd = res.extract_data(["P_total", "梁変位ﾜｲﾔ"], steps=res.steps)
+        pd = res.extract_data(["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.remove_none()
         pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(["P_total", "梁変位ﾜｲﾔ"])
         p = pd_rmdup["P_total"].data
-        cycle = [1.0]
-        for i in range(1, len(p)):
-            if p[i] * p[i-1] < 0:
-                c = cycle[i-1] + 0.5
-                cycle.append(c)
-            else:
-                cycle.append(cycle[i-1])
-        markers = [int(c) for c in cycle]
+        markers = cycle_count(p)
         dived = pd_rmdup.split_by_integers(markers)
         dived_pos = [
             d.split_by_ref_ch_condition("P_total", lambda x: x > 0.0)[0]
             for d in dived
         ]
-        
-        #fig = plt.figure()
+
         count = 1
-        #ax = fig.add_subplot(111)
         for d in dived_pos:
-            d.plot_xy("梁変位ﾜｲﾔ", "P_total", show_x_max=True)
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            smoothed = smooth_data(d["梁変位ﾜｲﾔ"].data, 10)
+            diff = diff_step(smoothed)
+            markers = cycle_count(diff, step=1)
+            dv = d.split_by_integers(markers)
+            dv[0].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax)
+            dv[1].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax)
             plt.show()
