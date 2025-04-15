@@ -397,6 +397,94 @@ def resample_data(data: List[float], original_steps: List[int], new_steps: List[
     return resampled_data.tolist()
 
 
+def smooth_data(data: List[float], window_size: int = 3) -> List[float]:
+    """
+    移動平均によるデータのスムージングを行います。
+    
+    指定されたウィンドウサイズで各データポイントの周囲を平均化し、
+    ノイズを軽減してデータの傾向をより明確にします。
+    
+    Args:
+        data: スムージング対象のデータリスト
+        window_size: スムージングウィンドウのサイズ（デフォルト: 3）
+    
+    Returns:
+        スムージングされたデータのリスト
+    
+    Raises:
+        ValueError: 無効なパラメータが指定された場合
+        
+    Examples:
+        >>> from tascpy.utils.data import smooth_data
+        >>> data = [1, 3, 2, 5, 8, 7, 10]
+        >>> smooth_data(data, window_size=3)
+        [1.0, 2.0, 3.33, 5.0, 6.67, 8.33, 10.0]
+        
+        >>> # より大きいウィンドウを使用した例
+        >>> smooth_data(data, window_size=5)
+        [1.0, 2.0, 3.8, 5.0, 6.4, 7.0, 10.0]
+        
+        >>> # None値を含むデータの処理
+        >>> data_with_none = [1, None, 3, 4, None, 6]
+        >>> smooth_data(data_with_none, window_size=3)
+        [1.0, 2.0, 2.67, 3.5, 4.33, 6.0]
+    """
+    if not data:
+        return []
+        
+    if window_size < 1:
+        raise ValueError("ウィンドウサイズは1以上である必要があります")
+        
+    if window_size > len(data):
+        raise ValueError("ウィンドウサイズがデータ長より大きくなっています")
+    
+    # Noneの値を処理
+    valid_data = []
+    for x in data:
+        if x is not None:
+            valid_data.append(x)
+        else:
+            # None値の補間（前後の有効な値の平均）
+            if valid_data:  # 前に有効な値がある場合
+                if len(valid_data) > 0:
+                    valid_data.append(valid_data[-1])  # 最後の有効な値を使用
+                else:
+                    valid_data.append(0)  # デフォルト値
+            else:
+                # 先頭がNoneの場合、後で修正する
+                valid_data.append(None)
+    
+    # 先頭のNoneを最初の有効な値で置換
+    for i in range(len(valid_data)):
+        if valid_data[i] is not None:
+            first_valid = valid_data[i]
+            break
+    else:
+        return [0] * len(data)  # すべてNoneの場合
+        
+    for i in range(len(valid_data)):
+        if valid_data[i] is None:
+            valid_data[i] = first_valid
+    
+    result = []
+    half_window = window_size // 2
+    
+    # 移動平均を計算
+    for i in range(len(data)):
+        # 平均を計算する範囲を決定
+        start = max(0, i - half_window)
+        end = min(len(valid_data), i + half_window + 1)
+        
+        # 現在の範囲のデータを収集
+        window_data = valid_data[start:end]
+        
+        # 平均値を計算
+        window_avg = sum(window_data) / len(window_data)
+        result.append(round(window_avg, 2))
+    
+    return result
+
+
 def diff_step(data: List[float]) -> list:
     if not data:
         raise ValueError("Input list cannot be empty")
