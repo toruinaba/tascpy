@@ -160,6 +160,7 @@ class DataExtractionMixin:
             idxs = [self.steps.index(x) for x in steps]
         else:
             idxs = list(range(len(self.steps)))
+            steps = self.steps
         if names:
             ch_objs = [self[name] for name in names]
         else:

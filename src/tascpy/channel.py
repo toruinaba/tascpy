@@ -178,7 +178,11 @@ class Channel:
     def extract_data(self, steps: List[int]):
         """対象ステップのデータ抽出
         """
-        idxs = [self.steps.index(x) for x in steps]
+        if steps:
+            idxs = [self.steps.index(x) for x in steps]
+        else:
+            idxs = list(range(len(self.steps)))
+            steps = self.steps
         extracted = [self.data[x] for x in idxs]
         return Channel(self.ch, self.name, self.unit, steps, extracted)
 
