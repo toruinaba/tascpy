@@ -33,6 +33,7 @@ class Channel:
     def removed_data(self) -> List[Union[float, bool]]:
         """Noneを除くデータ"""
         from .utils.data import filter_none_values
+
         return filter_none_values(self.data)
 
     @property
@@ -44,6 +45,7 @@ class Channel:
     def removed_step(self) -> List[int]:
         """Noneのデータを除くステップ"""
         from .utils.data import filter_with_indices
+
         _, indices = filter_with_indices(self.data)
         return [self.steps[i] for i in indices]
 
@@ -87,41 +89,41 @@ class Channel:
     def absmin(self) -> float:
         """絶対値最小"""
         return min([abs(x) for x in self.removed_data])
-    
-    def remove_none(self) -> 'Channel':
+
+    def remove_none(self) -> "Channel":
         """
         None値を除外した新しいChannelオブジェクトを返します。
-    
+
         Returns:
             Channel: None値を除外したデータを持つ新しいChannelオブジェクト
         """
         # filter_with_indicesを使用してNoneを除外し、インデックスを取得
         filtered_data, indices = filter_with_indices(self.data)
-        
+
         # インデックスを使用してステップをフィルタリング
         filtered_steps = [self.steps[i] for i in indices]
-        
+
         return Channel(
             ch=self.ch,
             name=self.name,
             unit=self.unit,
             steps=filtered_steps,
-            data=filtered_data
+            data=filtered_data,
         )
-    
-    def remove_consecutive_duplicates(self) -> 'Channel':
+
+    def remove_consecutive_duplicates(self) -> "Channel":
         """
         連続する重複データを削除した新しいChannelオブジェクトを返します。
-        
+
         連続するデータポイントが同じ値を持つ場合に、その重複を1つだけ残します。
         データ圧縮や、一定値が連続するセグメントの処理に有用です。
-        
+
         Returns:
             Channel: 連続する重複を削除したデータを持つ新しいChannelオブジェクト
-            
+
         Examples:
-            >>> channel = Channel(ch="1", name="Temperature", unit="°C", 
-            ...                   steps=[1, 2, 3, 4, 5, 6, 7], 
+            >>> channel = Channel(ch="1", name="Temperature", unit="°C",
+            ...                   steps=[1, 2, 3, 4, 5, 6, 7],
             ...                   data=[20.5, 20.5, 21.0, 21.0, 21.0, 22.0, 22.0])
             >>> result = channel.remove_consecutive_duplicates()
             >>> result.data
@@ -130,10 +132,10 @@ class Channel:
             [1, 3, 6]
         """
         from .utils.data import remove_consecutive_duplicates
-        
+
         # データから連続する重複を削除する
         unique_data = remove_consecutive_duplicates(self.data)
-        
+
         # 残ったデータに対応するインデックスを特定
         indices = []
         last_value = None
@@ -141,21 +143,19 @@ class Channel:
             if value != last_value:
                 indices.append(i)
                 last_value = value
-        
+
         # インデックスを使用してステップをフィルタリング
         filtered_steps = [self.steps[i] for i in indices]
-        
+
         return Channel(
             ch=self.ch,
             name=self.name,
             unit=self.unit,
             steps=filtered_steps,
-            data=unique_data
+            data=unique_data,
         )
 
-    def fetch_near_step(
-        self, value, comparison_mode="closest", maxstep=None
-    ) -> int:
+    def fetch_near_step(self, value, comparison_mode="closest", maxstep=None) -> int:
         """値検索関数
         引数に対して一番近い値を検索.
         comparison_mode="closest"の場合は距離絶対値最小
@@ -163,7 +163,7 @@ class Channel:
         comparison_mode="more_than"は指定値以上の距離絶対値最小
         """
         if maxstep:
-            obj_data = [x for x in self.data[:maxstep - 1] if x is not None]
+            obj_data = [x for x in self.data[: maxstep - 1] if x is not None]
         else:
             obj_data = [x for x in self.data if x is not None]
         if comparison_mode == "closest":
@@ -176,8 +176,7 @@ class Channel:
         return self.data.index(near_value) + 1
 
     def extract_data(self, steps: List[int]):
-        """対象ステップのデータ抽出
-        """
+        """対象ステップのデータ抽出"""
         if steps:
             idxs = [self.steps.index(x) for x in steps]
         else:
@@ -185,6 +184,13 @@ class Channel:
             steps = self.steps
         extracted = [self.data[x] for x in idxs]
         return Channel(self.ch, self.name, self.unit, steps, extracted)
+
+    def remove_data(self, steps: List[int]) -> "Channel":
+        """対象ステップのデータ削除"""
+        # 除外するステップ以外のステップを取得
+        remaining_steps = [step for step in self.steps if step not in steps]
+        # extract_dataを使用して残すステップのみを返す
+        return self.extract_data(remaining_steps)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -195,7 +201,9 @@ class Channel:
         ch_line = delimiter.join(["CH", self.ch])
         name_line = delimiter.join(["NAME", self.name])
         unit_line = delimiter.join(["UNIT", self.unit])
-        data_lines = [delimiter.join([str(x), y]) for x, y in zip(self.steps, self.str_data)]
+        data_lines = [
+            delimiter.join([str(x), y]) for x, y in zip(self.steps, self.str_data)
+        ]
         all_lines = [ch_line, name_line, unit_line] + data_lines
         all_txt = "\n".join(all_lines)
         with open(output_path, "w") as f:
@@ -209,198 +217,209 @@ class Channel:
         else:
             return str(value)
 
-    def split_by_chunks(self, chunk_size: int) -> List['Channel']:
+    def split_by_chunks(self, chunk_size: int) -> List["Channel"]:
         """
         チャンネルを指定サイズのチャンクに均等に分割します。
-        
+
         Args:
             chunk_size: 各チャンクのサイズ
-            
+
         Returns:
             chunk_size サイズのデータを持つChannelオブジェクトのリスト
-            
+
         Raises:
             ValueError: chunk_size が 1 未満の場合
         """
         from .utils.split import split_list_by_chunks
-        
+
         steps_chunks = split_list_by_chunks(self.steps, chunk_size)
         data_chunks = split_list_by_chunks(self.data, chunk_size)
-        
+
         return [
             Channel(
                 ch=self.ch,
                 name=self.name,
                 unit=self.unit,
                 steps=steps_chunk,
-                data=data_chunk
+                data=data_chunk,
             )
             for steps_chunk, data_chunk in zip(steps_chunks, data_chunks)
         ]
-    
-    def split_by_count(self, count: int) -> List['Channel']:
+
+    def split_by_count(self, count: int) -> List["Channel"]:
         """
         チャンネルを指定された数の部分チャンネルに分割します。
-        
+
         Args:
             count: 分割後のチャンネル数
-            
+
         Returns:
             count 個のChannelオブジェクトからなるリスト
-            
+
         Raises:
             ValueError: count が 1 未満の場合
         """
         from .utils.split import split_list_by_count
-        
+
         steps_chunks = split_list_by_count(self.steps, count)
         data_chunks = split_list_by_count(self.data, count)
-        
+
         return [
             Channel(
                 ch=self.ch,
                 name=self.name,
                 unit=self.unit,
                 steps=steps_chunk,
-                data=data_chunk
+                data=data_chunk,
             )
             for steps_chunk, data_chunk in zip(steps_chunks, data_chunks)
         ]
-    
-    def split_by_condition(self, condition: Callable[[Union[float, bool, None]], bool]) -> Tuple['Channel', 'Channel']:
+
+    def split_by_condition(
+        self, condition: Callable[[Union[float, bool, None]], bool]
+    ) -> Tuple["Channel", "Channel"]:
         """
         条件関数に基づいてチャンネルを2つのチャンネルに分割します。
-        
+
         Args:
             condition: データ値を評価する条件関数
-            
+
         Returns:
             (条件を満たすデータを持つChannel, 条件を満たさないデータを持つChannel) のタプル
         """
         from .utils.split import split_list_by_condition
-        
+
         # データとステップを組み合わせたアイテムのリストを作成
         combined_data = list(zip(self.steps, self.data))
-        
+
         # アイテムを条件でフィルタリングする関数
         def combined_condition(item):
             _, value = item
             return condition(value)
-        
+
         # 条件に基づいて組み合わせを分割
-        satisfied_items, not_satisfied_items = split_list_by_condition(combined_data, combined_condition)
-        
+        satisfied_items, not_satisfied_items = split_list_by_condition(
+            combined_data, combined_condition
+        )
+
         # 分割された組み合わせからステップとデータを抽出
         satisfied_steps = [item[0] for item in satisfied_items]
         satisfied_data = [item[1] for item in satisfied_items]
-        
+
         not_satisfied_steps = [item[0] for item in not_satisfied_items]
         not_satisfied_data = [item[1] for item in not_satisfied_items]
-        
+
         # 新しいChannelオブジェクトを作成
         satisfied_channel = Channel(
             ch=self.ch,
             name=self.name,
             unit=self.unit,
             steps=satisfied_steps,
-            data=satisfied_data
+            data=satisfied_data,
         )
-        
+
         not_satisfied_channel = Channel(
             ch=self.ch,
             name=self.name,
             unit=self.unit,
             steps=not_satisfied_steps,
-            data=not_satisfied_data
+            data=not_satisfied_data,
         )
-        
+
         return satisfied_channel, not_satisfied_channel
-    
-    def split_at_indices(self, indices: List[int]) -> List['Channel']:
+
+    def split_at_indices(self, indices: List[int]) -> List["Channel"]:
         """
         指定されたインデックスでチャンネルを分割します。
-        
+
         Args:
             indices: 分割位置を示すインデックスのリスト（0始まり）
-            
+
         Returns:
             分割後のChannelオブジェクトを要素とするリスト
         """
         from .utils.split import split_list_at_indices
-        
+
         steps_chunks = split_list_at_indices(self.steps, indices)
         data_chunks = split_list_at_indices(self.data, indices)
-        
+
         return [
             Channel(
                 ch=self.ch,
                 name=self.name,
                 unit=self.unit,
                 steps=steps_chunk,
-                data=data_chunk
+                data=data_chunk,
             )
             for steps_chunk, data_chunk in zip(steps_chunks, data_chunks)
         ]
-    
-    def split_by_threshold(self, threshold: float, include_threshold: bool = True) -> Tuple['Channel', 'Channel']:
+
+    def split_by_threshold(
+        self, threshold: float, include_threshold: bool = True
+    ) -> Tuple["Channel", "Channel"]:
         """
         データ値がしきい値を超えるかどうかに基づいてチャンネルを分割します。
-        
+
         Args:
             threshold: 分割のしきい値
             include_threshold: Trueの場合、しきい値と等しい値は「以上」として扱う（デフォルトはTrue）
-            
+
         Returns:
             条件に応じて (threshold以上/より大きいのデータを持つChannel, threshold未満/以下のデータを持つChannel) のタプル
         """
+
         # 数値データのみをフィルタリング（None や boolean は除外）
         def is_valid_number(value):
             if value is None or isinstance(value, bool):
                 return False
             return value >= threshold if include_threshold else value > threshold
-        
+
         return self.split_by_condition(is_valid_number)
-    
-    def split_by_segments(self, segment_sizes: List[int]) -> List['Channel']:
+
+    def split_by_segments(self, segment_sizes: List[int]) -> List["Channel"]:
         """
         チャンネルを指定されたサイズのセグメントに分割します。
-        
+
         Args:
             segment_sizes: 各セグメントのサイズを指定するリスト
-            
+
         Returns:
             指定されたサイズに分割されたChannelオブジェクトのリスト
-            
+
         Raises:
             ValueError: セグメントサイズの合計がデータサイズと一致しない場合
         """
         if sum(segment_sizes) != len(self.data):
-            raise ValueError(f"セグメントサイズの合計 ({sum(segment_sizes)}) がデータサイズ ({len(self.data)}) と一致しません")
-        
+            raise ValueError(
+                f"セグメントサイズの合計 ({sum(segment_sizes)}) がデータサイズ ({len(self.data)}) と一致しません"
+            )
+
         # 分割位置をインデックスで計算
         indices = []
         current_idx = 0
-        for size in segment_sizes[:-1]:  # 最後のセグメントは残りすべてになるので含めない
+        for size in segment_sizes[
+            :-1
+        ]:  # 最後のセグメントは残りすべてになるので含めない
             current_idx += size
             indices.append(current_idx)
-        
+
         # インデックスに基づいて分割
         return self.split_at_indices(indices)
 
-    def split_by_integers(self, markers: List[int]) -> List['Channel']:
+    def split_by_integers(self, markers: List[int]) -> List["Channel"]:
         """
         整数リストの値に基づいてチャンネルを分割します。マーカー値が同じデータは同じグループに振り分けられます。
-        
+
         Args:
             markers: 各データ値がどのグループに属するかを示す整数リスト（データと同じ長さ）
-            
+
         Returns:
             分割後のChannelオブジェクトのリスト。各Channelは同じマーカー値を持つデータで構成されます。
             Channelはマーカー値に基づいて昇順に並べられます。
-            
+
         Raises:
             ValueError: データとマーカーの長さが一致しない場合
-            
+
         Examples:
             # データ値を3つのグループに分類
             markers = [2, 1, 2, 3, 1, 3]  # マーカー値が示す分類グループ
@@ -408,28 +427,26 @@ class Channel:
             # 結果: [グループ1のChannel, グループ2のChannel, グループ3のChannel]
         """
         from .utils.split import split_list_by_integers
-        
+
         if len(self.data) != len(markers):
-            raise ValueError("データリストとマーカーリストの長さは一致する必要があります")
-        
+            raise ValueError(
+                "データリストとマーカーリストの長さは一致する必要があります"
+            )
+
         # ステップとデータをzipして1つのリストにする
         combined_data = list(zip(self.steps, self.data))
-        
+
         # split_list_by_integersを使用して分割
         grouped_data = split_list_by_integers(combined_data, markers)
-        
+
         # 分割された各グループからChannelオブジェクトを作成
         result = []
         for group in grouped_data:
             steps = [item[0] for item in group]
             data = [item[1] for item in group]
             channel = Channel(
-                ch=self.ch,
-                name=self.name,
-                unit=self.unit,
-                steps=steps,
-                data=data
+                ch=self.ch, name=self.name, unit=self.unit, steps=steps, data=data
             )
             result.append(channel)
-        
+
         return result

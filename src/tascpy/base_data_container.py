@@ -163,6 +163,32 @@ class DataExtractionMixin:
 
         return ChannelGroup(chs, names, units, steps, data)
 
+    def remove_data(self, names: List[str] = None, steps: List[int] = None):
+        """
+        指定された名称またはステップのデータが削除されたChannelGroupを返します。
+        :param names: 削除するチャンネル名のリスト
+        :param steps: 削除するステップのリスト
+        """
+        if not names and not steps:
+            raise ValueError("ステップか名称のどちらかが必要です")
+        if steps:
+            idxs = [self.steps.index(x) for x in steps]
+        else:
+            idxs = list(range(len(self.steps)))
+            steps = self.steps
+        if names:
+            # namesに含まれていないチャンネルを取得
+            ch_objs = [self[name] for name in names if name not in self.names]
+        else:
+            ch_objs = list(self.dict.values())
+        chs = [x.ch for x in ch_objs]
+        names = [x.name for x in ch_objs]
+        units = [x.unit for x in ch_objs]
+        data = {x.ch: x.remove_data(steps) for x in ch_objs}
+        from .channel_group import ChannelGroup
+
+        return ChannelGroup(chs, names, units, steps, data)
+
     def remove_none(self):
         """
         全てのチャンネルからNone値を同期的に除外した新しいChannelGroupを返します。

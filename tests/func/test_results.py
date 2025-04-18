@@ -83,13 +83,23 @@ class Test_results:
         ]
 
         count = 1
+        from src.tascpy.utils.data import detect_outliers_ratio
+
         for d in dived_pos:
+            outliers = detect_outliers_ratio(d["梁変位ﾜｲﾔ"].data, 5, 0.2)
+            remove_steps = [d.steps[i] for i, x in outliers]
+            if not remove_steps:
+                continue
+            d_removed_outliers = d.remove_data(names=None, steps=remove_steps)
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            smoothed = smooth_data(d["梁変位ﾜｲﾔ"].data, 10)
-            diff = diff_step(smoothed)
-            markers = cycle_count(diff, step=1)
-            dv = d.split_by_integers(markers)
-            dv[0].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax)
-            dv[1].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax)
+            d_removed_outliers.plot_xy(
+                "梁変位ﾜｲﾔ", "P_total", ax=ax, marker="^", color="r"
+            )
             plt.show()
+            # max_index = d["梁変位ﾜｲﾔ"].max_index
+            # splitted = d.split_at_indices(max_index + 1)
+            # splitted[0].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax, marker="o")
+            # splitted[1].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax, marker="^")
+            # ax.set_title(f"step {count}")
+            # plt.show()

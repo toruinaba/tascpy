@@ -1,4 +1,5 @@
-from typing import Union
+from typing import Union, List, Optional
+
 
 def cycle_count(data: Union[float, bool, None], step=0.5):
     cycle = [1.0]
@@ -10,3 +11,169 @@ def cycle_count(data: Union[float, bool, None], step=0.5):
             cycle.append(cycle[i - 1])
     markers = [int(c) for c in cycle]
     return markers
+
+
+def calclate_slopes(x_data, y_data):
+    if len(x_data) != len(y_data):
+        raise ValueError("XとYのデータの長さは一致する必要があります")
+
+    if len(x_data) < 2:
+        raise ValueError("2つ以上のデータポイントが必要です")
+    slopes = []
+    for i in range(1, len(x_data)):
+        slope = (y_data[i] - y_data[i - 1]) / (x_data[i] - x_data[i - 1])
+        slopes.append(slope)
+    return slopes
+
+
+def calculate_slope_average(x_data, y_data):
+    slopes = calclate_slopes(x_data, y_data)
+    return sum(slopes) / len(slopes)
+
+
+def find_index_of_similar_value(data, target, comparison_mode="closest"):
+    if not data:
+        raise ValueError("データリストは空ではいけません")
+
+    if comparison_mode == "closest":
+        closest_index = min(range(len(data)), key=lambda i: abs(data[i] - target))
+        return closest_index
+    elif comparison_mode == "more_than":
+        for i, value in enumerate(data):
+            if value > target:
+                return i
+        return -1
+    elif comparison_mode == "less_than":
+        for i, value in enumerate(data):
+            if value < target:
+                return i
+        return -1
+    else:
+        raise ValueError(
+            "comparison_modeは'closest'、'more_than'、または'less_than'のいずれかである必要があります"
+        )
+
+
+def extract_range_indices_by_ratio(
+    data: List[float], r_lower: float, r_upper: float
+) -> List[float]:
+    if not data:
+        raise ValueError("データリストは空ではいけません")
+
+    # r_lower と r_upper の範囲チェック
+    if not (0 <= r_lower <= 1):
+        raise ValueError("r_lowerは0以上1以下である必要があります")
+    if not (0 <= r_upper <= 1):
+        raise ValueError("r_upperは0以上1以下である必要があります")
+    if r_lower > r_upper:
+        raise ValueError("r_lowerはr_upper以下である必要があります")
+
+    # 最大値を計算
+    max_value = max(data)  # None を除外して最大値を計算
+
+    # 比率に基づく範囲を計算
+    lower_bound = max_value * r_lower
+    upper_bound = max_value * r_upper
+
+    # 範囲のインデックスを取得
+    start_index = find_index_of_similar_value(
+        data, lower_bound, comparison_mode="more_than"
+    )
+    end_index = find_index_of_similar_value(
+        data, upper_bound, comparison_mode="less_than"
+    )
+
+    return start_index, end_index
+
+
+def calculate_ranged_slope_average(
+    x_data: List[float],
+    y_data: List[float],
+    r_lower: float,
+    r_upper: float,
+    base_on: str = "y",
+) -> Optional[float]:
+    """指定された範囲に基づいて傾きを計算する関数
+    Args:
+        x_data: X軸のデータ
+        y_data: Y軸のデータ
+        r_lower: 範囲の下限比率 (0から1の間)
+        r_upper: 範囲の上限比率 (0から1の間)
+        base_on: "x" または "y" のいずれかを指定。範囲の基準を指定
+    Returns:
+        指定された範囲に基づく平均傾き
+    """
+    if base_on == "x":
+        start_index, end_index = extract_range_indices_by_ratio(
+            x_data, r_lower, r_upper
+        )
+    elif base_on == "y":
+        start_index, end_index = extract_range_indices_by_ratio(
+            y_data, r_lower, r_upper
+        )
+    else:
+        raise ValueError("base_onは'x'または'y'である必要があります")
+    if start_index == -1 or end_index == -1:
+        raise ValueError("指定された範囲にデータが存在しません")
+    if start_index >= end_index:
+        raise ValueError("start_indexはend_indexより小さい必要があります")
+    return calculate_slope_average(
+        x_data[start_index : end_index + 1], y_data[start_index : end_index + 1]
+    )
+
+
+def find_general_yield_point(
+    displacements: List[float],
+    loads: List[float],
+    r_lower: float = 0.3,
+    r_upper: float = 0.7,
+    factor: float = 0.33,
+) -> Optional[float]:
+    """降伏点を計算する関数
+    Args:
+        displacements: 変位データ
+        loads: 荷重データ
+        r_lower: 範囲の下限比率 (0から1の間)
+        r_upper: 範囲の上限比率 (0から1の間)
+        base_on: "x" または "y" のいずれかを指定。範囲の基準を指定
+    Returns:
+        降伏点(index)
+    """
+    initial_slope = calculate_ranged_slope_average(
+        displacements, loads, r_lower, r_upper, base_on="y"
+    )
+    if initial_slope is None:
+        return None
+    slopes = calclate_slopes(displacements, loads)
+    yield_index = find_index_of_similar_value(
+        slopes, initial_slope * factor, "more_than"
+    )
+    return loads[yield_index], displacements[yield_index]
+
+
+def offset_yield_point(
+    displacements: List[float],
+    loads: List[float],
+    offset_value: float = 0.2,
+    r_lower: float = 0.3,
+    r_upper: float = 0.7,
+) -> Optional[float]:
+    """オフセット降伏点を計算する関数
+    Args:
+        displacements: 変位データ
+        loads: 荷重データ
+        r_lower: 範囲の下限比率 (0から1の間)
+        r_upper: 範囲の上限比率 (0から1の間)
+        base_on: "x" または "y" のいずれかを指定。範囲の基準を指定
+    Returns:
+        降伏点(index)
+    """
+    initial_slope = calculate_ranged_slope_average(
+        displacements, loads, r_lower, r_upper, base_on="y"
+    )
+    if initial_slope is None:
+        return None
+    offset_displacements = [offset_value + d * initial_slope for d in displacements]
+    differences = [offset - load for offset, load in zip(offset_displacements, loads)]
+    yield_index = find_index_of_similar_value(differences, 0.0, "closest")
+    return loads[yield_index], displacements[yield_index]
