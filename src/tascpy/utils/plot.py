@@ -33,6 +33,82 @@ def add_point(
     return ax
 
 
+def add_vertical_line(
+    ax: Optional[plt.Axes], x_data: float, text: Optional[str] = None
+) -> Optional[plt.Axes]:
+    """垂直線をプロットする関数"""
+    ax.axvline(x=x_data, color="gray", linestyle="--")
+    if text:
+        ax.text(
+            x_data,
+            ax.get_ylim()[1],
+            text,
+            fontsize=8,
+            color="gray",
+            ha="center",
+            va="bottom",
+        )
+    return ax
+
+
+def add_horizontal_line(
+    ax: Optional[plt.Axes], y_data: float, text: Optional[str] = None
+) -> Optional[plt.Axes]:
+    """水平線をプロットする関数"""
+    ax.axhline(y=y_data, color="gray", linestyle="--")
+    if text:
+        ax.text(
+            ax.get_xlim()[1],
+            y_data,
+            text,
+            fontsize=8,
+            color="gray",
+            ha="right",
+            va="center",
+        )
+    return ax
+
+
+def add_origin_line(
+    ax: Optional[plt.Axes], slope: float, text: Optional[str] = None
+) -> Optional[plt.Axes]:
+    """原点を通る直線をプロットする関数"""
+    ax.axline((0, 0), slope=slope, color="gray", linestyle="--")
+    if text:
+        ax.text(
+            ax.get_xlim()[1],
+            slope * ax.get_xlim()[1],
+            text,
+            fontsize=8,
+            color="gray",
+            ha="right",
+            va="center",
+        )
+    return ax
+
+
+def add_line_with_slope(
+    ax: Optional[plt.Axes],
+    slope: float,
+    point: tuple,
+    text: Optional[str] = None,
+) -> Optional[plt.Axes]:
+    """指定した傾きと点を通る直線をプロットする関数"""
+    ax.axline(point, slope=slope, color="gray", linestyle="--")
+    if text:
+        x_data, y_data = point
+        ax.text(
+            x_data,
+            y_data,
+            text,
+            fontsize=8,
+            color="gray",
+            ha="right",
+            va="center",
+        )
+    return ax
+
+
 def add_x_max(
     ax: Optional[plt.Axes],
     x_data: List[float],

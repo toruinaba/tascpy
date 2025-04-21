@@ -87,7 +87,6 @@ class Test_results:
 
         for d in dived_pos:
             outliers = detect_outliers_ratio(d["梁変位ﾜｲﾔ"].data, 3, 0.1)
-            print(outliers)
             remove_steps = [d.steps[i] for i, x in outliers]
             if not remove_steps:
                 d_removed_outliers = d
@@ -121,3 +120,77 @@ class Test_results:
 
             add_point(ax, yield_point[1], yield_point[0])
             plt.show()
+
+    def test_03(self):
+        path = Path("./data/W-N.txt")
+        with tp.Reader(path) as f:
+            res = tp.Experiment.load(f)
+        pd = res.extract_data(["P_total", "梁変位ﾜｲﾔ"])
+        pd_rmn = pd.remove_none()
+        pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(["P_total", "梁変位ﾜｲﾔ"])
+        p = pd_rmdup["P_total"].data
+        d = pd_rmdup["梁変位ﾜｲﾔ"].data
+        from src.tascpy.utils.data import detect_outliers_ratio
+
+        d_outliers = detect_outliers_ratio(d, 3, 0.1)
+        remove_steps = [pd_rmdup.steps[i] for i, x in d_outliers]
+        if not remove_steps:
+            pd_removed_outliers = pd_rmdup
+        else:
+            pd_removed_outliers = pd_rmdup.remove_data(names=None, steps=remove_steps)
+        ax = pd_removed_outliers.plot_xy(
+            "梁変位ﾜｲﾔ", "P_total", linewidth=0.5, label="removed outliers"
+        )
+        pd_rmdup.plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax, linewidth=0.5, label="original")
+        plt.show()
+        markers = cycle_count(pd_removed_outliers["P_total"].data)
+        dived = pd_removed_outliers.split_by_integers(markers)
+        from src.tascpy.plugins.load_displacement import extend_data_edge
+
+        p_ske = []
+        d_ske = []
+        p_max = 0.0
+        for d in dived:
+            d_offset = 0.0
+            p = d["P_total"].data
+            d = d["梁変位ﾜｲﾔ"].data
+            for i in range(len(p)):
+                if p[i] > p_max:
+                    p_max = p[i]
+                    if d_offset == 0.0:
+                        if len(p_ske) >= 2:
+                            x, _ = extend_data_edge(d_ske, p_ske, p[i], "y", "end")
+                            d_offset = x - d[i]
+                    p_ske.append(p[i])
+                    d_ske.append(d[i] + d_offset)
+
+        from src.tascpy.plugins.load_displacement import (
+            find_general_yield_point,
+            find_offset_yield_point,
+        )
+
+        p_smooth = p_ske
+        d_smooth = d_ske
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(d_smooth, p_smooth, label="smoothed")
+        py1, dy1, stiff1 = find_general_yield_point(
+            d_smooth, p_smooth, r_lower=0.33, r_upper=0.66
+        )
+        py2, dy2, stiff2 = find_offset_yield_point(
+            d_smooth, p_smooth, offset_value=2, r_lower=0.33, r_upper=0.66
+        )
+        print(f"yield_point: {py1}, {dy1}, {stiff1}")
+        from src.tascpy.utils.plot import (
+            add_point,
+            add_vertical_line,
+            add_origin_line,
+            add_line_with_slope,
+        )
+
+        add_origin_line(ax=ax, slope=stiff1, text="slope1")
+        add_line_with_slope(ax=ax, slope=stiff2, point=(2, 0), text="slope2")
+        add_point(ax, dy1, py1, text="yield_point")
+        add_point(ax, dy2, py2, text="offset_yield_point")
+        ax.legend()
+        plt.show()

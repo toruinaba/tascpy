@@ -190,7 +190,7 @@ def find_general_yield_point(
         slopes, initial_slope * factor, "less_than"
     )
     print(f"yield_index: {yield_index}")  # デバッグ用
-    return loads[yield_index], displacements[yield_index]
+    return loads[yield_index], displacements[yield_index], initial_slope
 
 
 def find_offset_yield_point(
@@ -220,7 +220,7 @@ def find_offset_yield_point(
     ]
     differences = [offset - load for offset, load in zip(offset_displacements, loads)]
     yield_index = find_index_of_similar_value(differences, 0.0, "closest")
-    return loads[yield_index], displacements[yield_index]
+    return loads[yield_index], displacements[yield_index], initial_slope
 
 
 def extend_data_edge(
