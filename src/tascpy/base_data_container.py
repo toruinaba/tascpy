@@ -221,7 +221,7 @@ class DataExtractionMixin:
             idxs = [self.steps.index(x) for x in steps]
         else:
             idxs = list(range(len(self.steps)))
-            steps = self.steps
+            steps = []
         if names:
             # namesに含まれていないチャンネルを取得
             ch_objs = [self[name] for name in names if name not in self.names]
@@ -231,9 +231,10 @@ class DataExtractionMixin:
         names = [x.name for x in ch_objs]
         units = [x.unit for x in ch_objs]
         data = {x.ch: x.remove_data(steps) for x in ch_objs}
+        remaining_steps = [step for step in self.steps if step not in steps]
         from .channel_group import ChannelGroup
 
-        return ChannelGroup(chs, names, units, steps, data)
+        return ChannelGroup(chs, names, units, remaining_steps, data)
 
     def remove_none(self):
         """
@@ -724,8 +725,9 @@ class BaseDataContainer(ABC):
         self.dict = data
 
     @abstractmethod
-    def __getitem__(self, item) -> Channel:
+    def __getitem__(self, item: Union[str, int]) -> Channel:
         """キーを指定してChannelオブジェクトにアクセスする"""
+
         if item in self.names:
             ch = self.chs[self.names.index(item)]
             return self.dict[ch]
