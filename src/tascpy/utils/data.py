@@ -409,6 +409,30 @@ def resample_data(
     return resampled_data.tolist()
 
 
+def moving_average(
+    data: List[float], window_size: int = 3, edge_handling="asymmetric"
+) -> List[float]:
+    # 移動平均を計算
+    moving_avg = []
+    half_window = window_size // 2
+
+    for i in range(len(data)):
+        if edge_handling == "symmetric":
+            start = max(0, i - half_window)
+            end = min(len(data), i + half_window + 1)
+            window = data[start:end]
+        else:  # asymmetric
+            if i < half_window:  # 左端
+                window = data[0 : i + half_window + 1]
+            elif i >= len(data) - half_window:  # 右端
+                window = data[i - half_window :]
+            else:  # 中央部
+                window = data[i - half_window : i + half_window + 1]
+
+        moving_avg.append(sum(window) / len(window))
+    return moving_avg
+
+
 def smooth_data(data: List[float], window_size: int = 3) -> List[float]:
     """
     移動平均によるデータのスムージングを行います。
@@ -456,6 +480,7 @@ def smooth_data(data: List[float], window_size: int = 3) -> List[float]:
         if x is not None:
             valid_data.append(x)
         else:
+            print("None値を検出しました。前後の有効な値で補間します。")
             # None値の補間（前後の有効な値の平均）
             if valid_data:  # 前に有効な値がある場合
                 if len(valid_data) > 0:
@@ -478,35 +503,32 @@ def smooth_data(data: List[float], window_size: int = 3) -> List[float]:
         if valid_data[i] is None:
             valid_data[i] = first_valid
 
-    result = []
-    half_window = window_size // 2
-
     # 移動平均を計算
-    for i in range(len(data)):
-        # 平均を計算する範囲を決定
-        start = max(0, i - half_window)
-        end = min(len(valid_data), i + half_window + 1)
-
-        # 現在の範囲のデータを収集
-        window_data = valid_data[start:end]
-
-        # 平均値を計算
-        window_avg = sum(window_data) / len(window_data)
-        result.append(round(window_avg, 2))
-
+    result = moving_average(
+        valid_data, window_size=window_size, edge_handling="asymmetric"
+    )
     return result
 
 
 def detect_outliers_ratio(
-    data: List[float], window_size: int = 3, threshold: float = 0.5
+    data: List[float],
+    window_size: int = 3,
+    threshold: float = 0.5,
+    edge_handling: str = "asymmetric",
+    min_abs_value: float = 1e-10,
+    scale_factor: float = 1.0,
 ) -> List[Tuple[int, float]]:
     """
-    移動平均との差分比率を用いた異常値検出。
+    移動平均との差分比率を用いた異常値検出。より安定した検出のため、
+    データのスケールを考慮し、小さな値での誤検出を防ぎます。
 
     Args:
         data: 入力データリスト
-        window_size: 移動平均のウィンドウサイズ
+        window_size: 移動平均のウィンドウサイズ（奇数推奨）
         threshold: 異常値とみなす移動平均との差分比率の閾値
+        edge_handling: エッジ処理方法 ("symmetric", "asymmetric")
+        min_abs_value: 比率計算時の最小絶対値
+        scale_factor: スケール調整係数
 
     Returns:
         List[Tuple[int, float]]: 異常値のインデックスと値のリスト
@@ -514,20 +536,28 @@ def detect_outliers_ratio(
     if len(data) < window_size:
         raise ValueError("データ長がウィンドウサイズより小さいです")
 
-    # 移動平均を計算
-    moving_avg = []
-    for i in range(len(data)):
-        start = max(0, i - window_size // 2)
-        end = min(len(data), i + window_size // 2 + 1)
-        window = data[start:end]
-        moving_avg.append(sum(window) / len(window))
+    if edge_handling not in ["symmetric", "asymmetric"]:
+        raise ValueError("無効なエッジ処理方法です")
 
-    # 異常値を検出
+    # データの特性を把握
+    data_mean = sum(data) / len(data)
+    data_std = (sum((x - data_mean) ** 2 for x in data) / len(data)) ** 0.5
+    reference_value = max(data_std * scale_factor, min_abs_value)
+
+    moving_avg = moving_average(
+        data, window_size=window_size, edge_handling=edge_handling
+    )
+
+    # 異常値を検出（改善版）
     outliers = []
     for i, value in enumerate(data):
-        if moving_avg[i] != 0:  # 移動平均が0でない場合のみ比率を計算
-            ratio = abs(value - moving_avg[i]) / moving_avg[i]
-            if ratio > threshold:
+        avg = moving_avg[i]
+        diff = abs(value - avg)
+        denominator = max(abs(avg), reference_value)
+
+        if diff / denominator > threshold:
+            # 差分が最小閾値より大きい場合のみ異常値とする
+            if diff > min_abs_value:
                 outliers.append((i, value))
 
     return outliers

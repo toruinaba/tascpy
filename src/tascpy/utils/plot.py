@@ -2,10 +2,13 @@
 from typing import Optional, Union, List
 from matplotlib import pyplot as plt
 
-plt.rcParams['font.family'] = 'IPAGothic'
 
-
-def plot_data(ax: Optional[plt.Axes], x_data: Union[List, float], y_data: Union[List, float], **kwargs: dict) -> Optional[plt.Axes]:
+def plot_data(
+    ax: Optional[plt.Axes],
+    x_data: Union[List, float],
+    y_data: Union[List, float],
+    **kwargs: dict,
+) -> Optional[plt.Axes]:
     """プロットする関数"""
     if not isinstance(x_data, list):
         x_data = [x_data]
@@ -19,14 +22,23 @@ def plot_data(ax: Optional[plt.Axes], x_data: Union[List, float], y_data: Union[
         ax.plot(x_data, y_data, **kwargs)
     return ax
 
-def add_point(ax: Optional[plt.Axes], x_data: float, y_data: float, text: Optional[str]=None) -> Optional[plt.Axes]:
+
+def add_point(
+    ax: Optional[plt.Axes], x_data: float, y_data: float, text: Optional[str] = None
+) -> Optional[plt.Axes]:
     """最大値をプロットする関数"""
     ax.scatter([x_data], [y_data], marker="o", color="r")
     if text:
         ax.text(x_data, y_data, text, fontsize=8, color="red", ha="center", va="bottom")
     return ax
 
-def add_x_max(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], text: Optional[str]=None) -> Optional[plt.Axes]:
+
+def add_x_max(
+    ax: Optional[plt.Axes],
+    x_data: List[float],
+    y_data: List[float],
+    text: Optional[str] = None,
+) -> Optional[plt.Axes]:
     """最大値をプロットする関数"""
     max_index = y_data.index(max(y_data))
     x_max = x_data[max_index]
@@ -36,7 +48,13 @@ def add_x_max(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], 
     ax = add_point(ax, x_max, y_max, text)
     return ax
 
-def add_x_min(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], text: Optional[str]=None) -> Optional[plt.Axes]:
+
+def add_x_min(
+    ax: Optional[plt.Axes],
+    x_data: List[float],
+    y_data: List[float],
+    text: Optional[str] = None,
+) -> Optional[plt.Axes]:
     """最小値をプロットする関数"""
     min_index = y_data.index(min(y_data))
     x_min = x_data[min_index]
@@ -46,7 +64,13 @@ def add_x_min(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], 
     ax = add_point(ax, x_min, y_min, text)
     return ax
 
-def add_y_max(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], text: Optional[str]=None) -> Optional[plt.Axes]:
+
+def add_y_max(
+    ax: Optional[plt.Axes],
+    x_data: List[float],
+    y_data: List[float],
+    text: Optional[str] = None,
+) -> Optional[plt.Axes]:
     """最大値をプロットする関数"""
     max_index = x_data.index(max(x_data))
     x_max = x_data[max_index]
@@ -56,7 +80,13 @@ def add_y_max(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], 
     ax = add_point(ax, x_max, y_max, text)
     return ax
 
-def add_y_min(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], text: Optional[str]=None) -> Optional[plt.Axes]:
+
+def add_y_min(
+    ax: Optional[plt.Axes],
+    x_data: List[float],
+    y_data: List[float],
+    text: Optional[str] = None,
+) -> Optional[plt.Axes]:
     """最小値をプロットする関数"""
     min_index = x_data.index(min(x_data))
     x_min = x_data[min_index]
@@ -66,11 +96,13 @@ def add_y_min(ax: Optional[plt.Axes], x_data: List[float], y_data: List[float], 
     ax = add_point(ax, x_min, y_min, text)
     return ax
 
-def set_axis(ax: plt.Axes, x_label: str, y_label: str, title: Optional[str]=None) -> plt.Axes:
+
+def set_axis(
+    ax: plt.Axes, x_label: str, y_label: str, title: Optional[str] = None
+) -> plt.Axes:
     """軸の設定を行う関数"""
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     if title:
         ax.set_title(title)
     return ax
-

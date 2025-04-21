@@ -26,6 +26,41 @@ def calclate_slopes(x_data, y_data):
     return slopes
 
 
+def interpolate_linear(
+    value: float, p1: tuple[float, float], p2: tuple[float, float], direction: str = "x"
+) -> tuple[float, float]:
+    """2点間の線形補間/外挿を行う関数
+
+    Args:
+        value: 補間/外挿したい値（directionで指定した軸の値）
+        p1: 既知の点1の座標 (x1, y1)
+        p2: 既知の点2の座標 (x2, y2)
+        direction: 補間の方向。'x'または'y'を指定
+
+    Returns:
+        補間/外挿された点の座標 (x, y)
+
+    Raises:
+        ValueError: 同じ座標を持つ2点が与えられた場合
+        ValueError: 不正なdirectionが指定された場合
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+
+    if direction == "x":
+        if x1 == x2:
+            raise ValueError("x1 と x2 は異なる値である必要があります")
+        y = y1 + (y2 - y1) * (value - x1) / (x2 - x1)
+        return (value, y)
+    elif direction == "y":
+        if y1 == y2:
+            raise ValueError("y1 と y2 は異なる値である必要があります")
+        x = x1 + (x2 - x1) * (value - y1) / (y2 - y1)
+        return (x, value)
+    else:
+        raise ValueError("directionは'x'または'y'である必要があります")
+
+
 def calculate_slope_average(x_data, y_data):
     slopes = calclate_slopes(x_data, y_data)
     return sum(slopes) / len(slopes)
@@ -74,14 +109,18 @@ def extract_range_indices_by_ratio(
     # 比率に基づく範囲を計算
     lower_bound = max_value * r_lower
     upper_bound = max_value * r_upper
+    print(
+        f"max: {max_value}, lower_bound: {lower_bound}, upper_bound: {upper_bound}"
+    )  # デバッグ用
 
     # 範囲のインデックスを取得
     start_index = find_index_of_similar_value(
-        data, lower_bound, comparison_mode="more_than"
+        data, lower_bound, comparison_mode="closest"
     )
     end_index = find_index_of_similar_value(
-        data, upper_bound, comparison_mode="less_than"
+        data, upper_bound, comparison_mode="closest"
     )
+    print(f"start_index: {start_index}, end_index: {end_index}")  # デバッグ用
 
     return start_index, end_index
 
@@ -142,12 +181,15 @@ def find_general_yield_point(
     initial_slope = calculate_ranged_slope_average(
         displacements, loads, r_lower, r_upper, base_on="y"
     )
+    print(f"initial_slope: {initial_slope}")  # デバッグ用
     if initial_slope is None:
         return None
     slopes = calclate_slopes(displacements, loads)
+    print(f"slopes: {slopes}")  # デバッグ用
     yield_index = find_index_of_similar_value(
-        slopes, initial_slope * factor, "more_than"
+        slopes, initial_slope * factor, "less_than"
     )
+    print(f"yield_index: {yield_index}")  # デバッグ用
     return loads[yield_index], displacements[yield_index]
 
 
@@ -175,5 +217,5 @@ def offset_yield_point(
         return None
     offset_displacements = [offset_value + d * initial_slope for d in displacements]
     differences = [offset - load for offset, load in zip(offset_displacements, loads)]
-    yield_index = find_index_of_similar_value(differences, 0.0, "closest")
+    yield_index = find_index_of_similar_value(differences, 0.0, "closestbggb")
     return loads[yield_index], displacements[yield_index]

@@ -86,20 +86,38 @@ class Test_results:
         from src.tascpy.utils.data import detect_outliers_ratio
 
         for d in dived_pos:
-            outliers = detect_outliers_ratio(d["梁変位ﾜｲﾔ"].data, 5, 0.2)
+            outliers = detect_outliers_ratio(d["梁変位ﾜｲﾔ"].data, 3, 0.1)
+            print(outliers)
             remove_steps = [d.steps[i] for i, x in outliers]
             if not remove_steps:
-                continue
-            d_removed_outliers = d.remove_data(names=None, steps=remove_steps)
+                d_removed_outliers = d
+            else:
+                d_removed_outliers = d.remove_data(names=None, steps=remove_steps)
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            d_removed_outliers.plot_xy(
-                "梁変位ﾜｲﾔ", "P_total", ax=ax, marker="^", color="r"
+            max_index = d_removed_outliers["梁変位ﾜｲﾔ"].max_index
+            splitted = d_removed_outliers.split_at_indices(max_index + 1)
+            splitted[0].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax)
+            splitted[1].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax)
+            ax.set_title(f"step {count}")
+
+            from src.tascpy.plugins.load_displacement import (
+                find_general_yield_point,
+                offset_yield_point,
             )
+
+            p = splitted[0]["P_total"].data
+            d = splitted[0]["梁変位ﾜｲﾔ"].data
+            p_smooth = smooth_data(p, 3)
+            d_smooth = smooth_data(d, 3)
+            print(len(d_smooth), len(p_smooth))
+            print(len(d), len(p))
+            ax.plot(d_smooth, p_smooth, label="smoothed")
+            yield_point = offset_yield_point(
+                d, p, offset_value=2, r_lower=0.1, r_upper=0.3
+            )
+            print(f"yield_point: {yield_point}")
+            from src.tascpy.utils.plot import add_point
+
+            add_point(ax, yield_point[1], yield_point[0])
             plt.show()
-            # max_index = d["梁変位ﾜｲﾔ"].max_index
-            # splitted = d.split_at_indices(max_index + 1)
-            # splitted[0].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax, marker="o")
-            # splitted[1].plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax, marker="^")
-            # ax.set_title(f"step {count}")
-            # plt.show()
