@@ -193,7 +193,7 @@ def find_general_yield_point(
     return loads[yield_index], displacements[yield_index]
 
 
-def offset_yield_point(
+def find_offset_yield_point(
     displacements: List[float],
     loads: List[float],
     offset_value: float = 0.2,
@@ -219,3 +219,63 @@ def offset_yield_point(
     differences = [offset - load for offset, load in zip(offset_displacements, loads)]
     yield_index = find_index_of_similar_value(differences, 0.0, "closestbggb")
     return loads[yield_index], displacements[yield_index]
+
+
+def extend_data_edge(
+    x_data: List[float],
+    y_data: List[float],
+    target: float,
+    target_type: str = "x",  # "x" または "y"
+    extend_position: str = "end",  # "start" または "end"
+):
+    """指定された方向にデータを延長する関数
+
+    Args:
+        x_data: X軸のデータ
+        y_data: Y軸のデータ
+        target: 拡張したい値
+        target_type: ターゲットの値の種類。'x'または'y'を指定
+        extend_position: 延長する位置。"start"または"end"を指定
+    Returns:
+        拡張されたデータ (x, y)
+
+    Raises:
+        ValueError: 不正なdirectionまたはextend_positionが指定された場合
+    """
+    if extend_position == "end":
+        if target_type == "x":
+            x, y = interpolate_linear(
+                target,
+                (x_data[-2], y_data[-2]),
+                (x_data[-1], y_data[-1]),
+                direction="x",
+            )
+        elif target_type == "y":
+            x, y = interpolate_linear(
+                target,
+                (x_data[-2], y_data[-2]),
+                (x_data[-1], y_data[-1]),
+                direction="y",
+            )
+        else:
+            raise ValueError("target_typeは'x'または'y'である必要があります")
+    elif extend_position == "start":
+        if target_type == "x":
+            x, y = interpolate_linear(
+                target,
+                (x_data[0], y_data[0]),
+                (x_data[1], y_data[1]),
+                direction="x",
+            )
+        elif target_type == "y":
+            x, y = interpolate_linear(
+                target,
+                (x_data[0], y_data[0]),
+                (x_data[1], y_data[1]),
+                direction="y",
+            )
+        else:
+            raise ValueError("target_typeは'x'または'y'である必要があります")
+    else:
+        raise ValueError("extend_positionは'start'または'end'である必要があります")
+    return x, y
