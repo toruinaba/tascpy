@@ -118,6 +118,52 @@ class PlottingMixin:
             ax = add_y_min(ax, x_data, y_data)
         return ax
 
+    def plot_const_x(
+        self, step: int, x: List[float], y: Union[List[str], str], ax=None, **kwargs
+    ):
+        """X軸固定プロット
+
+        Args:
+            step: 固定するステップ
+            x: X軸の値リスト
+            y: Y軸の名前リスト
+            ax: プロット先の軸
+            **kwargs: plot_helperに渡す追加引数
+
+        Returns:
+            プロット結果
+        """
+        step_obj: Step = self.fetch_step(step)
+        if ax is None:
+            from matplotlib import pyplot as plt
+
+            fig, ax = plt.subplots()
+        step_obj.plot_const_x(x, y, ax=ax, **kwargs)
+        return ax
+
+    def plot_const_y(
+        self, step: int, y: List[float], x: Union[List[str], str], ax=None, **kwargs
+    ):
+        """Y軸固定プロット
+
+        Args:
+            step: 固定するステップ
+            y: Y軸の値リスト
+            x: X軸の名前リスト
+            ax: プロット先の軸
+            **kwargs: plot_helperに渡す追加引数
+
+        Returns:
+            プロット結果
+        """
+        step_obj: Step = self.fetch_step(step)
+        if ax is None:
+            from matplotlib import pyplot as plt
+
+            fig, ax = plt.subplots()
+        step_obj.plot_const_y(y, x, ax=ax, **kwargs)
+        return ax
+
 
 class DataExtractionMixin:
     """データ抽出機能を提供するMixin"""
