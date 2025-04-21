@@ -215,9 +215,11 @@ def find_offset_yield_point(
     )
     if initial_slope is None:
         return None
-    offset_displacements = [offset_value + d * initial_slope for d in displacements]
+    offset_displacements = [
+        d * initial_slope - initial_slope * offset_value for d in displacements
+    ]
     differences = [offset - load for offset, load in zip(offset_displacements, loads)]
-    yield_index = find_index_of_similar_value(differences, 0.0, "closestbggb")
+    yield_index = find_index_of_similar_value(differences, 0.0, "closest")
     return loads[yield_index], displacements[yield_index]
 
 
