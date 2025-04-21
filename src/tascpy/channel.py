@@ -29,6 +29,35 @@ class Channel:
     def __getitem__(self, i) -> Cell:
         return Cell(self.ch, self.name, self.name, self.steps[i], self.data[i])
 
+    def __repr__(self) -> str:
+        return str(self.data)
+
+    def __len__(self) -> int:
+        """データ数"""
+        return len(self.data)
+
+    def __iter__(self):
+        """イテレータ"""
+        return iter(self.data)
+
+    def __eq__(self, other: "Channel") -> bool:
+        """チャンネル同士の比較"""
+        if not isinstance(other, Channel):
+            return False
+        return (
+            self.ch == other.ch
+            and self.name == other.name
+            and self.unit == other.unit
+            and self.steps == other.steps
+            and self.data == other.data
+        )
+
+    def __hash__(self) -> int:
+        """ハッシュ値"""
+        return hash(
+            (self.ch, self.name, self.unit, tuple(self.steps), tuple(self.data))
+        )
+
     @property
     def removed_data(self) -> List[Union[float, bool]]:
         """Noneを除くデータ"""
