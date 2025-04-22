@@ -207,41 +207,18 @@ class Test_results:
         else:
             pd_removed_outliers = pd_rmdup.remove_data(names=None, steps=remove_steps)
         max_index = pd_removed_outliers["P_total"].max_index
-        ax = pd_removed_outliers.plot_xy(
-            "梁変位ﾜｲﾔ", "P_total", linewidth=0.5, label="removed outliers"
-        )
 
         from src.tascpy.plugins.load_displacement import (
             create_skeleton_curve,
             cycle_count,
+            create_cumulative_curve,
         )
 
         p_cyc = pd_removed_outliers["P_total"].data
         d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].data
-
-        markers = cycle_count(p_cyc)
-        dived = pd_removed_outliers.split_by_integers(markers)
-        dived_pos = [
-            d.split_by_ref_ch_condition("P_total", lambda x: x > 0.0)[0] for d in dived
-        ]
-        p_acc = []
-        d_acc = []
-        for d in dived_pos:
-            p = d["P_total"].data
-            d = d["梁変位ﾜｲﾔ"].data
-            from src.tascpy.plugins.load_displacement import extend_data_edge
-
-            x_s, y_s = extend_data_edge(d, p, 0.0, "y", "start")
-            x_e, y_e = extend_data_edge(d, p, 0.0, "y", "end")
-            p_extended = [y_s] + p + [y_e]
-            d_extended = [x_s] + d + [x_e]
-            d_offset = d_acc[-1] - x_s if d_acc else 0.0
-            d_offsetted = [x + d_offset for x in d_extended]
-            p_acc += p_extended
-            d_acc += d_offsetted
-
+        p_cum, d_cum = create_cumulative_curve(d_cyc, p_cyc)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.plot(d_acc, p_acc, label="envelope")
+        ax.plot(d_cum, p_cum, label="envelope")
         # ax.plot(d_cyc, p_cyc, label="original")
         plt.show()
