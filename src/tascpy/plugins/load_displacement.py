@@ -368,3 +368,44 @@ def create_skeleton_curve(
                     "decrease_typeは'envelope', 'continous_only', 'both'のいずれかである必要があります"
                 )
     return p_ske, d_ske
+
+
+def create_cumulative_curve(displacements: List[float], loads: List[float]):
+    """累積曲線を作成する関数
+
+    Args:
+        displacements (List[float]):変位データのリスト
+        loads (List[float]): 荷重データのリスト
+    Returns:
+        Tuple[List[float], List[float]]: 累積荷重と累積変位のタプル
+    """
+    from ..utils.split import split_list_by_integers, split_list_by_condition
+
+    markers = cycle_count(loads)
+    splitted_loads = split_list_by_integers(loads, markers)
+    splitted_displacements = split_list_by_integers(displacements, markers)
+    p_cum = []
+    d_cum = []
+    for i in range(len(splitted_loads)):
+        load = splitted_loads[i]
+        displacement = splitted_displacements[i]
+        pos_idx = [
+            i for i, x in enumerate(load) if x >= 0.0
+        ]  # 荷重が正の値を持つインデックスを取得
+        neg_idx = [
+            i for i, x in enumerate(load) if x < 0.0
+        ]  # 荷重が負の値を持つインデックスを取得
+        pos_loads = [load[i] for i in pos_idx]
+        neg_loads = [load[i] for i in neg_idx]
+        pos_displacements = [displacement[i] for i in pos_idx]
+        neg_displacements = [displacement[i] for i in neg_idx]
+        x_s, y_s = extend_data_edge(pos_displacements, pos_loads, 0.0, "y", "start")
+        x_e, y_e = extend_data_edge(pos_displacements, pos_loads, 0.0, "y", "end")
+        p_extended = [y_s] + pos_loads + [y_e]
+        d_extended = [x_s] + pos_displacements + [x_e]
+        d_offset = d_cum[-1] - x_s if d_cum else 0.0
+        d_offsetted = [x + d_offset for x in d_extended]
+        p_cum += p_extended
+        d_cum += d_offsetted
+
+    return p_cum, d_cum
