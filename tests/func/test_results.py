@@ -138,47 +138,38 @@ class Test_results:
             pd_removed_outliers = pd_rmdup
         else:
             pd_removed_outliers = pd_rmdup.remove_data(names=None, steps=remove_steps)
+        max_index = pd_removed_outliers["P_total"].max_index
         ax = pd_removed_outliers.plot_xy(
             "梁変位ﾜｲﾔ", "P_total", linewidth=0.5, label="removed outliers"
         )
         pd_rmdup.plot_xy("梁変位ﾜｲﾔ", "P_total", ax=ax, linewidth=0.5, label="original")
         plt.show()
-        markers = cycle_count(pd_removed_outliers["P_total"].data)
-        dived = pd_removed_outliers.split_by_integers(markers)
-        from src.tascpy.plugins.load_displacement import extend_data_edge
 
-        p_ske = []
-        d_ske = []
-        p_max = 0.0
-        for d in dived:
-            d_offset = 0.0
-            p = d["P_total"].data
-            d = d["梁変位ﾜｲﾔ"].data
-            for i in range(len(p)):
-                if p[i] > p_max:
-                    p_max = p[i]
-                    if d_offset == 0.0:
-                        if len(p_ske) >= 2:
-                            x, _ = extend_data_edge(d_ske, p_ske, p[i], "y", "end")
-                            d_offset = x - d[i]
-                    p_ske.append(p[i])
-                    d_ske.append(d[i] + d_offset)
+        from src.tascpy.plugins.load_displacement import create_skeleton_curve
+
+        p_cyc = pd_removed_outliers["P_total"].data
+        d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].data
+        p_ske, d_ske = create_skeleton_curve(
+            d_cyc, p_cyc, has_decrease=True, decrease_type="envelope"
+        )
+        p_ske2, d_ske2 = create_skeleton_curve(
+            d_cyc, p_cyc, has_decrease=True, decrease_type="continuous_only"
+        )
 
         from src.tascpy.plugins.load_displacement import (
             find_general_yield_point,
             find_offset_yield_point,
         )
 
-        p_smooth = p_ske
-        d_smooth = d_ske
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.plot(d_smooth, p_smooth, label="smoothed")
+        ax.plot(d_ske, p_ske, label="envelope")
+        ax.plot(d_ske2, p_ske2, label="continuous_only")
         py1, dy1, stiff1 = find_general_yield_point(
-            d_smooth, p_smooth, r_lower=0.33, r_upper=0.66
+            d_ske, p_ske, r_lower=0.33, r_upper=0.66
         )
         py2, dy2, stiff2 = find_offset_yield_point(
-            d_smooth, p_smooth, offset_value=2, r_lower=0.33, r_upper=0.66
+            d_ske, p_ske, offset_value=2, r_lower=0.33, r_upper=0.66
         )
         print(f"yield_point: {py1}, {dy1}, {stiff1}")
         from src.tascpy.utils.plot import (
@@ -193,4 +184,64 @@ class Test_results:
         add_point(ax, dy1, py1, text="yield_point")
         add_point(ax, dy2, py2, text="offset_yield_point")
         ax.legend()
+        plt.show()
+
+    def test_04(self):
+        path = Path("./data/W-N.txt")
+        with tp.Reader(path) as f:
+            res = tp.Experiment.load(f)
+        pd = res.extract_data(["P_total", "梁変位ﾜｲﾔ"])
+        pd_rmn = pd.remove_none()
+        pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(
+            ["P_total", "梁変位ﾜｲﾔ"], dup_type="all"
+        )
+        p = pd_rmdup["P_total"].data
+        d = pd_rmdup["梁変位ﾜｲﾔ"].data
+        from src.tascpy.utils.data import detect_outliers_ratio
+
+        d_outliers = detect_outliers_ratio(d, 3, 0.1)
+        remove_steps = [pd_rmdup.steps[i] for i, x in d_outliers]
+        remove_steps = [pd_rmdup.steps[1]] + remove_steps
+        if not remove_steps:
+            pd_removed_outliers = pd_rmdup
+        else:
+            pd_removed_outliers = pd_rmdup.remove_data(names=None, steps=remove_steps)
+        max_index = pd_removed_outliers["P_total"].max_index
+        ax = pd_removed_outliers.plot_xy(
+            "梁変位ﾜｲﾔ", "P_total", linewidth=0.5, label="removed outliers"
+        )
+
+        from src.tascpy.plugins.load_displacement import (
+            create_skeleton_curve,
+            cycle_count,
+        )
+
+        p_cyc = pd_removed_outliers["P_total"].data
+        d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].data
+
+        markers = cycle_count(p_cyc)
+        dived = pd_removed_outliers.split_by_integers(markers)
+        dived_pos = [
+            d.split_by_ref_ch_condition("P_total", lambda x: x > 0.0)[0] for d in dived
+        ]
+        p_acc = []
+        d_acc = []
+        for d in dived_pos:
+            p = d["P_total"].data
+            d = d["梁変位ﾜｲﾔ"].data
+            from src.tascpy.plugins.load_displacement import extend_data_edge
+
+            x_s, y_s = extend_data_edge(d, p, 0.0, "y", "start")
+            x_e, y_e = extend_data_edge(d, p, 0.0, "y", "end")
+            p_extended = [y_s] + p + [y_e]
+            d_extended = [x_s] + d + [x_e]
+            d_offset = d_acc[-1] - x_s if d_acc else 0.0
+            d_offsetted = [x + d_offset for x in d_extended]
+            p_acc += p_extended
+            d_acc += d_offsetted
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(d_acc, p_acc, label="envelope")
+        # ax.plot(d_cyc, p_cyc, label="original")
         plt.show()

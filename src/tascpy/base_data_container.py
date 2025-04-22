@@ -277,7 +277,7 @@ class DataExtractionMixin:
             data=new_data,
         )
 
-    def remove_consecutive_duplicates_across(self, items: List[str]):
+    def remove_consecutive_duplicates_across(self, items: List[str], dup_type="all"):
         """
         複数のチャンネル間で共通の連続重複データを削除した新しいChannelGroupオブジェクトを返します。
 
@@ -315,15 +315,26 @@ class DataExtractionMixin:
 
         # 2番目以降のインデックスをチェック
         for i in range(1, data_length):
-            # いずれかのチャンネルで値が変化していれば、そのインデックスを保持
-            should_keep = False
-            for channel in channels:
-                if channel.data[i] != channel.data[i - 1]:
-                    should_keep = True
-                    break
-
-            if should_keep:
-                indices_to_keep.append(i)
+            if dup_type == "all":
+                # すべてのチャンネルで値が変化していれば、そのインデックスを保持
+                should_keep = True
+                for channel in channels:
+                    if channel.data[i] == channel.data[i - 1]:
+                        should_keep = False
+                        break
+                if should_keep:
+                    indices_to_keep.append(i)
+            elif dup_type == "any":
+                # いずれかのチャンネルで値が変化していれば、そのインデックスを保持
+                should_keep = False
+                for channel in channels:
+                    if channel.data[i] != channel.data[i - 1]:
+                        should_keep = True
+                        break
+                if should_keep:
+                    indices_to_keep.append(i)
+            else:
+                raise ValueError("typeは'all'または'any'である必要があります")
 
         # 新しいChannelGroupを作成
         new_data = {}

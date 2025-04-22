@@ -281,3 +281,90 @@ def extend_data_edge(
     else:
         raise ValueError("extend_positionは'start'または'end'である必要があります")
     return x, y
+
+
+def create_skeleton_curve(
+    displacements: List[float],
+    loads: List[float],
+    has_decrease: bool = False,
+    decrease_type: str = "envelope",
+):
+    """スケルトン曲線を作成する関数
+
+    Args:
+        displacements: 変位データ
+        loads: 荷重データ
+        has_decrease: 減少があるかどうか
+        decrease_type: 減少の種類。'envelope', 'continous_only', 'both'を指定
+
+    Returns:
+        スケルトン曲線のデータ (x, y)
+    """
+    from ..utils.split import split_list_by_integers
+
+    p_ske = []
+    d_ske = []
+    p_max = 0.0
+
+    markers = cycle_count(loads)
+    max_index = loads.index(max(loads))
+    max_marker = markers[max_index]
+    end_marker = markers[-1]
+    splitted_loads = split_list_by_integers(loads, markers)
+    splitted_disps = split_list_by_integers(displacements, markers)
+
+    for cyc in range(max_marker):
+        load = splitted_loads[cyc]
+        disp = splitted_disps[cyc]
+        d_offset = 0.0
+        for i in range(len(load)):
+            if load[i] > p_max:
+                p_max = load[i]
+                if d_offset == 0.0:
+                    if len(p_ske) >= 2:
+                        x, _ = extend_data_edge(d_ske, p_ske, load[i], "y", "end")
+                        d_offset = x - disp[i]
+                p_ske.append(load[i])
+                d_ske.append(disp[i] + d_offset)
+
+    if has_decrease:
+        for cyc in range(max_marker - 1, end_marker):
+            load = splitted_loads[cyc]
+            disp = splitted_disps[cyc]
+            load_max_index = load.index(max(load))
+            disp_max_index = disp.index(max(disp))
+            if decrease_type == "envelope":
+                p_end = load[disp_max_index]
+                d_end = disp[disp_max_index]
+                p_ske.append(p_end)
+                d_ske.append(d_end + d_offset)
+            elif decrease_type == "continuous_only":
+                if load_max_index == disp_max_index:
+                    continue
+                d_offset = 0.0
+                for i in range(load_max_index, disp_max_index + 1):
+                    if d_offset == 0.0:
+                        d_offset = d_ske[-1] - disp[i]
+                    if load[i] == p_ske[-1] and disp[i] + d_offset == d_ske[-1]:
+                        continue
+                    p_ske.append(load[i])
+                    d_ske.append(disp[i] + d_offset)
+            elif decrease_type == "both":
+                if load_max_index == disp_max_index:
+                    p_end = load[disp_max_index]
+                    d_end = disp[disp_max_index]
+                    p_ske.append(p_end)
+                else:
+                    d_offset = 0.0
+                    for i in range(load_max_index, disp_max_index + 1):
+                        if d_offset == 0.0:
+                            d_offset = d_ske[-1] - disp[i]
+                        if load[i] == p_ske[-1] and disp[i] + d_offset == d_ske[-1]:
+                            continue
+                        p_ske.append(load[i])
+                        d_ske.append(disp[i] + d_offset)
+            else:
+                raise ValueError(
+                    "decrease_typeは'envelope', 'continous_only', 'both'のいずれかである必要があります"
+                )
+    return p_ske, d_ske
