@@ -1,6 +1,7 @@
 from typing import Any, List, Dict, Union, Callable, Tuple
 from dataclasses import dataclass, asdict
 from pathlib import Path
+import copy
 
 from .cell import Cell
 from .utils.data import filter_with_indices
@@ -57,6 +58,22 @@ class Channel:
         return hash(
             (self.ch, self.name, self.unit, tuple(self.steps), tuple(self.data))
         )
+
+    def clone(self):
+        """チャンネルオブジェクトの複製"""
+        new_channel = Channel(
+            self.ch,
+            self.name,
+            self.unit,
+            copy.deepcopy(self.steps),
+            copy.deepcopy(self.data),
+        )
+        return new_channel
+
+    def apply(self, operation_name, transform_func, *args, **kwargs):
+        new_channel = self.clone()
+        new_channel.data = transform_func(self.data, *args, **kwargs)
+        return new_channel
 
     @property
     def removed_data(self) -> List[Union[float, bool]]:
@@ -118,6 +135,13 @@ class Channel:
     def absmin(self) -> float:
         """絶対値最小"""
         return min([abs(x) for x in self.removed_data])
+
+    @property
+    def ops(self):
+        """プロキシオブジェクトへの変換メソッド"""
+        from .operations import ChannelOperations
+
+        return ChannelOperations(self)
 
     def remove_none(self) -> "Channel":
         """
