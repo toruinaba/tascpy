@@ -15,6 +15,7 @@ def channel_operation(name=None):
         from ..operations import ChannelOperations
 
         setattr(ChannelOperations, func.__name__, operation_method)
+        print(f"set {func.__name__}")
         return func
 
     return decorator
