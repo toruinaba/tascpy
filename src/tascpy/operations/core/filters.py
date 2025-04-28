@@ -33,12 +33,17 @@ def filter_by_value(
 
     # 値のフィルタリング
     if tolerance is not None:
-        mask = (column.values >= value - tolerance) & (
-            column.values <= value + tolerance
-        )
+        mask = [
+            (val >= value - tolerance) and (val <= value + tolerance)
+            for val in column.values
+        ]
     else:
-        mask = column.values == value
+        mask = [val == value for val in column.values]
 
     # フィルタリングされたデータを新しいColumnCollectionに格納
-    filtered_data = {name: col[mask] for name, col in collection.columns.items()}
-    return ColumnCollection(collection.step[mask], filtered_data, collection.metadata)
+    filtered_data = {
+        name: [col[i] for i, m in enumerate(mask) if m]
+        for name, col in collection.columns.items()
+    }
+    filtered_step = [collection.step[i] for i, m in enumerate(mask) if m]
+    return ColumnCollection(filtered_step, filtered_data, collection.metadata)

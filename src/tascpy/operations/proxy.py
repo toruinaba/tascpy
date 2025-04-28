@@ -70,12 +70,12 @@ class CollectionOperations:
         current_collection = self.end()
 
         # ドメイン変換準備
-        prepared_collection = prepare_for_domain_conversion(
+        prepared_collection, mod_kwargs = prepare_for_domain_conversion(
             current_collection, target_domain=domain, **kwargs
         )
 
         domain_collection = DomainCollectionFactory.from_collection(
-            prepared_collection, domain, **kwargs
+            prepared_collection, domain, **mod_kwargs
         )
         return CollectionOperations(domain_collection, domain=domain)
 

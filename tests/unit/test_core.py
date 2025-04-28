@@ -188,7 +188,7 @@ class TestDomainConversion:
 
     def test_as_domain_method(self, timeseries_domain, basic_collection_for_domain):
         """as_domainメソッドのテスト"""
-        converted = basic_collection_for_domain.ops.as_domain()
+        converted = basic_collection_for_domain.ops.as_domain(domain="timeseries")
 
 
 # 統合テスト
@@ -228,10 +228,8 @@ def test_full_pipeline():
 
     # 時系列ドメインを登録
     class TimeSeriesCollection(ColumnCollection):
-        def __init__(
-            self, timestamps=None, columns=None, metadata=None, frequency=None
-        ):
-            super().__init__(step=timestamps, columns=columns, metadata=metadata)
+        def __init__(self, step=None, columns=None, metadata=None, frequency=None):
+            super().__init__(step=step, columns=columns, metadata=metadata)
             if frequency is not None:
                 self.metadata["frequency"] = frequency
 
@@ -239,8 +237,6 @@ def test_full_pipeline():
         return TimeSeriesCollection(**kwargs)
 
     DomainCollectionFactory.register("timeseries", create_timeseries)
-
-    print(OperationRegistry.get_operations("core"))
 
     @operation(domain="timeseries")
     def moving_average(collection, column, window=3):

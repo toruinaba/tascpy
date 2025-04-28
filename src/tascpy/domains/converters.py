@@ -23,13 +23,13 @@ def prepare_for_domain_conversion(
 
     # 時系列ドメインへの変換前処理
     if target_domain == "timeseries":
-        _prepare_for_timeseries(result, **kwargs)
+        mod_kwargs = _prepare_for_timeseries(result, **kwargs)
 
     # 信号処理ドメインへの変換前処理
     elif target_domain == "signal":
-        _prepare_for_signal(result, **kwargs)
+        mod_kwargs = _prepare_for_signal(result, **kwargs)
 
-    return result
+    return result, mod_kwargs
 
 
 def _prepare_for_timeseries(collection: ColumnCollection, **kwargs: Any) -> None:
@@ -92,6 +92,8 @@ def _prepare_for_timeseries(collection: ColumnCollection, **kwargs: Any) -> None
 
         # 使用済みのキーをkwargsから削除
         kwargs.pop("start_date", None)
+        return kwargs
+    return kwargs
 
 
 def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> None:
@@ -130,3 +132,5 @@ def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> None:
             collection.metadata["signal_warning"] = (
                 "非等間隔データです。信号処理前にリサンプリングを検討してください。"
             )
+        return kwargs
+    return kwargs
