@@ -1,0 +1,105 @@
+from typing import Any, Dict, List, Optional, Callable, TypeVar, Union
+
+from ..core.collection import ColumnCollection
+
+
+class CollectionOperations:
+    """ColumnCollectionの操作プロキシクラス, デコレーターパターンを使用"""
+
+    def __init__(self, collection: ColumnCollection, domain: str = "core"):
+        """
+        Args:
+            collection: ColumnCollectionオブジェクト
+            domain: 操作のドメイン（デフォルトは"core"）
+        """
+        self._collection = collection
+        self._domain = domain
+
+        self._add_operations()
+
+    def _add_operations(self) -> None:
+        """操作メソッドを追加するためのメソッド"""
+        from ..operations.registry import OperationRegistry
+
+        core_ops = OperationRegistry.get_operations("core")
+        for name, func in core_ops.items():
+            setattr(self, name, self._create_operation_method(func))
+
+        if self._domain != "core":
+            domain_ops = OperationRegistry.get_operations(self._domain)
+            for name, func in domain_ops.items():
+                setattr(self, name, self._create_operation_method(func))
+
+    def _create_operation_method(self, func: Callable) -> Callable:
+        """操作メソッドからメソッドを作成
+        Args:
+            func: 操作メソッド
+        Returns:
+            self._collectionを第一引数として呼び出すメソッド
+        """
+
+        def method(*args: Any, **kwargs: Any) -> Any:
+            # 関数を実行し値を取得
+            result = func(self._collection, *args, **kwargs)
+
+            # 結果がColumnCollectionであれば、新しいプロキシを作成
+            if isinstance(result, ColumnCollection):
+                return CollectionOperations(result, self._domain)
+            return result
+
+        # メソッドのドキュメントと名前を設定
+        method.__name__ = func.__name__
+        method.__doc__ = func.__doc__
+        return method
+
+    def end(self) -> ColumnCollection:
+        """操作を終了し、ColumnCollectionを返す"""
+        return self._collection
+
+    def as_domain(self, domain: str, **kwargs: Any) -> "CollectionOperations":
+        """現在のコレクションを指定されたドメインに変換
+        Args:
+            domain: 変換先のドメイン
+            **kwargs: ドメインに渡す追加の引数
+        Returns:
+            CollectionOperations: 新しいCollectionOperationsオブジェクト
+        """
+        from ..domains.factory import DomainCollectionFactory
+        from ..domains.converters import prepare_for_domain_conversion
+
+        current_collection = self.end()
+
+        # ドメイン変換準備
+        prepared_collection = prepare_for_domain_conversion(
+            current_collection, target_domain=domain, **kwargs
+        )
+
+        domain_collection = DomainCollectionFactory.from_collection(
+            prepared_collection, domain, **kwargs
+        )
+        return CollectionOperations(domain_collection, domain=domain)
+
+    def pipe(self, func: Callable) -> "CollectionOperations":
+        """関数を適用して新しいCollectionOperationsを作成
+        Args:
+            func: 適用する関数
+        Returns:
+            CollectionOperations: 新しいCollectionOperationsオブジェクト
+        """
+        new_collection = self._collection.apply(func)
+        return CollectionOperations(new_collection, self._domain)
+
+    def debug(self, message: Optional[str] = None) -> "CollectionOperations":
+        """デバッグメッセージを表示
+        Args:
+            message: デバッグメッセージ
+        Returns:
+            CollectionOperations: 自身を返す
+        """
+        if message:
+            print(f"DEBUG: {message}")
+        print(f"Collection: {self._collection}")
+        print(f"Domain: {self._domain}")
+        print(f"Columns: {self._collection.columns}")
+        print(f"metadata: {self._collection.metadata}")
+        return self
