@@ -60,10 +60,14 @@ class ColumnCollection:
             # インデックスによるアクセス
             if isinstance(key, int):
                 # 単一行の場合
-                row = {"step": self.step.values[key]}
-                for name, column in self.columns.items():
-                    row[name] = column.values[key]
-                return row  # あとで専用クラスに移行予定
+                if isinstance(key, int):
+                    # 単一行の場合
+                    values = {}
+                    for name, column in self.columns.items():
+                        values[name] = column.values[key]
+                    from .row import Row
+
+                    return Row(step=self.step.values[key], values=values)
             else:
                 # スライスの場合は新しいColumnCollectionを返す
                 new_step = Indices(values=self.step.values[key])
