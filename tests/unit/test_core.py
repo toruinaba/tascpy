@@ -5,6 +5,7 @@ import numpy as np
 from src.tascpy.core.column import Column
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.indices import Indices
+from src.tascpy.core.row import Row
 from src.tascpy.operations.registry import operation, OperationRegistry
 from src.tascpy.domains.factory import DomainCollectionFactory
 
@@ -40,8 +41,9 @@ class TestColumnCollection:
     def test_getitem(self, basic_collection):
         """getitemメソッドのテスト"""
         assert basic_collection["A"].values == [1, 2, 3, 4, 5]
-        assert basic_collection[0] == {"step": 1, "A": 1, "B": 5}
-        assert isinstance(basic_collection[0], dict)
+        assert basic_collection[0].step == 1
+        assert basic_collection[0].values == {"A": 1, "B": 5}
+        assert isinstance(basic_collection[0], Row)
         assert isinstance(basic_collection[1:3], ColumnCollection)
         assert len(basic_collection[1:3]) == 2
         assert basic_collection[1:3].step.values == [2, 3]
