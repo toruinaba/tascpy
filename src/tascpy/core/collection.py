@@ -1,7 +1,13 @@
 from typing import Dict, List, Any, Optional, Union, TypeVar, Callable, TextIO
 from pathlib import Path
 from .indices import Indices
-from .column import Column
+from .column import (
+    Column,
+    NumberColumn,
+    StringColumn,
+    InvalidColumn,
+    detect_column_type,
+)
 from ..core.io_formats import get_format, FILE_FORMATS
 
 T = TypeVar("T")
@@ -10,12 +16,13 @@ T = TypeVar("T")
 class ColumnCollection:
     """複数のcollumnと一つのstepを保持するクラス"""
 
-    def __init__(self, step, columns, metadata=None):
+    def __init__(self, step, columns, metadata=None, auto_detect_types=False):
         """
         Args:
             step: Stepオブジェクトまたはステップ値のリスト
             columns: {名前: Column}の辞書または{名前: 値リスト}の辞書
             metadata: メタデータの辞書
+            auto_detect_types: カラム型を自動判定するかどうか
         """
         # ステップの初期化
         if isinstance(step, Indices):
@@ -30,7 +37,13 @@ class ColumnCollection:
                 if isinstance(column, Column):
                     self.columns[name] = column
                 else:
-                    self.columns[name] = Column(None, name, None, column)
+                    # 自動判定が有効な場合は型を自動判定
+                    if auto_detect_types:
+                        self.columns[name] = detect_column_type(
+                            None, name, None, column
+                        )
+                    else:
+                        self.columns[name] = Column(None, name, None, column)
         self.metadata = metadata if metadata is not None else {}
 
     def __len__(self) -> int:
@@ -223,15 +236,36 @@ class ColumnCollection:
             metadata=self.metadata.copy(),
         )
 
+    def auto_detect_column_types(self) -> "ColumnCollection":
+        """各カラムのデータ型を自動判定し、適切な型のカラムに変換する
+
+        Returns:
+            self: メソッドチェーン用
+        """
+        for name, column in list(self.columns.items()):
+            # 各カラムの型を自動判定
+            new_column = detect_column_type(
+                column.ch, column.name, column.unit, column.values, column.metadata
+            )
+            # 元のカラムと新しいカラムの型が異なる場合のみ置き換え
+            if type(new_column) != type(column):
+                self.columns[name] = new_column
+        return self
+
     @classmethod
     def from_file(
-        cls, filepath: Union[str, Path], format_name: str = "tasc", **kwargs
+        cls,
+        filepath: Union[str, Path],
+        format_name: str = "tasc",
+        auto_detect_types=False,
+        **kwargs,
     ) -> "ColumnCollection":
         """ファイルからColumnCollectionを作成する
 
         Args:
             filepath: 読み込むファイルパス
             format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
+            auto_detect_types: カラム型を自動判定するかどうか
             **kwargs: フォーマット設定を上書きするためのキーワード引数
 
         Returns:
@@ -255,17 +289,28 @@ class ColumnCollection:
         encoding = format_config.get("encoding", "utf-8")
 
         with open(filepath, "r", encoding=encoding) as f:
-            return cls.from_stream(f, format_name, **kwargs)
+            collection = cls.from_stream(f, format_name, **kwargs)
+
+            # 自動判定が有効な場合は各カラムの型を判定
+            if auto_detect_types:
+                collection.auto_detect_column_types()
+
+            return collection
 
     @classmethod
     def from_stream(
-        cls, file_stream: TextIO, format_name: str = "tasc", **kwargs
+        cls,
+        file_stream: TextIO,
+        format_name: str = "tasc",
+        auto_detect_types=False,
+        **kwargs,
     ) -> "ColumnCollection":
         """テキストストリームからColumnCollectionを作成する
 
         Args:
             file_stream: 読み込むテキストストリーム
             format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
+            auto_detect_types: カラム型を自動判定するかどうか
             **kwargs: フォーマット設定を上書きするためのキーワード引数
                 selected_columns: 読み込む列名またはチャンネル名のリスト。指定された列のみ読み込む
 
@@ -393,7 +438,11 @@ class ColumnCollection:
                 else:
                     values.append(None)
 
-            columns[name] = Column(ch, name, unit, values)
+            # 自動判定が有効な場合は適切なカラム型を選択
+            if auto_detect_types:
+                columns[name] = detect_column_type(ch, name, unit, values)
+            else:
+                columns[name] = Column(ch, name, unit, values)
 
         # メタデータを作成
         metadata = {
@@ -444,7 +493,7 @@ class ColumnCollection:
         value_str = value_str.strip()
 
         # None判定（大文字小文字を区別しない）
-        if value_str.lower() in ("none", "null", "", "nan"):
+        if value_str.lower() in ("none", "null", "", "nan", "*******"):
             return None
 
         # ブール値判定

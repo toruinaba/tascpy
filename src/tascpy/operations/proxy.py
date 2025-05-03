@@ -42,9 +42,20 @@ class CollectionOperations:
             # 関数を実行し値を取得
             result = func(self._collection, *args, **kwargs)
 
+            # 結果がColumnCollectionのリストであれば、CollectionListOperationsを作成
+            if (
+                isinstance(result, list)
+                and result
+                and all(isinstance(item, ColumnCollection) for item in result)
+            ):
+                from .list_proxy import CollectionListOperations
+
+                return CollectionListOperations(result, self._domain)
+
             # 結果がColumnCollectionであれば、新しいプロキシを作成
-            if isinstance(result, ColumnCollection):
+            elif isinstance(result, ColumnCollection):
                 return CollectionOperations(result, self._domain)
+
             return result
 
         # メソッドのドキュメントと名前を設定

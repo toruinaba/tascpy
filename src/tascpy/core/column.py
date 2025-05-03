@@ -1,5 +1,5 @@
 from .data_holder import DataHolder
-from typing import List, Any, Optional, Dict, Union
+from typing import List, Any, Optional, Dict, Union, Type
 from copy import deepcopy
 
 
@@ -114,3 +114,79 @@ class InvalidColumn(Column):
             deepcopy(self.values),
             deepcopy(self.metadata),
         )
+
+
+# 補助関数
+def detect_column_type(ch, name, unit, values=None, metadata=None) -> Column:
+    """
+    データ内容に基づいて適切なColumnクラスのインスタンスを生成する
+
+    Args:
+        ch: チャンネル
+        name: カラム名
+        unit: 単位
+        values: 値のリスト
+        metadata: メタデータ
+
+    Returns:
+        Column: 適切なColumnサブクラスのインスタンス
+    """
+    # 値がNoneまたは空の場合は標準のColumnを返す
+    if values is None or len(values) == 0:
+        return Column(ch, name, unit, values, metadata)
+
+    # 全ての値がNoneの場合はInvalidColumnを返す
+    if all(v is None for v in values):
+        return InvalidColumn(ch, name, unit, values, metadata)
+
+    # None以外の値を収集
+    non_none_values = [v for v in values if v is not None]
+
+    # 型を判定
+    try:
+        # 全ての値が数値型かどうか確認
+        if all(isinstance(v, (int, float)) for v in non_none_values):
+            return NumberColumn(ch, name, unit, values, metadata)
+
+        # 全ての値が文字列型かどうか確認
+        if all(isinstance(v, str) for v in non_none_values):
+            return StringColumn(ch, name, unit, values, metadata)
+
+        # それ以外の場合は標準のColumnを返す
+        return Column(ch, name, unit, values, metadata)
+    except Exception as e:
+        # エラーが発生した場合は安全のため標準のColumnを返す
+        return Column(ch, name, unit, values, metadata)
+
+
+def create_column_from_values(
+    ch, name, unit, values=None, metadata=None, column_type=None
+) -> Column:
+    """
+    指定した値と型からカラムを生成する
+
+    Args:
+        ch: チャンネル
+        name: カラム名
+        unit: 単位
+        values: 値のリスト
+        metadata: メタデータ
+        column_type: カラム型（指定なしの場合は自動判定）
+
+    Returns:
+        Column: 生成されたColumnインスタンス
+    """
+    # 型が指定されている場合はその型でカラムを生成
+    if column_type is not None:
+        column_classes = {
+            "number": NumberColumn,
+            "string": StringColumn,
+            "invalid": InvalidColumn,
+            "default": Column,
+        }
+
+        column_class = column_classes.get(column_type.lower(), Column)
+        return column_class(ch, name, unit, values, metadata)
+
+    # 型が指定されていない場合はデータ内容から自動判定
+    return detect_column_type(ch, name, unit, values, metadata)
