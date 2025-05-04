@@ -1,7 +1,10 @@
-from typing import Union, Optional, List, Dict, Any
+from typing import Union, Optional, List, Dict, Any, Set
 from ...core.collection import ColumnCollection
 from ...core.column import Column, NumberColumn, detect_column_type
 from ..registry import operation
+import re
+import ast
+import math
 
 
 @operation(domain="core")
@@ -384,3 +387,163 @@ def divide(
         result.add_column(result_column, column)
     
     return result
+
+
+@operation(domain="core")
+def evaluate(
+    collection: ColumnCollection,
+    expression: str,
+    result_column: Optional[str] = None,
+    in_place: bool = False
+) -> ColumnCollection:
+    """数式文字列を評価し、結果を新しい列に格納します
+
+    Args:
+        collection: ColumnCollectionオブジェクト
+        expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
+        result_column: 結果を格納する列名（デフォルトはNone、自動生成）
+        in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+
+    Returns:
+        ColumnCollection: 演算結果の列を含むColumnCollection
+
+    Raises:
+        KeyError: 指定された列名が存在しない場合
+        ValueError: 式の評価中にエラーが発生した場合
+        SyntaxError: 式の構文に問題がある場合
+    """
+    if result_column is None:
+        result_column = f"expression_result_{len(collection.columns)}"
+    
+    # 結果を格納するオブジェクトを準備
+    result = collection if in_place else collection.clone()
+    
+    # ASTを使用して式の構文検証
+    try:
+        parsed_ast = ast.parse(expression, mode='eval')
+        
+        # 安全でない操作や関数呼び出しをチェック
+        for node in ast.walk(parsed_ast):
+            # 属性アクセス（例：os.system）をブロック
+            if isinstance(node, ast.Attribute):
+                raise ValueError(f"式に安全でない属性アクセスが含まれています: {expression}")
+            
+            # 関数呼び出しが安全かチェック（数学関数以外をブロック）
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                func_name = node.func.id
+                safe_funcs = {'sin', 'cos', 'tan', 'exp', 'log', 'sqrt', 'abs', 'max', 'min', 'pow', 'round'}
+                if func_name not in safe_funcs:
+                    raise ValueError(f"許可されていない関数が使用されています: {func_name}")
+    
+    except SyntaxError as e:
+        line_no = getattr(e, 'lineno', '不明')
+        col_offset = getattr(e, 'offset', '不明')
+        raise ValueError(f"式の構文エラー (行:{line_no}, 列:{col_offset}): {str(e)}")
+    
+    # 式からカラム名を抽出
+    column_names = []
+    for node in ast.walk(parsed_ast):
+        if isinstance(node, ast.Name) and node.id not in {'sin', 'cos', 'tan', 'exp', 'log', 'sqrt', 'abs', 'max', 'min', 'pow', 'round', 'pi', 'e'}:
+            column_names.append(node.id)
+    
+    # 重複を削除し、実際にコレクションに存在するカラム名のみをフィルタリング
+    column_names = list(set(col for col in column_names if col in collection.columns))
+    
+    # 存在しないカラム名の検出
+    all_vars = set()
+    for node in ast.walk(parsed_ast):
+        if isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Param) and node.id not in {'sin', 'cos', 'tan', 'exp', 'log', 'sqrt', 'abs', 'max', 'min', 'pow', 'round', 'pi', 'e'}:
+            all_vars.add(node.id)
+    
+    missing_columns = all_vars - set(collection.columns)
+    if missing_columns:
+        # 類似したカラム名の提案
+        suggestions = {}
+        for missing in missing_columns:
+            possible_matches = []
+            for existing in collection.columns:
+                # レーベンシュタイン距離などの類似度チェックをここで実装できますが、簡略化のため部分文字列マッチを使用
+                if missing in existing or existing in missing:
+                    possible_matches.append(existing)
+            
+            if possible_matches:
+                suggestions[missing] = possible_matches
+        
+        error_msg = f"式に存在しないカラム名が含まれています: {', '.join(missing_columns)}"
+        if suggestions:
+            error_msg += "\n提案: "
+            for missing, candidates in suggestions.items():
+                # f-stringの代わりに文字列連結を使用
+                candidate_strings = []
+                for c in candidates:
+                    candidate_strings.append("'" + c + "'")
+                joined_candidates = ', '.join(candidate_strings)
+                error_msg += f"\n  '{missing}' → もしかして {joined_candidates} ?"
+        
+        raise KeyError(error_msg)
+    
+    # カラム値を含む辞書を作成
+    data_dict = {col: collection[col].values for col in column_names}
+    
+    # 数学関数を名前空間に追加
+    math_funcs = {
+        "sin": math.sin,
+        "cos": math.cos,
+        "tan": math.tan,
+        "exp": math.exp,
+        "log": math.log,
+        "sqrt": math.sqrt,
+        "abs": abs,
+        "max": max,
+        "min": min,
+        "pow": pow,
+        "round": round,
+        "pi": math.pi,
+        "e": math.e
+    }
+    
+    # 式を評価
+    try:
+        # 結果を計算するためのマッピング処理
+        length = len(collection)
+        result_values = []
+        
+        # 各行に対して式を評価
+        for i in range(length):
+            # 各カラムの単一値を取得
+            row_data = {col: data_dict[col][i] for col in column_names}
+            
+            # 値がNoneの場合の処理
+            if any(row_data[col] is None for col in column_names):
+                result_values.append(None)
+                continue
+            
+            # 数学関数を行データに追加
+            eval_namespace = dict(row_data)
+            eval_namespace.update(math_funcs)
+            
+            # 式を評価し結果を追加
+            restricted_globals = {"__builtins__": {}}
+            # 式をそのまま評価する（data_dict参照に置き換えない）
+            row_result = eval(expression, restricted_globals, eval_namespace)
+            result_values.append(row_result)
+        
+        # 元の列の単位を継承（最初に見つかった数値カラムから）
+        unit = None
+        for col in column_names:
+            original_column = collection[col]
+            if hasattr(original_column, "unit"):
+                unit = original_column.unit
+                break
+        
+        # 結果を新しい列として追加（既存の列名の場合は上書き）
+        if result_column in result.columns:
+            result.columns[result_column].values = result_values
+        else:
+            # 新しい列を追加
+            column = detect_column_type(None, result_column, unit, result_values)
+            result.add_column(result_column, column)
+        
+        return result
+    except Exception as e:
+        raise ValueError(f"式 '{expression}' の評価中にエラーが発生しました: {str(e)}")

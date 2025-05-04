@@ -4,7 +4,8 @@ from src.tascpy.operations.core.math import (
     add,
     subtract,
     multiply,
-    divide
+    divide,
+    evaluate
 )
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.column import Column
@@ -218,3 +219,97 @@ class TestOperationChaining:
         
         assert result["A+2"].values == expected_intermediate
         assert result["(A+2)*3"].values == expected_final
+
+
+class TestEvaluateOperation:
+    """evaluate関数のテスト"""
+
+    def test_simple_expression(self, sample_collection):
+        """単純な式の評価テスト"""
+        # A + B * 2
+        result = evaluate(sample_collection, "A + B * 2")
+        
+        # 結果の列名が"expression_result_{n}"という形式であることを確認
+        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        assert result_column in result.columns
+        expected = [11.0, 10.0, 9.0, 8.0, 7.0]  # A + B*2 = 1+5*2, 2+4*2, ...
+        assert result[result_column].values == expected
+
+    def test_complex_expression(self, sample_collection):
+        """複雑な式の評価テスト"""
+        # (A + B) * (C / 10)
+        result = evaluate(sample_collection, "(A + B) * (C / 10)")
+        
+        # 結果の列名が"expression_result_{n}"という形式であることを確認
+        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        assert result_column in result.columns
+        # (1+5)*1, (2+4)*2, (3+3)*3, (4+2)*4, (5+1)*5
+        expected = [6.0, 12.0, 18.0, 24.0, 30.0]
+        assert result[result_column].values == expected
+
+    def test_math_functions(self, sample_collection):
+        """数学関数を含む式のテスト"""
+        # sin(A) + cos(B)
+        result = evaluate(sample_collection, "sin(A) + cos(B)")
+        
+        # 結果の列名が"expression_result_{n}"という形式であることを確認
+        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        assert result_column in result.columns
+        expected = [
+            math.sin(1.0) + math.cos(5.0),
+            math.sin(2.0) + math.cos(4.0),
+            math.sin(3.0) + math.cos(3.0),
+            math.sin(4.0) + math.cos(2.0),
+            math.sin(5.0) + math.cos(1.0)
+        ]
+        # 浮動小数点数の比較には丸めを使用
+        assert [round(a, 10) for a in result[result_column].values] == [round(e, 10) for e in expected]
+
+    def test_with_none_values(self, sample_collection):
+        """None値を含む列を使用した式のテスト"""
+        # with_none * 2 + A
+        result = evaluate(sample_collection, "with_none * 2 + A")
+        
+        # 結果の列名が"expression_result_{n}"という形式であることを確認
+        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        assert result_column in result.columns
+        # (1*2+1), (None), (3*2+3), (None), (5*2+5)
+        expected = [3.0, None, 9.0, None, 15.0]
+        assert result[result_column].values == expected
+
+    def test_custom_result_column(self, sample_collection):
+        """カスタムの結果列名を指定したテスト"""
+        # A * B
+        result_column = "product"
+        result = evaluate(sample_collection, "A * B", result_column=result_column)
+        
+        assert result_column in result.columns
+        expected = [5.0, 8.0, 9.0, 8.0, 5.0]
+        assert result[result_column].values == expected
+
+    def test_in_place(self, sample_collection):
+        """in_place=True の場合のテスト"""
+        # 元のオブジェクトを変更する
+        result = evaluate(sample_collection, "A + B", result_column="sum_result", in_place=True)
+        
+        assert "sum_result" in result.columns
+        assert "sum_result" in sample_collection.columns  # 元のオブジェクトが変更されていることを確認
+        assert id(result) == id(sample_collection)  # 同じオブジェクトであることを確認
+
+    def test_invalid_expression(self, sample_collection):
+        """不正な式のテスト"""
+        # 構文エラー
+        with pytest.raises(ValueError, match="式の構文エラー"):
+            evaluate(sample_collection, "A + * B")
+        
+        # 存在しないカラム
+        with pytest.raises(KeyError, match="式に存在しないカラム名が含まれています"):
+            evaluate(sample_collection, "A + nonexistent")
+        
+        # 安全でない関数呼び出し
+        with pytest.raises(ValueError, match="許可されていない関数が使用されています"):
+            evaluate(sample_collection, "exec(A)")
+        
+        # 属性アクセス
+        with pytest.raises(ValueError, match="式に安全でない属性アクセスが含まれています"):
+            evaluate(sample_collection, "A.__class__")
