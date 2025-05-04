@@ -24,6 +24,10 @@ class CollectionOperations:
         core_ops = OperationRegistry.get_operations("core")
         for name, func in core_ops.items():
             setattr(self, name, self._create_operation_method(func))
+            
+            # 特殊ケース: abs_values関数をabsという名前でも使えるようにする
+            if name == 'abs_values':
+                setattr(self, 'abs', self._create_operation_method(func))
 
         if self._domain != "core":
             domain_ops = OperationRegistry.get_operations(self._domain)

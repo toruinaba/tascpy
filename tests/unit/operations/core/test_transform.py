@@ -1,5 +1,6 @@
 import pytest
 import math
+import builtins # ビルトイン関数をインポート
 from src.tascpy.operations.core.transform import (
     sin,
     cos,
@@ -8,7 +9,8 @@ from src.tascpy.operations.core.transform import (
     log,
     sqrt,
     pow,
-    abs,
+    abs_values, # abs_values関数を直接インポート
+    abs, # エイリアス名も残す
     round_values,
     normalize
 )
@@ -61,7 +63,7 @@ class TestTrigonometricFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["sin(angle_rad)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_sin_degrees(self, sample_collection, epsilon):
         """sin関数テスト（度）"""
@@ -72,7 +74,7 @@ class TestTrigonometricFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["sin(angle_deg)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_cos_radians(self, sample_collection, epsilon):
         """cos関数テスト（ラジアン）"""
@@ -83,7 +85,7 @@ class TestTrigonometricFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["cos(angle_rad)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_cos_degrees(self, sample_collection, epsilon):
         """cos関数テスト（度）"""
@@ -94,7 +96,7 @@ class TestTrigonometricFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["cos(angle_deg)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_tan_radians(self, sample_collection, epsilon):
         """tan関数テスト（ラジアン）"""
@@ -107,7 +109,7 @@ class TestTrigonometricFunctions:
         
         # 最初の4つの要素を比較
         for i, (actual, expected_val) in enumerate(zip(result["tan(angle_rad)"].values[:4], expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
         
         # 5番目の要素は非常に大きな値または無限大になるはず
         assert result["tan(angle_rad)"].values[4] > 1e10 or math.isinf(result["tan(angle_rad)"].values[4])
@@ -123,7 +125,7 @@ class TestTrigonometricFunctions:
             if expected[i] is None:
                 assert result["sin(with_none)"].values[i] is None
             else:
-                assert abs(result["sin(with_none)"].values[i] - expected[i]) < 1e-10
+                assert builtins.abs(result["sin(with_none)"].values[i] - expected[i]) < 1e-10
 
 
 class TestExponentialAndLogarithmicFunctions:
@@ -138,7 +140,7 @@ class TestExponentialAndLogarithmicFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["exp(exp_input)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_log_natural(self, sample_collection, epsilon):
         """自然対数のテスト"""
@@ -149,7 +151,7 @@ class TestExponentialAndLogarithmicFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["log(log_input)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_log_base10(self, sample_collection, epsilon):
         """底10の対数のテスト"""
@@ -160,7 +162,7 @@ class TestExponentialAndLogarithmicFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["log10(log_input)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_log_custom_base(self, sample_collection, epsilon):
         """カスタム底の対数のテスト"""
@@ -172,7 +174,7 @@ class TestExponentialAndLogarithmicFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result[f"log{base}(log_input)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_log_negative(self, sample_collection):
         """負の値の対数（None扱い）のテスト"""
@@ -186,7 +188,7 @@ class TestExponentialAndLogarithmicFunctions:
             if expected[i] is None:
                 assert result["log(negative)"].values[i] is None
             else:
-                assert abs(result["log(negative)"].values[i] - expected[i]) < 1e-10
+                assert builtins.abs(result["log(negative)"].values[i] - expected[i]) < 1e-10
 
 
 class TestPowerFunctions:
@@ -224,7 +226,7 @@ class TestOtherFunctions:
 
     def test_abs(self, sample_collection):
         """絶対値のテスト"""
-        result = abs(sample_collection, "abs_input")
+        result = abs_values(sample_collection, "abs_input")
         
         assert "abs(abs_input)" in result.columns
         expected = [5.0, 3.0, 0.0, 3.0, 5.0]
@@ -253,7 +255,7 @@ class TestOtherFunctions:
     def test_with_none(self, sample_collection):
         """None値を含む列に各変換関数を適用するテスト"""
         # abs関数
-        result_abs = abs(sample_collection, "with_none")
+        result_abs = abs_values(sample_collection, "with_none")
         assert "abs(with_none)" in result_abs.columns
         expected_abs = [1.0, None, 3.0, None, 5.0]
         assert result_abs["abs(with_none)"].values == expected_abs
@@ -277,7 +279,7 @@ class TestNormalizationFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["norm_minmax(norm_input)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_normalize_zscore(self, sample_collection, epsilon):
         """Z-score正規化のテスト"""
@@ -295,7 +297,7 @@ class TestNormalizationFunctions:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["norm_zscore(norm_input)"].values, expected)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_normalize_constant_values(self, epsilon):
         """一定値の正規化テスト"""
@@ -311,7 +313,7 @@ class TestNormalizationFunctions:
         expected_minmax = [0.5, 0.5, 0.5, 0.5, 0.5]
         
         for i, (actual, expected_val) in enumerate(zip(result_minmax["norm_minmax(const)"].values, expected_minmax)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
         
         # Z-scoreの場合は0に
         result_zscore = normalize(collection, "const", method="zscore")
@@ -319,7 +321,7 @@ class TestNormalizationFunctions:
         expected_zscore = [0.0, 0.0, 0.0, 0.0, 0.0]
         
         for i, (actual, expected_val) in enumerate(zip(result_zscore["norm_zscore(const)"].values, expected_zscore)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
 
     def test_normalize_with_none(self, sample_collection, epsilon):
         """None値を含む列の正規化テスト"""
@@ -333,7 +335,7 @@ class TestNormalizationFunctions:
             if expected[i] is None:
                 assert result["norm_minmax(with_none)"].values[i] is None
             else:
-                assert abs(result["norm_minmax(with_none)"].values[i] - expected[i]) < epsilon
+                assert builtins.abs(result["norm_minmax(with_none)"].values[i] - expected[i]) < epsilon
 
     def test_invalid_normalize_method(self, sample_collection):
         """不正な正規化方法を指定した場合のテスト"""
@@ -373,10 +375,10 @@ class TestOperationChaining:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["sin(angle_deg)"].values, expected_sin)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
         
         for i, (actual, expected_val) in enumerate(zip(result["abs(sin(angle_deg))"].values, expected_abs)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
     
     def test_complex_transform_chain(self, ops, epsilon):
         """複雑な変換チェーンのテスト"""
@@ -401,7 +403,7 @@ class TestOperationChaining:
         
         # 浮動小数点の比較は許容誤差を考慮
         for i, (actual, expected_val) in enumerate(zip(result["norm_minmax(norm_input)^2"].values, expected_pow)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
         
         for i, (actual, expected_val) in enumerate(zip(result["cos(norm_minmax(norm_input)^2)"].values, expected_cos)):
-            assert abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"
+            assert builtins.abs(actual - expected_val) < epsilon, f"Index {i}: {actual} != {expected_val}"

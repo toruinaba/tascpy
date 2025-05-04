@@ -62,8 +62,15 @@ def sin(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
@@ -124,8 +131,15 @@ def cos(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
@@ -186,8 +200,15 @@ def tan(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
@@ -239,8 +260,15 @@ def exp(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
@@ -310,8 +338,15 @@ def log(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
@@ -371,8 +406,15 @@ def sqrt(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
@@ -430,15 +472,22 @@ def pow(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
 
 # その他の変換関数
 @operation(domain="core")
-def abs(
+def abs_values(
     collection: ColumnCollection,
     column: str,
     result_column: Optional[str] = None,
@@ -474,7 +523,8 @@ def abs(
     
     # 絶対値計算
     result_values = [
-        abs(value) if value is not None else None
+        # Pythonの組み込みabs関数を明示的に呼び出す
+        __builtins__['abs'](value) if value is not None else None
         for value in values
     ]
     
@@ -483,10 +533,21 @@ def abs(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
+
+# 組み込みabs関数との競合を避けるためのエイリアス
+# オペレーション名として登録するために必要
+abs = abs_values
 
 
 @operation(domain="core")
@@ -537,8 +598,15 @@ def round_values(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
 
@@ -594,8 +662,15 @@ def normalize(
         if result_column in result.columns:
             result.columns[result_column].values = null_values
         else:
-            column_type = detect_column_type(null_values)
-            result.add_column(result_column, column_type(None, result_column, None, null_values))
+            # 元の列から単位などの情報を継承
+            source_column = collection[column]
+            column_type = detect_column_type(
+                getattr(source_column, 'ch', None),
+                result_column,
+                getattr(source_column, 'unit', None),
+                null_values
+            )
+            result.add_column(result_column, column_type)
         return result
     
     # 正規化処理
@@ -643,7 +718,14 @@ def normalize(
         result.columns[result_column].values = result_values
     else:
         # 新しい列を追加
-        column_type = detect_column_type(result_values)
-        result.add_column(result_column, column_type(None, result_column, None, result_values))
+        # 元の列から単位などの情報を継承
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, 'ch', None),
+            result_column,
+            getattr(source_column, 'unit', None),
+            result_values
+        )
+        result.add_column(result_column, column_type)
     
     return result
