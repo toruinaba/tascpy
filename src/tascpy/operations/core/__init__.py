@@ -6,6 +6,7 @@
 # 各操作モジュールをインポート
 from . import filters
 from . import search
+from . import plot
 
 # モジュール名を公開
-__all__ = ["filters", "search", "transformers", "aggregators"]
+__all__ = ["filters", "search", "transformers", "aggregators", "plot"]
