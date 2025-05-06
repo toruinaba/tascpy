@@ -84,36 +84,38 @@ def demonstrate_plotting():
     ops = collection.ops
     
     print("1. 基本的な散布図")
-    plt.figure(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(8, 5))
     ops.plot(
         x_column="Displacement1", 
         y_column="Force1", 
         plot_type="scatter", 
-        title="荷重-変位関係 (散布図)",
-        xlabel="変位 (mm)",
-        ylabel="荷重 (kN)",
-        label="試験体1"
+        label="試験体1",
+        ax=ax
     ).end()
+    ax.set_title("荷重-変位関係 (散布図)")
+    ax.set_xlabel("変位 (mm)")
+    ax.set_ylabel("荷重 (kN)")
     plt.grid(True)
     plt.show()
     print("散布図を表示しました")
     print()
     
     print("2. 線グラフ")
-    plt.figure(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(8, 5))
     ops.plot(
         x_column="Displacement1", 
         y_column="Force1", 
         plot_type="line", 
         color="blue", 
-        title="荷重-変位曲線 (線グラフ)",
-        xlabel="変位 (mm)",
-        ylabel="荷重 (kN)",
         label="試験体1",
         marker="o",
         linestyle="-",
-        linewidth=2
+        linewidth=2,
+        ax=ax
     ).end()
+    ax.set_title("荷重-変位曲線 (線グラフ)")
+    ax.set_xlabel("変位 (mm)")
+    ax.set_ylabel("荷重 (kN)")
     plt.grid(True)
     plt.show()
     print("線グラフを表示しました")
@@ -180,26 +182,36 @@ def demonstrate_plotting():
     ax1.legend()
     
     # 2つ目のサブプロット: 剛性（傾き）の変化
-    # 近似的な剛性（傾き）を計算
-    stiffness_result = ops.diff("Force1", "Displacement1", result_column="Stiffness1").end()
-    stiffness_result = ops.diff("Force2", "Displacement2", result_column="Stiffness2").end()
+    # diff関数が未実装のため、手動で近似的な剛性（傾き）を計算
+    force1_values = collection['Force1'].values
+    disp1_values = collection['Displacement1'].values
+    force2_values = collection['Force2'].values
+    disp2_values = collection['Displacement2'].values
     
-    stiffness_result.ops.plot(
-        x_column="Displacement1", 
-        y_column="Stiffness1", 
-        plot_type="line", 
-        color="blue", 
-        label="試験体1の剛性", 
-        ax=ax2
-    ).end()
-    stiffness_result.ops.plot(
-        x_column="Displacement2", 
-        y_column="Stiffness2", 
-        plot_type="line", 
-        color="red", 
-        label="試験体2の剛性", 
-        ax=ax2
-    ).end()
+    # 手動で傾き（剛性）を計算
+    stiffness1 = []
+    stiffness2 = []
+    disp1_for_stiffness = []
+    disp2_for_stiffness = []
+    
+    # 前後の点から傾きを計算 (中央差分法)
+    for i in range(1, len(force1_values) - 1):
+        if (None not in [force1_values[i-1], force1_values[i+1], disp1_values[i-1], disp1_values[i+1]] and 
+            disp1_values[i+1] - disp1_values[i-1] != 0):
+            slope = (force1_values[i+1] - force1_values[i-1]) / (disp1_values[i+1] - disp1_values[i-1])
+            stiffness1.append(slope)
+            disp1_for_stiffness.append(disp1_values[i])
+    
+    for i in range(1, len(force2_values) - 1):
+        if (None not in [force2_values[i-1], force2_values[i+1], disp2_values[i-1], disp2_values[i+1]] and 
+            disp2_values[i+1] - disp2_values[i-1] != 0):
+            slope = (force2_values[i+1] - force2_values[i-1]) / (disp2_values[i+1] - disp2_values[i-1])
+            stiffness2.append(slope)
+            disp2_for_stiffness.append(disp2_values[i])
+    
+    # 剛性グラフの描画
+    ax2.plot(disp1_for_stiffness, stiffness1, 'bo-', label="試験体1の剛性")
+    ax2.plot(disp2_for_stiffness, stiffness2, 'ro-', label="試験体2の剛性")
     ax2.set_title("剛性変化 (傾き dF/dx)")
     ax2.set_xlabel("変位 (mm)")
     ax2.set_ylabel("剛性 (kN/mm)")
@@ -227,20 +239,21 @@ def demonstrate_plotting():
     )
     
     # 応力-ひずみ線図の描画
-    plt.figure(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     stress_strain_result.ops.plot(
         x_column="Strain_percent", 
         y_column="Stress_MPa", 
         plot_type="line", 
         color="green", 
-        title="応力-ひずみ線図",
-        xlabel="ひずみ (%)",
-        ylabel="応力 (MPa)",
         label="試験体1",
         marker="o",
         linestyle="-",
-        linewidth=2
+        linewidth=2,
+        ax=ax
     ).end()
+    ax.set_title("応力-ひずみ線図")
+    ax.set_xlabel("ひずみ (%)")
+    ax.set_ylabel("応力 (MPa)")
     plt.grid(True)
     plt.show()
     print("応力-ひずみ線図を表示しました")

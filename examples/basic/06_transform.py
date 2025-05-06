@@ -99,7 +99,29 @@ def preprocess_data_for_transform(collection):
     ops = result.ops
     filtered = ops.filter_by_value("Force1", lambda x: x is not None).end()
     
+    # フィルタリング後のデータが空かチェック
+    if len(filtered) == 0:
+        print("警告: フィルタリング後のデータが0件です。より緩いフィルタリングを試みます。")
+        # より緩いフィルタリングを試す（Force2列が存在する場合）
+        if "Force2" in result.columns:
+            filtered = result.ops.filter_by_value("Force2", lambda x: x is not None).end()
+        
+        # それでも空なら、元のデータを返す
+        if len(filtered) == 0:
+            print("警告: フィルタリング後も0件です。フィルタリングを適用せずに続行します。")
+            return result
+    
     return filtered
+
+def replace_none_with_zero(collection, columns):
+    """指定された列のNone値を0に置き換える"""
+    result = collection.clone()
+    for column in columns:
+        if column in result.columns:
+            result.columns[column].values = [
+                0 if value is None else value for value in result.columns[column].values
+            ]
+    return result
 
 def demonstrate_transforms():
     """データ変換操作のデモンストレーション"""
@@ -114,14 +136,30 @@ def demonstrate_transforms():
     print(f"Displacement1: {filtered['Displacement1'].values}")
     print()
     
+    # None値を0に置き換え（数値演算を行うため）
+    filtered = replace_none_with_zero(filtered, ["Force1", "Displacement1", "Force2", "Displacement2"])
+    
     # 操作プロキシを取得
     ops = filtered.ops
     
     print("1. 単位変換")
     # kN -> N （1000倍）
     result = ops.multiply("Force1", 1000, result_column="Force1_N").end()
+    # 重要: 新しい結果に基づいてopsを更新
+    ops = result.ops
+    
+    # デバッグ出力を追加
+    print("デバッグ情報:")
+    print(f"  結果オブジェクト内の列名: {list(result.columns.keys())}")
+    if "Force1_N" in result.columns:
+        print(f"  Force1_N列の値: {result['Force1_N'].values}")
+    else:
+        print("  Force1_N列が存在しません")
+    
     # mm -> m （0.001倍）
     result = ops.multiply("Displacement1", 0.001, result_column="Displacement1_m").end()
+    # 重要: 新しい結果に基づいてopsを更新
+    ops = result.ops
     
     print(f"力の単位変換: kN -> N")
     print(f"  元データ (kN): {result['Force1'].values}")
@@ -137,76 +175,94 @@ def demonstrate_transforms():
     area_mm2 = 50.0
     area_m2 = area_mm2 * 1e-6
     
-    stress_result = ops.divide("Force1_N", area_m2, result_column="Stress_Pa").end()  # Pa = N/m²
-    stress_result = ops.divide("Stress_Pa", 1e6, result_column="Stress_MPa").end()    # MPa = Pa/1e6
+    result = ops.divide("Force1_N", area_m2, result_column="Stress_Pa").end()  # Pa = N/m²
+    ops = result.ops
+    result = ops.divide("Stress_Pa", 1e6, result_column="Stress_MPa").end()    # MPa = Pa/1e6
+    ops = result.ops
     
     # ひずみ計算 (ε = ΔL/L): 初期長さを50mm (= 0.05 m) と仮定
     length_m = 0.05
-    strain_result = ops.divide("Displacement1_m", length_m, result_column="Strain").end()  # 無次元
-    strain_result = ops.multiply("Strain", 100, result_column="Strain_percent").end()  # % = 無次元 * 100
+    result = ops.divide("Displacement1_m", length_m, result_column="Strain").end()  # 無次元
+    ops = result.ops
+    result = ops.multiply("Strain", 100, result_column="Strain_percent").end()  # % = 無次元 * 100
+    ops = result.ops
     
     print(f"応力計算: σ = F/A (断面積 = {area_mm2} mm²)")
-    print(f"  応力 (MPa): {strain_result['Stress_MPa'].values}")
+    print(f"  応力 (MPa): {result['Stress_MPa'].values}")
     
     print(f"ひずみ計算: ε = ΔL/L (初期長さ = {length_m*1000} mm)")
-    print(f"  ひずみ (%): {strain_result['Strain_percent'].values}")
+    print(f"  ひずみ (%): {result['Strain_percent'].values}")
     print()
     
     print("3. 対数変換")
     # 微小ひずみから対数ひずみへの変換
-    log_strain_result = ops.log("Strain", base=math.e, result_column="LogStrain").end()
+    result = ops.log("Strain", base=math.e, result_column="LogStrain").end()
+    ops = result.ops
     # 対数応力 (log10)
-    log_stress_result = ops.log("Stress_Pa", base=10, result_column="LogStress").end()
+    result = ops.log("Stress_Pa", base=10, result_column="LogStress").end()
+    ops = result.ops
     
     print(f"対数ひずみ: ln(ε)")
-    print(f"  ひずみ: {log_strain_result['Strain'].values}")
-    print(f"  対数ひずみ: {log_strain_result['LogStrain'].values}")
+    print(f"  ひずみ: {result['Strain'].values}")
+    print(f"  対数ひずみ: {result['LogStrain'].values}")
     
     print(f"対数応力: log10(σ)")
-    print(f"  応力 (Pa): {log_stress_result['Stress_Pa'].values}")
-    print(f"  対数応力: {log_stress_result['LogStress'].values}")
+    print(f"  応力 (Pa): {result['Stress_Pa'].values}")
+    print(f"  対数応力: {result['LogStress'].values}")
     print()
     
     print("4. 正規化")
     # 変位データの正規化 (min-max法)
-    norm_result = ops.normalize("Displacement1", method="minmax", result_column="Disp_norm_minmax").end()
+    result = ops.normalize("Displacement1", method="minmax", result_column="Disp_norm_minmax").end()
+    ops = result.ops
     # 荷重データの正規化 (Z-score法)
-    norm_result = ops.normalize("Force1", method="zscore", result_column="Force_norm_zscore").end()
+    result = ops.normalize("Force1", method="zscore", result_column="Force_norm_zscore").end()
+    ops = result.ops
     
     print(f"変位の正規化（Min-Max法: [0,1]範囲）")
-    print(f"  元データ: {norm_result['Displacement1'].values}")
-    print(f"  正規化後: {norm_result['Disp_norm_minmax'].values}")
+    print(f"  元データ: {result['Displacement1'].values}")
+    print(f"  正規化後: {result['Disp_norm_minmax'].values}")
     
     print(f"荷重の正規化（Z-score法: 平均0、標準偏差1）")
-    print(f"  元データ: {norm_result['Force1'].values}")
-    print(f"  正規化後: {norm_result['Force_norm_zscore'].values}")
+    print(f"  元データ: {result['Force1'].values}")
+    print(f"  正規化後: {result['Force_norm_zscore'].values}")
     print()
     
-    print("5. 累積計算")
-    # 変位の累積和を計算
-    cumsum_result = ops.cumsum("Displacement1", result_column="Disp_cumsum").end()
+    # cumsumメソッドが利用できないためスキップ
+    print("5. 累積計算（機能は未実装のためスキップします）")
+    # 変位の累積値を手動で計算（デモのため）
+    disp_values = result['Displacement1'].values
+    cumsum_values = []
+    running_sum = 0
+    for val in disp_values:
+        running_sum += val
+        cumsum_values.append(running_sum)
     
     print(f"変位の累積和:")
-    print(f"  元データ: {cumsum_result['Displacement1'].values}")
-    print(f"  累積和: {cumsum_result['Disp_cumsum'].values}")
+    print(f"  元データ: {disp_values}")
+    print(f"  累積和: {cumsum_values}")
     print()
     
-    print("6. 微分と積分（近似計算）")
-    # 荷重変位曲線からの剛性（接線剛性: dF/dx）計算
-    # 隣接点での微分近似
-    diff_result = ops.diff("Force1", "Displacement1", result_column="Stiffness_dF_dx").end()
-    
-    # 荷重変位曲線からのエネルギー（面積積分）計算
-    # 荷重-変位のグラフ下の面積（台形法）
-    energy_result = ops.integrate("Force1", "Displacement1", method="trapezoid", result_column="Energy").end()
-    
-    print(f"剛性計算（微分: dF/dx）:")
-    print(f"  荷重: {diff_result['Force1'].values}")
-    print(f"  変位: {diff_result['Displacement1'].values}")
-    print(f"  剛性: {diff_result['Stiffness_dF_dx'].values}")
-    
-    print(f"エネルギー計算（積分: ∫F·dx）:")
-    print(f"  エネルギー: {energy_result['Energy'].values}")
+    # diffとintegrateも未実装の可能性があるが、確認するためにコードを保持
+    try:
+        print("6. 微分と積分（近似計算）")
+        # 荷重変位曲線からの剛性（接線剛性: dF/dx）計算
+        result = ops.diff("Force1", "Displacement1", result_column="Stiffness_dF_dx").end()
+        ops = result.ops
+        
+        # 荷重変位曲線からのエネルギー（面積積分）計算
+        result = ops.integrate("Force1", "Displacement1", method="trapezoid", result_column="Energy").end()
+        ops = result.ops
+        
+        print(f"剛性計算（微分: dF/dx）:")
+        print(f"  荷重: {result['Force1'].values}")
+        print(f"  変位: {result['Displacement1'].values}")
+        print(f"  剛性: {result['Stiffness_dF_dx'].values}")
+        
+        print(f"エネルギー計算（積分: ∫F·dx）:")
+        print(f"  エネルギー: {result['Energy'].values}")
+    except AttributeError:
+        print("6. 微分と積分（機能は未実装のためスキップします）")
 
 if __name__ == "__main__":
     print("-- ColumnCollectionのデータ変換 --\n")
