@@ -547,3 +547,178 @@ def evaluate(
         return result
     except Exception as e:
         raise ValueError(f"式 '{expression}' の評価中にエラーが発生しました: {str(e)}")
+
+
+# 微分と積分の関数を定義
+@operation(domain="core")
+def diff(
+    collection: ColumnCollection,
+    y_column: str,
+    x_column: str,
+    result_column: Optional[str] = None,
+    method: str = "central",
+    in_place: bool = False
+) -> ColumnCollection:
+    """
+    指定された2つの列間の微分を計算します（dy/dx）。
+
+    Args:
+        collection: 操作対象のColumnCollection
+        y_column: 微分の分子となる列（従属変数）
+        x_column: 微分の分母となる列（独立変数）
+        result_column: 結果を格納する列名（Noneの場合は自動生成）
+        method: 微分方法（"central", "forward", "backward"）
+        in_place: 結果を同じコレクションに上書きするか
+
+    Returns:
+        微分結果を含むColumnCollection
+
+    Raises:
+        KeyError: 列が存在しない場合
+        ValueError: 有効なデータが不足している場合
+    """
+    # 列の存在チェック
+    if y_column not in collection.columns:
+        raise KeyError(f"列 '{y_column}' が存在しません")
+    if x_column not in collection.columns:
+        raise KeyError(f"列 '{x_column}' が存在しません")
+    
+    # 結果を格納するオブジェクトを準備
+    result = collection if in_place else collection.clone()
+    
+    # 列の値を取得
+    y_values = collection[y_column].values
+    x_values = collection[x_column].values
+    
+    # None値をフィルタリング
+    valid_indices = [i for i, (x, y) in enumerate(zip(x_values, y_values)) if x is not None and y is not None]
+    
+    # 連続するNone値でない値が必要な計算のため、None値がある場合は全体をNoneとする
+    if None in y_values or None in x_values:
+        # None値を含む場合、結果はすべてNone
+        full_diff_values = [None] * len(x_values)
+    else:
+        # None値が無い場合のみ計算を実行
+        valid_x = [x_values[i] for i in valid_indices]
+        valid_y = [y_values[i] for i in valid_indices]
+        
+        if len(valid_x) < 2:
+            raise ValueError(f"有効なデータポイントが不足しています: {len(valid_x)} (最低2点必要)")
+        
+        # 微分を計算
+        from ...utils.data import diff_xy
+        diff_values = diff_xy(valid_x, valid_y, method=method)
+        
+        # 元のデータ長に合わせて結果を再構築
+        full_diff_values = [None] * len(x_values)
+        for idx, val in zip(valid_indices, diff_values):
+            full_diff_values[idx] = val
+    
+    # 結果の列名を決定
+    if result_column is None:
+        result_column = f"d({y_column})/d({x_column})"
+    
+    # 元の列の単位情報を取得
+    y_unit = collection[y_column].unit if hasattr(collection[y_column], "unit") else ""
+    x_unit = collection[x_column].unit if hasattr(collection[x_column], "unit") else ""
+    diff_unit = f"{y_unit}/{x_unit}" if y_unit or x_unit else ""
+    
+    # 結果を新しい列として追加
+    if result_column in result.columns:
+        result.columns[result_column].values = full_diff_values
+    else:
+        column = detect_column_type(None, result_column, diff_unit, full_diff_values)
+        result.add_column(result_column, column)
+    
+    return result
+
+
+@operation(domain="core")
+def integrate(
+    collection: ColumnCollection,
+    y_column: str,
+    x_column: str,
+    result_column: Optional[str] = None,
+    method: str = "trapezoid",
+    initial_value: float = 0.0,
+    in_place: bool = False
+) -> ColumnCollection:
+    """
+    指定された2つの列間の積分を計算します（∫y dx）。
+
+    Args:
+        collection: 操作対象のColumnCollection
+        y_column: 積分対象の列（被積分関数）
+        x_column: 積分の基準となる列（積分変数）
+        result_column: 結果を格納する列名（Noneの場合は自動生成）
+        method: 積分方法（現在は"trapezoid"のみサポート）
+        initial_value: 積分の初期値
+        in_place: 結果を同じコレクションに上書きするか
+
+    Returns:
+        積分結果を含むColumnCollection
+
+    Raises:
+        KeyError: 列が存在しない場合
+        ValueError: 有効なデータが不足している場合、または非サポートの積分方法が指定された場合
+    """
+    # メソッドの検証
+    if method != "trapezoid":
+        raise ValueError("現在は trapezoid 積分のみサポートしています")
+    
+    # 列の存在チェック
+    if y_column not in collection.columns:
+        raise KeyError(f"列 '{y_column}' が存在しません")
+    if x_column not in collection.columns:
+        raise KeyError(f"列 '{x_column}' が存在しません")
+    
+    # 結果を格納するオブジェクトを準備
+    result = collection if in_place else collection.clone()
+    
+    # 列の値を取得
+    y_values = collection[y_column].values
+    x_values = collection[x_column].values
+    
+    # None値をフィルタリング
+    valid_indices = [i for i, (x, y) in enumerate(zip(x_values, y_values)) if x is not None and y is not None]
+    valid_x = [x_values[i] for i in valid_indices]
+    valid_y = [y_values[i] for i in valid_indices]
+    
+    if len(valid_x) < 2:
+        raise ValueError(f"有効なデータポイントが不足しています: {len(valid_x)} (最低2点必要)")
+    
+    # xでソート（積分は順序に依存するため）
+    sorted_pairs = sorted(zip(valid_x, valid_y))
+    sorted_x, sorted_y = zip(*sorted_pairs)
+    
+    # 積分を計算
+    from ...utils.data import integrate_xy
+    integral_values = integrate_xy(sorted_x, sorted_y, initial_value=initial_value)
+    
+    # 結果の列名を決定
+    if result_column is None:
+        result_column = f"∫{y_column}·d{x_column}"
+    
+    # 元のデータ順序を保持しながら結果を再構築
+    index_map = {x: i for i, x in enumerate(sorted_x)}
+    full_integral_values = [None] * len(x_values)
+    
+    for idx in valid_indices:
+        x = x_values[idx]
+        sort_idx = index_map.get(x)
+        if sort_idx is not None:
+            full_integral_values[idx] = integral_values[sort_idx]
+    
+    # 元の列の単位情報を取得
+    y_unit = collection[y_column].unit if hasattr(collection[y_column], "unit") else ""
+    x_unit = collection[x_column].unit if hasattr(collection[x_column], "unit") else ""
+    int_unit = f"{y_unit}·{x_unit}" if y_unit or x_unit else ""
+    
+    # 結果を新しい列として追加
+    if result_column in result.columns:
+        result.columns[result_column].values = full_integral_values
+    else:
+        column = detect_column_type(None, result_column, int_unit, full_integral_values)
+        result.add_column(result_column, column)
+    
+    return result
