@@ -1,0 +1,143 @@
+"""
+ColumnCollectionのデータ補間を示すサンプルコード
+"""
+
+import os
+import numpy as np
+from tascpy.core.collection import ColumnCollection
+
+# 現在のスクリプトからの相対パスでデータファイルを取得
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+SAMPLE_CSV_PATH = os.path.join(DATA_DIR, "sample.csv")
+
+def load_sample_data():
+    """サンプルデータの読み込み"""
+    try:
+        # CSVファイルからデータを読み込む
+        collection = ColumnCollection.from_file(
+            filepath=SAMPLE_CSV_PATH,
+            format_name="csv",
+            auto_detect_types=True
+        )
+        
+        # Noneデータを含む行が補間に影響するので、前処理として特定のみを抽出
+        filtered = preprocess_data_for_interpolation(collection)
+        return filtered
+    except FileNotFoundError:
+        print(f"ファイル '{SAMPLE_CSV_PATH}' が見つかりません。")
+        return create_sample_data()  # ファイルが見つからない場合は模擬データを作成
+
+def create_sample_data():
+    """CSVファイルがない場合の不等間隔なサンプルデータを作成"""
+    # 不等間隔なステップ値
+    steps = [3, 4, 5, 7, 10]
+    
+    # 列データの定義（測定データの間隔が不均一な場合を想定）
+    columns = {
+        "Force1": [0.0, 2.9, 2.9, 5.0, 10.0],
+        "Force2": [0.0, 8.8, 8.8, 12.5, 20.0],
+        "Displacement1": [0.00, 0.08, 0.08, 0.25, 0.65],
+        "Displacement2": [0.00, 0.56, 0.61, 1.10, 2.20]
+    }
+    
+    # メタデータの定義
+    metadata = {
+        "date": ["2020/12/01", "2020/12/01", "2020/12/01", "2020/12/02", "2020/12/03"],
+        "time": ["13:22:11", "13:38:05", "13:38:10", "10:30:00", "09:00:00"],
+        "test_condition": "不等間隔なサンプルデータ"
+    }
+    
+    # 自動型判定を使用してコレクションを作成
+    return ColumnCollection(steps, columns, metadata, auto_detect_types=True)
+
+def preprocess_data_for_interpolation(collection):
+    """補間用にデータを前処理（Noneを含まないデータを抽出）"""
+    # 補間のデモのために、Noneを含まない行だけを抽出
+    ops = collection.ops
+    filtered = ops.filter_by_value("Force1", lambda x: x is not None).end()
+    
+    return filtered
+
+def demonstrate_interpolation():
+    """データ補間のデモンストレーション"""
+    collection = load_sample_data()
+    
+    print("初期データ (不等間隔/欠測値あり):")
+    print(f"ステップ: {collection.step.values}")
+    print(f"Force1: {collection['Force1'].values}")
+    print(f"Displacement1: {collection['Displacement1'].values}")
+    print()
+    
+    # 操作プロキシを取得
+    ops = collection.ops
+    
+    print("1. 等間隔補間 (ステップ値ベース)")
+    # ステップ値に基づいて等間隔に補間（10点）
+    result = ops.interpolate(point_count=10).end()
+    print(f"10点に等間隔補間したデータ:")
+    print(f"  新しいステップ: {result.step.values}")
+    print(f"  補間後Force1: {result['Force1'].values}")
+    print(f"  補間後Displacement1: {result['Displacement1'].values}")
+    print()
+    
+    print("2. 指定ステップ値での補間")
+    # 特定のステップ値で補間
+    specific_steps = [3, 3.5, 4, 4.5, 5, 6, 7, 8, 9, 10]
+    result = ops.interpolate(x_values=specific_steps).end()
+    print(f"指定ステップ値で補間したデータ:")
+    print(f"  指定ステップ: {specific_steps}")
+    print(f"  補間後Force1: {result['Force1'].values}")
+    print()
+    
+    print("3. 変位を基準にした荷重の補間")
+    # 変位を等間隔にして、それに対応する荷重値を補間
+    result = ops.interpolate(base_column_name="Displacement1", point_count=8).end()
+    print(f"変位を基準に補間したデータ:")
+    print(f"  等間隔変位: {result['Displacement1'].values}")
+    print(f"  対応するForce1: {result['Force1'].values}")
+    print()
+    
+    print("4. 特定の列のみの補間")
+    # Force1とDisplacement1のみ補間
+    result = ops.interpolate(point_count=8, columns=["Force1", "Displacement1"]).end()
+    print(f"特定列のみ補間したデータ:")
+    print(f"  補間後Force1: {result['Force1'].values}")
+    print(f"  補間後Displacement1: {result['Displacement1'].values}")
+    
+    # Force2は補間されていないことを確認
+    original_force2 = collection['Force2'].values
+    result_force2 = result['Force2'].values
+    if len(original_force2) < len(result_force2):
+        print(f"  Force2は補間されていない (元データと異なる長さでも内容は同じ)")
+        print(f"    元のForce2: {original_force2}")
+        print(f"    補間後のForce2 (先頭のみ): {result_force2[:len(original_force2)]}")
+    print()
+    
+    print("5. 補間方法の指定")
+    # 線形補間（デフォルト）
+    linear_result = ops.interpolate(point_count=10, method="linear").end()
+    
+    # スプライン補間
+    spline_result = ops.interpolate(point_count=10, method="spline").end()
+    
+    # 最近傍補間（前方または後方の値を使用）
+    nearest_result = ops.interpolate(point_count=10, method="nearest").end()
+    
+    print(f"異なる補間方法の比較 (Force1):")
+    print(f"  線形補間: {linear_result['Force1'].values}")
+    print(f"  スプライン補間: {spline_result['Force1'].values}")
+    print(f"  最近傍補間: {nearest_result['Force1'].values}")
+    print()
+    
+    print("6. メタデータの補間")
+    # メタデータ（日付・時間）を時間順で補間
+    result = ops.interpolate(point_count=10).end()
+    
+    # 補間されたメタデータの確認（日付と時間は線形補間するのが難しいため、近傍値が使われることが多い）
+    print(f"補間後のメタデータ:")
+    print(f"  元の日付: {collection.date}")
+    print(f"  補間後の日付: {result.date}")
+
+if __name__ == "__main__":
+    print("-- ColumnCollectionのデータ補間 --\n")
+    demonstrate_interpolation()
