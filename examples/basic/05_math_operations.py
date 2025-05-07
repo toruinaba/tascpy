@@ -94,38 +94,66 @@ def demonstrate_math_operations():
     print(f"DisplacementDiff = {result['DisplacementDiff'].values}")
     print()
     
-    print("3. 数式の評価")
+    print("3. selectを使用して特定の列のみに演算を適用")
+    # selectを使用して特定の列だけを選択してから数学演算を適用する例
+    selected = ops.select(columns=["Force1", "Displacement1"]).end()
+    selected_ops = selected.ops
+    result = selected_ops.divide("Force1", "Displacement1", result_column="Stiffness", handle_zero_division="none").end()
+    print(f"選択した列のみで剛性計算: Force1/Displacement1 = {result['Stiffness'].values}")
+    print()
+    
+    print("4. select_stepを使用して特定のステップのみに演算を適用")
+    # select_stepを使用して特定のステップだけに対して演算を適用する例
+    step_selected = ops.select_step(steps=[3, 4, 5]).end()  # ステップ3,4,5のデータのみを選択
+    step_ops = step_selected.ops
+    result = step_ops.multiply("Force1", 2, result_column="DoubleForce").end()
+    print(f"選択したステップの荷重を2倍: Force1*2 = {result['DoubleForce'].values}")
+    print()
+    
+    print("5. 数式の評価")
     # 数式文字列を評価して結果を計算（複合的な計算式）
     # 例: 剛性 k = F/(δ+0.001) の計算、0.001は0除算回避
     result = ops.evaluate("(Force1+Force2)/(Displacement1+0.001)", result_column="Stiffness").end()
     print(f"剛性 k = (F1+F2)/(D1+0.001) = {result['Stiffness'].values}")
     print()
     
-    print("4. 数学関数")
+    print("6. 数学関数")
+    # select操作で特定の列を選んでから数学関数を適用
+    selected = ops.select(columns=["Displacement1", "Displacement2"]).end()
+    selected_ops = selected.ops
+    
     # 平方根
-    result = ops.sqrt("Displacement2", result_column="sqrt_disp").end()
+    result = selected_ops.sqrt("Displacement2", result_column="sqrt_disp").end()
     print(f"sqrt(Displacement2) = {result['sqrt_disp'].values}")
     
-    # べき乗
-    result = ops.pow("Force1", 2, result_column="Force1^2").end()
+    # べき乗 - 別のselectを使用して単一の列で操作
+    force_selected = ops.select(columns=["Force1"]).end()
+    force_ops = force_selected.ops
+    result = force_ops.pow("Force1", 2, result_column="Force1^2").end()
     print(f"Force1^2 = {result['Force1^2'].values}")
     
     # 指数
-    result = ops.exp("Displacement1", result_column="exp_disp").end()
+    result = selected_ops.exp("Displacement1", result_column="exp_disp").end()
     print(f"exp(Displacement1) = {result['exp_disp'].values}")
     print()
     
-    print("5. 連鎖演算")
-    # 連鎖的に演算を適用し、最終結果を返す
-    # まず平均荷重を計算
-    result = ops.add("Force1", "Force2", result_column="TotalForce").end()
-    result = result.ops.divide("TotalForce", 2, result_column="AverageForce", handle_zero_division="none").end()
-    # 平均荷重の平方根を計算
-    result = result.ops.sqrt("AverageForce", result_column="SqrtAvgForce").end()
-    # 正規化された荷重を計算（全て平均荷重の平方根で割る）
-    result = result.ops.divide("Force1", "SqrtAvgForce", result_column="NormalizedForce1", handle_zero_division="none").end()
+    print("7. 連鎖演算とselect_step")
+    # 特定のステップだけを選択してから連鎖的に演算を適用
+    valid_steps = [3, 4, 5]  # Noneを含まないステップ
+    step_selected = ops.select_step(steps=valid_steps).end()
+    step_ops = step_selected.ops
     
-    print("連鎖演算の結果:")
+    # 選択したステップデータに対して連鎖的に演算を適用
+    result = (
+        step_ops.add("Force1", "Force2", result_column="TotalForce")
+        .divide("TotalForce", 2, result_column="AverageForce", handle_zero_division="none")
+        .sqrt("AverageForce", result_column="SqrtAvgForce")
+        .divide("Force1", "SqrtAvgForce", result_column="NormalizedForce1", handle_zero_division="none")
+        .end()
+    )
+    
+    print("ステップを選択して連鎖演算を適用した結果:")
+    print(f"  選択したステップ: {result.step.values}")
     print(f"  合計荷重: {result['TotalForce'].values}")
     print(f"  平均荷重: {result['AverageForce'].values}")
     print(f"  平均荷重の平方根: {result['SqrtAvgForce'].values}")

@@ -142,24 +142,24 @@ def demonstrate_transforms():
     # 操作プロキシを取得
     ops = filtered.ops
     
-    print("1. 単位変換")
-    # kN -> N （1000倍）
-    result = ops.multiply("Force1", 1000, result_column="Force1_N").end()
-    # 重要: 新しい結果に基づいてopsを更新
-    ops = result.ops
+    print("1. selectを使用して変換に必要な列のみを選択")
+    # 変換に必要な列のみを選択
+    selected = ops.select(columns=["Force1", "Displacement1"]).end()
+    selected_ops = selected.ops
     
-    # デバッグ出力を追加
-    print("デバッグ情報:")
-    print(f"  結果オブジェクト内の列名: {list(result.columns.keys())}")
-    if "Force1_N" in result.columns:
-        print(f"  Force1_N列の値: {result['Force1_N'].values}")
-    else:
-        print("  Force1_N列が存在しません")
+    print(f"選択された列: {list(selected.columns.keys())}")
+    print(f"  選択後の行数: {len(selected)}")
+    print()
+    
+    print("2. 単位変換")
+    # kN -> N （1000倍）
+    result = selected_ops.multiply("Force1", 1000, result_column="Force1_N").end()
+    # 重要: 新しい結果に基づいてopsを更新
+    result_ops = result.ops
     
     # mm -> m （0.001倍）
-    result = ops.multiply("Displacement1", 0.001, result_column="Displacement1_m").end()
-    # 重要: 新しい結果に基づいてopsを更新
-    ops = result.ops
+    result = result_ops.multiply("Displacement1", 0.001, result_column="Displacement1_m").end()
+    result_ops = result.ops
     
     print(f"力の単位変換: kN -> N")
     print(f"  元データ (kN): {result['Force1'].values}")
@@ -170,7 +170,30 @@ def demonstrate_transforms():
     print(f"  変換後 (m): {result['Displacement1_m'].values}")
     print()
     
-    print("2. 応力・ひずみ計算")
+    print("3. select_stepを使用して特定のステップの変換")
+    # 重要なステップを選択（例: 中間のステップのみ）
+    step_indices = list(range(3, 8))
+    step_selected = ops.select_step(steps=step_indices).end()
+    step_ops = step_selected.ops
+    
+    # 選択したステップに対して変換を適用
+    result = step_ops.multiply("Force1", 1000, result_column="Force1_N").end()
+    result_ops = result.ops
+    result = result_ops.multiply("Displacement1", 0.001, result_column="Displacement1_m").end()
+    
+    print(f"選択したステップ値: {result.step.values}")
+    print(f"  変換後 (N): {result['Force1_N'].values}")
+    print(f"  変換後 (m): {result['Displacement1_m'].values}")
+    print()
+    
+    # 全データに戻して以降の変換を続行
+    ops = filtered.ops
+    result = ops.multiply("Force1", 1000, result_column="Force1_N").end()
+    ops = result.ops
+    result = ops.multiply("Displacement1", 0.001, result_column="Displacement1_m").end()
+    ops = result.ops
+    
+    print("4. 応力・ひずみ計算")
     # 応力計算 (σ = F/A): 断面積を50mm² (= 5.0e-5 m²) と仮定
     area_mm2 = 50.0
     area_m2 = area_mm2 * 1e-6
@@ -194,24 +217,27 @@ def demonstrate_transforms():
     print(f"  ひずみ (%): {result['Strain_percent'].values}")
     print()
     
-    print("3. 対数変換")
-    # 微小ひずみから対数ひずみへの変換
-    result = ops.log("Strain", base=math.e, result_column="LogStrain").end()
-    ops = result.ops
-    # 対数応力 (log10)
-    result = ops.log("Stress_Pa", base=10, result_column="LogStress").end()
-    ops = result.ops
+    print("5. 特定のステップの応力-ひずみデータを変換")
+    # 特定のステップ（例: 後半のデータ）だけを選択
+    important_steps = [6, 7, 8, 9, 10]  # 重要なステップ
+    step_selected = ops.select_step(steps=important_steps).end()
+    step_ops = step_selected.ops
     
-    print(f"対数ひずみ: ln(ε)")
-    print(f"  ひずみ: {result['Strain'].values}")
+    # 選択したデータに対して対数変換を適用
+    result = step_ops.log("Strain", base=math.e, result_column="LogStrain").end()
+    result_ops = result.ops
+    result = result_ops.log("Stress_Pa", base=10, result_column="LogStress").end()
+    
+    print(f"選択したステップの対数変換:")
+    print(f"  選択したステップ: {result.step.values}")
     print(f"  対数ひずみ: {result['LogStrain'].values}")
-    
-    print(f"対数応力: log10(σ)")
-    print(f"  応力 (Pa): {result['Stress_Pa'].values}")
     print(f"  対数応力: {result['LogStress'].values}")
     print()
     
-    print("4. 正規化")
+    # 全データセットに戻る
+    ops = result.ops
+    
+    print("6. 正規化")
     # 変位データの正規化 (min-max法)
     result = ops.normalize("Displacement1", method="minmax", result_column="Disp_norm_minmax").end()
     ops = result.ops
@@ -229,7 +255,7 @@ def demonstrate_transforms():
     print()
     
     # cumsumメソッドが利用できないためスキップ
-    print("5. 累積計算（機能は未実装のためスキップします）")
+    print("7. 累積計算（機能は未実装のためスキップします）")
     # 変位の累積値を手動で計算（デモのため）
     disp_values = result['Displacement1'].values
     cumsum_values = []
@@ -245,7 +271,7 @@ def demonstrate_transforms():
     
     # diffとintegrateも未実装の可能性があるが、確認するためにコードを保持
     try:
-        print("6. 微分と積分（近似計算）")
+        print("8. 微分と積分（近似計算）")
         # 荷重変位曲線からの剛性（接線剛性: dF/dx）計算
         result = ops.diff("Force1", "Displacement1", result_column="Stiffness_dF_dx").end()
         ops = result.ops
@@ -262,7 +288,7 @@ def demonstrate_transforms():
         print(f"エネルギー計算（積分: ∫F·dx）:")
         print(f"  エネルギー: {result['Energy'].values}")
     except AttributeError:
-        print("6. 微分と積分（機能は未実装のためスキップします）")
+        print("8. 微分と積分（機能は未実装のためスキップします）")
 
 if __name__ == "__main__":
     print("-- ColumnCollectionのデータ変換 --\n")

@@ -83,9 +83,19 @@ def demonstrate_plotting():
     # 操作プロキシを取得
     ops = collection.ops
     
-    print("1. 基本的な散布図")
+    print("1. select操作を使ってプロット用のデータを選択")
+    # プロットに必要な列だけを選択
+    plot_data = ops.select(columns=["Displacement1", "Force1"]).end()
+    plot_ops = plot_data.ops
+    
+    # 選択したデータの内容を確認
+    print(f"選択した列: {list(plot_data.columns.keys())}")
+    print(f"行数: {len(plot_data)}")
+    print()
+    
+    print("2. 基本的な散布図")
     fig, ax = plt.subplots(figsize=(8, 5))
-    ops.plot(
+    plot_ops.plot(
         x_column="Displacement1", 
         y_column="Force1", 
         plot_type="scatter", 
@@ -100,52 +110,79 @@ def demonstrate_plotting():
     print("散布図を表示しました")
     print()
     
-    print("2. 線グラフ")
+    print("3. 線グラフとデータの間引き")
+    # データ点が多すぎる場合は間引いてプロット（selectで何点かを選択）
+    sample_indices = list(range(0, len(collection), 2))  # 2点ごとに選択
+    sampled_data = ops.select(indices=sample_indices).end()
+    sampled_ops = sampled_data.ops
+    
     fig, ax = plt.subplots(figsize=(8, 5))
-    ops.plot(
+    sampled_ops.plot(
         x_column="Displacement1", 
         y_column="Force1", 
         plot_type="line", 
         color="blue", 
-        label="試験体1",
+        label="試験体1 (間引き)",
         marker="o",
         linestyle="-",
         linewidth=2,
         ax=ax
     ).end()
-    ax.set_title("荷重-変位曲線 (線グラフ)")
+    ax.set_title("荷重-変位曲線 (線グラフ、間引きあり)")
     ax.set_xlabel("変位 (mm)")
     ax.set_ylabel("荷重 (kN)")
     plt.grid(True)
     plt.show()
-    print("線グラフを表示しました")
+    print("間引きデータの線グラフを表示しました")
     print()
     
-    print("3. 複数グラフの重ね描き")
+    print("4. 複数グラフの重ね描き（select_stepによる段階的な選択）")
+    # 前半と後半のデータだけを選択してプロット
+    step_first_half = list(range(1, 11))
+    step_second_half = list(range(11, 21))
+    
+    # 前半データを選択
+    first_half = ops.select_step(steps=step_first_half).end()
+    # 後半データを選択
+    second_half = ops.select_step(steps=step_second_half).end()
+    
     # 新しい図を作成
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # 複数のグラフを同じAxesに描画
-    ops.plot(
+    # 前半のデータをプロット
+    first_half.ops.plot(
         x_column="Displacement1", 
         y_column="Force1", 
         plot_type="line", 
         color="blue", 
-        label="試験体1 (荷重1)", 
+        label="試験体1 (前半)", 
         marker="o", 
         ax=ax
     ).end()
+    
+    # 後半のデータをプロット
+    second_half.ops.plot(
+        x_column="Displacement1", 
+        y_column="Force1", 
+        plot_type="line", 
+        color="green", 
+        label="試験体1 (後半)", 
+        marker="s", 
+        ax=ax
+    ).end()
+    
+    # 試験体2の全データをプロット
     ops.plot(
         x_column="Displacement2", 
         y_column="Force2", 
         plot_type="line", 
         color="red", 
-        label="試験体2 (荷重2)", 
-        marker="s", 
+        label="試験体2 (全体)", 
+        marker="^", 
         ax=ax
     ).end()
     
-    ax.set_title("2つの試験体の荷重-変位曲線の比較")
+    ax.set_title("試験体1の前半/後半データと試験体2の比較")
     ax.set_xlabel("変位 (mm)")
     ax.set_ylabel("荷重 (kN)")
     ax.grid(True)
@@ -154,12 +191,20 @@ def demonstrate_plotting():
     print("複数線グラフを表示しました")
     print()
     
-    print("4. サブプロット")
+    print("5. サブプロット（selectで列を選択）")
     # 2行1列のサブプロットを作成
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
     
-    # 1つ目のサブプロット: 荷重-変位曲線
-    ops.plot(
+    # 試験体1のデータのみを選択
+    specimen1_data = ops.select(columns=["Displacement1", "Force1"]).end()
+    specimen1_ops = specimen1_data.ops
+    
+    # 試験体2のデータのみを選択
+    specimen2_data = ops.select(columns=["Displacement2", "Force2"]).end()
+    specimen2_ops = specimen2_data.ops
+    
+    # 1つ目のサブプロット: 2つの試験体の荷重-変位曲線
+    specimen1_ops.plot(
         x_column="Displacement1", 
         y_column="Force1", 
         plot_type="line", 
@@ -167,7 +212,7 @@ def demonstrate_plotting():
         label="試験体1", 
         ax=ax1
     ).end()
-    ops.plot(
+    specimen2_ops.plot(
         x_column="Displacement2", 
         y_column="Force2", 
         plot_type="line", 
@@ -223,7 +268,12 @@ def demonstrate_plotting():
     print("サブプロットを表示しました")
     print()
     
-    print("5. 数学変換を適用して描画")
+    print("6. select_stepを使った特定の区間のデータ変換と可視化")
+    # 特定のステップ範囲だけを選択し、応力-ひずみに変換
+    important_steps = list(range(5, 16))  # ステップ5～15
+    step_selected = ops.select_step(steps=important_steps).end()
+    step_ops = step_selected.ops
+    
     # 応力-ひずみ関係の計算（モデル変換例）
     # 仮定: 断面積 = 50mm², 標点間距離 = 50mm
     area_mm2 = 50.0  # mm²
@@ -231,7 +281,7 @@ def demonstrate_plotting():
     
     # 応力(MPa)とひずみ(%)の計算
     stress_strain_result = (
-        ops.multiply("Force1", 1000)                            # kN -> N
+        step_ops.multiply("Force1", 1000)                            # kN -> N
         .divide("Force1*1000", area_mm2, result_column="Stress_MPa")  # N/mm² = MPa
         .multiply("Displacement1", 100)                         # mm -> 0.1mm
         .divide("Displacement1*100", length_mm, result_column="Strain_percent")  # % = (ΔL/L₀)*100
@@ -245,13 +295,13 @@ def demonstrate_plotting():
         y_column="Stress_MPa", 
         plot_type="line", 
         color="green", 
-        label="試験体1",
+        label="選択したステップ区間",
         marker="o",
         linestyle="-",
         linewidth=2,
         ax=ax
     ).end()
-    ax.set_title("応力-ひずみ線図")
+    ax.set_title("選択したステップ区間の応力-ひずみ線図")
     ax.set_xlabel("ひずみ (%)")
     ax.set_ylabel("応力 (MPa)")
     plt.grid(True)

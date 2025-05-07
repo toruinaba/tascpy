@@ -142,7 +142,54 @@ def demonstrate_interpolation():
         print(f"指定ステップ値での補間に失敗しました: {e}")
     print()
     
-    print("3. 変位を基準にした荷重の補間")
+    print("3. selectを使用して補間したい列だけを選択")
+    # 特定の列だけを選択（存在するカラムのみ）
+    columns_to_select = ["Force1", "Displacement1"]
+    if "time" in collection.metadata:
+        # metadata内に"time"が存在する場合は追加
+        print("  timeメタデータを使用します")
+    
+    selected = ops.select(columns=columns_to_select).end()
+    selected_ops = selected.ops
+    
+    try:
+        # 選択した列に対して補間
+        result = selected_ops.interpolate_missing(
+            method="linear", 
+            columns=["Force1", "Displacement1"]
+        ).end()
+        
+        print(f"選択した列のみに補間を適用:")
+        print(f"  選択された列: {list(result.columns.keys())}")
+        print(f"  補間後Force1: {result['Force1'].values}")
+        print(f"  補間後Displacement1: {result['Displacement1'].values}")
+    except Exception as e:
+        print(f"選択した列の補間に失敗しました: {e}")
+    print()
+    
+    print("4. select_stepを使用して特定のステップ範囲に補間")
+    # 特定のステップ範囲だけを選択
+    min_step, max_step = min(collection.step.values), max(collection.step.values)
+    step_range = list(range(min_step, max_step + 1))
+    step_selected = ops.select_step(steps=step_range).end()
+    step_ops = step_selected.ops
+    
+    try:
+        # 選択したステップ範囲に対して補間
+        result = step_ops.interpolate(
+            point_count=len(step_range)*2,  # より細かい補間
+            method="cubic"
+        ).end()
+        
+        print(f"選択したステップ範囲に対して補間:")
+        print(f"  選択したステップの範囲: {min_step}～{max_step}")
+        print(f"  補間後のステップ数: {len(result)}")
+        print(f"  補間後Force1の一部: {result['Force1'].values[:5]}...")
+    except Exception as e:
+        print(f"選択したステップ範囲の補間に失敗しました: {e}")
+    print()
+    
+    print("5. 変位を基準にした荷重の補間")
     # 変位を等間隔にして、それに対応する荷重値を補間
     try:
         result = ops.interpolate(base_column_name="Displacement1", point_count=8).end()
@@ -153,7 +200,7 @@ def demonstrate_interpolation():
         print(f"変位を基準にした補間に失敗しました: {e}")
     print()
     
-    print("4. 特定の列のみの補間")
+    print("6. 特定の列のみの補間")
     # Force1とDisplacement1のみ補間
     try:
         result = ops.interpolate(point_count=8, columns=["Force1", "Displacement1"]).end()
@@ -172,7 +219,7 @@ def demonstrate_interpolation():
         print(f"特定列のみの補間に失敗しました: {e}")
     print()
     
-    print("5. 補間方法の指定")
+    print("7. 補間方法の指定")
     try:
         # 線形補間（デフォルト）
         linear_result = ops.interpolate(point_count=10, method="linear").end()
@@ -191,7 +238,7 @@ def demonstrate_interpolation():
         print(f"補間方法の指定による補間に失敗しました: {e}")
     print()
     
-    print("6. メタデータの補間")
+    print("8. メタデータの補間")
     try:
         # メタデータ（日付・時間）を時間順で補間
         result = ops.interpolate(point_count=10).end()

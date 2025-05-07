@@ -109,7 +109,18 @@ def demonstrate_filter_search():
     print(f"  Force1値: {result['Force1'].values}")
     print()
     
-    print("2. 比較演算子による検索")
+    print("2. selectを使った特定の列の選択とフィルタリング")
+    # 特定の列だけを選択してからフィルタリング
+    selected_cols = ops.select(columns=["Force1", "Displacement1"]).end()
+    selected_ops = selected_cols.ops
+    result = selected_ops.filter_by_value("Force1", lambda x: x is not None and x > 1.0).end()
+    print(f"選択した列でForce1が1.0より大きい行: {len(result)}行")
+    print(f"  選択された列: {list(result.columns.keys())}")
+    print(f"  Force1値: {result['Force1'].values}")
+    print(f"  Displacement1値: {result['Displacement1'].values}")
+    print()
+    
+    print("3. 比較演算子による検索")
     # 値での比較検索
     result = ops.search_by_value("Force1", ">", 5.0).end()
     print(f"Force1が5.0より大きい行: {len(result)}行")
@@ -117,7 +128,7 @@ def demonstrate_filter_search():
     print(f"  対応するステップ: {result.step.values}")
     print()
     
-    print("3. 値の範囲による検索")
+    print("4. 値の範囲による検索")
     # 値の範囲で検索
     result = ops.search_by_range("Displacement1", 0.1, 0.5).end()
     print(f"Displacement1が0.1～0.5の範囲の行: {len(result)}行")
@@ -125,7 +136,7 @@ def demonstrate_filter_search():
     print(f"  Force1値: {result['Force1'].values}")
     print()
     
-    print("4. ステップ値の範囲による検索")
+    print("5. ステップ値の範囲による検索")
     # ステップ値の範囲で検索
     result = ops.search_by_step_range(3, 6).end()
     print(f"ステップ3～6の行: {len(result)}行")
@@ -133,7 +144,19 @@ def demonstrate_filter_search():
     print(f"  Force1値: {result['Force1'].values}")
     print()
     
-    print("5. 条件関数による検索")
+    print("6. select_stepを使った特定のステップの選択")
+    # 特定のステップだけを選択
+    step_selected = ops.select_step(steps=[2, 3, 4, 5]).end()
+    step_ops = step_selected.ops
+    
+    # 選択したステップに対してさらにフィルタリング
+    result = step_ops.filter_by_value("Force1", lambda x: x is not None).end()
+    print(f"選択したステップでForce1がNoneでない行: {len(result)}行")
+    print(f"  ステップ値: {result.step.values}")
+    print(f"  Force1値: {result['Force1'].values}")
+    print()
+    
+    print("7. 条件関数による検索")
     # 条件関数を使用した検索 - 2つの条件の組み合わせ
     def condition_func(row):
         force_ok = row["Force1"] is not None and row["Force1"] > 2.0
@@ -146,7 +169,7 @@ def demonstrate_filter_search():
     print(f"  Displacement1値: {result['Displacement1'].values}")
     print()
     
-    print("6. メタデータによる検索")
+    print("8. メタデータによる検索")
     # メタデータ（日付）に基づく条件関数
     def date_condition(row):
         # row_data辞書には列の値は含まれるが、stepやメタデータは含まれない
@@ -163,13 +186,17 @@ def demonstrate_filter_search():
                 return date == "2020/12/02"
         return False  # 一致する行が見つからなかった
     
-    result = ops.search_by_condition(date_condition).end()
-    print(f"2020/12/02のデータ: {len(result)}行")
+    # selectとfilter_by_functionの組み合わせ
+    step_selected = ops.select_step(steps=list(range(3, 11))).end()  # ステップ3から10を選択
+    step_ops = step_selected.ops
+    result = step_ops.search_by_condition(date_condition).end()
+    
+    print(f"選択したステップから2020/12/02のデータを検索: {len(result)}行")
     print(f"  日付: {result.date}")
     print(f"  Force1値: {result['Force1'].values}")
     print()
     
-    print("7. 上位N件の検索")
+    print("9. 上位N件の検索")
     # Force1の上位3件を検索
     result = ops.search_top_n("Force1", 3).end()
     print(f"Force1が最大の上位3件:")
@@ -180,7 +207,7 @@ def demonstrate_filter_search():
         print(f"  ステップ{step}: {force}kN ({date})")
     print()
     
-    print("8. Noneの処理")
+    print("10. Noneの処理")
     # Noneを含む行を検索
     result = ops.search_missing_values(["Force1"]).end()
     print(f"Force1がNoneの行: {len(result)}行")
