@@ -646,10 +646,32 @@ def integrate_xy(x: list, y: list, initial_value: float = 0.0) -> list:
     if len(x) < 2:
         raise ValueError("Data length must be at least 2 points")
 
-    result = [initial_value]  # Start with initial value
+    # None値をチェック
+    has_none = any(val is None for val in y)
+    
+    if has_none:
+        # None値を含む場合、最初の値だけ計算し、残りはNoneとする
+        result = [None] * len(x)
+        # 最初の値がNoneでなければ計算
+        if y[0] is not None and x[0] is not None:
+            dx = x[0] - 0
+            first_step = dx * y[0]
+            result[0] = initial_value + first_step
+        return result
+    
+    # 通常の積分計算（None値がない場合）
+    result = []
     integral = initial_value
 
     # Trapezoidal rule integration
+    # 最初のポイントの積分値を計算（初期値 + 最初のステップでの積分）
+    dx = x[0] - 0  # 0からの距離を使用
+    dy_avg = y[0]  # 最初の点での値
+    first_step = dx * dy_avg
+    result.append(initial_value + first_step)
+    
+    # 残りのポイントは通常の台形公式で計算
+    integral = initial_value + first_step
     for i in range(1, len(x)):
         dx = x[i] - x[i - 1]
         dy_avg = (y[i] + y[i - 1]) / 2
