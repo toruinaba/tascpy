@@ -275,25 +275,27 @@ def create_skeleton_curve(
 
     # 結果列を追加
     result.columns[result_load_column] = Column(
+        ch=None,
         name=result_load_column,
-        values=p_ske,
         unit=(
             collection[load_column].unit
             if hasattr(collection[load_column], "unit")
             else None
         ),
-        description=f"Skeleton curve load from {load_column}",
+        values=p_ske,
+        metadata={"description": f"Skeleton curve load from {load_column}"},
     )
 
     result.columns[result_disp_column] = Column(
+        ch=None,
         name=result_disp_column,
-        values=d_ske,
         unit=(
             collection[disp_column].unit
             if hasattr(collection[disp_column], "unit")
             else None
         ),
-        description=f"Skeleton curve displacement from {disp_column}",
+        values=d_ske,
+        metadata={"description": f"Skeleton curve displacement from {disp_column}"},
     )
 
     return result
@@ -437,25 +439,27 @@ def create_cumulative_curve(
 
     # 結果列を追加
     result.columns[result_load_column] = Column(
+        ch=None,
         name=result_load_column,
-        values=p_cum,
         unit=(
             collection[load_column].unit
             if hasattr(collection[load_column], "unit")
             else None
         ),
-        description=f"Cumulative load from {load_column}",
+        values=p_cum,
+        metadata={"description": f"Cumulative load from {load_column}"},
     )
 
     result.columns[result_disp_column] = Column(
+        ch=None,
         name=result_disp_column,
-        values=d_cum,
         unit=(
             collection[disp_column].unit
             if hasattr(collection[disp_column], "unit")
             else None
         ),
-        description=f"Cumulative displacement from {disp_column}",
+        values=d_cum,
+        metadata={"description": f"Cumulative displacement from {disp_column}"},
     )
 
     return result

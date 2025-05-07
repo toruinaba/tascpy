@@ -63,7 +63,13 @@ def cycle_count(
     # 結果を新しいコレクションとして作成
     result = collection.clone()
     result.columns[result_column] = Column(
-        name=result_column, values=markers, description=f"Cycle count based on {column}"
+        ch=None,  # chパラメータを追加
+        name=result_column,
+        unit=None,  # unitパラメータを追加
+        values=markers,
+        metadata={
+            "description": f"Cycle count based on {column}"
+        },  # descriptionをmetadataに移動
     )
 
     return result

@@ -83,10 +83,13 @@ def calculate_slopes(
     slope_unit = f"{y_unit}/{x_unit}" if y_unit and x_unit else None
 
     result.columns[result_column] = Column(
+        ch=None,  # ch パラメータを追加
         name=result_column,
+        unit=slope_unit,  # unit パラメータを正しい位置に
         values=slopes,
-        unit=slope_unit,
-        description=f"Slope between {y_column} and {x_column}",
+        metadata={
+            "description": f"Slope between {y_column} and {x_column}"
+        },  # description を metadata に移動
     )
 
     return result
@@ -263,25 +266,31 @@ def find_yield_point(
 
     # 単一値の結果カラムを作成
     result.columns[yield_disp_col] = Column(
+        ch=None,  # ch パラメータを追加
         name=yield_disp_col,
-        values=[yield_disp],
         unit=(
             collection[disp_column].unit
             if hasattr(collection[disp_column], "unit")
             else None
         ),
-        description=f"Yield displacement ({method} method)",
+        values=[yield_disp],
+        metadata={
+            "description": f"Yield displacement ({method} method)"
+        },  # description を metadata に移動
     )
 
     result.columns[yield_load_col] = Column(
+        ch=None,  # ch パラメータを追加
         name=yield_load_col,
-        values=[yield_load],
         unit=(
             collection[load_column].unit
             if hasattr(collection[load_column], "unit")
             else None
         ),
-        description=f"Yield load ({method} method)",
+        values=[yield_load],
+        metadata={
+            "description": f"Yield load ({method} method)"
+        },  # description を metadata に移動
     )
 
     return result
