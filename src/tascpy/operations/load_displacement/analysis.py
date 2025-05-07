@@ -207,17 +207,19 @@ def find_yield_point(
 
     # 降伏点を計算（メソッドによって異なる）
     if method == "offset":
-        # オフセット線: y = initial_slope * (x - offset_value)
-        offset_line = initial_slope * (disp_data - offset_value)
+        # オフセット線: y = initial_slope * x - initial_slope * offset_value
+        offset_line = initial_slope * disp_data - initial_slope * offset_value
         diff = load_data - offset_line
 
-        # 交点を探す（負から正への変化）
+        # 交点を探す（符号の変化を検出）
         for i in range(1, len(diff)):
-            if diff[i - 1] <= 0 and diff[i] > 0:
+            if diff[i - 1] * diff[i] <= 0:  # 符号が変化または一方がゼロの場合
                 # 線形補間で交点を求める
-                ratio = diff[i] / (diff[i] - diff[i - 1])
-                yield_disp = disp_data[i] - ratio * (disp_data[i] - disp_data[i - 1])
-                yield_load = initial_slope * (yield_disp - offset_value)
+                ratio = abs(diff[i - 1]) / (abs(diff[i - 1]) + abs(diff[i]))
+                yield_disp = disp_data[i - 1] + ratio * (
+                    disp_data[i] - disp_data[i - 1]
+                )
+                yield_load = initial_slope * yield_disp - initial_slope * offset_value
                 break
         else:
             raise ValueError("降伏点が見つかりませんでした")
