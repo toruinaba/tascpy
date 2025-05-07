@@ -155,8 +155,8 @@ def find_yield_point(
     collection: LoadDisplacementCollection,
     method: str = "offset",
     offset_value: float = 0.002,
-    range_start: float = 0.3,
-    range_end: float = 0.7,
+    range_start: float = 0.1,  # 0.3から0.1に変更して、より初期段階のデータを使用
+    range_end: float = 0.3,    # 0.7から0.3に変更して、線形領域内に収める
     factor: float = 0.33,
     result_prefix: Optional[str] = "yield",
 ) -> LoadDisplacementCollection:
@@ -203,15 +203,37 @@ def find_yield_point(
         )
 
     # 初期勾配を計算
-    initial_slope, _ = np.polyfit(range_disps, range_loads, 1)
+    # 直線の方程式 y = mx + b で、mが初期勾配
+    initial_slope, intercept = np.polyfit(range_disps, range_loads, 1)
+    
+    # R²（決定係数）を計算して、線形回帰の品質を確認
+    y_pred = initial_slope * range_disps + intercept
+    ss_total = np.sum((range_loads - np.mean(range_loads)) ** 2)
+    ss_residual = np.sum((range_loads - y_pred) ** 2)
+    r_squared = 1 - (ss_residual / ss_total) if ss_total != 0 else 0
+    
+    # R²が低い場合（例: 0.95未満）は警告またはより狭い範囲を試みる
+    if r_squared < 0.95:
+        print(f"警告: 初期勾配計算の線形回帰の品質が低いです (R² = {r_squared:.3f})")
+        # より低い範囲でもう一度試してみる
+        narrower_upper = min(0.2, range_end)
+        if narrower_upper > range_start:
+            narrower_mask = (load_data >= lower_bound) & (load_data <= max_load * narrower_upper)
+            if np.sum(narrower_mask) >= 2:
+                narrower_disps = disp_data[narrower_mask]
+                narrower_loads = load_data[narrower_mask]
+                narrower_slope, _ = np.polyfit(narrower_disps, narrower_loads, 1)
+                
+                # 元の結果と比較して、大きく異なる場合は狭い範囲を使用
+                if abs(narrower_slope - initial_slope) / initial_slope > 0.1:
+                    initial_slope = narrower_slope
+                    print(f"より狭い範囲 (0-{narrower_upper*100}%) での初期勾配を使用します: {initial_slope:.3f}")
 
     # 降伏点を計算（メソッドによって異なる）
     if method == "offset":
-        # オフセット線: y = initial_slope * x - initial_slope * offset_value
-        offset_line = initial_slope * disp_data - initial_slope * offset_value
+        # オフセット線: y = initial_slope * x - initial_slope * offset_value * max(disp_data)
+        offset_line = initial_slope * disp_data - initial_slope * offset_value * max(disp_data)
         diff = load_data - offset_line
-        print(diff)
-        print(initial_slope)
 
         # 交点を探す（符号の変化を検出）
         for i in range(1, len(diff)):
@@ -221,7 +243,7 @@ def find_yield_point(
                 yield_disp = disp_data[i - 1] + ratio * (
                     disp_data[i] - disp_data[i - 1]
                 )
-                yield_load = initial_slope * yield_disp - initial_slope * offset_value
+                yield_load = initial_slope * yield_disp - initial_slope * offset_value * max(disp_data)
                 break
         else:
             raise ValueError("降伏点が見つかりませんでした")

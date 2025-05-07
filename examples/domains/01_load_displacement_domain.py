@@ -163,13 +163,13 @@ def main():
 
     try:
         # 3.1 オフセット法による降伏点の特定
-        # オフセット値を0.002から0.5に変更してみる
+        # range_startとrange_endを調整して線形領域のみを使用
         yield_result_offset = find_yield_point(
             ld_collection,
             method="offset",
-            range_start=0.3,  # 荷重の30%から
-            range_end=0.7,  # 荷重の80%まで
-            offset_value=0.5,  # 0.2%から50%に大幅に増加 (データに適した値に調整)
+            range_start=0.05,  # 荷重の5%から (より初期部分を使用)
+            range_end=0.25,    # 荷重の25%まで (非線形になる前の範囲)
+            offset_value=0.2,  # 0.5から0.2に調整 (より一般的な値)
             result_prefix="yield_offset",
         )
 
@@ -191,11 +191,13 @@ def main():
         print(f"  初期勾配 = {initial_slope_offset:.3f}")
 
         # 3.2 一般降伏法による降伏点の特定
-        # ops経由ではなく直接関数を呼び出し
+        # 同じ範囲設定を適用し、低めのfactor値を使用
         yield_result_general = find_yield_point(
             ld_collection,
             method="general",
-            factor=0.333,  # 初期勾配の33.3%を降伏点と定義
+            range_start=0.05,  # オフセット法と同じ設定
+            range_end=0.25,    # オフセット法と同じ設定
+            factor=0.25,       # 初期勾配の25%を降伏点と定義（低めに設定）
             result_prefix="yield_general",
         )
 
