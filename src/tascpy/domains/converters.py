@@ -1,13 +1,36 @@
-from typing import Optional, Any, Dict, List, Union
+from typing import Optional, Any, Dict, List, Union, Tuple, Callable
 from datetime import datetime, timedelta
 import numpy as np
 from ..core.collection import ColumnCollection
 from ..core.indices import Indices
 
 
+# ドメイン変換関数のレジストリ
+_DOMAIN_CONVERTERS = {}
+
+
+def register_domain_converter(source_domain: str = "core", target_domain: str = None):
+    """ドメイン変換関数を登録するデコレータ
+
+    Args:
+        source_domain: 変換元のドメイン名
+        target_domain: 変換先のドメイン名
+
+    Returns:
+        デコレータ関数
+    """
+
+    def decorator(func: Callable):
+        key = (source_domain, target_domain)
+        _DOMAIN_CONVERTERS[key] = func
+        return func
+
+    return decorator
+
+
 def prepare_for_domain_conversion(
     collection: ColumnCollection, target_domain: str, **kwargs: Any
-) -> ColumnCollection:
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
     """ドメイン変換の前準備を行う
 
     Args:
@@ -16,28 +39,47 @@ def prepare_for_domain_conversion(
         **kwargs: 変換パラメータ
 
     Returns:
-        変換準備が完了したColumnCollection
+        変換準備が完了したColumnCollection と 更新されたkwargs
     """
     # 元のコレクションをクローン
     result = collection.clone()
 
-    # 時系列ドメインへの変換前処理
+    # 変換元ドメインを決定（メタデータから取得、なければ "core"）
+    source_domain = collection.metadata.get("domain", "core")
+
+    # 登録されている変換関数を探す
+    converter_key = (source_domain, target_domain)
+    if converter_key in _DOMAIN_CONVERTERS:
+        # 登録されている変換関数を実行
+        result, mod_kwargs = _DOMAIN_CONVERTERS[converter_key](result, **kwargs)
+        return result, mod_kwargs
+
+    # 従来の変換関数で対応（後方互換性のため）
     if target_domain == "timeseries":
         mod_kwargs = _prepare_for_timeseries(result, **kwargs)
-
-    # 信号処理ドメインへの変換前処理
+        return result, mod_kwargs
     elif target_domain == "signal":
         mod_kwargs = _prepare_for_signal(result, **kwargs)
+        return result, mod_kwargs
+    elif target_domain == "load_displacement":
+        mod_kwargs = _prepare_for_load_displacement(result, **kwargs)
+        return result, mod_kwargs
 
-    return result, mod_kwargs
+    # 対応する変換関数がない場合は、そのまま返す
+    return result, kwargs
 
 
-def _prepare_for_timeseries(collection: ColumnCollection, **kwargs: Any) -> None:
+def _prepare_for_timeseries(
+    collection: ColumnCollection, **kwargs: Any
+) -> Dict[str, Any]:
     """時系列ドメインへの変換前処理
 
     Args:
         collection: 前処理するコレクション
         **kwargs: 変換パラメータ
+
+    Returns:
+        更新されたkwargs
     """
     # ステップが数値で、start_dateが指定されている場合は日付に変換
     if (
@@ -96,12 +138,15 @@ def _prepare_for_timeseries(collection: ColumnCollection, **kwargs: Any) -> None
     return kwargs
 
 
-def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> None:
+def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> Dict[str, Any]:
     """信号処理ドメインへの変換前処理
 
     Args:
         collection: 前処理するコレクション
         **kwargs: 変換パラメータ
+
+    Returns:
+        更新されたkwargs
     """
     # 日付ステップを時間軸に変換
     if len(collection.step.values) > 0 and isinstance(
@@ -134,3 +179,85 @@ def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> None:
             )
         return kwargs
     return kwargs
+
+
+def _prepare_for_load_displacement(
+    collection: ColumnCollection, **kwargs: Any
+) -> Dict[str, Any]:
+    """一般コレクションから荷重-変位コレクションへの変換準備を行う
+
+    Args:
+        collection: 変換元のコレクション
+        **kwargs: 追加のパラメータ
+
+    Returns:
+        Dict[str, Any]: 更新されたkwargs
+    """
+    # 荷重カラムと変位カラムを決定
+    load_column = kwargs.get("load_column")
+    disp_column = kwargs.get("displacement_column")
+
+    # カラム名が指定されていない場合、既存カラムから推測
+    if not load_column:
+        # 荷重を含むカラム名を探す
+        possible_load_columns = ["load", "force", "荷重", "力"]
+        for colname in possible_load_columns:
+            matching = [
+                c for c in collection.columns.keys() if colname.lower() in c.lower()
+            ]
+            if matching:
+                load_column = matching[0]
+                break
+
+    if not disp_column:
+        # 変位を含むカラム名を探す
+        possible_disp_columns = ["disp", "displacement", "変位", "変形"]
+        for colname in possible_disp_columns:
+            matching = [
+                c for c in collection.columns.keys() if colname.lower() in c.lower()
+            ]
+            if matching:
+                disp_column = matching[0]
+                break
+
+    # カラム名が見つからない場合は最初の数値カラムを使用
+    if not load_column or not disp_column:
+        numeric_columns = [
+            name
+            for name, col in collection.columns.items()
+            if any(isinstance(v, (int, float)) for v in col.values)
+        ]
+
+        if len(numeric_columns) >= 2:
+            if not load_column:
+                load_column = numeric_columns[0]
+            if not disp_column:
+                disp_column = numeric_columns[1]
+
+    # 必要なカラムが見つからない場合はエラー
+    if not load_column or not disp_column:
+        raise ValueError("荷重と変位のカラムを指定または検出できませんでした")
+
+    # 更新されたkwargsを返す
+    kwargs.update({"load_column": load_column, "displacement_column": disp_column})
+
+    return kwargs
+
+
+@register_domain_converter(source_domain="core", target_domain="load_displacement")
+def prepare_for_load_displacement(
+    collection: ColumnCollection, **kwargs: Any
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
+    """一般コレクションから荷重-変位コレクションへの変換準備を行う
+
+    Args:
+        collection: 変換元のコレクション
+        **kwargs: 追加のパラメータ
+
+    Returns:
+        Tuple[ColumnCollection, Dict[str, Any]]:
+            (変換用に準備されたコレクション, 更新されたkwargs)
+    """
+    # 従来の関数を利用して処理
+    modified_kwargs = _prepare_for_load_displacement(collection, **kwargs)
+    return collection, modified_kwargs
