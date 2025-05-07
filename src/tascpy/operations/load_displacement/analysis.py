@@ -210,6 +210,8 @@ def find_yield_point(
         # オフセット線: y = initial_slope * x - initial_slope * offset_value
         offset_line = initial_slope * disp_data - initial_slope * offset_value
         diff = load_data - offset_line
+        print(diff)
+        print(initial_slope)
 
         # 交点を探す（符号の変化を検出）
         for i in range(1, len(diff)):
