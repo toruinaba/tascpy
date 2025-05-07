@@ -168,7 +168,7 @@ def main():
             ld_collection,
             method="offset",
             range_start=0.05,  # 荷重の5%から (より初期部分を使用)
-            range_end=0.25,    # 荷重の25%まで (非線形になる前の範囲)
+            range_end=0.25,  # 荷重の25%まで (非線形になる前の範囲)
             offset_value=0.2,  # 0.5から0.2に調整 (より一般的な値)
             result_prefix="yield_offset",
         )
@@ -196,8 +196,8 @@ def main():
             ld_collection,
             method="general",
             range_start=0.05,  # オフセット法と同じ設定
-            range_end=0.25,    # オフセット法と同じ設定
-            factor=0.25,       # 初期勾配の25%を降伏点と定義（低めに設定）
+            range_end=0.25,  # オフセット法と同じ設定
+            factor=0.25,  # 初期勾配の25%を降伏点と定義（低めに設定）
             result_prefix="yield_general",
         )
 
