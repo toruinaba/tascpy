@@ -20,6 +20,14 @@ from tascpy.operations.load_displacement.analysis import (
     find_yield_point,
 )
 
+# 荷重-変位プロット関数をインポート
+from tascpy.operations.load_displacement.plot import (
+    plot_load_displacement,
+    plot_yield_point,
+    plot_yield_analysis_details,
+    compare_yield_methods,
+)
+
 
 def main():
     """メイン関数"""
@@ -334,6 +342,210 @@ def main():
 
     except Exception as e:
         print(f"可視化でエラー: {str(e)}")
+
+    # ===== plot.py のユーティリティ関数の使用例 =====
+    print("\n===== plot.py のユーティリティ関数の使用例 =====")
+
+    try:
+        # 既存の荷重変位データを使用（既に解析済みのものを使用）
+
+        # 1. 基本的な荷重-変位プロット
+        print("\n1. 基本的な荷重-変位プロット")
+        fig1, ax1 = plot_load_displacement(ld_collection)
+        plt.title("基本的な荷重-変位曲線")
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, "plot_basic.png")
+        plt.savefig(output_path)
+        plt.close(fig1)
+        print(f"基本的な荷重-変位プロットを保存: {output_path}")
+
+        # 2. 降伏点のプロット（オフセット法）
+        print("\n2. オフセット法による降伏点プロット")
+        # オフセット法で降伏点を計算
+        offset_result = find_yield_point(
+            ld_collection,
+            method="offset",
+            offset_value=0.002,  # 0.2%ストレインオフセット
+            range_start=0.05,
+            range_end=0.3,
+            result_prefix="offset_yield",
+        )
+
+        fig2, ax2 = plot_yield_point(offset_result)
+        plt.title("オフセット法による降伏点 (0.2%ストレイン)")
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, "plot_offset_yield.png")
+        plt.savefig(output_path)
+        plt.close(fig2)
+        print(f"オフセット法による降伏点プロットを保存: {output_path}")
+
+        # 3. 降伏点の詳細解析プロット
+        print("\n3. 降伏点の詳細解析プロット")
+        fig3, ax3 = plot_yield_analysis_details(offset_result)
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, "plot_yield_details.png")
+        plt.savefig(output_path)
+        plt.close(fig3)
+        print(f"降伏点の詳細解析プロットを保存: {output_path}")
+
+        # 4. 複数の降伏点定義方法の比較
+        print("\n4. 複数の降伏点定義方法の比較")
+        methods = [
+            {
+                "method": "offset",
+                "offset_value": 0.001,  # 0.1%ストレインオフセット
+                "result_prefix": "yield_offset_small",
+            },
+            {
+                "method": "offset",
+                "offset_value": 0.002,  # 0.2%ストレインオフセット（標準）
+                "result_prefix": "yield_offset_standard",
+            },
+            {
+                "method": "offset",
+                "offset_value": 0.005,  # 0.5%ストレインオフセット
+                "result_prefix": "yield_offset_large",
+            },
+            {
+                "method": "general",
+                "factor": 0.33,  # 33%勾配低下
+                "result_prefix": "yield_general_33",
+            },
+            {
+                "method": "general",
+                "factor": 0.50,  # 50%勾配低下
+                "result_prefix": "yield_general_50",
+            },
+        ]
+
+        fig4, ax4 = compare_yield_methods(ld_collection, methods=methods)
+        plt.title("様々な降伏点定義方法の比較")
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, "plot_yield_comparison.png")
+        plt.savefig(output_path)
+        plt.close(fig4)
+        print(f"複数の降伏点定義方法の比較プロットを保存: {output_path}")
+
+        # 5. カスタマイズされたプロット例
+        print("\n5. カスタマイズされたプロット例")
+        fig5, (ax5a, ax5b) = plt.subplots(1, 2, figsize=(14, 6))
+
+        # 左側: 基本的な荷重-変位曲線をカスタマイズ
+        plot_load_displacement(
+            ld_collection,
+            ax=ax5a,
+            color="blue",
+            linestyle="-",
+            linewidth=1.5,
+            marker="o",
+            markersize=4,
+            alpha=0.7,
+            label="試験データ",
+        )
+        ax5a.set_title("カスタマイズされた荷重-変位曲線")
+        ax5a.grid(True, linestyle="--", alpha=0.6)
+
+        # 右側: 降伏点の比較
+        # 2種類の方法でプロットして比較
+        offset_small = find_yield_point(
+            ld_collection,
+            method="offset",
+            offset_value=0.001,
+            result_prefix="small_offset",
+        )
+
+        general = find_yield_point(
+            ld_collection, method="general", factor=0.33, result_prefix="general_yield"
+        )
+
+        # オフセット法のプロット
+        plot_yield_point(
+            offset_small,
+            ax=ax5b,
+            plot_original_data=True,
+            plot_initial_slope=True,
+            plot_offset_line=True,
+        )
+
+        # 一般降伏法のプロットを同じグラフに追加
+        yield_data = general.metadata["analysis"]["yield_point"]
+        yield_disp = yield_data["displacement"]
+        yield_load = yield_data["load"]
+
+        ax5b.scatter(
+            [yield_disp],
+            [yield_load],
+            color="green",
+            s=100,
+            marker="^",
+            label="一般降伏法 (33%)",
+            zorder=5,
+        )
+
+        # タイトルと凡例の設定
+        ax5b.set_title("2つの降伏点定義の比較")
+        ax5b.legend(loc="lower right")
+
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, "plot_customized.png")
+        plt.savefig(output_path)
+        plt.close(fig5)
+        print(f"カスタマイズされたプロット例を保存: {output_path}")
+
+        # 6. 実用的なレポート用プロット
+        print("\n6. 実用的なレポート用プロット")
+        fig6, axs = plt.subplots(2, 2, figsize=(12, 10))
+
+        # 1. 基本的な荷重-変位曲線
+        plot_load_displacement(ld_collection, ax=axs[0, 0])
+        axs[0, 0].set_title("荷重-変位曲線")
+
+        # 2. 0.2%オフセット降伏の詳細
+        offset_std = find_yield_point(
+            ld_collection,
+            method="offset",
+            offset_value=0.002,
+            result_prefix="std_offset",
+        )
+        plot_yield_analysis_details(offset_std, ax=axs[0, 1])
+        axs[0, 1].set_title("0.2%オフセット降伏解析")
+
+        # 3. 一般降伏法の詳細
+        general_yield = find_yield_point(
+            ld_collection, method="general", factor=0.33, result_prefix="general_33"
+        )
+        plot_yield_analysis_details(general_yield, ax=axs[1, 0])
+        axs[1, 0].set_title("一般降伏法 (33%勾配)")
+
+        # 4. 複数手法の比較
+        methods = [
+            {
+                "method": "offset",
+                "offset_value": 0.002,
+                "result_prefix": "yield_offset_std",
+            },
+            {"method": "general", "factor": 0.33, "result_prefix": "yield_general_std"},
+        ]
+        compare_yield_methods(ld_collection, methods=methods, ax=axs[1, 1])
+        axs[1, 1].set_title("降伏点定義の比較")
+
+        # 全体タイトル設定
+        fig6.suptitle("荷重-変位解析レポート", fontsize=16)
+        fig6.tight_layout(rect=[0, 0, 1, 0.95])  # suptitleのスペースを確保
+
+        output_path = os.path.join(output_dir, "load_displacement_report.png")
+        plt.savefig(output_path)
+        plt.close(fig6)
+        print(f"実用的なレポート用プロットを保存: {output_path}")
+
+        # すべてのプロットが正常に完了したことを報告
+        print("\nすべてのplot.pyユーティリティ関数のデモを完了しました")
+
+    except Exception as e:
+        print(f"プロットでエラー: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

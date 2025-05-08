@@ -3,6 +3,11 @@
 import os
 import pytest
 import numpy as np
+
+# Matplotlibのバックエンドを設定（グラフィカルバックエンドを使用しない）
+import matplotlib
+
+matplotlib.use("Agg")  # 非対話的なバックエンドを使用
 import matplotlib.pyplot as plt
 from pathlib import Path
 import tempfile
