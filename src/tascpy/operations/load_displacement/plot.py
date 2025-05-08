@@ -55,6 +55,311 @@ def plot_load_displacement(
 
 
 @operation(domain="load_displacement")
+def plot_skeleton_curve(
+    collection: LoadDisplacementCollection,
+    plot_original: bool = True,
+    skeleton_load_column: Optional[str] = None,
+    skeleton_disp_column: Optional[str] = None,
+    ax: Optional[Axes] = None,
+    original_kwargs: Optional[Dict[str, Any]] = None,
+    skeleton_kwargs: Optional[Dict[str, Any]] = None,
+) -> Tuple[Figure, Axes]:
+    """スケルトン曲線をプロットする
+
+    create_skeleton_curve関数で作成したスケルトン曲線をプロットします。
+    元の荷重-変位データと比較して表示することも可能です。
+
+    Args:
+        collection: スケルトン曲線を含む荷重-変位コレクション
+        plot_original: 元の荷重-変位データもプロットするかどうか
+        skeleton_load_column: スケルトン曲線の荷重列名（Noneの場合は自動検出）
+        skeleton_disp_column: スケルトン曲線の変位列名（Noneの場合は自動検出）
+        ax: プロット先の軸（Noneの場合は新規作成）
+        original_kwargs: 元データプロット用の追加引数
+        skeleton_kwargs: スケルトン曲線プロット用の追加引数
+
+    Returns:
+        Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト
+    """
+    # デフォルト引数の設定
+    if original_kwargs is None:
+        original_kwargs = {"alpha": 0.5, "label": "Original Data", "color": "gray"}
+    if skeleton_kwargs is None:
+        skeleton_kwargs = {"label": "Skeleton Curve", "color": "red", "linewidth": 2}
+
+    # 軸が指定されていない場合は新規作成
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.figure
+
+    # 元のデータの列名
+    orig_load_column = get_load_column(collection)
+    orig_disp_column = get_displacement_column(collection)
+
+    # スケルトン曲線の列名自動検出
+    if skeleton_load_column is None:
+        skeleton_columns = [
+            c for c in collection.columns if "_skeleton" in c and orig_load_column in c
+        ]
+        if not skeleton_columns:
+            raise ValueError("スケルトン曲線の荷重列が見つかりません。列名を指定してください。")
+        skeleton_load_column = skeleton_columns[0]
+
+    if skeleton_disp_column is None:
+        skeleton_columns = [
+            c for c in collection.columns if "_skeleton" in c and orig_disp_column in c
+        ]
+        if not skeleton_columns:
+            raise ValueError("スケルトン曲線の変位列が見つかりません。列名を指定してください。")
+        skeleton_disp_column = skeleton_columns[0]
+
+    # 元のデータをプロット
+    if plot_original:
+        disp_data, load_data = get_valid_data(collection)
+        ax.plot(disp_data, load_data, **original_kwargs)
+
+    # スケルトン曲線データの取得と有効データのフィルタリング
+    skeleton_disp = [d for d in collection[skeleton_disp_column].values if d is not None and not np.isnan(d)]
+    skeleton_load = [l for l in collection[skeleton_load_column].values if l is not None and not np.isnan(l)]
+
+    # スケルトン曲線のプロット
+    ax.plot(skeleton_disp, skeleton_load, **skeleton_kwargs)
+
+    # 軸ラベルの設定
+    disp_unit = (
+        collection[orig_disp_column].unit if hasattr(collection[orig_disp_column], "unit") else ""
+    )
+    load_unit = (
+        collection[orig_load_column].unit if hasattr(collection[orig_load_column], "unit") else ""
+    )
+
+    ax.set_xlabel(f"{orig_disp_column} [{disp_unit}]" if disp_unit else orig_disp_column)
+    ax.set_ylabel(f"{orig_load_column} [{load_unit}]" if load_unit else orig_load_column)
+    ax.set_title("Skeleton Curve Analysis")
+    ax.grid(True, linestyle="--", alpha=0.7)
+    ax.legend()
+
+    return fig, ax
+
+
+@operation(domain="load_displacement")
+def plot_cumulative_curve(
+    collection: LoadDisplacementCollection,
+    plot_original: bool = True,
+    cumulative_load_column: Optional[str] = None,
+    cumulative_disp_column: Optional[str] = None,
+    ax: Optional[Axes] = None,
+    original_kwargs: Optional[Dict[str, Any]] = None,
+    cumulative_kwargs: Optional[Dict[str, Any]] = None,
+) -> Tuple[Figure, Axes]:
+    """累積曲線をプロットする
+
+    create_cumulative_curve関数で作成した累積曲線をプロットします。
+    元の荷重-変位データと比較して表示することも可能です。
+
+    Args:
+        collection: 累積曲線を含む荷重-変位コレクション
+        plot_original: 元の荷重-変位データもプロットするかどうか
+        cumulative_load_column: 累積曲線の荷重列名（Noneの場合は自動検出）
+        cumulative_disp_column: 累積曲線の変位列名（Noneの場合は自動検出）
+        ax: プロット先の軸（Noneの場合は新規作成）
+        original_kwargs: 元データプロット用の追加引数
+        cumulative_kwargs: 累積曲線プロット用の追加引数
+
+    Returns:
+        Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト
+    """
+    # デフォルト引数の設定
+    if original_kwargs is None:
+        original_kwargs = {"alpha": 0.5, "label": "Original Data", "color": "gray"}
+    if cumulative_kwargs is None:
+        cumulative_kwargs = {"label": "Cumulative Curve", "color": "blue", "linewidth": 2}
+
+    # 軸が指定されていない場合は新規作成
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.figure
+
+    # 元のデータの列名
+    orig_load_column = get_load_column(collection)
+    orig_disp_column = get_displacement_column(collection)
+
+    # 累積曲線の列名自動検出
+    if cumulative_load_column is None:
+        cumulative_columns = [
+            c for c in collection.columns if "_cumulative" in c and orig_load_column in c
+        ]
+        if not cumulative_columns:
+            raise ValueError("累積曲線の荷重列が見つかりません。列名を指定してください。")
+        cumulative_load_column = cumulative_columns[0]
+
+    if cumulative_disp_column is None:
+        cumulative_columns = [
+            c for c in collection.columns if "_cumulative" in c and orig_disp_column in c
+        ]
+        if not cumulative_columns:
+            raise ValueError("累積曲線の変位列が見つかりません。列名を指定してください。")
+        cumulative_disp_column = cumulative_columns[0]
+
+    # 元のデータをプロット
+    if plot_original:
+        disp_data, load_data = get_valid_data(collection)
+        ax.plot(disp_data, load_data, **original_kwargs)
+
+    # 累積曲線データの取得と有効データのフィルタリング
+    cumulative_disp = [d for d in collection[cumulative_disp_column].values if d is not None and not np.isnan(d)]
+    cumulative_load = [l for l in collection[cumulative_load_column].values if l is not None and not np.isnan(l)]
+
+    # 累積曲線のプロット
+    ax.plot(cumulative_disp, cumulative_load, **cumulative_kwargs)
+
+    # 軸ラベルの設定
+    disp_unit = (
+        collection[orig_disp_column].unit if hasattr(collection[orig_disp_column], "unit") else ""
+    )
+    load_unit = (
+        collection[orig_load_column].unit if hasattr(collection[orig_load_column], "unit") else ""
+    )
+
+    ax.set_xlabel(f"{orig_disp_column} [{disp_unit}]" if disp_unit else orig_disp_column)
+    ax.set_ylabel(f"{orig_load_column} [{load_unit}]" if load_unit else orig_load_column)
+    ax.set_title("Cumulative Curve Analysis")
+    ax.grid(True, linestyle="--", alpha=0.7)
+    ax.legend()
+
+    return fig, ax
+
+
+@operation(domain="load_displacement")
+def plot_multiple_curves(
+    collection: LoadDisplacementCollection,
+    curves: List[Dict[str, Any]],
+    ax: Optional[Axes] = None,
+) -> Tuple[Figure, Axes]:
+    """複数の曲線を一つのグラフにプロット
+
+    元の荷重-変位データ、スケルトン曲線、累積曲線など、
+    複数の曲線を一つのグラフに表示します。
+
+    Args:
+        collection: 曲線データを含む荷重-変位コレクション
+        curves: プロットする曲線のリスト。例:
+               [{"type": "original"},
+                {"type": "skeleton", "load_col": "load_skeleton", "disp_col": "disp_skeleton"}]
+        ax: プロット先の軸（Noneの場合は新規作成）
+
+    Returns:
+        Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト
+    """
+    # 軸が指定されていない場合は新規作成
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 8))
+    else:
+        fig = ax.figure
+
+    # 元のデータの列名
+    orig_load_column = get_load_column(collection)
+    orig_disp_column = get_displacement_column(collection)
+
+    # 各曲線をプロット
+    for i, curve in enumerate(curves):
+        curve_type = curve.get("type", "").lower()
+        
+        if curve_type == "original":
+            # 元データのプロット
+            disp_data, load_data = get_valid_data(collection)
+            kwargs = curve.get("kwargs", {"label": "Original Data", "color": "gray", "alpha": 0.5})
+            ax.plot(disp_data, load_data, **kwargs)
+        
+        elif curve_type == "skeleton":
+            # スケルトン曲線のプロット
+            load_col = curve.get("load_col")
+            disp_col = curve.get("disp_col")
+            
+            # 列名の自動検出
+            if load_col is None:
+                skeleton_columns = [
+                    c for c in collection.columns if "_skeleton" in c and orig_load_column in c
+                ]
+                if skeleton_columns:
+                    load_col = skeleton_columns[0]
+                    
+            if disp_col is None:
+                skeleton_columns = [
+                    c for c in collection.columns if "_skeleton" in c and orig_disp_column in c
+                ]
+                if skeleton_columns:
+                    disp_col = skeleton_columns[0]
+            
+            if load_col in collection.columns and disp_col in collection.columns:
+                # 有効データのフィルタリング
+                disp = [d for d in collection[disp_col].values if d is not None and not np.isnan(d)]
+                load = [l for l in collection[load_col].values if l is not None and not np.isnan(l)]
+                
+                kwargs = curve.get("kwargs", {"label": "Skeleton Curve", "color": "red", "linewidth": 2})
+                ax.plot(disp, load, **kwargs)
+        
+        elif curve_type == "cumulative":
+            # 累積曲線のプロット
+            load_col = curve.get("load_col")
+            disp_col = curve.get("disp_col")
+            
+            # 列名の自動検出
+            if load_col is None:
+                cumul_columns = [
+                    c for c in collection.columns if "_cumulative" in c and orig_load_column in c
+                ]
+                if cumul_columns:
+                    load_col = cumul_columns[0]
+                    
+            if disp_col is None:
+                cumul_columns = [
+                    c for c in collection.columns if "_cumulative" in c and orig_disp_column in c
+                ]
+                if cumul_columns:
+                    disp_col = cumul_columns[0]
+            
+            if load_col in collection.columns and disp_col in collection.columns:
+                # 有効データのフィルタリング
+                disp = [d for d in collection[disp_col].values if d is not None and not np.isnan(d)]
+                load = [l for l in collection[load_col].values if l is not None and not np.isnan(l)]
+                
+                kwargs = curve.get("kwargs", {"label": "Cumulative Curve", "color": "blue", "linewidth": 2})
+                ax.plot(disp, load, **kwargs)
+        
+        elif curve_type == "custom":
+            # カスタム曲線のプロット
+            load_col = curve.get("load_col")
+            disp_col = curve.get("disp_col")
+            
+            if load_col in collection.columns and disp_col in collection.columns:
+                # 有効データのフィルタリング
+                disp = [d for d in collection[disp_col].values if d is not None and not np.isnan(d)]
+                load = [l for l in collection[load_col].values if l is not None and not np.isnan(l)]
+                
+                kwargs = curve.get("kwargs", {"label": f"Custom: {disp_col} vs {load_col}"})
+                ax.plot(disp, load, **kwargs)
+
+    # 軸ラベルの設定
+    disp_unit = (
+        collection[orig_disp_column].unit if hasattr(collection[orig_disp_column], "unit") else ""
+    )
+    load_unit = (
+        collection[orig_load_column].unit if hasattr(collection[orig_load_column], "unit") else ""
+    )
+
+    ax.set_xlabel(f"{orig_disp_column} [{disp_unit}]" if disp_unit else orig_disp_column)
+    ax.set_ylabel(f"{orig_load_column} [{load_unit}]" if load_unit else orig_load_column)
+    ax.set_title("Load-Displacement Curve Analysis")
+    ax.grid(True, linestyle="--", alpha=0.7)
+    ax.legend()
+
+    return fig, ax
+
+
+@operation(domain="load_displacement")
 def plot_yield_point(
     collection: LoadDisplacementCollection,
     ax: Optional[Axes] = None,
