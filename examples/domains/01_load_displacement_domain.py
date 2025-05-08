@@ -9,6 +9,8 @@ ColumnCollectionからLoadDisplacementCollectionへの変換と、
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+
+# tascpyをインポートするだけで日本語フォントが自動的に設定されます
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn
 from tascpy.domains.load_displacement import LoadDisplacementCollection

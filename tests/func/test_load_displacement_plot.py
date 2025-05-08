@@ -16,7 +16,10 @@ import shutil
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 from tascpy.operations.load_displacement.analysis import find_yield_point
-from tascpy.operations.load_displacement.curves import create_skeleton_curve, create_cumulative_curve
+from tascpy.operations.load_displacement.curves import (
+    create_skeleton_curve,
+    create_cumulative_curve,
+)
 from tascpy.operations.load_displacement.plot import (
     plot_load_displacement,
     plot_yield_point,
@@ -337,229 +340,272 @@ class TestLoadDisplacementPlotFunctional:
 
     def test_skeleton_curve_plot(self, load_displacement_data):
         """スケルトン曲線のプロット機能をテスト
-        
+
         荷重-変位データからスケルトン曲線を作成し、プロット機能をテスト
         """
         # スケルトン曲線を生成
         skeleton_result = create_skeleton_curve(load_displacement_data)
-        
+
         # スケルトン曲線をプロット
         fig1, ax1 = plot_skeleton_curve(skeleton_result)
-        
+
         # プロット結果を保存
         skeleton_plot_path = Path(self.temp_dir) / "skeleton_curve.png"
         fig1.savefig(skeleton_plot_path)
         plt.close(fig1)
-        
+
         # 元データを表示せずにプロット
         fig2, ax2 = plot_skeleton_curve(skeleton_result, plot_original=False)
         no_original_path = Path(self.temp_dir) / "skeleton_only_curve.png"
         fig2.savefig(no_original_path)
         plt.close(fig2)
-        
+
         # カスタマイズしたプロット（色、線のスタイル、マーカー）
-        original_kwargs = {"color": "gray", "alpha": 0.3, "linestyle": "--", "label": "元データ"}
-        skeleton_kwargs = {"color": "red", "linewidth": 2, "marker": "o", "markersize": 4, 
-                        "label": "スケルトン曲線"}
-        
+        original_kwargs = {
+            "color": "gray",
+            "alpha": 0.3,
+            "linestyle": "--",
+            "label": "元データ",
+        }
+        skeleton_kwargs = {
+            "color": "red",
+            "linewidth": 2,
+            "marker": "o",
+            "markersize": 4,
+            "label": "スケルトン曲線",
+        }
+
         fig3, ax3 = plot_skeleton_curve(
             skeleton_result,
             original_kwargs=original_kwargs,
-            skeleton_kwargs=skeleton_kwargs
+            skeleton_kwargs=skeleton_kwargs,
         )
         custom_plot_path = Path(self.temp_dir) / "custom_skeleton_curve.png"
         fig3.savefig(custom_plot_path)
         plt.close(fig3)
-        
+
         # ファイルが作成されたことを確認
         assert skeleton_plot_path.exists()
         assert no_original_path.exists()
         assert custom_plot_path.exists()
-        
+
         # ファイルサイズが0より大きいことを確認
         assert skeleton_plot_path.stat().st_size > 0
         assert no_original_path.stat().st_size > 0
         assert custom_plot_path.stat().st_size > 0
-    
+
     def test_cumulative_curve_plot(self, load_displacement_data):
         """累積曲線のプロット機能をテスト
-        
+
         荷重-変位データから累積曲線を作成し、プロット機能をテスト
         """
         # 累積曲線を生成
         cumulative_result = create_cumulative_curve(load_displacement_data)
-        
+
         # 累積曲線をプロット
         fig1, ax1 = plot_cumulative_curve(cumulative_result)
-        
+
         # プロット結果を保存
         cumulative_plot_path = Path(self.temp_dir) / "cumulative_curve.png"
         fig1.savefig(cumulative_plot_path)
         plt.close(fig1)
-        
+
         # 元データを表示せずにプロット
         fig2, ax2 = plot_cumulative_curve(cumulative_result, plot_original=False)
         no_original_path = Path(self.temp_dir) / "cumulative_only_curve.png"
         fig2.savefig(no_original_path)
         plt.close(fig2)
-        
+
         # カスタマイズしたプロット
-        original_kwargs = {"color": "gray", "alpha": 0.3, "linestyle": "--", "label": "元データ"}
-        cumulative_kwargs = {"color": "blue", "linewidth": 2, "marker": "s", "markersize": 4, 
-                           "label": "累積曲線"}
-        
+        original_kwargs = {
+            "color": "gray",
+            "alpha": 0.3,
+            "linestyle": "--",
+            "label": "元データ",
+        }
+        cumulative_kwargs = {
+            "color": "blue",
+            "linewidth": 2,
+            "marker": "s",
+            "markersize": 4,
+            "label": "累積曲線",
+        }
+
         fig3, ax3 = plot_cumulative_curve(
             cumulative_result,
             original_kwargs=original_kwargs,
-            cumulative_kwargs=cumulative_kwargs
+            cumulative_kwargs=cumulative_kwargs,
         )
         custom_plot_path = Path(self.temp_dir) / "custom_cumulative_curve.png"
         fig3.savefig(custom_plot_path)
         plt.close(fig3)
-        
+
         # ファイルが作成されたことを確認
         assert cumulative_plot_path.exists()
         assert no_original_path.exists()
         assert custom_plot_path.exists()
-        
+
         # ファイルサイズが0より大きいことを確認
         assert cumulative_plot_path.stat().st_size > 0
         assert no_original_path.stat().st_size > 0
         assert custom_plot_path.stat().st_size > 0
-    
+
     def test_multiple_curves_plot(self, load_displacement_data):
         """複数曲線の同時プロット機能をテスト
-        
+
         元データ、スケルトン曲線、累積曲線を1つのグラフに表示
         """
         # スケルトン曲線と累積曲線を生成
         with_skeleton = create_skeleton_curve(load_displacement_data)
         with_both = create_cumulative_curve(with_skeleton)
-        
+
         # 全ての曲線を一つのグラフにプロット
         curves = [
-            {"type": "original", "kwargs": {"color": "gray", "alpha": 0.5, "label": "元データ"}},
-            {"type": "skeleton", "kwargs": {"color": "red", "linewidth": 2, "label": "スケルトン曲線"}},
-            {"type": "cumulative", "kwargs": {"color": "blue", "linewidth": 2, "label": "累積曲線"}}
+            {
+                "type": "original",
+                "kwargs": {"color": "gray", "alpha": 0.5, "label": "元データ"},
+            },
+            {
+                "type": "skeleton",
+                "kwargs": {"color": "red", "linewidth": 2, "label": "スケルトン曲線"},
+            },
+            {
+                "type": "cumulative",
+                "kwargs": {"color": "blue", "linewidth": 2, "label": "累積曲線"},
+            },
         ]
-        
+
         fig1, ax1 = plot_multiple_curves(with_both, curves=curves)
-        
+
         # プロット結果を保存
         multiple_plot_path = Path(self.temp_dir) / "multiple_curves.png"
         fig1.savefig(multiple_plot_path)
         plt.close(fig1)
-        
+
         # 特定の曲線だけをプロット
         selected_curves = [
-            {"type": "original", "kwargs": {"color": "lightgray", "alpha": 0.3, "label": "元データ"}},
-            {"type": "cumulative", "kwargs": {"color": "purple", "linewidth": 2.5, "label": "累積曲線"}}
+            {
+                "type": "original",
+                "kwargs": {"color": "lightgray", "alpha": 0.3, "label": "元データ"},
+            },
+            {
+                "type": "cumulative",
+                "kwargs": {"color": "purple", "linewidth": 2.5, "label": "累積曲線"},
+            },
         ]
-        
+
         fig2, ax2 = plot_multiple_curves(with_both, curves=selected_curves)
         selected_plot_path = Path(self.temp_dir) / "selected_curves.png"
         fig2.savefig(selected_plot_path)
         plt.close(fig2)
-        
+
         # カスタム軸上にプロット
         fig3, (ax3, ax4) = plt.subplots(1, 2, figsize=(12, 5))
-        
+
         # 左側のプロット：スケルトン曲線のみ
         skeleton_curves = [
             {"type": "original", "kwargs": {"color": "gray", "alpha": 0.3}},
-            {"type": "skeleton", "kwargs": {"color": "red", "linewidth": 2}}
+            {"type": "skeleton", "kwargs": {"color": "red", "linewidth": 2}},
         ]
         plot_multiple_curves(with_both, curves=skeleton_curves, ax=ax3)
         ax3.set_title("スケルトン曲線")
-        
+
         # 右側のプロット：累積曲線のみ
         cumulative_curves = [
             {"type": "original", "kwargs": {"color": "gray", "alpha": 0.3}},
-            {"type": "cumulative", "kwargs": {"color": "blue", "linewidth": 2}}
+            {"type": "cumulative", "kwargs": {"color": "blue", "linewidth": 2}},
         ]
         plot_multiple_curves(with_both, curves=cumulative_curves, ax=ax4)
         ax4.set_title("累積曲線")
-        
+
         # プロット結果を保存
         side_by_side_path = Path(self.temp_dir) / "side_by_side_curves.png"
         fig3.tight_layout()
         fig3.savefig(side_by_side_path)
         plt.close(fig3)
-        
+
         # ファイルが作成されたことを確認
         assert multiple_plot_path.exists()
         assert selected_plot_path.exists()
         assert side_by_side_path.exists()
-        
+
         # ファイルサイズが0より大きいことを確認
         assert multiple_plot_path.stat().st_size > 0
         assert selected_plot_path.stat().st_size > 0
         assert side_by_side_path.stat().st_size > 0
-    
+
     def test_plot_yield_with_curves(self, load_displacement_data):
         """降伏点解析とスケルトン曲線を組み合わせたテスト
-        
+
         降伏点解析結果とスケルトン曲線を一つのグラフに表示
         """
         # スケルトン曲線を生成
         skeleton_result = create_skeleton_curve(load_displacement_data)
-        
+
         # スケルトン曲線に対して降伏点解析を実行
         # スケルトン曲線に対しては異なるオフセット値を使用して差を生み出す
         yield_result = find_yield_point(
-            skeleton_result, 
-            method="offset", 
+            skeleton_result,
+            method="offset",
             offset_value=0.005,  # 0.002から0.005に変更
-            result_prefix="yield_skeleton"
+            result_prefix="yield_skeleton",
         )
-        
+
         # 2x2のグリッドで異なる解析結果を表示
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
-        
+
         # 元データの荷重-変位曲線
         plot_load_displacement(load_displacement_data, ax=axs[0, 0])
         axs[0, 0].set_title("元の荷重-変位曲線")
-        
+
         # スケルトン曲線
         plot_skeleton_curve(skeleton_result, ax=axs[0, 1], plot_original=False)
         axs[0, 1].set_title("スケルトン曲線")
-        
+
         # 元データに対する降伏点解析
         original_yield = find_yield_point(
             load_displacement_data,
             method="offset",
-            offset_value=0.002  # 元データには0.002を使用
+            offset_value=0.002,  # 元データには0.002を使用
         )
         plot_yield_point(original_yield, ax=axs[1, 0])
         axs[1, 0].set_title("元データの降伏点")
-        
+
         # スケルトン曲線に対する降伏点解析
         plot_yield_point(yield_result, ax=axs[1, 1])
         axs[1, 1].set_title("スケルトン曲線の降伏点")
-        
+
         # 全体タイトルの設定
         fig.suptitle("降伏点解析とスケルトン曲線の比較", fontsize=16)
         fig.tight_layout(rect=[0, 0, 1, 0.96])  # suptitleのスペースを確保
-        
+
         # プロット結果を保存
         combined_plot_path = Path(self.temp_dir) / "yield_with_skeleton.png"
         fig.savefig(combined_plot_path)
         plt.close(fig)
-        
+
         # ファイルが作成されたことを確認
         assert combined_plot_path.exists()
         assert combined_plot_path.stat().st_size > 0
-        
+
         # 結果のサマリデータを検証
         original_yield_data = original_yield.metadata["analysis"]["yield_point"]
         skeleton_yield_data = yield_result.metadata["analysis"]["yield_point"]
-        
+
         # スケルトン曲線の降伏点は元データの降伏点と異なるはず
         # 異なるオフセット値を使用しているので値も異なるはず
         # 厳密な不等式ではなく、結果がきちんと出ていることを確認
-        assert abs(original_yield_data["displacement"] - skeleton_yield_data["displacement"]) > 0.001
-        assert abs(original_yield_data["load"] - skeleton_yield_data["load"]) > 0.05  # 0.1から0.05に調整
-        
+        assert (
+            abs(
+                original_yield_data["displacement"]
+                - skeleton_yield_data["displacement"]
+            )
+            > 0.001
+        )
+        assert (
+            abs(original_yield_data["load"] - skeleton_yield_data["load"]) > 0.05
+        )  # 0.1から0.05に調整
+
         # 結果のサマリをファイル出力
         results_path = Path(self.temp_dir) / "yield_comparison.csv"
         with open(results_path, "w") as f:
@@ -570,7 +616,7 @@ class TestLoadDisplacementPlotFunctional:
             f.write(
                 f"スケルトン曲線,{skeleton_yield_data['load']:.2f},{skeleton_yield_data['displacement']:.4f},{skeleton_yield_data['initial_slope']:.2f}\n"
             )
-        
+
         # ファイルが作成されたことを確認
         assert results_path.exists()
         assert results_path.stat().st_size > 0
