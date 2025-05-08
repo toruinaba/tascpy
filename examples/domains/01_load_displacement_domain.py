@@ -111,7 +111,7 @@ def main():
 
     # 図の保存
     output_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(output_dir, "load_displacement_basic.png")
+    output_path = os.path.join(output_dir, "imgs/load_displacement_basic.png")
     plt.savefig(output_path)
     plt.close()
 
@@ -336,7 +336,7 @@ def main():
         plt.tight_layout()
 
         # 図の保存
-        output_path = os.path.join(output_dir, "load_displacement_analysis.png")
+        output_path = os.path.join(output_dir, "imgs/load_displacement_analysis.png")
         plt.savefig(output_path)
         plt.close()
 
@@ -356,7 +356,7 @@ def main():
         fig1, ax1 = plot_load_displacement(ld_collection)
         plt.title("基本的な荷重-変位曲線")
         plt.tight_layout()
-        output_path = os.path.join(output_dir, "plot_basic.png")
+        output_path = os.path.join(output_dir, "imgs/plot_basic.png")
         plt.savefig(output_path)
         plt.close(fig1)
         print(f"基本的な荷重-変位プロットを保存: {output_path}")
@@ -376,7 +376,7 @@ def main():
         fig2, ax2 = plot_yield_point(offset_result)
         plt.title("オフセット法による降伏点 (0.2%ストレイン)")
         plt.tight_layout()
-        output_path = os.path.join(output_dir, "plot_offset_yield.png")
+        output_path = os.path.join(output_dir, "imgs/plot_offset_yield.png")
         plt.savefig(output_path)
         plt.close(fig2)
         print(f"オフセット法による降伏点プロットを保存: {output_path}")
@@ -385,7 +385,7 @@ def main():
         print("\n3. 降伏点の詳細解析プロット")
         fig3, ax3 = plot_yield_analysis_details(offset_result)
         plt.tight_layout()
-        output_path = os.path.join(output_dir, "plot_yield_details.png")
+        output_path = os.path.join(output_dir, "imgs/plot_yield_details.png")
         plt.savefig(output_path)
         plt.close(fig3)
         print(f"降伏点の詳細解析プロットを保存: {output_path}")
@@ -423,7 +423,7 @@ def main():
         fig4, ax4 = compare_yield_methods(ld_collection, methods=methods)
         plt.title("様々な降伏点定義方法の比較")
         plt.tight_layout()
-        output_path = os.path.join(output_dir, "plot_yield_comparison.png")
+        output_path = os.path.join(output_dir, "imgs/plot_yield_comparison.png")
         plt.savefig(output_path)
         plt.close(fig4)
         print(f"複数の降伏点定義方法の比較プロットを保存: {output_path}")
@@ -489,7 +489,7 @@ def main():
         ax5b.legend(loc="lower right")
 
         plt.tight_layout()
-        output_path = os.path.join(output_dir, "plot_customized.png")
+        output_path = os.path.join(output_dir, "imgs/plot_customized.png")
         plt.savefig(output_path)
         plt.close(fig5)
         print(f"カスタマイズされたプロット例を保存: {output_path}")
@@ -535,7 +535,7 @@ def main():
         fig6.suptitle("荷重-変位解析レポート", fontsize=16)
         fig6.tight_layout(rect=[0, 0, 1, 0.95])  # suptitleのスペースを確保
 
-        output_path = os.path.join(output_dir, "load_displacement_report.png")
+        output_path = os.path.join(output_dir, "imgs/load_displacement_report.png")
         plt.savefig(output_path)
         plt.close(fig6)
         print(f"実用的なレポート用プロットを保存: {output_path}")

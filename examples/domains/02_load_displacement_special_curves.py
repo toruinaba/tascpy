@@ -76,7 +76,7 @@ def plot_special_curves():
     ax1.legend()
 
     # グラフを保存
-    fig1.savefig(Path(__file__).parent / "load_displacement_basic.png")
+    fig1.savefig(Path(__file__).parent / "imgs" / "load_displacement_basic.png")
     print("   - 基本的な荷重-変位曲線を保存しました")
 
     # スケルトン曲線の作成
@@ -98,7 +98,7 @@ def plot_special_curves():
     ax2.legend()
 
     # グラフを保存
-    fig2.savefig(Path(__file__).parent / "skeleton_curve.png")
+    fig2.savefig(Path(__file__).parent / "imgs" / "skeleton_curve.png")
     print("   - スケルトン曲線を保存しました")
 
     # 累積曲線の作成
@@ -120,7 +120,7 @@ def plot_special_curves():
     ax3.legend()
 
     # グラフを保存
-    fig3.savefig(Path(__file__).parent / "cumulative_curve.png")
+    fig3.savefig(Path(__file__).parent / "imgs" / "cumulative_curve.png")
     print("   - 累積曲線を保存しました")
 
     # 複数曲線を同時にプロット
@@ -154,7 +154,7 @@ def plot_special_curves():
     ax4.legend()
 
     # グラフを保存
-    fig4.savefig(Path(__file__).parent / "multiple_special_curves.png")
+    fig4.savefig(Path(__file__).parent / "imgs" / "multiple_special_curves.png")
     print("   - 複数曲線の比較プロットを保存しました")
 
     # 2x2のサブプロットを作成して別々に表示
@@ -207,7 +207,7 @@ def plot_special_curves():
     fig5.tight_layout(rect=[0, 0, 1, 0.96])  # suptitleのスペースを確保
 
     # グラフを保存
-    fig5.savefig(Path(__file__).parent / "special_curves_comparison.png")
+    fig5.savefig(Path(__file__).parent / "imgs" / "special_curves_comparison.png")
     print("   - カスタマイズしたサブプロット表示を保存しました")
 
     print("\n全てのプロットが保存されました。")
