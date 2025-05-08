@@ -261,3 +261,49 @@ def prepare_for_load_displacement(
     # 従来の関数を利用して処理
     modified_kwargs = _prepare_for_load_displacement(collection, **kwargs)
     return collection, modified_kwargs
+
+
+@register_domain_converter(source_domain="core", target_domain="coordinate")
+def prepare_for_coordinate(
+    collection: ColumnCollection, **kwargs: Any
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
+    """一般コレクションから座標コレクションへの変換準備を行う
+
+    Args:
+        collection: 変換元のコレクション
+        **kwargs: 追加のパラメータ
+
+    Returns:
+        Tuple[ColumnCollection, Dict[str, Any]]:
+            (変換用に準備されたコレクション, 更新されたkwargs)
+    """
+    # 座標メタデータキーの設定
+    coordinate_metadata_key = kwargs.get("coordinate_metadata_key", "coordinates")
+
+    # 既存のカラムに座標情報が設定されているか確認
+    coordinate_columns = {}
+    for col_name, col in collection.columns.items():
+        if hasattr(col, "metadata") and col.metadata:
+            for meta_key, meta_value in col.metadata.items():
+                if isinstance(meta_value, dict) and all(
+                    k in meta_value for k in ["x", "y"]
+                ):
+                    # 座標情報っぽいメタデータが見つかった場合
+                    coordinate_columns[col_name] = {
+                        "x": meta_value.get("x"),
+                        "y": meta_value.get("y"),
+                        "z": meta_value.get("z", None),
+                    }
+                    break
+
+    # 座標情報が見つかった場合、それをメタデータキーに設定
+    if coordinate_columns:
+        for col_name, coords in coordinate_columns.items():
+            if hasattr(collection.columns[col_name], "metadata"):
+                if not collection.columns[col_name].metadata:
+                    collection.columns[col_name].metadata = {}
+                collection.columns[col_name].metadata[coordinate_metadata_key] = coords
+
+    # 更新されたkwargsを返す
+    kwargs.update({"coordinate_metadata_key": coordinate_metadata_key})
+    return collection, kwargs
