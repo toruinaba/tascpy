@@ -76,10 +76,38 @@ class CoordinateCollection(ColumnCollection):
         """
         coordinate_info = self.metadata.get("coordinate_domain", {})
 
+        # 列のクローンを作成し、その過程で座標メタデータも適切にコピー
+        cloned_columns = {}
+        for name, column in self.columns.items():
+            cloned_column = column.clone()
+
+            # 座標メタデータが存在する場合、深いコピーを作成
+            coord_key = self.coordinate_metadata_key
+            if (
+                hasattr(column, "metadata")
+                and column.metadata
+                and coord_key in column.metadata
+            ):
+                if coord_key not in cloned_column.metadata:
+                    cloned_column.metadata[coord_key] = {}
+
+                # 各座標を明示的にコピー
+                coords = column.metadata[coord_key]
+                cloned_column.metadata[coord_key] = {
+                    "x": coords.get("x"),
+                    "y": coords.get("y"),
+                    "z": coords.get("z"),
+                }
+
+            cloned_columns[name] = cloned_column
+
+        # 新しいコレクションを作成
+        import copy
+
         return CoordinateCollection(
             step=self.step.clone() if self.step else None,
-            columns={name: column.clone() for name, column in self.columns.items()},
-            metadata=self.metadata.copy(),
+            columns=cloned_columns,
+            metadata=copy.deepcopy(self.metadata),
             coordinate_metadata_key=coordinate_info.get(
                 "coordinate_metadata_key", "coordinates"
             ),
