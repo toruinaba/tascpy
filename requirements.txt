@@ -1,4 +1,4 @@
 numpy
 matplotlib
 japanize-matplotlib
-setuptools  # Python 3.12以上での日本語フォント表示に必要（distutils代替）
+setuptools 
