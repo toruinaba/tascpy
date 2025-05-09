@@ -144,3 +144,4 @@ dmypy.json
 
 #user
 tests/data
+sandbox/

@@ -16,6 +16,8 @@ T = TypeVar("T")
 class ColumnCollection:
     """複数のcollumnと一つのstepを保持するクラス"""
 
+    domain = "core"
+
     def __init__(self, step, columns, metadata=None, auto_detect_types=False):
         """
         Args:
@@ -158,7 +160,7 @@ class ColumnCollection:
         """操作プロキシクラスを返す"""
         from ..operations.proxy import CollectionOperations
 
-        return CollectionOperations(self)
+        return CollectionOperations(self, domain=self.domain)
 
     def __repr__(self) -> str:
         """文字列表現"""
