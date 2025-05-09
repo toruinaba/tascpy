@@ -15,6 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D
 try:
     import japanize_matplotlib
     import matplotlib as mpl
+
     # マイナス記号を正しく表示するための設定
     mpl.rcParams["axes.unicode_minus"] = False
 except ImportError:
@@ -38,7 +39,7 @@ def plot_spatial_values(
     size_scale: float = 50.0,
     show_colorbar: bool = True,
     step_index: Optional[int] = None,
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """座標空間上に値の分布をプロットする
 
@@ -60,7 +61,9 @@ def plot_spatial_values(
     # プロットタイプの検証
     valid_plot_types = ["scatter", "line", "text", "contour", "surface"]
     if plot_type not in valid_plot_types:
-        raise ValueError(f"無効なプロットタイプ: {plot_type}。有効な値は {valid_plot_types} です")
+        raise ValueError(
+            f"無効なプロットタイプ: {plot_type}。有効な値は {valid_plot_types} です"
+        )
 
     # 座標を持つ列のリストを取得
     coord_columns = collection.get_columns_with_coordinates()
@@ -74,15 +77,21 @@ def plot_spatial_values(
     # 使用するステップのインデックスを決定
     if step_index is None:
         step_index = 0  # デフォルトは最初のステップ
-    elif step_index < 0 or (len(collection.step) > 0 and step_index >= len(collection.step)):
-        raise ValueError(f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります")
+    elif step_index < 0 or (
+        len(collection.step) > 0 and step_index >= len(collection.step)
+    ):
+        raise ValueError(
+            f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります"
+        )
 
     # 値データを取得
     values = collection[value_column].values
     if step_index < len(values):
         step_value = values[step_index]
     else:
-        step_value = values[-1] if values else None  # データが足りない場合は最後の値を使用
+        step_value = (
+            values[-1] if values else None
+        )  # データが足りない場合は最後の値を使用
 
     # 座標データを収集
     points = []
@@ -95,9 +104,11 @@ def plot_spatial_values(
         if step_index < len(col_values):
             col_value = col_values[step_index]
         else:
-            col_value = col_values[-1] if col_values else None  # データが足りない場合は最後の値を使用
+            col_value = (
+                col_values[-1] if col_values else None
+            )  # データが足りない場合は最後の値を使用
         points.append((col, x, y, z, col_value))
-    
+
     if not points:
         raise ValueError("有効な座標情報を持つ列がありません")
 
@@ -109,7 +120,9 @@ def plot_spatial_values(
         if step_index < len(size_values):
             sizes = [size_values[step_index] * size_scale]
         else:
-            sizes = [size_values[-1] * size_scale if size_values else size_scale]  # データが足りない場合は最後の値を使用
+            sizes = [
+                size_values[-1] * size_scale if size_values else size_scale
+            ]  # データが足りない場合は最後の値を使用
     else:
         sizes = [size_scale] * len(points)
 
@@ -127,7 +140,7 @@ def plot_spatial_values(
     # カラーマップの設定
     if isinstance(color_map, str):
         color_map = plt.get_cmap(color_map)
-    
+
     # 値の正規化
     point_values = [p[4] for p in points if p[4] is not None]
     if not point_values:
@@ -143,9 +156,9 @@ def plot_spatial_values(
             s=sizes,
             cmap=color_map,
             norm=norm,
-            **kwargs
+            **kwargs,
         )
-        
+
         # カラーバー
         if show_colorbar:
             plt.colorbar(scatter, ax=ax, label=value_column)
@@ -154,38 +167,38 @@ def plot_spatial_values(
         # x座標でソート
         points.sort(key=lambda p: p[1])
         line = ax.plot(
-            [p[1] for p in points],  # x座標
-            [p[2] for p in points],  # y座標
-            **kwargs
+            [p[1] for p in points], [p[2] for p in points], **kwargs  # x座標  # y座標
         )
 
     elif plot_type == "text":
         for i, p in enumerate(points):
             ax.text(
-                p[1], p[2],  # x, y座標
+                p[1],
+                p[2],  # x, y座標
                 f"{p[4]:.2f}" if p[4] is not None else "N/A",  # 表示テキスト
                 fontsize=kwargs.get("fontsize", 8),
-                ha="center", va="center"
+                ha="center",
+                va="center",
             )
 
     elif plot_type == "contour" or plot_type == "surface":
         # コンター図やサーフェスプロットには格子状のデータが必要
         from scipy.interpolate import griddata
-        
+
         # 格子を作成
         xi = np.linspace(min(p[1] for p in points), max(p[1] for p in points), 100)
         yi = np.linspace(min(p[2] for p in points), max(p[2] for p in points), 100)
         X, Y = np.meshgrid(xi, yi)
-        
+
         # 値を補間
         Z = griddata(
             (np.array([p[1] for p in points]), np.array([p[2] for p in points])),
             np.array([p[4] for p in points]),  # 特定ステップのデータ値
             (X, Y),
             method="cubic",
-            fill_value=np.nan
+            fill_value=np.nan,
         )
-        
+
         if plot_type == "contour":
             contour = ax.contourf(X, Y, Z, cmap=color_map, **kwargs)
             if show_colorbar:
@@ -207,11 +220,11 @@ def plot_spatial_values(
     ax.set_ylabel("Y座標 [m]")
     if is_3d:
         ax.set_zlabel("Z座標 [m]")
-    
+
     # タイトル設定
     step_info = f" (Step {step_index})" if step_index is not None else ""
     ax.set_title(f"{value_column}の空間分布 ({plot_type}){step_info}")
-    
+
     return collection
 
 
@@ -221,7 +234,7 @@ def plot_coordinates(
     ax: Optional[plt.Axes] = None,
     labels: bool = True,
     dimension: str = "2d",
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """座標情報を使って各列の位置をプロットする
 
@@ -258,7 +271,7 @@ def plot_coordinates(
         x, y, z = collection.get_column_coordinates(col)
         if x is None or y is None:
             continue
-            
+
         if is_3d and z is not None:
             ax.scatter(x, y, z, **kwargs)
             if labels:
@@ -273,10 +286,10 @@ def plot_coordinates(
     ax.set_ylabel("Y座標 [m]")
     if is_3d:
         ax.set_zlabel("Z座標 [m]")
-    
+
     # タイトル設定
     ax.set_title("座標位置プロット")
-    
+
     return collection
 
 
@@ -291,7 +304,7 @@ def plot_spatial_heatmap(
     show_colorbar: bool = True,
     show_points: bool = False,
     step_index: Optional[int] = None,
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """座標に基づいてヒートマップを作成
 
@@ -322,8 +335,12 @@ def plot_spatial_heatmap(
     # 使用するステップのインデックスを決定
     if step_index is None:
         step_index = 0  # デフォルトは最初のステップ
-    elif step_index < 0 or (len(collection.step) > 0 and step_index >= len(collection.step)):
-        raise ValueError(f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります")
+    elif step_index < 0 or (
+        len(collection.step) > 0 and step_index >= len(collection.step)
+    ):
+        raise ValueError(
+            f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります"
+        )
 
     # データを収集
     points = []
@@ -333,13 +350,15 @@ def plot_spatial_heatmap(
         if x is None or y is None:
             continue
         points.append((x, y))
-        
+
         # 特定のステップの値を使用
         col_values = collection[col].values
         if step_index < len(col_values):
             values.append(col_values[step_index])
         else:
-            values.append(col_values[-1] if col_values else None)  # データが足りない場合は最後の値を使用
+            values.append(
+                col_values[-1] if col_values else None
+            )  # データが足りない場合は最後の値を使用
 
     if not points:
         raise ValueError("有効な座標情報を持つ列がありません")
@@ -348,12 +367,14 @@ def plot_spatial_heatmap(
 
     # ヒートマップの解像度
     nx, ny = resolution
-    
+
     # 補間に必要なgriddata
     try:
         from scipy.interpolate import griddata
     except ImportError:
-        raise ImportError("このプロットにはSciPyが必要です。pip install scipyで導入してください。")
+        raise ImportError(
+            "このプロットにはSciPyが必要です。pip install scipyで導入してください。"
+        )
 
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
@@ -363,33 +384,33 @@ def plot_spatial_heatmap(
     x = np.array([p[0] for p in points])
     y = np.array([p[1] for p in points])
     z = np.array(values)
-    
+
     xi = np.linspace(np.min(x), np.max(x), nx)
     yi = np.linspace(np.min(y), np.max(y), ny)
     X, Y = np.meshgrid(xi, yi)
-    
+
     # 値を補間
     Z = griddata((x, y), z, (X, Y), method=interpolation_method)
-    
+
     # ヒートマップをプロット
     heatmap = ax.pcolormesh(X, Y, Z, cmap=color_map, **kwargs)
-    
+
     # オリジナルのデータ点を表示
     if show_points:
-        ax.scatter(x, y, c='black', s=10, alpha=0.5)
-    
+        ax.scatter(x, y, c="black", s=10, alpha=0.5)
+
     # カラーバー
     if show_colorbar:
         plt.colorbar(heatmap, ax=ax, label=value_column)
-    
+
     # ラベル設定
     ax.set_xlabel("X座標 [m]")
     ax.set_ylabel("Y座標 [m]")
-    
+
     # タイトル設定
     step_info = f" (Step {step_index})" if step_index is not None else ""
     ax.set_title(f"{value_column}の空間ヒートマップ{step_info}")
-    
+
     return collection
 
 
@@ -400,7 +421,7 @@ def plot_coordinate_distance(
     ax: Optional[plt.Axes] = None,
     plot_type: str = "matrix",
     color_map: str = "viridis",
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """座標間の距離関係を可視化
 
@@ -419,19 +440,19 @@ def plot_coordinate_distance(
     coord_columns = collection.get_columns_with_coordinates()
     if not coord_columns:
         raise ValueError("座標情報を持つ列がありません")
-    
+
     # 距離行列を計算
     distances = {}
     for i, col1 in enumerate(coord_columns):
         x1, y1, z1 = collection.get_column_coordinates(col1)
         if x1 is None or y1 is None:
             continue
-            
+
         for j, col2 in enumerate(coord_columns[i:], start=i):
             if col1 == col2:
                 distances[(col1, col2)] = 0.0
                 continue
-                
+
             try:
                 dist = collection.calculate_distance(col1, col2)
                 distances[(col1, col2)] = dist
@@ -439,44 +460,44 @@ def plot_coordinate_distance(
             except ValueError:
                 # 距離計算できない場合はスキップ
                 continue
-    
+
     if not distances:
         raise ValueError("有効な距離を計算できませんでした")
-    
+
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
         fig, ax = plt.subplots()
-    
+
     # プロットタイプに基づいて描画
     if plot_type == "matrix":
         # 距離行列のプロット
         cols = sorted(list({col for pair in distances.keys() for col in pair}))
         n = len(cols)
         matrix = np.zeros((n, n))
-        
+
         # 行列を埋める
         for i, col1 in enumerate(cols):
             for j, col2 in enumerate(cols):
                 if (col1, col2) in distances:
                     matrix[i, j] = distances[(col1, col2)]
-        
+
         # ヒートマップとして表示
         im = ax.imshow(matrix, cmap=color_map, **kwargs)
         plt.colorbar(im, ax=ax, label="距離 [m]")
-        
+
         # ラベル設定
         ax.set_xticks(range(n))
         ax.set_yticks(range(n))
         ax.set_xticklabels(cols, rotation=90)
         ax.set_yticklabels(cols)
         ax.set_title("座標間距離行列")
-        
+
     elif plot_type == "network":
         # ネットワークプロット
         import networkx as nx
-        
+
         G = nx.Graph()
-        
+
         # ノードの追加
         node_positions = {}
         for col in coord_columns:
@@ -485,43 +506,58 @@ def plot_coordinate_distance(
                 continue
             G.add_node(col)
             node_positions[col] = (x, y)
-        
+
         # エッジの追加
         if reference_column:
             # 指定された列と他の列との距離
             for col in coord_columns:
                 if col != reference_column and (reference_column, col) in distances:
-                    G.add_edge(reference_column, col, weight=distances[(reference_column, col)])
+                    G.add_edge(
+                        reference_column, col, weight=distances[(reference_column, col)]
+                    )
         else:
             # すべての組み合わせ
             for (col1, col2), dist in distances.items():
                 if col1 != col2:
                     G.add_edge(col1, col2, weight=dist)
-        
+
         # ネットワークをプロット
-        nx.draw(G, pos=node_positions, with_labels=True, node_color='lightblue', 
-                edge_color='gray', ax=ax, **kwargs)
-        
+        nx.draw(
+            G,
+            pos=node_positions,
+            with_labels=True,
+            node_color="lightblue",
+            edge_color="gray",
+            ax=ax,
+            **kwargs,
+        )
+
         # エッジラベル（距離）を表示
-        edge_labels = nx.get_edge_attributes(G, 'weight')
-        nx.draw_networkx_edge_labels(G, pos=node_positions, edge_labels=edge_labels, ax=ax)
-        
+        edge_labels = nx.get_edge_attributes(G, "weight")
+        nx.draw_networkx_edge_labels(
+            G, pos=node_positions, edge_labels=edge_labels, ax=ax
+        )
+
         ax.set_title("座標間距離ネットワーク")
-        ax.set_xlim(min(pos[0] for pos in node_positions.values()) - 1, 
-                   max(pos[0] for pos in node_positions.values()) + 1)
-        ax.set_ylim(min(pos[1] for pos in node_positions.values()) - 1, 
-                   max(pos[1] for pos in node_positions.values()) + 1)
-        
+        ax.set_xlim(
+            min(pos[0] for pos in node_positions.values()) - 1,
+            max(pos[0] for pos in node_positions.values()) + 1,
+        )
+        ax.set_ylim(
+            min(pos[1] for pos in node_positions.values()) - 1,
+            max(pos[1] for pos in node_positions.values()) + 1,
+        )
+
     elif plot_type == "histogram":
         # 距離のヒストグラム
         # 自分自身との距離（0）を除く
         dist_values = [d for (c1, c2), d in distances.items() if c1 != c2]
-        
+
         ax.hist(dist_values, bins=20, **kwargs)
         ax.set_xlabel("距離 [m]")
         ax.set_ylabel("頻度")
         ax.set_title("座標間距離の分布")
-    
+
     return collection
 
 
@@ -533,7 +569,7 @@ def plot_coordinate_timeseries(
     ax: Optional[plt.Axes] = None,
     color_map: str = "viridis",
     animate: bool = False,
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """時系列データと座標情報を組み合わせて可視化
 
@@ -557,7 +593,7 @@ def plot_coordinate_timeseries(
     # 値列の存在チェック
     if value_column not in collection.columns:
         raise ValueError(f"列 '{value_column}' は存在しません")
-        
+
     # 時系列データを取得
     if time_column is None:
         time_values = collection.step.values
@@ -567,15 +603,15 @@ def plot_coordinate_timeseries(
             raise ValueError(f"時系列列 '{time_column}' は存在しません")
         time_values = collection[time_column].values
         time_label = time_column
-    
+
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
         fig, ax = plt.subplots()
-    
+
     if animate:
         # アニメーション作成
         import matplotlib.animation as animation
-        
+
         # 座標データを収集
         points = []
         for col in coord_columns:
@@ -584,60 +620,64 @@ def plot_coordinate_timeseries(
                 continue
             values = collection[col].values
             points.append((col, x, y, values))
-        
+
         if not points:
             raise ValueError("有効な座標情報を持つ列がありません")
-        
+
         # アニメーション用の初期プロット
         scatter = ax.scatter(
             [p[1] for p in points],
             [p[2] for p in points],
             c=[p[3][0] for p in points],
             cmap=plt.get_cmap(color_map),
-            **kwargs
+            **kwargs,
         )
-        
+
         # カラーバー
         plt.colorbar(scatter, ax=ax, label=value_column)
-        
+
         # フレーム数
         n_frames = len(time_values)
-        
+
         # アニメーション更新関数
         def update(frame):
             # 現在のフレームの値を設定
-            scatter.set_array([p[3][frame] if frame < len(p[3]) else p[3][-1] for p in points])
-            ax.set_title(f"{value_column}の時系列プロット - {time_label}: {time_values[frame]}")
-            return scatter,
-        
+            scatter.set_array(
+                [p[3][frame] if frame < len(p[3]) else p[3][-1] for p in points]
+            )
+            ax.set_title(
+                f"{value_column}の時系列プロット - {time_label}: {time_values[frame]}"
+            )
+            return (scatter,)
+
         # アニメーション作成
         ani = animation.FuncAnimation(
             fig, update, frames=n_frames, interval=200, blit=True
         )
-        
+
         # ラベル設定
         ax.set_xlabel("X座標 [m]")
         ax.set_ylabel("Y座標 [m]")
         ax.set_title(f"{value_column}の時系列プロット")
-        
+
     else:
         # 通常のプロット（時系列全体を線で表示）
         for col in coord_columns:
             x, y, z = collection.get_column_coordinates(col)
             if x is None or y is None:
                 continue
-                
+
             values = collection[col].values
-            
+
             # 時間 vs 値のプロット
-            ax.plot(time_values[:len(values)], values, label=col, **kwargs)
-        
+            ax.plot(time_values[: len(values)], values, label=col, **kwargs)
+
         # ラベル設定
         ax.set_xlabel(time_label)
         ax.set_ylabel(value_column)
         ax.set_title(f"{value_column}の時系列プロット")
         ax.legend()
-        
+
     return collection
 
 
@@ -653,7 +693,7 @@ def plot_spatial_contour(
     show_colorbar: bool = True,
     filled: bool = True,
     step_index: Optional[int] = None,
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """座標データに基づく等高線プロット
 
@@ -677,17 +717,21 @@ def plot_spatial_contour(
     coord_columns = collection.get_columns_with_coordinates()
     if not coord_columns:
         raise ValueError("座標情報を持つ列がありません")
-    
+
     # 値列の存在チェック
     if value_column not in collection.columns:
         raise ValueError(f"列 '{value_column}' は存在しません")
-    
+
     # 使用するステップのインデックスを決定
     if step_index is None:
         step_index = 0  # デフォルトは最初のステップ
-    elif step_index < 0 or (len(collection.step) > 0 and step_index >= len(collection.step)):
-        raise ValueError(f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります")
-    
+    elif step_index < 0 or (
+        len(collection.step) > 0 and step_index >= len(collection.step)
+    ):
+        raise ValueError(
+            f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります"
+        )
+
     # データを収集
     points = []
     values = []
@@ -696,64 +740,68 @@ def plot_spatial_contour(
         if x is None or y is None:
             continue
         points.append((x, y))
-        
+
         # 特定のステップの値を使用
         col_values = collection[col].values
         if step_index < len(col_values):
             values.append(col_values[step_index])
         else:
-            values.append(col_values[-1] if col_values else None)  # データが足りない場合は最後の値を使用
+            values.append(
+                col_values[-1] if col_values else None
+            )  # データが足りない場合は最後の値を使用
 
     if not points:
         raise ValueError("有効な座標情報を持つ列がありません")
     if None in values:
         raise ValueError("一部の列に有効な値がありません")
-    
+
     # 補間に必要なgriddata
     try:
         from scipy.interpolate import griddata
     except ImportError:
-        raise ImportError("このプロットにはSciPyが必要です。pip install scipyで導入してください。")
-    
+        raise ImportError(
+            "このプロットにはSciPyが必要です。pip install scipyで導入してください。"
+        )
+
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
         fig, ax = plt.subplots()
-    
+
     # グリッドを作成
     x = np.array([p[0] for p in points])
     y = np.array([p[1] for p in points])
     z = np.array(values)
-    
+
     nx, ny = resolution
     xi = np.linspace(np.min(x), np.max(x), nx)
     yi = np.linspace(np.min(y), np.max(y), ny)
     X, Y = np.meshgrid(xi, yi)
-    
+
     # 値を補間
     Z = griddata((x, y), z, (X, Y), method=interpolation_method)
-    
+
     # 等高線プロット
     if filled:
         contour = ax.contourf(X, Y, Z, levels=levels, cmap=color_map, **kwargs)
     else:
         contour = ax.contour(X, Y, Z, levels=levels, cmap=color_map, **kwargs)
         ax.clabel(contour, inline=True, fontsize=8)
-    
+
     # 散布点をプロット
-    ax.scatter(x, y, c='black', s=10, alpha=0.5)
-    
+    ax.scatter(x, y, c="black", s=10, alpha=0.5)
+
     # カラーバー
     if show_colorbar:
         plt.colorbar(contour, ax=ax, label=value_column)
-    
+
     # ラベル設定
     ax.set_xlabel("X座標 [m]")
     ax.set_ylabel("Y座標 [m]")
-    
+
     # タイトル設定
     step_info = f" (Step {step_index})" if step_index is not None else ""
     ax.set_title(f"{value_column}の等高線プロット{step_info}")
-    
+
     return collection
 
 
@@ -767,7 +815,7 @@ def plot_3d_surface(
     color_map: str = "viridis",
     show_colorbar: bool = True,
     step_index: Optional[int] = None,
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """3D表面プロットを生成
 
@@ -789,17 +837,21 @@ def plot_3d_surface(
     coord_columns = collection.get_columns_with_coordinates()
     if not coord_columns:
         raise ValueError("座標情報を持つ列がありません")
-    
+
     # 値列の存在チェック
     if value_column not in collection.columns:
         raise ValueError(f"列 '{value_column}' は存在しません")
-    
+
     # 使用するステップのインデックスを決定
     if step_index is None:
         step_index = 0  # デフォルトは最初のステップ
-    elif step_index < 0 or (len(collection.step) > 0 and step_index >= len(collection.step)):
-        raise ValueError(f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります")
-    
+    elif step_index < 0 or (
+        len(collection.step) > 0 and step_index >= len(collection.step)
+    ):
+        raise ValueError(
+            f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります"
+        )
+
     # データを収集
     points = []
     values = []
@@ -808,62 +860,66 @@ def plot_3d_surface(
         if x is None or y is None:
             continue
         points.append((x, y))
-        
+
         # 特定のステップの値を使用
         col_values = collection[col].values
         if step_index < len(col_values):
             values.append(col_values[step_index])
         else:
-            values.append(col_values[-1] if col_values else None)  # データが足りない場合は最後の値を使用
+            values.append(
+                col_values[-1] if col_values else None
+            )  # データが足りない場合は最後の値を使用
 
     if not points:
         raise ValueError("有効な座標情報を持つ列がありません")
     if None in values:
         raise ValueError("一部の列に有効な値がありません")
-    
+
     # 補間に必要なgriddata
     try:
         from scipy.interpolate import griddata
     except ImportError:
-        raise ImportError("このプロットにはSciPyが必要です。pip install scipyで導入してください。")
-    
+        raise ImportError(
+            "このプロットにはSciPyが必要です。pip install scipyで導入してください。"
+        )
+
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
-    
+
     # グリッドを作成
     x = np.array([p[0] for p in points])
     y = np.array([p[1] for p in points])
     z = np.array(values)
-    
+
     nx, ny = resolution
     xi = np.linspace(np.min(x), np.max(x), nx)
     yi = np.linspace(np.min(y), np.max(y), ny)
     X, Y = np.meshgrid(xi, yi)
-    
+
     # 値を補間
     Z = griddata((x, y), z, (X, Y), method=interpolation_method)
-    
+
     # 3D表面プロット
     surf = ax.plot_surface(X, Y, Z, cmap=color_map, **kwargs)
-    
+
     # 散布点をプロット
-    ax.scatter(x, y, z, c='red', s=30, alpha=0.5)
-    
+    ax.scatter(x, y, z, c="red", s=30, alpha=0.5)
+
     # カラーバー
     if show_colorbar:
         plt.colorbar(surf, ax=ax, label=value_column)
-    
+
     # ラベル設定
     ax.set_xlabel("X座標 [m]")
     ax.set_ylabel("Y座標 [m]")
     ax.set_zlabel(f"{value_column}")
-    
+
     # タイトル設定
     step_info = f" (Step {step_index})" if step_index is not None else ""
     ax.set_title(f"{value_column}の3D表面プロット{step_info}")
-    
+
     return collection
 
 
@@ -876,7 +932,7 @@ def plot_vector_field(
     ax: Optional[plt.Axes] = None,
     scale: float = 1.0,
     color_map: str = "viridis",
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """ベクトル場を可視化
 
@@ -897,39 +953,39 @@ def plot_vector_field(
     coord_columns = collection.get_columns_with_coordinates()
     if not coord_columns:
         raise ValueError("座標情報を持つ列がありません")
-    
+
     # 値列の存在チェック
     if u_column not in collection.columns:
         raise ValueError(f"列 '{u_column}' は存在しません")
     if v_column not in collection.columns:
         raise ValueError(f"列 '{v_column}' は存在しません")
-    
+
     # 3Dプロットかどうかを判定
     is_3d = w_column is not None
     if is_3d and w_column not in collection.columns:
         raise ValueError(f"列 '{w_column}' は存在しません")
-    
+
     # データを収集
     points = []
     u_values = []
     v_values = []
     w_values = [] if is_3d else None
-    
+
     for col in coord_columns:
         x, y, z = collection.get_column_coordinates(col)
         if x is None or y is None:
             continue
-            
+
         if col in collection.columns:
             points.append((x, y, z if is_3d and z is not None else None))
             u_values.append(collection[u_column].values[0])  # 最初の値を使用
             v_values.append(collection[v_column].values[0])  # 最初の値を使用
             if is_3d:
                 w_values.append(collection[w_column].values[0])  # 最初の値を使用
-    
+
     if not points:
         raise ValueError("有効な座標情報を持つ列がありません")
-    
+
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
         if is_3d:
@@ -937,37 +993,37 @@ def plot_vector_field(
             ax = fig.add_subplot(111, projection="3d")
         else:
             fig, ax = plt.subplots()
-    
+
     # ベクトル場プロット
     x = np.array([p[0] for p in points])
     y = np.array([p[1] for p in points])
     u = np.array(u_values) * scale
     v = np.array(v_values) * scale
-    
+
     if is_3d:
         z = np.array([p[2] for p in points if p[2] is not None])
         w = np.array(w_values) * scale
-        
+
         # 3Dベクトル場
         ax.quiver(x, y, z, u, v, w, **kwargs)
     else:
         # 2Dベクトル場
         # ベクトルの大きさを計算
         magnitude = np.sqrt(u**2 + v**2)
-        
+
         # カラーマップを使用してベクトルに色を付ける
         quiver = ax.quiver(x, y, u, v, magnitude, cmap=color_map, **kwargs)
-        
+
         # カラーバー
         plt.colorbar(quiver, ax=ax, label="ベクトル大きさ")
-    
+
     # ラベル設定
     ax.set_xlabel("X座標 [m]")
     ax.set_ylabel("Y座標 [m]")
     if is_3d:
         ax.set_zlabel("Z座標 [m]")
     ax.set_title("ベクトル場プロット")
-    
+
     return collection
 
 
@@ -978,7 +1034,7 @@ def plot_spatial_cluster(
     method: str = "kmeans",
     ax: Optional[plt.Axes] = None,
     dimension: str = "2d",
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """座標に基づくクラスタリング結果を可視化
 
@@ -997,55 +1053,57 @@ def plot_spatial_cluster(
     coord_columns = collection.get_columns_with_coordinates()
     if not coord_columns:
         raise ValueError("座標情報を持つ列がありません")
-    
+
     # 3D描画が必要かどうか判断
     is_3d = dimension.lower() == "3d" and all(
         collection.get_column_coordinates(col)[2] is not None for col in coord_columns
     )
-    
+
     # データを収集
     points = []
     column_names = []
-    
+
     for col in coord_columns:
         x, y, z = collection.get_column_coordinates(col)
         if x is None or y is None:
             continue
-        
+
         if is_3d and z is not None:
             points.append([x, y, z])
         else:
             points.append([x, y])
-        
+
         column_names.append(col)
-    
+
     # クラスタリング
     if method == "kmeans":
         from sklearn.cluster import KMeans
-        
+
         # KMeansクラスタリング
         kmeans = KMeans(n_clusters=n_clusters, **kwargs)
         labels = kmeans.fit_predict(points)
-        
+
     elif method == "hierarchical":
         from sklearn.cluster import AgglomerativeClustering
-        
+
         # 階層的クラスタリング
         hierarchical = AgglomerativeClustering(n_clusters=n_clusters, **kwargs)
         labels = hierarchical.fit_predict(points)
-        
+
     elif method == "dbscan":
         from sklearn.cluster import DBSCAN
-        
+
         # DBSCANクラスタリング
         dbscan = DBSCAN(**kwargs)
         labels = dbscan.fit_predict(points)
-        
+
         # ノイズポイントのラベルを-1に設定
         labels = [-1 if label == -1 else label for label in labels]
     else:
-        raise ValueError(f"無効なクラスタリング手法: {method}。'kmeans', 'hierarchical', 'dbscan' のいずれかを指定してください")
-    
+        raise ValueError(
+            f"無効なクラスタリング手法: {method}。'kmeans', 'hierarchical', 'dbscan' のいずれかを指定してください"
+        )
+
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
         if is_3d:
@@ -1053,7 +1111,7 @@ def plot_spatial_cluster(
             ax = fig.add_subplot(111, projection="3d")
         else:
             fig, ax = plt.subplots()
-    
+
     # クラスタリング結果をプロット
     if is_3d:
         # 3Dプロット
@@ -1063,7 +1121,7 @@ def plot_spatial_cluster(
             [p[2] for p in points],
             c=labels,
             cmap="viridis",
-            **kwargs
+            **kwargs,
         )
         ax.set_zlabel("Z座標 [m]")
     else:
@@ -1073,17 +1131,17 @@ def plot_spatial_cluster(
             [p[1] for p in points],
             c=labels,
             cmap="viridis",
-            **kwargs
+            **kwargs,
         )
-    
+
     # カラーバー
     plt.colorbar(scatter, ax=ax, label="クラスタラベル")
-    
+
     # ラベル設定
     ax.set_xlabel("X座標 [m]")
     ax.set_ylabel("Y座標 [m]")
     ax.set_title(f"{method}によるクラスタリング結果")
-    
+
     return collection
 
 
@@ -1100,7 +1158,7 @@ def plot_coordinate_axis(
     marker: Optional[str] = None,
     step_index: Optional[int] = None,
     show_legend: bool = True,
-    **kwargs
+    **kwargs,
 ) -> CoordinateCollection:
     """指定した座標軸に沿って列の値をプロットする
 
@@ -1124,22 +1182,28 @@ def plot_coordinate_axis(
     # 有効な座標軸のチェック
     valid_axes = ["x", "y", "z"]
     if coordinate_axis not in valid_axes:
-        raise ValueError(f"無効な座標軸: {coordinate_axis}。有効な値は {valid_axes} です")
-    
+        raise ValueError(
+            f"無効な座標軸: {coordinate_axis}。有効な値は {valid_axes} です"
+        )
+
     # 軸の向きのチェック
     valid_orientations = ["coord_value", "value_coord"]
     if axis_orientation not in valid_orientations:
-        raise ValueError(f"無効な軸の向き: {axis_orientation}。有効な値は {valid_orientations} です")
-    
+        raise ValueError(
+            f"無効な軸の向き: {axis_orientation}。有効な値は {valid_orientations} です"
+        )
+
     # プロットタイプの検証
     valid_plot_types = ["scatter", "line", "bar"]
     if plot_type not in valid_plot_types:
-        raise ValueError(f"無効なプロットタイプ: {plot_type}。有効な値は {valid_plot_types} です")
+        raise ValueError(
+            f"無効なプロットタイプ: {plot_type}。有効な値は {valid_plot_types} です"
+        )
 
     # 文字列の場合はリストに変換
     if isinstance(column_names, str):
         column_names = [column_names]
-    
+
     # 値列の存在チェック
     for col in column_names:
         if col not in collection.columns:
@@ -1148,8 +1212,12 @@ def plot_coordinate_axis(
     # 使用するステップのインデックスを決定
     if step_index is None:
         step_index = 0  # デフォルトは最初のステップ
-    elif step_index < 0 or (len(collection.step) > 0 and step_index >= len(collection.step)):
-        raise ValueError(f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります")
+    elif step_index < 0 or (
+        len(collection.step) > 0 and step_index >= len(collection.step)
+    ):
+        raise ValueError(
+            f"無効なstep_index: {step_index}。0から{len(collection.step)-1}の範囲内である必要があります"
+        )
 
     # 新しい図を作成するか、既存のAxesを使用する
     if ax is None:
@@ -1164,7 +1232,7 @@ def plot_coordinate_axis(
     for col_name in column_names:
         # 座標値を取得
         x, y, z = collection.get_column_coordinates(col_name)
-        
+
         # 指定された座標軸の値を選択
         coord_value = None
         if coordinate_axis == "x" and x is not None:
@@ -1173,17 +1241,19 @@ def plot_coordinate_axis(
             coord_value = y
         elif coordinate_axis == "z" and z is not None:
             coord_value = z
-        
+
         if coord_value is None:
             continue
-        
+
         # 該当ステップのデータ値を取得
         col_values = collection[col_name].values
         if step_index < len(col_values):
             data_value = col_values[step_index]
         else:
-            data_value = col_values[-1] if col_values else None  # データが足りない場合は最後の値を使用
-        
+            data_value = (
+                col_values[-1] if col_values else None
+            )  # データが足りない場合は最後の値を使用
+
         if data_value is not None:
             coord_values.append(coord_value)
             data_values.append(data_value)
@@ -1207,18 +1277,18 @@ def plot_coordinate_axis(
         y_data = coord_values
         x_label = "値"
         y_label = f"{coordinate_axis.upper()}座標 [m]"
-    
+
     # プロット
     plot_kwargs = {}
     if color:
-        plot_kwargs['color'] = color
+        plot_kwargs["color"] = color
     if marker:
-        plot_kwargs['marker'] = marker
+        plot_kwargs["marker"] = marker
     plot_kwargs.update(kwargs)  # 追加の引数を統合
-    
+
     if plot_type == "scatter":
         scatter = ax.scatter(x_data, y_data, label=series_name, **plot_kwargs)
-        
+
     elif plot_type == "line":
         # 座標値に基づいてソート
         if axis_orientation == "coord_value":
@@ -1227,55 +1297,69 @@ def plot_coordinate_axis(
             sorted_x = [x_data[i] for i in sorted_indices]
             sorted_y = [y_data[i] for i in sorted_indices]
             sorted_labels = [point_labels[i] for i in sorted_indices]
-            
+
             ax.plot(sorted_x, sorted_y, label=series_name, **plot_kwargs)
-            
+
             # データポイントにラベルを付ける場合はここでラベルを表示
             for i, (x, y, label) in enumerate(zip(sorted_x, sorted_y, sorted_labels)):
-                if kwargs.get('show_point_labels', False):
-                    ax.annotate(label, (x, y), xytext=(5, 5), textcoords='offset points')
+                if kwargs.get("show_point_labels", False):
+                    ax.annotate(
+                        label, (x, y), xytext=(5, 5), textcoords="offset points"
+                    )
         else:
             # Y軸が座標値の場合
             sorted_indices = np.argsort(y_data)
             sorted_x = [x_data[i] for i in sorted_indices]
             sorted_y = [y_data[i] for i in sorted_indices]
             sorted_labels = [point_labels[i] for i in sorted_indices]
-            
+
             ax.plot(sorted_x, sorted_y, label=series_name, **plot_kwargs)
-            
+
             # データポイントにラベルを付ける場合はここでラベルを表示
             for i, (x, y, label) in enumerate(zip(sorted_x, sorted_y, sorted_labels)):
-                if kwargs.get('show_point_labels', False):
-                    ax.annotate(label, (x, y), xytext=(5, 5), textcoords='offset points')
-            
+                if kwargs.get("show_point_labels", False):
+                    ax.annotate(
+                        label, (x, y), xytext=(5, 5), textcoords="offset points"
+                    )
+
     elif plot_type == "bar":
         if axis_orientation == "coord_value":
             bars = ax.bar(x_data, y_data, label=series_name, **plot_kwargs)
             # データラベルを表示
-            if kwargs.get('show_point_labels', False):
+            if kwargs.get("show_point_labels", False):
                 for i, rect in enumerate(bars):
                     height = rect.get_height()
-                    ax.text(rect.get_x() + rect.get_width()/2., height,
-                            point_labels[i], ha='center', va='bottom')
+                    ax.text(
+                        rect.get_x() + rect.get_width() / 2.0,
+                        height,
+                        point_labels[i],
+                        ha="center",
+                        va="bottom",
+                    )
         else:
             bars = ax.barh(y_data, x_data, label=series_name, **plot_kwargs)
             # データラベルを表示
-            if kwargs.get('show_point_labels', False):
+            if kwargs.get("show_point_labels", False):
                 for i, rect in enumerate(bars):
                     width = rect.get_width()
-                    ax.text(width, rect.get_y() + rect.get_height()/2.,
-                            point_labels[i], ha='left', va='center')
+                    ax.text(
+                        width,
+                        rect.get_y() + rect.get_height() / 2.0,
+                        point_labels[i],
+                        ha="left",
+                        va="center",
+                    )
 
     # ラベル設定
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    
+
     # タイトル設定
     step_info = f" (Step {step_index})" if step_index is not None else ""
     ax.set_title(f"{coordinate_axis.upper()}座標と値の関係{step_info}")
-    
+
     # 凡例表示（オプション）
     if show_legend:
         ax.legend()
-    
+
     return collection
