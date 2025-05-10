@@ -179,6 +179,138 @@ result = (
 
 このパターンにより、データ分析の各ステップを明確に表現しながら、効率的に複数の操作を連結できます。
 
+## ドメイン拡張とオペレーションの実装パターン
+
+### ドメイン特化コレクションの実装
+- ドメイン特化クラスは `DomainCollectionFactory` に登録して使用
+- 実装時は `factory.py` の `DomainCollectionFactory.register()` メソッドを使用
+- ドメイン間変換は `converters.py` の `register_domain_converter` デコレータを使用
+
+```python
+# ドメイン特化コレクションの実装例
+class LoadDisplacementCollection(ColumnCollection):
+    """荷重変位データ向けコレクション"""
+    
+    def __init__(
+        self, 
+        step: Optional[Indices] = None, 
+        columns: Optional[Dict[str, Column]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None
+    ):
+        """初期化
+        
+        Args:
+            step: インデックスオブジェクト
+            columns: カラムの辞書
+            metadata: メタデータ辞書
+            load_column: 荷重のカラム名
+            displacement_column: 変位のカラム名
+        """
+        super().__init__(step=step, columns=columns, metadata=metadata)
+        
+        # メタデータに追加情報を設定
+        if not self.metadata:
+            self.metadata = {}
+        self.metadata["domain"] = "load_displacement"
+        
+        # 荷重と変位のカラムを設定
+        self._load_column = load_column
+        self._displacement_column = displacement_column
+
+# ドメイン特化コレクションファクトリの登録
+def create_load_displacement_collection(**kwargs: Any) -> LoadDisplacementCollection:
+    """荷重変位コレクションを作成するファクトリ関数"""
+    return LoadDisplacementCollection(**kwargs)
+
+# ファクトリへの登録
+DomainCollectionFactory.register("load_displacement", create_load_displacement_collection)
+```
+
+### ドメイン間の変換
+- `converters.py` の `register_domain_converter` デコレータを使用して変換関数を登録
+- 変換関数は元のコレクションと更新された kwargs を返す
+
+```python
+@register_domain_converter(source_domain="core", target_domain="load_displacement")
+def prepare_for_load_displacement(
+    collection: ColumnCollection, **kwargs: Any
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
+    """一般コレクションから荷重-変位コレクションへの変換準備を行う"""
+    # 変換ロジックを実装
+    # ...
+    return collection, modified_kwargs
+```
+
+### 操作関数の実装
+- 操作関数は `operations/` ディレクトリ以下に実装
+- `registry.py` の `operation` デコレータを使用して登録
+- ドメイン特化操作は対応するドメインで指定
+
+```python
+# operations/core/math.py の例
+@operation  # デフォルトで core ドメイン
+def add(
+    collection: ColumnCollection,
+    column1: str,
+    column2: Union[str, float, int],
+    result_column: Optional[str] = None,
+    in_place: bool = False,
+) -> ColumnCollection:
+    """2つのカラム（または数値）を加算"""
+    # 実装...
+    return result_collection
+
+# operations/load_displacement/analysis.py の例
+@operation(domain="load_displacement")  # 特定ドメインを指定
+def calculate_slopes(
+    collection: LoadDisplacementCollection,
+    range_start: Optional[float] = None,
+    range_end: Optional[float] = None,
+    result_column: Optional[str] = None,
+) -> LoadDisplacementCollection:
+    """荷重-変位カーブの傾きを計算"""
+    # 実装...
+    return result_collection
+```
+
+### メソッドチェーンと操作登録
+- すべての操作関数は `CollectionOperations` クラスに自動登録される
+- 登録された操作はメソッドチェーンで利用可能
+- カスタム操作を追加する場合も同様のパターンで登録
+
+```python
+# 操作の実行例
+result = (
+    collection.ops
+    .select_columns(["Force", "Displacement"])
+    .filter_by_function("Force", lambda x: x > 0)
+    .calculate_slopes(range_start=0.1, range_end=0.5)
+    .end()
+)
+```
+
+### コレクションリスト操作
+- `CollectionListOperations` クラスを使用して複数のコレクションを一度に操作
+- `split` 系のメソッドでコレクションを分割し、リスト形式で処理
+- リスト操作とメソッドチェーンの組み合わせが可能
+
+```python
+# コレクションの分割と各グループへの一括操作
+result = (
+    collection.ops
+    .split_by_integers([1, 2, 1, 2, 3, 3])  # グループごとに分割
+    .map("add", "Value", 10, result_column="ValuePlus10")  # 全グループに同じ操作
+    .filter(lambda col: col.columns["Value"].mean() > 20)  # 条件に合うグループのみ選択
+)
+
+# インデックスで特定のグループにアクセス
+first_group = result[0]
+# スライスでグループを選択
+first_two_groups = result[:2]
+```
+
 ## 重要な注意事項
 - `tests/data` および `sandbox` ディレクトリは読み込み禁止
 - 国際化対応は不要（日本語UIで問題なし）
