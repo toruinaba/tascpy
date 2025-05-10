@@ -135,6 +135,50 @@ class TestExample:
 - コンポジションを重視した設計
 - イミュータブルなデータ操作を推奨
 
+## メソッドチェーン
+
+### 基本原則
+- `CollectionOperations` クラスを使用してメソッドチェーンを実現
+- 操作メソッドは元のコレクションを変更せず、新しいコレクションを返す
+- `.end()` メソッドでチェーンを終了し最終的な `ColumnCollection` オブジェクトを取得
+
+### 実装パターン
+- コレクションから `.ops` プロパティでアクセスし操作を開始
+- 各操作メソッドは `CollectionOperations` のインスタンスを返しチェーン継続を可能に
+- `in_place=True` オプションを持つメソッドは元のオブジェクトを変更可能
+
+### 主な操作カテゴリ
+- 数学演算: `add`, `subtract`, `multiply`, `divide`, `evaluate` など
+- 変換操作: `sin`, `cos`, `exp`, `log`, `abs_values` など
+- 選択操作: `select`, `select_step`, `select_columns` など
+- フィルタリング: `filter_by_function`, `search_by_condition` など
+- 微分積分: `diff`, `integrate` など
+- 可視化: `plot` など
+
+### 使用例
+```python
+# 複数の操作をチェーンで実行
+result = (
+    collection.ops
+    .select_step(steps=[3, 4, 5])  # 特定のステップを選択
+    .select_columns(["Force1", "Displacement1"])  # 特定の列を選択
+    .multiply("Force1", 2, result_column="DoubleForce")  # 計算処理
+    .evaluate("DoubleForce / Displacement1", result_column="Stiffness")  # 式の評価
+    .end()  # チェーンを終了して結果を取得
+)
+
+# 統計処理のチェーン例
+result = (
+    ops
+    .moving_average(column="raw_data", window_size=5, result_column="ma5")
+    .moving_average(column="raw_data", window_size=21, result_column="ma21")
+    .detect_outliers(column="raw_data", window_size=15, threshold=0.3)
+    .end()
+)
+```
+
+このパターンにより、データ分析の各ステップを明確に表現しながら、効率的に複数の操作を連結できます。
+
 ## 重要な注意事項
 - `tests/data` および `sandbox` ディレクトリは読み込み禁止
 - 国際化対応は不要（日本語UIで問題なし）
