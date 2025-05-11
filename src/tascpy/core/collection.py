@@ -10,7 +10,7 @@ from typing import (
     TYPE_CHECKING,
 )
 from pathlib import Path
-from .indices import Indices
+from .step import Step
 from .column import (
     Column,
     NumberColumn,
@@ -40,10 +40,10 @@ class ColumnCollection:
             auto_detect_types: カラム型を自動判定するかどうか
         """
         # ステップの初期化
-        if isinstance(step, Indices):
+        if isinstance(step, Step):
             self.step = step
         else:
-            self.step = Indices(values=step if step is not None else [])
+            self.step = Step(values=step if step is not None else [])
 
         # 列の初期化
         self.columns = {}
@@ -103,7 +103,7 @@ class ColumnCollection:
                 return Row(step=self.step.values[key], values=values)
             else:
                 # スライスの場合は新しいColumnCollectionを返す
-                new_step = Indices(values=self.step.values[key])
+                new_step = Step(values=self.step.values[key])
                 new_columns = {}
                 for name, column in self.columns.items():
                     new_column = column.clone()

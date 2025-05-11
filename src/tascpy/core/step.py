@@ -1,7 +1,7 @@
 from .data_holder import DataHolder
 
 
-class Indices(DataHolder):
+class Step(DataHolder):
     """インデックス列を表す専用クラス"""
 
     def __init__(self, values=None, metadata=None):
@@ -11,7 +11,7 @@ class Indices(DataHolder):
     def clone(self):
         from copy import deepcopy
 
-        return Indices(deepcopy(self.values))
+        return Step(deepcopy(self.values))
 
     def validate(self):
         """データ有効性チェック"""

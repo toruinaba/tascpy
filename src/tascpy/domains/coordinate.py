@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING
 import numpy as np
 from ..core.collection import ColumnCollection
-from ..core.indices import Indices
+from ..core.step import Step
 from ..core.column import Column
 from .factory import DomainCollectionFactory
 
@@ -18,7 +18,7 @@ class CoordinateCollection(ColumnCollection):
 
     def __init__(
         self,
-        step: Optional[Indices] = None,
+        step: Optional[Step] = None,
         columns: Optional[Dict[str, Column]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         coordinate_metadata_key: str = "coordinates",

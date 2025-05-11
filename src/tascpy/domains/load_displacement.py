@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional, TYPE_CHECKING
 from ..core.collection import ColumnCollection
-from ..core.indices import Indices
+from ..core.step import Step
 from ..core.column import Column
 from .factory import DomainCollectionFactory
 
@@ -15,7 +15,7 @@ class LoadDisplacementCollection(ColumnCollection):
 
     def __init__(
         self,
-        step: Optional[Indices] = None,
+        step: Optional[Step] = None,
         columns: Optional[Dict[str, Column]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         load_column: str = "load",
@@ -45,12 +45,15 @@ class LoadDisplacementCollection(ColumnCollection):
         )
 
         # カラムが存在するかチェック (データがある場合のみ)
-        if columns and (
-            load_column not in columns or displacement_column not in columns
-        ):
-            raise ValueError(
-                f"カラム '{load_column}' または '{displacement_column}' が見つかりません"
-            )
+        if columns:
+            if load_column not in columns:
+                raise ValueError(
+                    f"load_column に指定したカラム '{load_column}' が見つかりません"
+                )
+            if displacement_column not in columns:
+                raise ValueError(
+                    f"displacement_column に指定したカラム '{displacement_column}' が見つかりません"
+                )
 
     @property
     def domain(self) -> str:

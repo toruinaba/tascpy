@@ -112,7 +112,9 @@ def plot(
     ax.set_ylabel(y_label)
     ax.set_title(f"{plot_type.capitalize()} plot of {y_name} vs {x_name}")
 
-    # plt.show()の呼び出しを削除（ユーザー側で必要に応じて呼び出す）
+    # グラフを表示（axが渡されていない場合のみ）
+    if ax is None:
+        plt.show()
 
     # 元のコレクションを返す
     return collection

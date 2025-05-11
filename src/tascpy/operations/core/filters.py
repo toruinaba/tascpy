@@ -1,7 +1,7 @@
 from typing import Any, Optional, Union, List, Dict
 from ...core.collection import ColumnCollection
 from ...core.column import Column
-from ...core.indices import Indices
+from ...core.step import Step
 from ..registry import operation
 
 

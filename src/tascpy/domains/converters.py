@@ -2,7 +2,7 @@ from typing import Optional, Any, Dict, List, Union, Tuple, Callable
 from datetime import datetime, timedelta
 import numpy as np
 from ..core.collection import ColumnCollection
-from ..core.indices import Indices
+from ..core.step import Step
 
 
 # ドメイン変換関数のレジストリ
@@ -130,7 +130,7 @@ def _prepare_for_timeseries(
         ]
 
         # 新しいStepオブジェクトを作成
-        collection.step = Indices(values=step_values)
+        collection.step = Step(values=step_values)
 
         # 使用済みのキーをkwargsから削除
         kwargs.pop("start_date", None)
@@ -163,7 +163,7 @@ def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> Dict[str
         ]
 
         # 新しいStepオブジェクトを作成
-        collection.step = Indices(values=time_values)
+        collection.step = Step(values=time_values)
 
         # 元の時間情報をメタデータに保存
         collection.metadata["original_timestamps"] = {
@@ -235,8 +235,14 @@ def _prepare_for_load_displacement(
                 disp_column = numeric_columns[1]
 
     # 必要なカラムが見つからない場合はエラー
-    if not load_column or not disp_column:
+    if not load_column and not disp_column:
         raise ValueError("荷重と変位のカラムを指定または検出できませんでした")
+    elif not load_column:
+        raise ValueError("load_column が指定されていないか、検出できませんでした")
+    elif not disp_column:
+        raise ValueError(
+            "displacement_column が指定されていないか、検出できませんでした"
+        )
 
     # 更新されたkwargsを返す
     kwargs.update({"load_column": load_column, "displacement_column": disp_column})
