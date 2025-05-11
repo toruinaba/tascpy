@@ -1,8 +1,13 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from ..core.collection import ColumnCollection
 from ..core.indices import Indices
 from ..core.column import Column
 from .factory import DomainCollectionFactory
+
+if TYPE_CHECKING:
+    from ..operations.stubs.load_displacement import (
+        LoadDisplacementCollectionOperations,
+    )
 
 
 class LoadDisplacementCollection(ColumnCollection):
@@ -49,12 +54,22 @@ class LoadDisplacementCollection(ColumnCollection):
 
     @property
     def domain(self) -> str:
-        """このコレクションのドメイン名を返す
-
-        Returns:
-            str: ドメイン名
-        """
+        """ドメイン識別子を返す"""
         return "load_displacement"
+
+    @property
+    def ops(self):
+        """操作プロキシクラスを返す"""
+        from ..operations.proxy import CollectionOperations
+
+        if TYPE_CHECKING:
+            from ..operations.stubs.load_displacement import (
+                LoadDisplacementCollectionOperations,
+            )
+
+            return LoadDisplacementCollectionOperations(self, domain="load_displacement")  # type: ignore
+        else:
+            return CollectionOperations(self, domain=self.domain)
 
     @property
     def load_column(self) -> str:

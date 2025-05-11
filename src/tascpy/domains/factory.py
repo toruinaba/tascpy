@@ -2,11 +2,21 @@ from typing import Dict, Callable, Optional, Any, Type
 from ..core.collection import ColumnCollection
 
 
+def create_column_collection(**kwargs: Any) -> ColumnCollection:
+    """汎用的なカラムコレクションを作成するファクトリ関数
+    Args:
+        **kwargs: カラムコレクションの初期化に必要な引数
+    Returns:
+        ColumnCollection: 作成されたカラムコレクション
+    """
+    return ColumnCollection(**kwargs)
+
+
 class DomainCollectionFactory:
     """ドメイン特化コレクションを作成するファクトリークラス"""
 
     # ドメイン名 -> ファクトリ関数の辞書
-    _factories: Dict[str, Callable] = {}
+    _factories: Dict[str, Callable] = {"core": create_column_collection}
 
     @classmethod
     def register(cls, domain: str, factory_func: Callable) -> None:

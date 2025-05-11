@@ -1,4 +1,14 @@
-from typing import Dict, List, Any, Optional, Union, TypeVar, Callable, TextIO
+from typing import (
+    Dict,
+    List,
+    Any,
+    Optional,
+    Union,
+    TypeVar,
+    Callable,
+    TextIO,
+    TYPE_CHECKING,
+)
 from pathlib import Path
 from .indices import Indices
 from .column import (
@@ -9,6 +19,9 @@ from .column import (
     detect_column_type,
 )
 from ..core.io_formats import get_format, FILE_FORMATS
+
+if TYPE_CHECKING:
+    from ..operations.stubs.core import CoreCollectionOperations
 
 T = TypeVar("T")
 
@@ -160,7 +173,13 @@ class ColumnCollection:
         """操作プロキシクラスを返す"""
         from ..operations.proxy import CollectionOperations
 
-        return CollectionOperations(self, domain=self.domain)
+        if TYPE_CHECKING:
+            # ColumnCollectionのドメインはcoreなので、CoreCollectionOperationsのみを返す
+            from ..operations.stubs.core import CoreCollectionOperations
+
+            return CoreCollectionOperations(self, domain="core")  # type: ignore
+        else:
+            return CollectionOperations(self, domain=self.domain)
 
     def __repr__(self) -> str:
         """文字列表現"""

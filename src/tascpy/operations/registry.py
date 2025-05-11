@@ -14,6 +14,9 @@ class OperationRegistry:
     # 初期化済みドメインの集合
     _initialized_domains: Set[str] = set()
 
+    # スタブファイルが生成されたかどうかのフラグ
+    _stubs_generated: bool = False
+
     @classmethod
     def register(
         cls,
@@ -262,6 +265,77 @@ class OperationRegistry:
                 if name != "self"  # self パラメータを除外
             ],
         }
+
+    @classmethod
+    def generate_stubs(cls) -> None:
+        """操作のスタブファイルを生成する
+
+        Pylanceなどの静的型チェッカーのための型情報を提供するスタブファイルを生成します。
+        """
+        # スタブ生成を避けるための循環インポートの回避
+        if cls._stubs_generated:
+            return
+
+        from .stub_generator import generate_stubs
+
+        generate_stubs()
+
+        # スタブの最終修正を実行（型情報の修正）
+        cls._fix_generated_stubs()
+
+        cls._stubs_generated = True
+
+    @classmethod
+    def _fix_generated_stubs(cls) -> None:
+        """生成されたスタブファイルの型情報を修正する
+
+        特にジェネリック型が正しく処理されない場合の修正を行います。
+        """
+        import re
+        import os
+        from pathlib import Path
+
+        # スタブディレクトリパス
+        stubs_dir = Path(__file__).parent / "stubs"
+        if not stubs_dir.exists() or not stubs_dir.is_dir():
+            return
+
+        # Pythonファイルを順に処理
+        for file_path in stubs_dir.glob("*.py"):
+            if file_path.name == "__init__.py" or file_path.name == "proxy_base.py":
+                continue
+
+            # ファイルを読み込み
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # パターンを検出して修正
+            # Optional = None を Optional[Any] = None に修正
+            content = re.sub(
+                r"(\w+): Optional = None", r"\1: Optional[Any] = None", content
+            )
+
+            # Optional = ... を Optional[Any] = ... に修正
+            content = re.sub(
+                r"(\w+): Optional = ([^N][^o][^n][^e].*)",
+                r"\1: Optional[Any] = \2",
+                content,
+            )
+
+            # List = None を List[Any] = None に修正
+            content = re.sub(r"(\w+): List = None", r"\1: List[Any] = None", content)
+
+            # Dict = None を Dict[Any, Any] = None に修正
+            content = re.sub(
+                r"(\w+): Dict = None", r"\1: Dict[Any, Any] = None", content
+            )
+
+            # Union = None を Union[Any] = None に修正
+            content = re.sub(r"(\w+): Union = None", r"\1: Union[Any] = None", content)
+
+            # 修正した内容を書き戻す
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
 
 
 # デコレーターのエイリアス（より簡潔な名前で使用可能）

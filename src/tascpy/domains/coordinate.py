@@ -1,9 +1,12 @@
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING
 import numpy as np
 from ..core.collection import ColumnCollection
 from ..core.indices import Indices
 from ..core.column import Column
 from .factory import DomainCollectionFactory
+
+if TYPE_CHECKING:
+    from ..operations.stubs.coordinate import CoordinateCollectionOperations
 
 
 class CoordinateCollection(ColumnCollection):
@@ -50,12 +53,20 @@ class CoordinateCollection(ColumnCollection):
 
     @property
     def domain(self) -> str:
-        """このコレクションのドメイン名を返す
-
-        Returns:
-            str: ドメイン名
-        """
+        """ドメイン識別子を返す"""
         return "coordinate"
+
+    @property
+    def ops(self):
+        """操作プロキシクラスを返す"""
+        from ..operations.proxy import CollectionOperations
+
+        if TYPE_CHECKING:
+            from ..operations.stubs.coordinate import CoordinateCollectionOperations
+
+            return CoordinateCollectionOperations(self, domain="coordinate")  # type: ignore
+        else:
+            return CollectionOperations(self, domain=self.domain)
 
     @property
     def coordinate_metadata_key(self) -> str:

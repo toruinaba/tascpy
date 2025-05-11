@@ -1,6 +1,12 @@
-from typing import Any, Dict, List, Optional, Callable, TypeVar, Union
+from typing import Any, Dict, List, Optional, Callable, TypeVar, Union, TYPE_CHECKING
 
 from ..core.collection import ColumnCollection
+
+if TYPE_CHECKING:
+    from .stubs.proxy_base import CollectionOperationsBase
+    from .stubs.core import CoreCollectionOperations
+    from .stubs.load_displacement import LoadDisplacementCollectionOperations
+    from .stubs.coordinate import CoordinateCollectionOperations
 
 
 class CollectionOperations:
@@ -15,6 +21,14 @@ class CollectionOperations:
         self._collection = collection
         self._domain = domain
 
+        # スタブファイルが生成されていない場合、生成を試みる
+        if TYPE_CHECKING:
+            pass  # 型チェック時には何もしない
+        else:
+            from .registry import OperationRegistry
+
+            OperationRegistry.generate_stubs()
+
         self._add_operations()
 
     def _add_operations(self) -> None:
@@ -24,10 +38,10 @@ class CollectionOperations:
         core_ops = OperationRegistry.get_operations("core")
         for name, func in core_ops.items():
             setattr(self, name, self._create_operation_method(func))
-            
+
             # 特殊ケース: abs_values関数をabsという名前でも使えるようにする
-            if name == 'abs_values':
-                setattr(self, 'abs', self._create_operation_method(func))
+            if name == "abs_values":
+                setattr(self, "abs", self._create_operation_method(func))
 
         if self._domain != "core":
             domain_ops = OperationRegistry.get_operations(self._domain)
