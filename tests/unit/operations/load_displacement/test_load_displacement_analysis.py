@@ -355,6 +355,8 @@ class TestLoadDisplacementAnalysis:
             self.yield_ld_collection,
             method="offset",
             offset_value=0.002,
+            range_start=0.0,  # 範囲開始を0%に設定（データのはじめから）
+            range_end=0.6,  # 範囲終了を60%に設定（線形領域内）
             result_prefix="yield",
         )
 
@@ -379,6 +381,8 @@ class TestLoadDisplacementAnalysis:
             self.yield_ld_collection,
             method="general",
             factor=0.33,
+            range_start=0.0,  # 範囲開始を0%に設定（データのはじめから）
+            range_end=0.6,  # 範囲終了を60%に設定（線形領域内）
             result_prefix="yield",
         )
 
@@ -401,6 +405,8 @@ class TestLoadDisplacementAnalysis:
             self.yield_ld_collection,
             method="offset",
             offset_value=0.002,
+            range_start=0.0,  # 範囲開始を0%に設定
+            range_end=0.6,  # 範囲終了を60%に設定
             result_prefix="yield",
         )
 
@@ -418,6 +424,8 @@ class TestLoadDisplacementAnalysis:
             self.yield_ld_collection,
             method="offset",
             offset_value=0.002,
+            range_start=0.0,  # 範囲開始を0%に設定
+            range_end=0.6,  # 範囲終了を60%に設定
             result_prefix=custom_prefix,
         )
 
@@ -439,7 +447,11 @@ class TestLoadDisplacementAnalysis:
         """find_yield_pointのメタデータ設定テスト"""
         # 降伏点を計算
         result = find_yield_point(
-            self.yield_ld_collection, method="offset", offset_value=0.002
+            self.yield_ld_collection,
+            method="offset",
+            offset_value=0.002,
+            range_start=0.0,  # 範囲開始を0%に設定
+            range_end=0.6,  # 範囲終了を60%に設定
         )
 
         # メタデータに降伏点情報が追加されていることを確認

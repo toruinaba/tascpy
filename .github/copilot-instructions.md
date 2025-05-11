@@ -80,7 +80,10 @@ tascpy/
 ├── tests/
 │   ├── unit/            # 単体テスト
 │   └── func/            # 機能テスト
-└── examples/           # サンプルコード
+├── examples/           # サンプルコード
+├── scripts/            # スクリプト
+├── docs/               # ドキュメント
+├── venv/               # 仮想環境
 ```
 
 ## テスト戦略
@@ -357,3 +360,4 @@ generate_stubs()
 - `tests/data` および `sandbox` ディレクトリは読み込み禁止
 - 国際化対応は不要（日本語UIで問題なし）
 - 提案は日本語
+
