@@ -281,6 +281,141 @@ Raises:
         ...
     
 
+    def switch_by_step(
+        self,
+        column1: str,
+        column2: str,
+        step_threshold: Union[int, float],
+        compare_mode: str = 'index',
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """ステップ値を基準に2つのColumnを切り替える
+
+指定されたステップ値を境界として、それより前はcolumn1、それ以降はcolumn2の値を使用した
+新しいColumnを生成します。
+
+Args:
+    collection: ColumnCollectionオブジェクト
+    column1: 閾値より前（または以下）の値を取得する列名
+    column2: 閾値より後（または以上）の値を取得する列名
+    step_threshold: 切り替え基準となるステップ値（または指標値）
+    compare_mode: 比較モード ("index": インデックス位置, "value": ステップの値)
+    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
+    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: 切り替え結果の列を含むColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合、または無効な値が指定された場合"""
+        ...
+    
+
+    def blend_by_step(
+        self,
+        column1: str,
+        column2: str,
+        step_start: Union[int, float],
+        step_end: Union[int, float],
+        compare_mode: str = 'index',
+        blend_method: str = 'linear',
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """ステップ値の範囲内で2つのColumnをブレンドする
+
+指定された開始ステップから終了ステップまでの間で、column1からcolumn2へ徐々に
+ブレンドした新しいColumnを生成します。開始ステップより前はcolumn1、終了ステップより後は
+column2の値のみを使用します。
+
+Args:
+    collection: ColumnCollectionオブジェクト
+    column1: ブレンド開始時（または範囲外の低い方）の値を取得する列名
+    column2: ブレンド終了時（または範囲外の高い方）の値を取得する列名
+    step_start: ブレンド開始ステップ値（または指標値）
+    step_end: ブレンド終了ステップ値（または指標値）
+    compare_mode: 比較モード ("index": インデックス位置, "value": ステップの値)
+    blend_method: ブレンド方法 ("linear", "smooth", "log", "exp")
+    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
+    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: ブレンド結果の列を含むColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合、または無効な値や範囲が指定された場合"""
+        ...
+    
+
+    def conditional_select(
+        self,
+        column1: str,
+        column2: str,
+        condition_column: str,
+        threshold: Union[int, float] = 0,
+        compare: str = '>',
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """条件に基づいて2つのColumnから選択的に値を取得
+
+指定された条件列の値と閾値を比較し、条件を満たす場合はcolumn1、
+それ以外の場合はcolumn2の値を使用した新しいColumnを生成します。
+
+Args:
+    collection: ColumnCollectionオブジェクト
+    column1: 条件を満たす場合に使用する列名
+    column2: 条件を満たさない場合に使用する列名
+    condition_column: 条件判定に使用する列名
+    threshold: 条件判定の閾値
+    compare: 比較演算子 (">", ">=", "<", "<=", "==", "!=")
+    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
+    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: 条件選択結果の列を含むColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合、または無効な比較演算子が指定された場合"""
+        ...
+    
+
+    def custom_combine(
+        self,
+        column1: str,
+        column2: str,
+        combine_func: Callable[[Any, Any], Any],
+        result_column: Optional[str] = None,
+        func_name: Optional[str] = None,
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """カスタム関数を使用して2つのColumnを合成
+
+指定されたカスタム関数を使用して、2つの列の値を要素ごとに合成した
+新しいColumnを生成します。
+
+Args:
+    collection: ColumnCollectionオブジェクト
+    column1: 1つ目の入力列名
+    column2: 2つ目の入力列名
+    combine_func: 2つの値を受け取り1つの値を返す関数
+    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
+    func_name: 関数名（自動生成される列名で使用される識別子）
+    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: カスタム合成結果の列を含むColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合"""
+        ...
+    
+
     def add(
         self,
         column1: str,
