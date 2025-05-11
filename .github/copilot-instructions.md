@@ -311,6 +311,49 @@ first_group = result[0]
 first_two_groups = result[:2]
 ```
 
+## スタブファイル生成について
+
+tascpy は操作メソッドを動的に登録する仕組みを採用しています。これにより VS Code などのエディタで静的解析ツールを使用する際に、自動補完が正しく機能しない場合があります。この問題を解決するためのスタブファイル生成機能があります。
+
+### 自動生成（推奨）
+
+モジュールのインポート時に自動的にスタブファイルが生成されます：
+
+```python
+import tascpy  # このインポート時に自動的にスタブファイルが生成されます
+```
+
+環境変数を使って無効化も可能です：
+
+```python
+import os
+os.environ["TASCPY_GENERATE_STUBS"] = "0"
+import tascpy  # スタブファイルは生成されません
+```
+
+### 手動生成
+
+コマンドラインまたはPythonコードから手動生成も可能です：
+
+```bash
+python scripts/generate_stubs.py
+```
+
+```python
+from tascpy.operations.stub_generator import generate_stubs
+generate_stubs()
+```
+
+スタブファイルは `src/tascpy/operations/stubs/` ディレクトリに生成され、VS Code / Pylance での自動補完が有効になります。新しい操作メソッドの追加や変更時は、次回インポート時に自動的に最新のスタブファイルが生成されます。
+
+### スタブファイルの仕組み
+
+スタブ生成システムの主要コンポーネント：
+- `OperationRegistry.generate_stubs()`: スタブ生成プロセスの開始
+- `stub_generator.py`: メインのスタブ生成ロジック
+- 型情報維持のための `TypeVar` の活用
+
 ## 重要な注意事項
 - `tests/data` および `sandbox` ディレクトリは読み込み禁止
 - 国際化対応は不要（日本語UIで問題なし）
+- 提案は日本語
