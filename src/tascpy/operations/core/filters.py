@@ -204,3 +204,64 @@ def remove_consecutive_duplicates_across(
     return ColumnCollection(
         step=filtered_step, columns=filtered_data, metadata=collection.metadata.copy()
     )
+
+
+@operation(domain="core")
+def remove_outliers(
+    collection: ColumnCollection,
+    column: str,
+    window_size: int = 3,
+    threshold: float = 0.5,
+    edge_handling: str = "asymmetric",
+    min_abs_value: float = 1e-10,
+    scale_factor: float = 1.0,
+) -> ColumnCollection:
+    """異常値を検出して除去した新しいコレクションを返します
+
+    移動平均との差分比率を用いた異常値検出を行い、異常値とみなされた行を除外します。
+    異常値の検出には detect_outliers 関数を使用します。
+
+    Args:
+        collection: 処理対象の ColumnCollection
+        column: 異常値を検出する列の名前
+        window_size: 移動平均のウィンドウサイズ（奇数推奨）
+        threshold: 異常値とみなす移動平均との差分比率の閾値
+        edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
+        min_abs_value: 比率計算時の最小絶対値
+        scale_factor: スケール調整係数
+
+    Returns:
+        ColumnCollection: 異常値を除去した新しい ColumnCollection オブジェクト
+
+    Raises:
+        KeyError: 指定された列が存在しない場合
+        ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合
+    """
+    from ..core.stats import detect_outliers
+
+    # 異常値を検出
+    outlier_column = f"_temp_outlier_{column}"
+    result = detect_outliers(
+        collection,
+        column=column,
+        window_size=window_size,
+        threshold=threshold,
+        edge_handling=edge_handling,
+        min_abs_value=min_abs_value,
+        scale_factor=scale_factor,
+        result_column=outlier_column,
+    )
+
+    # 異常値フラグが0（正常値）のデータポイントだけを保持するマスクを作成
+    mask = [flag == 0 for flag in result[outlier_column].values]
+
+    # フィルタリング処理
+    filtered_data = {
+        name: [col[i] for i, m in enumerate(mask) if m]
+        for name, col in result.columns.items()
+        if name != outlier_column  # 一時的な異常値フラグ列を除外
+    }
+    filtered_step = [result.step[i] for i, m in enumerate(mask) if m]
+
+    # 新しいコレクションを返す
+    return ColumnCollection(filtered_step, filtered_data, result.metadata.copy())

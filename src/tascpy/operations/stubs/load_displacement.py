@@ -182,7 +182,7 @@ Args:
 
 Returns:
     LoadDisplacementCollection: 降伏点情報または計算過程情報を含むコレクション
-    
+
 Raises:
     ValueError: 降伏点が見つかりず、fail_silently=False の場合"""
         ...

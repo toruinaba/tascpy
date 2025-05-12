@@ -3,6 +3,7 @@ from src.tascpy.operations.core.filters import (
     filter_by_value,
     filter_out_none,
     remove_consecutive_duplicates_across,
+    remove_outliers,
 )
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.column import Column
@@ -249,3 +250,125 @@ class TestRemoveConsecutiveDuplicatesAcross:
             duplicate_collection, columns=["A", "B"]
         )
         assert result.metadata == duplicate_collection.metadata
+
+
+class TestRemoveOutliers:
+    """remove_outliers 関数のテスト"""
+
+    @pytest.fixture
+    def outlier_collection(self):
+        """異常値を含むデータセットのフィクスチャ"""
+        return ColumnCollection(
+            step=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            columns={
+                "Data": Column(
+                    "1",
+                    "Test Data",
+                    "N",
+                    # インデックス3と8に異常値（外れ値）を配置
+                    [10.0, 10.2, 9.8, 50.0, 10.1, 10.3, 9.9, 10.2, -30.0, 10.1],
+                ),
+                "Category": Column(
+                    "2",
+                    "Category",
+                    "",
+                    ["A", "A", "A", "A", "B", "B", "B", "B", "B", "C"],
+                ),
+            },
+            metadata={"description": "Test Collection with Outliers"},
+        )
+
+    def test_basic_outlier_removal(self, outlier_collection):
+        """基本的な異常値の検出と除去をテスト"""
+        result = remove_outliers(
+            outlier_collection,
+            column="Data",
+            window_size=3,
+            threshold=0.3,
+            edge_handling="asymmetric",
+        )
+
+        # 結果の検証: 異常値（インデックス3と8）が除外されているか確認
+        assert len(result) == 8
+        assert result.step.values == [1, 2, 3, 5, 6, 7, 8, 10]
+        # 異常値 (50.0, -30.0) が除外されていることを確認
+        expected_values = [10.0, 10.2, 9.8, 10.1, 10.3, 9.9, 10.2, 10.1]
+        for i, val in enumerate(expected_values):
+            assert result["Data"][i] == val
+
+    def test_with_different_parameters(self, outlier_collection):
+        """異なるパラメータでの異常値除去をテスト"""
+        # しきい値を高くして、より極端な異常値だけを除去
+        result = remove_outliers(
+            outlier_collection,
+            column="Data",
+            window_size=5,
+            threshold=0.8,  # より高いしきい値
+            edge_handling="symmetric",
+        )
+
+        # しきい値が高いので、本当に極端な異常値だけが除外されるはず
+        # この場合、インデックス3の50.0とインデックス8の-30.0のみが除外される
+        assert len(result) == 8
+        assert "Data" in result.columns
+        assert -30.0 not in result["Data"].values
+        assert 50.0 not in result["Data"].values
+
+    def test_with_minimal_threshold(self, outlier_collection):
+        """しきい値を非常に低くして、ほとんどのデータポイントが異常値と判定されるケース"""
+        result = remove_outliers(
+            outlier_collection,
+            column="Data",
+            threshold=0.01,  # 非常に低いしきい値
+        )
+
+        # しきい値が非常に低いため、多くのデータポイントが異常値と判定される
+        # 正確な結果は移動平均の実装に依存するため、少なくとも異常値は除外されていることを確認
+        assert len(result) < len(outlier_collection)
+        assert -30.0 not in result["Data"].values
+        assert 50.0 not in result["Data"].values
+
+    def test_second_column_preserved(self, outlier_collection):
+        """異常値除去時に他の列が適切に処理されることを確認"""
+        result = remove_outliers(
+            outlier_collection,
+            column="Data",
+            threshold=0.3,
+        )
+
+        # 他の列（Category）も適切にフィルタリングされていることを確認
+        assert "Category" in result.columns
+        # インデックス3と8が除外されるので、対応するカテゴリも除外される
+        expected_categories = ["A", "A", "A", "B", "B", "B", "B", "C"]
+        for i, cat in enumerate(expected_categories):
+            assert result["Category"][i] == cat
+
+    def test_metadata_preserved(self, outlier_collection):
+        """メタデータが保持されていることを確認"""
+        result = remove_outliers(
+            outlier_collection,
+            column="Data",
+        )
+        assert result.metadata == outlier_collection.metadata
+
+    def test_invalid_column(self, outlier_collection):
+        """存在しない列でKeyErrorが発生することを確認"""
+        with pytest.raises(KeyError, match="列"):
+            remove_outliers(outlier_collection, column="不存在")
+
+    def test_method_chain(self, outlier_collection):
+        """メソッドチェーンでの使用を確認"""
+        from src.tascpy.operations.core.stats import moving_average
+
+        # メソッドチェーンで異常値除去と移動平均を組み合わせる
+        result = (
+            outlier_collection.ops.remove_outliers(column="Data", threshold=0.3)
+            .moving_average(column="Data", window_size=3, result_column="SmoothData")
+            .end()
+        )
+
+        # 結果の検証
+        assert "SmoothData" in result.columns
+        assert len(result) == 8  # 異常値の2つのデータポイントが除去されている
+        # 移動平均が計算されていることを確認
+        assert result["SmoothData"][0] != result["Data"][0]
