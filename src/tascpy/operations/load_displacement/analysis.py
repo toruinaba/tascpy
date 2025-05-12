@@ -159,6 +159,8 @@ def find_yield_point(
     range_end: float = 0.3,  # 0.7から0.3に変更して、線形領域内に収める
     factor: float = 0.33,
     result_prefix: Optional[str] = "yield",
+    debug_mode: bool = False,  # デバッグモードフラグを追加
+    fail_silently: bool = False,  # エラー時に例外を発生させずに結果を返すかどうか
 ) -> LoadDisplacementCollection:
     """降伏点を計算
 
@@ -173,9 +175,14 @@ def find_yield_point(
         range_end: 初期勾配計算の範囲終了（最大荷重に対する比率）
         factor: 一般降伏法での勾配比率
         result_prefix: 結果列の接頭辞
+        debug_mode: 詳細な計算過程情報を出力するかどうか
+        fail_silently: 降伏点が見つからない場合に例外を発生させずに情報を返すかどうか
 
     Returns:
-        LoadDisplacementCollection: 降伏点情報を含むコレクション
+        LoadDisplacementCollection: 降伏点情報または計算過程情報を含むコレクション
+
+    Raises:
+        ValueError: 降伏点が見つかりず、fail_silently=False の場合
     """
     # 荷重と変位データの取得
     disp_column = get_displacement_column(collection)
@@ -185,6 +192,27 @@ def find_yield_point(
 
     if len(load_data) < 3:
         raise ValueError("降伏点計算に十分なデータがありません")
+
+    # 結果オブジェクトを作成
+    result = collection.clone()
+
+    # デバッグ情報を格納する辞書
+    debug_info = {
+        "method": method,
+        "parameters": {
+            "offset_value": offset_value,
+            "range_start": range_start,
+            "range_end": range_end,
+            "factor": factor,
+        },
+        "data_stats": {
+            "min_load": float(np.min(load_data)),
+            "max_load": float(np.max(load_data)),
+            "min_disp": float(np.min(disp_data)),
+            "max_disp": float(np.max(disp_data)),
+            "data_points": len(load_data),
+        },
+    }
 
     # 最大荷重と対応するインデックス
     max_load = np.max(load_data)
@@ -198,9 +226,42 @@ def find_yield_point(
     range_loads = load_data[range_mask]
 
     if len(range_loads) < 2:
-        raise ValueError(
-            f"指定範囲 ({range_start*100}% - {range_end*100}%) に十分なデータがありません"
-        )
+        error_msg = f"指定範囲 ({range_start*100}% - {range_end*100}%) に十分なデータがありません"
+        if debug_mode:
+            print(error_msg)
+            print(f"データ範囲: 荷重={lower_bound:.2f}～{upper_bound:.2f}")
+            print(f"該当するデータ点数: {len(range_loads)}")
+
+        # 範囲不足のデバッグ情報を追加
+        debug_info["error"] = error_msg
+        debug_info["data_range"] = {
+            "lower_bound": float(lower_bound),
+            "upper_bound": float(upper_bound),
+            "num_points_in_range": len(range_loads),
+        }
+
+        # 失敗情報をメタデータに保存
+        if "analysis" not in result.metadata:
+            result.metadata["analysis"] = {}
+
+        result.metadata["analysis"]["yield_point_calculation"] = {
+            "status": "failed",
+            "reason": error_msg,
+            "debug_info": debug_info,
+        }
+
+        if fail_silently:
+            # 失敗を示す結果列の作成
+            result.columns[f"{result_prefix}_calculation_failed"] = Column(
+                ch=None,
+                name=f"{result_prefix}_calculation_failed",
+                unit=None,
+                values=[True],
+                metadata={"description": f"降伏点計算に失敗 ({method} method)"},
+            )
+            return result
+        else:
+            raise ValueError(error_msg)
 
     # 初期勾配を計算
     # 直線の方程式 y = mx + b で、mが初期勾配
@@ -212,9 +273,28 @@ def find_yield_point(
     ss_residual = np.sum((range_loads - y_pred) ** 2)
     r_squared = 1 - (ss_residual / ss_total) if ss_total != 0 else 0
 
+    # デバッグ情報に初期勾配情報を追加
+    debug_info["initial_slope"] = float(initial_slope)
+    debug_info["intercept"] = float(intercept)
+    debug_info["r_squared"] = float(r_squared)
+    debug_info["data_range"] = {
+        "range_start": range_start,
+        "range_end": range_end,
+        "lower_bound": float(lower_bound),
+        "upper_bound": float(upper_bound),
+        "num_points_in_range": len(range_loads),
+    }
+
     # R²が低い場合（例: 0.95未満）は警告またはより狭い範囲を試みる
     if r_squared < 0.95:
-        print(f"警告: 初期勾配計算の線形回帰の品質が低いです (R² = {r_squared:.3f})")
+        warning_msg = (
+            f"警告: 初期勾配計算の線形回帰の品質が低いです (R² = {r_squared:.3f})"
+        )
+        if debug_mode:
+            print(warning_msg)
+
+        debug_info["warnings"] = [warning_msg]
+
         # より低い範囲でもう一度試してみる
         narrower_upper = min(0.2, range_end)
         if narrower_upper > range_start:
@@ -224,108 +304,339 @@ def find_yield_point(
             if np.sum(narrower_mask) >= 2:
                 narrower_disps = disp_data[narrower_mask]
                 narrower_loads = load_data[narrower_mask]
-                narrower_slope, _ = np.polyfit(narrower_disps, narrower_loads, 1)
+                narrower_slope, narrower_intercept = np.polyfit(
+                    narrower_disps, narrower_loads, 1
+                )
+
+                # 狭い範囲での情報をデバッグ情報に追加
+                debug_info["narrower_range"] = {
+                    "upper_bound": float(max_load * narrower_upper),
+                    "num_points": int(np.sum(narrower_mask)),
+                    "slope": float(narrower_slope),
+                }
 
                 # 元の結果と比較して、大きく異なる場合は狭い範囲を使用
                 if abs(narrower_slope - initial_slope) / initial_slope > 0.1:
                     initial_slope = narrower_slope
+                    intercept = narrower_intercept
+                    info_msg = f"より狭い範囲 (0-{narrower_upper*100}%) での初期勾配を使用します: {initial_slope:.3f}"
+                    if debug_mode:
+                        print(info_msg)
+
+                    if "info" not in debug_info:
+                        debug_info["info"] = []
+                    debug_info["info"].append(info_msg)
+                    debug_info["initial_slope_updated"] = True
+
+    try:
+        # 降伏点を計算（メソッドによって異なる）
+        if method == "offset":
+            # オフセット線: y = initial_slope * x - initial_slope * offset_value * max(disp_data)
+            offset_amount = initial_slope * offset_value
+            offset_line = initial_slope * disp_data - offset_amount
+            diff = load_data - offset_line
+
+            # オフセット法特有の情報をデバッグ情報に追加
+            debug_info["offset_method"] = {
+                "offset_value": offset_value,
+                "offset_amount": float(offset_amount),
+                "diff_stats": {
+                    "min": float(np.min(diff)),
+                    "max": float(np.max(diff)),
+                    "mean": float(np.mean(diff)),
+                    "has_sign_change": any(
+                        diff[i - 1] * diff[i] <= 0 for i in range(1, len(diff))
+                    ),
+                },
+            }
+
+            # 評価ポイントのサンプルを追加
+            sample_indices = np.linspace(
+                0, len(disp_data) - 1, min(20, len(disp_data)), dtype=int
+            )
+            evaluation_points = []
+            for idx in sample_indices:
+                evaluation_points.append(
+                    {
+                        "index": int(idx),
+                        "displacement": float(disp_data[idx]),
+                        "load": float(load_data[idx]),
+                        "offset_line_value": float(offset_line[idx]),
+                        "difference": float(diff[idx]),
+                    }
+                )
+            debug_info["offset_method"]["evaluation_points"] = evaluation_points
+
+            # 交点を探す（符号の変化を検出）
+            found_yield_point = False
+            for i in range(1, len(diff)):
+                if diff[i - 1] * diff[i] <= 0:  # 符号が変化または一方がゼロの場合
+                    # 線形補間で交点を求める
+                    ratio = abs(diff[i - 1]) / (abs(diff[i - 1]) + abs(diff[i]))
+                    yield_disp = disp_data[i - 1] + ratio * (
+                        disp_data[i] - disp_data[i - 1]
+                    )
+                    yield_load = load_data[i - 1] + ratio * (
+                        load_data[i] - load_data[i - 1]
+                    )
+                    found_yield_point = True
+
+                    # 交点情報をデバッグ情報に追加
+                    debug_info["yield_point"] = {
+                        "found": True,
+                        "displacement": float(yield_disp),
+                        "load": float(yield_load),
+                        "intersection_indices": [int(i - 1), int(i)],
+                        "intersection_ratio": float(ratio),
+                    }
+                    break
+
+            if not found_yield_point:
+                error_msg = "オフセット線と荷重-変位曲線の交点が見つかりませんでした"
+
+                if debug_mode:
+                    print(f"エラー: {error_msg}")
                     print(
-                        f"より狭い範囲 (0-{narrower_upper*100}%) での初期勾配を使用します: {initial_slope:.3f}"
+                        f"オフセット線の差分範囲: {np.min(diff):.2f} ～ {np.max(diff):.2f}"
+                    )
+                    print(
+                        f"符号変化の有無: {'あり' if any(diff[i-1] * diff[i] <= 0 for i in range(1, len(diff))) else 'なし'}"
                     )
 
-    # 降伏点を計算（メソッドによって異なる）
-    if method == "offset":
-        # オフセット線: y = initial_slope * x - initial_slope * offset_value * max(disp_data)
-        offset_line = initial_slope * disp_data - initial_slope * offset_value * max(
-            disp_data
-        )
-        diff = load_data - offset_line
+                    # 評価ポイントの一部を表示
+                    print("\n評価ポイント一覧（抜粋）:")
+                    print("インデックス, 変位, 荷重, オフセット線値, 差分")
+                    for i in range(0, len(disp_data), max(1, len(disp_data) // 10)):
+                        print(
+                            f"{i}, {disp_data[i]:.5f}, {load_data[i]:.2f}, {offset_line[i]:.2f}, {diff[i]:.2f}"
+                        )
 
-        # 交点を探す（符号の変化を検出）
-        for i in range(1, len(diff)):
-            if diff[i - 1] * diff[i] <= 0:  # 符号が変化または一方がゼロの場合
-                # 線形補間で交点を求める
-                ratio = abs(diff[i - 1]) / (abs(diff[i - 1]) + abs(diff[i]))
-                yield_disp = disp_data[i - 1] + ratio * (
-                    disp_data[i] - disp_data[i - 1]
+                debug_info["yield_point"] = {"found": False}
+                debug_info["error"] = error_msg
+
+                # 失敗情報をメタデータに保存
+                if "analysis" not in result.metadata:
+                    result.metadata["analysis"] = {}
+
+                result.metadata["analysis"]["yield_point_calculation"] = {
+                    "status": "failed",
+                    "reason": error_msg,
+                    "debug_info": debug_info,
+                }
+
+                if fail_silently:
+                    # 失敗を示す結果列の作成
+                    result.columns[f"{result_prefix}_calculation_failed"] = Column(
+                        ch=None,
+                        name=f"{result_prefix}_calculation_failed",
+                        unit=None,
+                        values=[True],
+                        metadata={"description": f"降伏点計算に失敗 ({method} method)"},
+                    )
+                    return result
+                else:
+                    raise ValueError(error_msg)
+
+        elif method == "general":
+            # 各点での傾きを計算
+            slopes = np.gradient(load_data, disp_data)
+
+            # 一般降伏法特有の情報をデバッグ情報に追加
+            debug_info["general_method"] = {
+                "factor": factor,
+                "threshold": float(initial_slope * factor),
+                "slopes_stats": {
+                    "min": float(np.min(slopes)),
+                    "max": float(np.max(slopes)),
+                    "mean": float(np.mean(slopes)),
+                },
+            }
+
+            # サンプルの勾配データをデバッグ情報に追加
+            sample_indices = np.linspace(
+                0, len(disp_data) - 1, min(20, len(disp_data)), dtype=int
+            )
+            slope_samples = []
+            for idx in sample_indices:
+                slope_samples.append(
+                    {
+                        "index": int(idx),
+                        "displacement": float(disp_data[idx]),
+                        "load": float(load_data[idx]),
+                        "slope": float(slopes[idx]),
+                    }
                 )
-                yield_load = (
-                    initial_slope * yield_disp
-                    - initial_slope * offset_value * max(disp_data)
-                )
-                break
+            debug_info["general_method"]["slope_samples"] = slope_samples
+
+            # 初期勾配のfactor倍以下になる点を探す
+            threshold = initial_slope * factor
+            yield_idx = np.where(slopes <= threshold)[0]
+
+            if len(yield_idx) == 0:
+                error_msg = f"降伏点が見つかりませんでした（初期勾配の{factor*100}%以下になる点がありません）"
+
+                if debug_mode:
+                    print(f"エラー: {error_msg}")
+                    print(f"初期勾配: {initial_slope:.2f}")
+                    print(f"閾値: {threshold:.2f}")
+                    print(f"最小勾配: {np.min(slopes):.2f}")
+
+                    # 勾配データの一部を表示
+                    print("\n勾配データ一覧（抜粋）:")
+                    print("インデックス, 変位, 荷重, 勾配")
+                    for i in range(0, len(disp_data), max(1, len(disp_data) // 10)):
+                        print(
+                            f"{i}, {disp_data[i]:.5f}, {load_data[i]:.2f}, {slopes[i]:.2f}"
+                        )
+
+                debug_info["yield_point"] = {"found": False}
+                debug_info["error"] = error_msg
+
+                # 失敗情報をメタデータに保存
+                if "analysis" not in result.metadata:
+                    result.metadata["analysis"] = {}
+
+                result.metadata["analysis"]["yield_point_calculation"] = {
+                    "status": "failed",
+                    "reason": error_msg,
+                    "debug_info": debug_info,
+                }
+
+                if fail_silently:
+                    # 失敗を示す結果列の作成
+                    result.columns[f"{result_prefix}_calculation_failed"] = Column(
+                        ch=None,
+                        name=f"{result_prefix}_calculation_failed",
+                        unit=None,
+                        values=[True],
+                        metadata={"description": f"降伏点計算に失敗 ({method} method)"},
+                    )
+                    return result
+                else:
+                    raise ValueError(error_msg)
+
+            yield_idx = yield_idx[0]  # 最初の点を使用
+            yield_disp = disp_data[yield_idx]
+            yield_load = load_data[yield_idx]
+
+            # 降伏点情報をデバッグ情報に追加
+            debug_info["yield_point"] = {
+                "found": True,
+                "displacement": float(yield_disp),
+                "load": float(yield_load),
+                "index": int(yield_idx),
+                "slope_at_point": float(slopes[yield_idx]),
+            }
+
         else:
-            raise ValueError("降伏点が見つかりませんでした")
+            error_msg = f"未対応の計算方法: {method}"
+            debug_info["error"] = error_msg
 
-    elif method == "general":
-        # 各点での傾きを計算
-        slopes = np.gradient(load_data, disp_data)
+            if fail_silently:
+                # 失敗を示す結果列の作成
+                result.columns[f"{result_prefix}_calculation_failed"] = Column(
+                    ch=None,
+                    name=f"{result_prefix}_calculation_failed",
+                    unit=None,
+                    values=[True],
+                    metadata={"description": f"降伏点計算に失敗 (未対応のメソッド)"},
+                )
 
-        # 初期勾配のfactor倍以下になる点を探す
-        threshold = initial_slope * factor
-        yield_idx = np.where(slopes <= threshold)[0]
+                # 失敗情報をメタデータに保存
+                if "analysis" not in result.metadata:
+                    result.metadata["analysis"] = {}
 
-        if len(yield_idx) == 0:
-            raise ValueError("降伏点が見つかりませんでした")
+                result.metadata["analysis"]["yield_point_calculation"] = {
+                    "status": "failed",
+                    "reason": error_msg,
+                    "debug_info": debug_info,
+                }
 
-        yield_idx = yield_idx[0]  # 最初の点を使用
-        yield_disp = disp_data[yield_idx]
-        yield_load = load_data[yield_idx]
+                return result
+            else:
+                raise ValueError(error_msg)
 
-    else:
-        raise ValueError(f"未対応の計算方法: {method}")
+        # 成功情報をメタデータに追加
+        if "analysis" not in result.metadata:
+            result.metadata["analysis"] = {}
 
-    # 結果オブジェクトを作成
-    result = collection.clone()
+        result.metadata["analysis"]["yield_point"] = {
+            "method": method,
+            "displacement": float(yield_disp),
+            "load": float(yield_load),
+            "initial_slope": float(initial_slope),
+            "parameters": {
+                "offset_value": offset_value,
+                "range_start": range_start,
+                "range_end": range_end,
+                "factor": factor,
+            },
+        }
 
-    # 結果列の作成
-    yield_disp_col = f"{result_prefix}_displacement"
-    yield_load_col = f"{result_prefix}_load"
+        # デバッグ情報も保存
+        result.metadata["analysis"]["yield_point_calculation"] = {
+            "status": "success",
+            "debug_info": debug_info,
+        }
 
-    # メタデータに降伏点情報を追加
-    if "analysis" not in result.metadata:
-        result.metadata["analysis"] = {}
+        # 単一値の結果カラムを作成
+        result.columns[f"{result_prefix}_displacement"] = Column(
+            ch=None,
+            name=f"{result_prefix}_displacement",
+            unit=(
+                collection[disp_column].unit
+                if hasattr(collection[disp_column], "unit")
+                else None
+            ),
+            values=[yield_disp],
+            metadata={"description": f"Yield displacement ({method} method)"},
+        )
 
-    result.metadata["analysis"]["yield_point"] = {
-        "method": method,
-        "displacement": float(yield_disp),
-        "load": float(yield_load),
-        "initial_slope": float(initial_slope),
-        "parameters": {
-            "offset_value": offset_value,
-            "range_start": range_start,
-            "range_end": range_end,
-            "factor": factor,
-        },
-    }
+        result.columns[f"{result_prefix}_load"] = Column(
+            ch=None,
+            name=f"{result_prefix}_load",
+            unit=(
+                collection[load_column].unit
+                if hasattr(collection[load_column], "unit")
+                else None
+            ),
+            values=[yield_load],
+            metadata={"description": f"Yield load ({method} method)"},
+        )
 
-    # 単一値の結果カラムを作成
-    result.columns[yield_disp_col] = Column(
-        ch=None,  # ch パラメータを追加
-        name=yield_disp_col,
-        unit=(
-            collection[disp_column].unit
-            if hasattr(collection[disp_column], "unit")
-            else None
-        ),
-        values=[yield_disp],
-        metadata={
-            "description": f"Yield displacement ({method} method)"
-        },  # description を metadata に移動
-    )
+        return result
 
-    result.columns[yield_load_col] = Column(
-        ch=None,  # ch パラメータを追加
-        name=yield_load_col,
-        unit=(
-            collection[load_column].unit
-            if hasattr(collection[load_column], "unit")
-            else None
-        ),
-        values=[yield_load],
-        metadata={
-            "description": f"Yield load ({method} method)"
-        },  # description を metadata に移動
-    )
+    except Exception as e:
+        # 予期せぬエラーの場合
+        error_msg = f"降伏点計算中にエラーが発生しました: {str(e)}"
 
-    return result
+        if debug_mode:
+            print(f"エラー: {error_msg}")
+            import traceback
+
+            traceback.print_exc()
+
+        debug_info["error"] = error_msg
+
+        # 失敗情報をメタデータに保存
+        if "analysis" not in result.metadata:
+            result.metadata["analysis"] = {}
+
+        result.metadata["analysis"]["yield_point_calculation"] = {
+            "status": "failed",
+            "reason": error_msg,
+            "debug_info": debug_info,
+        }
+
+        if fail_silently:
+            # 失敗を示す結果列の作成
+            result.columns[f"{result_prefix}_calculation_failed"] = Column(
+                ch=None,
+                name=f"{result_prefix}_calculation_failed",
+                unit=None,
+                values=[True],
+                metadata={"description": f"降伏点計算に失敗 (エラー発生)"},
+            )
+            return result
+        else:
+            raise

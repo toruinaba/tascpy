@@ -160,7 +160,9 @@ Returns:
         range_start: float = 0.1,
         range_end: float = 0.3,
         factor: float = 0.33,
-        result_prefix: Optional[str] = 'yield'
+        result_prefix: Optional[str] = 'yield',
+        debug_mode: bool = False,
+        fail_silently: bool = False
     ) -> "LoadDisplacementCollectionOperations":
         """降伏点を計算
 
@@ -175,9 +177,14 @@ Args:
     range_end: 初期勾配計算の範囲終了（最大荷重に対する比率）
     factor: 一般降伏法での勾配比率
     result_prefix: 結果列の接頭辞
+    debug_mode: 詳細な計算過程情報を出力するかどうか
+    fail_silently: 降伏点が見つからない場合に例外を発生させずに情報を返すかどうか
 
 Returns:
-    LoadDisplacementCollection: 降伏点情報を含むコレクション"""
+    LoadDisplacementCollection: 降伏点情報または計算過程情報を含むコレクション
+    
+Raises:
+    ValueError: 降伏点が見つかりず、fail_silently=False の場合"""
         ...
     
 
@@ -274,15 +281,18 @@ Returns:
         ax: Optional[Axes] = None,
         kwargs
     ) -> "LoadDisplacementCollectionOperations":
-        """荷重-変位曲線をプロットする
+        """荷重-変位曲線をプロットします
+
+荷重-変位データを二次元グラフとしてプロットします。
+既存の軸オブジェクトを指定することも、新しく作成することもできます。
 
 Args:
     collection: 荷重-変位コレクション
-    ax: プロット先の軸（Noneの場合は新規作成）
-    **kwargs: matplotlibのplot関数に渡す追加引数
+    ax: プロット先の軸（None の場合は新規作成）
+    **kwargs: matplotlib の plot 関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト"""
+    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
         ...
     
 
@@ -295,22 +305,22 @@ Returns:
         original_kwargs: Optional[dict[str, Any]] = None,
         skeleton_kwargs: Optional[dict[str, Any]] = None
     ) -> "LoadDisplacementCollectionOperations":
-        """スケルトン曲線をプロットする
+        """スケルトン曲線をプロットします
 
-create_skeleton_curve関数で作成したスケルトン曲線をプロットします。
+create_skeleton_curve 関数で作成したスケルトン曲線をプロットします。
 元の荷重-変位データと比較して表示することも可能です。
 
 Args:
     collection: スケルトン曲線を含む荷重-変位コレクション
     plot_original: 元の荷重-変位データもプロットするかどうか
-    skeleton_load_column: スケルトン曲線の荷重列名（Noneの場合は自動検出）
-    skeleton_disp_column: スケルトン曲線の変位列名（Noneの場合は自動検出）
-    ax: プロット先の軸（Noneの場合は新規作成）
+    skeleton_load_column: スケルトン曲線の荷重列名（None の場合は自動検出）
+    skeleton_disp_column: スケルトン曲線の変位列名（None の場合は自動検出）
+    ax: プロット先の軸（None の場合は新規作成）
     original_kwargs: 元データプロット用の追加引数
     skeleton_kwargs: スケルトン曲線プロット用の追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト"""
+    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
         ...
     
 
@@ -323,22 +333,22 @@ Returns:
         original_kwargs: Optional[dict[str, Any]] = None,
         cumulative_kwargs: Optional[dict[str, Any]] = None
     ) -> "LoadDisplacementCollectionOperations":
-        """累積曲線をプロットする
+        """累積曲線をプロットします
 
-create_cumulative_curve関数で作成した累積曲線をプロットします。
+create_cumulative_curve 関数で作成した累積曲線をプロットします。
 元の荷重-変位データと比較して表示することも可能です。
 
 Args:
     collection: 累積曲線を含む荷重-変位コレクション
     plot_original: 元の荷重-変位データもプロットするかどうか
-    cumulative_load_column: 累積曲線の荷重列名（Noneの場合は自動検出）
-    cumulative_disp_column: 累積曲線の変位列名（Noneの場合は自動検出）
-    ax: プロット先の軸（Noneの場合は新規作成）
+    cumulative_load_column: 累積曲線の荷重列名（None の場合は自動検出）
+    cumulative_disp_column: 累積曲線の変位列名（None の場合は自動検出）
+    ax: プロット先の軸（None の場合は新規作成）
     original_kwargs: 元データプロット用の追加引数
     cumulative_kwargs: 累積曲線プロット用の追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト"""
+    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
         ...
     
 
@@ -347,7 +357,7 @@ Returns:
         curves: list[dict[str, Any]],
         ax: Optional[Axes] = None
     ) -> "LoadDisplacementCollectionOperations":
-        """複数の曲線を一つのグラフにプロット
+        """複数の曲線を一つのグラフにプロットします
 
 元の荷重-変位データ、スケルトン曲線、累積曲線など、
 複数の曲線を一つのグラフに表示します。
@@ -357,10 +367,10 @@ Args:
     curves: プロットする曲線のリスト。例:
            [{"type": "original"},
             {"type": "skeleton", "load_col": "load_skeleton", "disp_col": "disp_skeleton"}]
-    ax: プロット先の軸（Noneの場合は新規作成）
+    ax: プロット先の軸（None の場合は新規作成）
 
 Returns:
-    Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト"""
+    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
         ...
     
 
@@ -373,19 +383,22 @@ Returns:
         result_prefix: str = 'yield',
         kwargs
     ) -> "LoadDisplacementCollectionOperations":
-        """降伏点解析結果をプロットする
+        """降伏点解析結果をプロットします
+
+find_yield_point 関数で解析した降伏点情報をビジュアル化します。
+元データ、初期勾配線、オフセット線などを表示できます。
 
 Args:
     collection: 降伏点情報を含む荷重-変位コレクション
-    ax: プロット先の軸（Noneの場合は新規作成）
-    plot_original_data: 元の荷重-変位データをプロットするかどうか
+    ax: プロット先の軸（None の場合は新規作成）
+    plot_original_data: 元の荷重-変位データもプロットするかどうか
     plot_initial_slope: 初期勾配線をプロットするかどうか
     plot_offset_line: オフセット線をプロットするかどうか（オフセット法の場合）
     result_prefix: 降伏点データの接頭辞
-    **kwargs: matplotlibのplot関数に渡す追加引数
+    **kwargs: matplotlib の plot 関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト"""
+    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
         ...
     
 
@@ -394,15 +407,18 @@ Returns:
         ax: Optional[Axes] = None,
         kwargs
     ) -> "LoadDisplacementCollectionOperations":
-        """降伏点解析の詳細情報をプロット
+        """降伏点解析の詳細情報をプロットします
+
+find_yield_point 関数で解析した降伏点情報の詳細をビジュアル化します。
+初期勾配の計算範囲などの追加情報も表示します。
 
 Args:
     collection: 降伏点情報を含む荷重-変位コレクション
-    ax: プロット先の軸（Noneの場合は新規作成）
-    **kwargs: matplotlibのplot関数に渡す追加引数
+    ax: プロット先の軸（None の場合は新規作成）
+    **kwargs: matplotlib の plot 関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト"""
+    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
         ...
     
 
@@ -412,17 +428,20 @@ Returns:
         ax: Optional[Axes] = None,
         kwargs
     ) -> "LoadDisplacementCollectionOperations":
-        """複数の降伏点計算方法を比較してプロット
+        """複数の降伏点計算方法を比較してプロットします
+
+異なるパラメータや手法で計算した複数の降伏点を
+一つのグラフ上に表示して比較できます。
 
 Args:
     collection: 荷重-変位コレクション
     methods: 計算方法とパラメータのリスト。例:
              [{"method": "offset", "offset_value": 0.002},
               {"method": "general", "factor": 0.33}]
-    ax: プロット先の軸（Noneの場合は新規作成）
+    ax: プロット先の軸（None の場合は新規作成）
     **kwargs: プロット関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットのfigureとaxesオブジェクト"""
+    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
         ...
     

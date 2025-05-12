@@ -32,17 +32,23 @@ class CoreCollectionOperations(CollectionOperationsBase):
         value: Any,
         tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
-        """指定された列の値が指定された値と等しい行をフィルタリング
+        """指定された列の値が指定された値と等しい行をフィルタリングします
+
+指定された列の値が特定の値と一致する行だけを含む新しいコレクションを返します。
+許容誤差（tolerance）を指定すると、その範囲内の値も含めることができます。
+
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column_name: フィルタリングする列の名前
     value: フィルタリングする値
-    tolerance: 値の許容範囲（デフォルトはNone）
+    tolerance: 値の許容範囲（デフォルトは None）
+
 Returns:
-    フィルタリングされたColumnCollectionオブジェクト
+    ColumnCollection: フィルタリングされた ColumnCollection オブジェクト
+
 Raises:
     KeyError: 指定された列名が存在しない場合
-    TypeError: 指定された列がColumnオブジェクトでない場合"""
+    TypeError: 指定された列が Column オブジェクトでない場合"""
         ...
     
 
@@ -51,16 +57,19 @@ Raises:
         columns: Optional[list[str]] = None,
         mode: str = 'any'
     ) -> "CoreCollectionOperations":
-        """None値を含む行をフィルタリングして除外する
+        """None 値を含む行をフィルタリングして除外します
+
+指定された列に None 値を含む行を除外した新しいコレクションを返します。
+モードによって、いずれかの列が None の場合に除外するか、全ての列が None の場合に除外するかを選択できます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
-    columns: フィルタリングする対象の列名リスト（デフォルトはNone、すべての列が対象）
-    mode: フィルタリングモード 'any'（いずれかの列がNoneの行を除外）または
-          'all'（すべての列がNoneの行を除外）
+    collection: ColumnCollection オブジェクト
+    columns: フィルタリングする対象の列名リスト（デフォルトは None、すべての列が対象）
+    mode: フィルタリングモード 'any'（いずれかの列が None の行を除外）または
+          'all'（すべての列が None の行を除外）
 
 Returns:
-    フィルタリングされたColumnCollectionオブジェクト
+    ColumnCollection: フィルタリングされた ColumnCollection オブジェクト
 
 Raises:
     ValueError: 不正なモードが指定された場合
@@ -73,23 +82,23 @@ Raises:
         columns: list[str],
         dup_type: str = 'all'
     ) -> "CoreCollectionOperations":
-        """複数の列間で共通の連続重複データを削除した新しいColumnCollectionオブジェクトを返します。
+        """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します
 
 すべての指定された列で、連続するデータポイントが同じ値を持つ場合にのみ、
-その重複を1つだけ残して削除します。
+その重複を 1 つだけ残して削除します。重複判定のタイプによって動作が変わります。
 
 Args:
-    collection: 処理するColumnCollectionオブジェクト
+    collection: 処理する ColumnCollection オブジェクト
     columns: 処理対象の列名リスト
     dup_type: 重複判定のタイプ
              'all': すべての列で値に変化がない場合に重複と判定
              'any': 一部の列だけでも値に変化がある場合は重複と判定しない
 
 Returns:
-    ColumnCollection: 連続する重複を削除したデータを持つ新しいColumnCollectionオブジェクト
+    ColumnCollection: 連続する重複を削除したデータを持つ新しい ColumnCollection オブジェクト
 
 Raises:
-    ValueError: 不正なdup_typeが指定された場合
+    ValueError: 不正な dup_type が指定された場合
     KeyError: 指定された列名が存在しない場合
 
 Examples:
@@ -109,14 +118,22 @@ Examples:
         op_str: str,
         value: Any
     ) -> "CoreCollectionOperations":
-        """値による検索
+        """値による検索を行います
+
+指定された列の値に対して比較演算子を適用し、条件に一致する行を抽出します。
+
 Args:
     collection: 対象コレクション
     column_name: 列名
     op_str: 演算子文字列 (">", "<", ">=", "<=", "==", "!=")
     value: 比較する値
+
 Returns:
-    ColumnCollection: フィルタリングされたコレクション"""
+    ColumnCollection: フィルタリングされたコレクション
+
+Raises:
+    ValueError: 無効な演算子が指定された場合
+    KeyError: 指定された列が存在しない場合"""
         ...
     
 
@@ -127,15 +144,23 @@ Returns:
         max_value: Any,
         inclusive: bool = True
     ) -> "CoreCollectionOperations":
-        """範囲による検索
+        """範囲による検索を行います
+
+指定された列の値が特定の範囲内にある行を抽出します。
+境界値を含めるかどうかを選択できます。
+
 Args:
     collection: 対象コレクション
     column_name: 列名
     min_value: 最小値
     max_value: 最大値
-    inclusive: 境界値を含むかどうか
+    inclusive: 境界値を含むかどうか（True の場合は境界値を含む）
+
 Returns:
-    ColumnCollection: フィルタリングされたコレクション"""
+    ColumnCollection: フィルタリングされたコレクション
+
+Raises:
+    KeyError: 指定された列が存在しない場合"""
         ...
     
 
@@ -147,15 +172,18 @@ Returns:
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
-        """ステップ範囲による検索
+        """ステップ範囲による検索を行います
+
+指定されたステップ範囲またはインデックス範囲に該当する行を抽出します。
+ステップ値での検索とインデックスでの検索を選択できます。
 
 Args:
     collection: 対象コレクション
-    min: 最小ステップ値（by_step_value=Trueの場合）または最小インデックス（by_step_value=Falseの場合）
-    max: 最大ステップ値（by_step_value=Trueの場合）または最大インデックス（by_step_value=Falseの場合）
-    inclusive: 境界値を含むかどうか
-    by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
-    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+    min: 最小ステップ値（by_step_value=True の場合）または最小インデックス（by_step_value=False の場合）
+    max: 最大ステップ値（by_step_value=True の場合）または最大インデックス（by_step_value=False の場合）
+    inclusive: 境界値を含むかどうか（True の場合は境界値を含む）
+    by_step_value: True の場合はステップ値として解釈、False の場合はインデックスとして解釈
+    tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
 
 Returns:
     ColumnCollection: フィルタリングされたコレクション"""
@@ -166,10 +194,15 @@ Returns:
         self,
         condition_func: Callable[[Dict[str, Any]], bool]
     ) -> "CoreCollectionOperations":
-        """条件関数による検索
+        """条件関数による検索を行います
+
+各行のデータを辞書形式で条件関数に渡し、結果が True となる行だけを抽出します。
+任意の複雑な条件を柔軟に適用することができます。
+
 Args:
     collection: 対象コレクション
-    condition_func: 各行データを受け取り、真偽値を返す関数
+    condition_func: 各行データを受け取り、真偽値を返す関数。引数は {列名: 値} の辞書形式
+
 Returns:
     ColumnCollection: フィルタリングされたコレクション"""
         ...
@@ -179,12 +212,20 @@ Returns:
         self,
         columns: Optional[list[str]] = None
     ) -> "CoreCollectionOperations":
-        """欠損値がある行を検索
+        """欠損値がある行を検索します
+
+指定された列に欠損値（None）を含む行だけを抽出します。
+データのクリーニングや欠損値の分析に役立ちます。
+
 Args:
     collection: 対象コレクション
-    columns: 検査対象の列名リスト（Noneの場合は全列）
+    columns: 検査対象の列名リスト（None の場合は全列）
+
 Returns:
-    ColumnCollection: 欠損値を持つ行だけのコレクション"""
+    ColumnCollection: 欠損値を持つ行だけのコレクション
+
+Raises:
+    KeyError: 指定された列が存在しない場合"""
         ...
     
 
@@ -194,14 +235,22 @@ Returns:
         n: int,
         descending: bool = True
     ) -> "CoreCollectionOperations":
-        """指定した列の上位N件を検索
+        """指定した列の上位 N 件を検索します
+
+指定した列の値に基づいて、上位（または下位）N 件のデータを抽出します。
+ソート順序を指定することで、最大値または最小値の上位を取得できます。
+
 Args:
     collection: 対象コレクション
-    column_name: 列名
-    n: 上位件数
-    descending: 降順ソート（True）または昇順ソート（False）
+    column_name: 値の基準となる列名
+    n: 抽出する件数
+    descending: True の場合は降順ソート（大きい順）、False の場合は昇順ソート（小さい順）
+
 Returns:
-    ColumnCollection: フィルタリングされたコレクション"""
+    ColumnCollection: フィルタリングされたコレクション
+
+Raises:
+    KeyError: 指定された列が存在しない場合"""
         ...
     
 
@@ -213,15 +262,18 @@ Returns:
         ax: Optional[Axes] = None,
         kwargs
     ) -> "CoreCollectionOperations":
-        """グラフを描画する
+        """グラフを描画します
+
+コレクション内のデータを散布図または線グラフとして可視化します。
+x軸またはy軸にstepを使用することもできます。
 
 Args:
     collection: 対象コレクション
-    x_column: x軸の列名（Noneの場合はstepを使用）
-    y_column: y軸の列名（Noneの場合はstepを使用）
-    plot_type: プロットの種類 ('scatter' または 'line')
-    ax: 既存のAxesオブジェクト（Noneの場合は新しい図を作成）
-    **kwargs: Matplotlibのプロット関数に渡す追加のキーワード引数
+    x_column: x軸の列名（None の場合は step を使用）
+    y_column: y軸の列名（None の場合は step を使用）
+    plot_type: プロットの種類（'scatter' または 'line'）
+    ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
+    **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
 Returns:
     ColumnCollection: 元のコレクション
@@ -230,16 +282,16 @@ Examples:
     >>> # 散布図の描画
     >>> collection.plot('x_col', 'y_col')
     >>>
-    >>> # stepをx軸として使用
+    >>> # step を x軸として使用
     >>> collection.plot(None, 'y_col')
     >>>
-    >>> # stepをy軸として使用
+    >>> # step を y軸として使用
     >>> collection.plot('x_col', None)
     >>>
     >>> # 線グラフの描画
     >>> collection.plot('x_col', 'y_col', plot_type='line', color='red')
     >>>
-    >>> # 既存のaxesに追加
+    >>> # 既存の axes に追加
     >>> fig, ax = plt.subplots()
     >>> collection.plot('x_col', 'y_col', ax=ax)
     >>> collection.plot('x_col2', 'y_col2', ax=ax)  # 2つ目のプロットを追加"""
@@ -254,25 +306,28 @@ Examples:
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
-        """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出する
+        """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出します
+
+複数の方法でデータ抽出を行うことができる汎用的な選択操作です。
+列の選択、インデックスによる行の選択、ステップ値による行の選択を組み合わせて使用できます。
 
 Args:
-    collection: 元のColumnCollection
-    columns: 抽出する列名のリスト。Noneの場合は全列が対象
-    indices: 抽出する行インデックスのリスト。Noneの場合は全行が対象
-    steps: 抽出するステップのリスト。Noneの場合は全行が対象
-        by_step_value=Trueの場合：ステップ値として解釈
-        by_step_value=Falseの場合：インデックスとして解釈
-    by_step_value: Trueの場合はstepsをステップ値として解釈、Falseの場合はインデックスとして解釈
-    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+    collection: 元の ColumnCollection
+    columns: 抽出する列名のリスト。None の場合は全列が対象
+    indices: 抽出する行インデックスのリスト。None の場合は全行が対象
+    steps: 抽出するステップのリスト。None の場合は全行が対象
+        by_step_value=True の場合：ステップ値として解釈
+        by_step_value=False の場合：インデックスとして解釈
+    by_step_value: True の場合は steps をステップ値として解釈、False の場合はインデックスとして解釈
+    tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
 
 Returns:
-    選択されたデータを含む新しいColumnCollection
+    ColumnCollection: 選択されたデータを含む新しい ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
-    IndexError: 明示的に指定されたindicesが範囲外の場合（stepsの場合は無視される）
-    ValueError: indicesとstepsの両方が指定された場合"""
+    IndexError: 明示的に指定された indices が範囲外の場合（steps の場合は無視される）
+    ValueError: indices と steps の両方が指定された場合"""
         ...
     
 
@@ -283,21 +338,21 @@ Raises:
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
-        """指定した列名とステップ番号に基づいてデータを抽出する
+        """指定した列名とステップ番号に基づいてデータを抽出します
 
 注: この関数は後方互換性のために残されています。
 新しいコードでは select() 関数を使用することが推奨されます。
 
 Args:
-    collection: 元のColumnCollection
-    steps: 抽出するステップ番号のリスト（by_step_value=Trueの場合）または
-           インデックスのリスト（by_step_value=Falseの場合）
-    columns: 抽出する列名のリスト。Noneの場合は全列が対象
-    by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
-    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+    collection: 元の ColumnCollection
+    steps: 抽出するステップ番号のリスト（by_step_value=True の場合）または
+           インデックスのリスト（by_step_value=False の場合）
+    columns: 抽出する列名のリスト。None の場合は全列が対象
+    by_step_value: True の場合はステップ値として解釈、False の場合はインデックスとして解釈
+    tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
 
 Returns:
-    選択されたデータを含む新しいColumnCollection
+    ColumnCollection: 選択されたデータを含む新しい ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -463,17 +518,19 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """列または定数を加算
+        """列または定数を加算します
+
+指定された列に対して、別の列または定数値を加算し、結果を新しい列として格納します。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column1: 加算元の列名
     column2_or_value: 加算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（デフォルトは None、自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 演算結果の列を含むColumnCollection
+    ColumnCollection: 演算結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
@@ -488,17 +545,19 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """列または定数を減算
+        """列または定数を減算します
+
+指定された列から別の列または定数値を減算し、結果を新しい列として格納します。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column1: 減算元の列名
     column2_or_value: 減算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（デフォルトは None、自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 演算結果の列を含むColumnCollection
+    ColumnCollection: 演算結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
@@ -513,17 +572,19 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """列または定数を乗算
+        """列または定数を乗算します
+
+指定された列に対して、別の列または定数値を乗算し、結果を新しい列として格納します。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column1: 乗算元の列名
     column2_or_value: 乗算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（デフォルトは None、自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 演算結果の列を含むColumnCollection
+    ColumnCollection: 演算結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
@@ -539,21 +600,24 @@ Raises:
         in_place: bool = False,
         handle_zero_division: str = 'error'
     ) -> "CoreCollectionOperations":
-        """列または定数で除算
+        """列または定数で除算します
+
+指定された列を別の列または定数値で除算し、結果を新しい列として格納します。
+ゼロ除算の処理方法を指定することもできます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column1: 除算元の列名
     column2_or_value: 除算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（デフォルトは None、自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
     handle_zero_division: ゼロ除算の処理方法
         "error": ゼロ除算エラーを発生させる
-        "none": 結果をNoneとして扱う
+        "none": 結果を None として扱う
         "inf": 結果を無限大（float('inf')）として扱う
 
 Returns:
-    ColumnCollection: 演算結果の列を含むColumnCollection
+    ColumnCollection: 演算結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
@@ -569,14 +633,17 @@ Raises:
     ) -> "CoreCollectionOperations":
         """数式文字列を評価し、結果を新しい列に格納します
 
+指定された数式を評価し、その結果を新しい列として追加します。
+数式内では各列の値を変数として参照でき、基本的な数学関数も使用できます。
+
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
-    result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（デフォルトは None、自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 演算結果の列を含むColumnCollection
+    ColumnCollection: 演算結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
@@ -593,18 +660,21 @@ Raises:
         method: str = 'central',
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定された2つの列間の微分を計算します（dy/dx）。
+        """指定された 2 つの列間の微分を計算します（dy/dx）
+
+指定された独立変数 x と従属変数 y に対して微分係数を計算します。
+数値微分には中心差分、前方差分、後方差分の 3 つの方法が利用できます。
 
 Args:
-    collection: 操作対象のColumnCollection
+    collection: 操作対象の ColumnCollection
     y_column: 微分の分子となる列（従属変数）
     x_column: 微分の分母となる列（独立変数）
-    result_column: 結果を格納する列名（Noneの場合は自動生成）
+    result_column: 結果を格納する列名（None の場合は自動生成）
     method: 微分方法（"central", "forward", "backward"）
-    in_place: 結果を同じコレクションに上書きするか
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    微分結果を含むColumnCollection
+    ColumnCollection: 微分結果を含む ColumnCollection
 
 Raises:
     KeyError: 列が存在しない場合
@@ -621,19 +691,22 @@ Raises:
         initial_value: float = 0.0,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定された2つの列間の積分を計算します（∫y dx）。
+        """指定された 2 つの列間の積分を計算します（∫y dx）
+
+指定された独立変数 x と従属変数 y に対して定積分を計算します。
+現在は台形法による積分のみをサポートしています。
 
 Args:
-    collection: 操作対象のColumnCollection
+    collection: 操作対象の ColumnCollection
     y_column: 積分対象の列（被積分関数）
     x_column: 積分の基準となる列（積分変数）
-    result_column: 結果を格納する列名（Noneの場合は自動生成）
-    method: 積分方法（現在は"trapezoid"のみサポート）
+    result_column: 結果を格納する列名（None の場合は自動生成）
+    method: 積分方法（現在は "trapezoid" のみサポート）
     initial_value: 積分の初期値
-    in_place: 結果を同じコレクションに上書きするか
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    積分結果を含むColumnCollection
+    ColumnCollection: 積分結果を含む ColumnCollection
 
 Raises:
     KeyError: 列が存在しない場合
@@ -648,17 +721,20 @@ Raises:
         in_place: bool = False,
         degrees: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値にsin関数を適用
+        """指定した列の各値に sin 関数を適用します
+
+指定された列の値に対して三角関数の sin を計算し、新しい列に結果を格納します。
+角度の入力形式としてラジアンまたは度を選択できます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    result_column: 結果を格納する列名（デフォルトはNone、"sin({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
-    degrees: Trueの場合、入力をdegreeとして扱う（デフォルトはFalse、ラジアン）
+    result_column: 結果を格納する列名（None の場合は "sin({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    degrees: True の場合、入力を degree として扱う（デフォルトは False、ラジアン）
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -672,17 +748,20 @@ Raises:
         in_place: bool = False,
         degrees: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値にcos関数を適用
+        """指定した列の各値に cos 関数を適用します
+
+指定された列の値に対して三角関数の cos を計算し、新しい列に結果を格納します。
+角度の入力形式としてラジアンまたは度を選択できます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    result_column: 結果を格納する列名（デフォルトはNone、"cos({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
-    degrees: Trueの場合、入力をdegreeとして扱う（デフォルトはFalse、ラジアン）
+    result_column: 結果を格納する列名（None の場合は "cos({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    degrees: True の場合、入力を degree として扱う（デフォルトは False、ラジアン）
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -696,17 +775,20 @@ Raises:
         in_place: bool = False,
         degrees: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値にtan関数を適用
+        """指定した列の各値に tan 関数を適用します
+
+指定された列の値に対して三角関数の tan を計算し、新しい列に結果を格納します。
+角度の入力形式としてラジアンまたは度を選択できます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    result_column: 結果を格納する列名（デフォルトはNone、"tan({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
-    degrees: Trueの場合、入力をdegreeとして扱う（デフォルトはFalse、ラジアン）
+    result_column: 結果を格納する列名（None の場合は "tan({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    degrees: True の場合、入力を degree として扱う（デフォルトは False、ラジアン）
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -719,16 +801,19 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値に指数関数(e^x)を適用
+        """指定した列の各値に指数関数(e^x)を適用します
+
+指定された列の各値に対して自然指数関数 e^x を計算し、結果を新しい列に格納します。
+入力データが None の場合は結果も None になります。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    result_column: 結果を格納する列名（デフォルトはNone、"exp({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（None の場合は "exp({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -742,21 +827,24 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値に対数関数を適用
+        """指定した列の各値に対数関数を適用します
+
+指定された列の各値に対して対数関数を計算し、結果を新しい列に格納します。
+対数の底を指定できるほか、自然対数（底が e）やログ 10 なども計算できます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    base: 対数の底（デフォルトはe）
-    result_column: 結果を格納する列名（デフォルトはNone、"log({column})"または"log{base}({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    base: 対数の底（デフォルトは e）
+    result_column: 結果を格納する列名（None の場合は "log({column})" または "log{base}({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
-    ValueError: 0以下の値に対して対数を適用しようとした場合"""
+    ValueError: 0 以下の値に対して対数を適用しようとした場合"""
         ...
     
 
@@ -766,16 +854,19 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値の平方根を計算
+        """指定した列の各値の平方根を計算します
+
+指定された列の各値の平方根を計算し、結果を新しい列に格納します。
+負の値に対しては None が格納されます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    result_column: 結果を格納する列名（デフォルトはNone、"sqrt({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（None の場合は "sqrt({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
@@ -790,17 +881,20 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値を指定した指数でべき乗
+        """指定した列の各値を指定した指数でべき乗します
+
+指定された列の各値を指定された指数でべき乗し、結果を新しい列に格納します。
+非数値データや計算エラーが発生した場合は None が格納されます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
     exponent: べき指数
-    result_column: 結果を格納する列名（デフォルトはNone、"{column}^{exponent}"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（None の場合は "{column}^{exponent}" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -813,16 +907,19 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値の絶対値を計算
+        """指定した列の各値の絶対値を計算します
+
+指定された列の各値の絶対値を計算し、結果を新しい列に格納します。
+None 値は結果でも None として維持されます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    result_column: 結果を格納する列名（デフォルトはNone、"abs({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（None の場合は "abs({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -836,17 +933,20 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列の各値を指定した小数点以下の桁数に丸める
+        """指定した列の各値を指定した小数点以下の桁数に丸めます
+
+指定された列の各値を指定された小数点以下の桁数で四捨五入し、結果を新しい列に格納します。
+None 値は結果でも None として維持されます。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    decimals: 丸める小数点以下の桁数（デフォルトは0、整数）
-    result_column: 結果を格納する列名（デフォルトはNone、"round({column}, {decimals})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    decimals: 丸める小数点以下の桁数（デフォルトは 0、整数）
+    result_column: 結果を格納する列名（None の場合は "round({column}, {decimals})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
@@ -860,23 +960,26 @@ Raises:
         in_place: bool = False,
         method: str = 'minmax'
     ) -> "CoreCollectionOperations":
-        """指定した列の値を正規化
+        """指定した列の値を正規化します
+
+指定された列の値を指定された方法で正規化します。
+"minmax" 法では [0, 1] の範囲に、"zscore" 法では平均 0、標準偏差 1 に正規化します。
 
 Args:
-    collection: ColumnCollectionオブジェクト
+    collection: ColumnCollection オブジェクト
     column: 処理対象の列名
-    result_column: 結果を格納する列名（デフォルトはNone、"norm_{method}({column})"が使用される）
-    in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    result_column: 結果を格納する列名（None の場合は "norm_{method}({column})" を使用）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
     method: 正規化方法
-        "minmax": [0, 1]の範囲に正規化
-        "zscore": 平均0、標準偏差1に正規化
+        "minmax": [0, 1] の範囲に正規化
+        "zscore": 平均 0、標準偏差 1 に正規化
 
 Returns:
-    ColumnCollection: 結果の列を含むColumnCollection
+    ColumnCollection: 結果の列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
-    ValueError: 不正なmethod値が指定された場合、または値が一定で正規化できない場合"""
+    ValueError: 不正な method 値が指定された場合、または値が一定で正規化できない場合"""
         ...
     
 
@@ -888,31 +991,34 @@ Raises:
         method: str = 'linear',
         columns: Optional[list[str]] = None
     ) -> "CoreCollectionOperations":
-        """指定した列の値に基づいてデータを内挿
+        """指定した列の値に基づいてデータを内挿します
+
+基準となる列の値に基づいて、他の列のデータを線形内挿します。
+等間隔の内挿点を生成するか、特定の値での内挿を行うかを選択できます。
 
 Args:
-    collection: 内挿を行うColumnCollectionオブジェクト
-    base_column_name: 内挿の基準となる列名 (デフォルト: "step")
-    x_values: 内挿する目標値のリスト 
+    collection: 内挿を行う ColumnCollection オブジェクト
+    base_column_name: 内挿の基準となる列名（デフォルト: "step"）
+    x_values: 内挿する目標値のリスト
     point_count: 等間隔内挿を行う場合のポイント数
-    method: 内挿方法 (現在は'linear'のみサポート)
-    columns: 値の計算に使用する列名リスト (Noneの場合はすべての数値型列)
-    
+    method: 内挿方法（現在は 'linear' のみサポート）
+    columns: 値の計算に使用する列名リスト（None の場合はすべての数値型列）
+
 Returns:
-    ColumnCollection: 内挿された新しいColumnCollection
-    
+    ColumnCollection: 内挿された新しい ColumnCollection
+
 Raises:
-    ValueError: x_valuesとpoint_countの両方が指定された場合、または両方が指定されていない場合
+    ValueError: x_values と point_count の両方が指定された場合、または両方が指定されていない場合
     KeyError: 指定された列が存在しない場合
     TypeError: 指定された列が数値型でない場合
-    
+
 Examples:
     # ステップ値に基づいて内挿
     >>> result = collection.ops.interpolate(point_count=100)
-    
+
     # 特定のステップ値で内挿
     >>> result = collection.ops.interpolate(x_values=[1.0, 2.5, 3.0, 4.5])
-    
+
     # position列の値に基づいて内挿
     >>> result = collection.ops.interpolate(
     ...     base_column_name="position", point_count=100
@@ -924,24 +1030,28 @@ Examples:
         self,
         markers: list[int]
     ) -> "CoreCollectionOperations":
-        """整数リストの値でデータを分割します。同じマーカー値を持つデータは同じグループに集約されます。
+        """整数リストの値でデータを分割します
+
+同じマーカー値を持つデータは同じグループに集約されます。
+マーカー値の種類に応じて複数のコレクションを生成します。
 
 Args:
-    collection: 分割するColumnCollectionオブジェクト
+    collection: 分割する ColumnCollection オブジェクト
     markers: 各データ値がどのグループに属するかを示す整数リスト（データと同じ長さ）
 
 Returns:
-    分割後のColumnCollectionオブジェクトのリスト。各ColumnCollectionは同じマーカー値を持つ
-    データで構成され、マーカー値に基づいて昇順に並べられます。
+    List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト。
+    各 ColumnCollection は同じマーカー値を持つデータで構成され、
+    マーカー値に基づいて昇順に並べられます。
 
 Raises:
     ValueError: データとマーカーの長さが一致しない場合
 
 Examples:
-    # データ値を3つのグループに分類
+    # データ値を 3 つのグループに分類
     markers = [2, 1, 2, 3, 1, 3]  # マーカー値が示す分類グループ
     collection_groups = split_by_integers(collection, markers)
-    # 結果: [グループ1のCollection, グループ2のCollection, グループ3のCollection]"""
+    # 結果: [グループ 1 の Collection, グループ 2 の Collection, グループ 3 の Collection]"""
         ...
     
 
@@ -953,18 +1063,25 @@ Examples:
         edge_handling: str = 'asymmetric',
         in_place: bool = False
     ) -> "CoreCollectionOperations":
-        """指定した列に対して移動平均を計算します。
+        """指定した列に対して移動平均を計算します
+
+指定された列の各値に対して、周辺値を使用した平均値を算出します。
+エッジ処理方法を選択することで、端部の計算方法を調整できます。
 
 Args:
-    collection: 処理対象のColumnCollection
+    collection: 処理対象の ColumnCollection
     column: 処理対象の列名
     window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    result_column: 結果を格納する列名（指定がない場合は自動生成）
-    edge_handling: エッジ処理方法 ("symmetric", "asymmetric")
+    result_column: 結果を格納する列名（None の場合は自動生成）
+    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
     in_place: True の場合、結果を元の列に上書き
 
 Returns:
-    ColumnCollection: 移動平均が計算された列を含むコレクション"""
+    ColumnCollection: 移動平均が計算された列を含むコレクション
+
+Raises:
+    KeyError: 指定された列が存在しない場合
+    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合"""
         ...
     
 
@@ -978,19 +1095,26 @@ Returns:
         scale_factor: float = 1.0,
         result_column: Optional[str] = None
     ) -> "CoreCollectionOperations":
-        """移動平均との差分比率を用いた異常値検出を行います。
+        """移動平均との差分比率を用いた異常値検出を行います
+
+データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
+検出結果は新しい列に 0（正常）または 1（異常）のフラグとして格納されます。
 
 Args:
-    collection: 処理対象のColumnCollection
+    collection: 処理対象の ColumnCollection
     column: 処理対象の列名
     window_size: 移動平均のウィンドウサイズ（奇数推奨）
     threshold: 異常値とみなす移動平均との差分比率の閾値
-    edge_handling: エッジ処理方法 ("symmetric", "asymmetric")
+    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
     min_abs_value: 比率計算時の最小絶対値
     scale_factor: スケール調整係数
-    result_column: 結果を格納する列名（指定がない場合は自動生成）
+    result_column: 結果を格納する列名（None の場合は自動生成）
 
 Returns:
-    ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）"""
+    ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）
+
+Raises:
+    KeyError: 指定された列が存在しない場合
+    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
         ...
     
