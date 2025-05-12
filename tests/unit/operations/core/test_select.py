@@ -127,7 +127,11 @@ class TestSelectStep:
 
         # 結果の検証
         assert len(result) == 3
-        assert list(result.step.values) == [1, 3, 5]  # インデックス0,2,4に対応するステップ値
+        assert list(result.step.values) == [
+            1,
+            3,
+            5,
+        ]  # インデックス0,2,4に対応するステップ値
         assert list(result["A"].values) == [10, 30, 50]
         assert "by_step_value" in result.metadata
         assert result.metadata["by_step_value"] is False

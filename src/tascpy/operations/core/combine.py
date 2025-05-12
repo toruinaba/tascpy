@@ -123,12 +123,14 @@ def switch_by_step(
     result.add_column(result_column, column)
 
     # メタデータを更新
-    result.metadata.update({
-        "operation": "switch_by_step",
-        "by_step_value": by_step_value,
-        "compare_mode": compare_mode,
-        "threshold": threshold
-    })
+    result.metadata.update(
+        {
+            "operation": "switch_by_step",
+            "by_step_value": by_step_value,
+            "compare_mode": compare_mode,
+            "threshold": threshold,
+        }
+    )
 
     return result
 
@@ -233,9 +235,13 @@ def blend_by_step(
             )
     elif compare_mode == "index" and by_step_value:
         # ステップ値からインデックスに変換
-        start_idx = collection.step.find_step_index(start, tolerance=tolerance, default=None)
-        end_idx = collection.step.find_step_index(end, tolerance=tolerance, default=None)
-        
+        start_idx = collection.step.find_step_index(
+            start, tolerance=tolerance, default=None
+        )
+        end_idx = collection.step.find_step_index(
+            end, tolerance=tolerance, default=None
+        )
+
         # 見つからない場合はデフォルト値を使用
         if start_idx is None:
             start_idx = 0
@@ -245,7 +251,7 @@ def blend_by_step(
             result.metadata["warnings"].append(
                 f"ステップ値 {start} が見つかりませんでした。インデックス {start_idx} を使用します。"
             )
-        
+
         if end_idx is None:
             end_idx = len(collection) - 1
             # 警告メッセージをメタデータに追加
@@ -254,7 +260,7 @@ def blend_by_step(
             result.metadata["warnings"].append(
                 f"ステップ値 {end} が見つかりませんでした。インデックス {end_idx} を使用します。"
             )
-        
+
         # インデックス範囲のチェック
         if end_idx <= start_idx:
             raise ValueError(
@@ -275,7 +281,7 @@ def blend_by_step(
             if by_step_value:
                 # ステップ値を直接比較
                 comparison_value = step_val
-                
+
                 if comparison_value < start:
                     # 開始ステップ値より前は最初の列の値
                     new_values.append(values1[i])
@@ -286,12 +292,14 @@ def blend_by_step(
                     # ブレンド範囲内では徐々に切り替え
                     t = (comparison_value - start) / (end - start)
                     t_transformed = blend_func(t)
-                    blended_value = values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                    blended_value = (
+                        values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                    )
                     new_values.append(blended_value)
             else:
                 # インデックス値を直接比較
                 comparison_value = i
-                
+
                 if comparison_value < start:
                     new_values.append(values1[i])
                 elif comparison_value > end:
@@ -299,7 +307,9 @@ def blend_by_step(
                 else:
                     t = (comparison_value - start) / (end - start)
                     t_transformed = blend_func(t)
-                    blended_value = values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                    blended_value = (
+                        values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                    )
                     new_values.append(blended_value)
         else:  # compare_mode == "index"
             # インデックスでの比較
@@ -310,7 +320,9 @@ def blend_by_step(
             else:
                 t = (i - start_idx) / (end_idx - start_idx)
                 t_transformed = blend_func(t)
-                blended_value = values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                blended_value = (
+                    values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                )
                 new_values.append(blended_value)
 
     # 新しい列を追加
@@ -322,14 +334,16 @@ def blend_by_step(
     result.add_column(result_column, column)
 
     # メタデータを更新
-    result.metadata.update({
-        "operation": "blend_by_step",
-        "by_step_value": by_step_value,
-        "compare_mode": compare_mode,
-        "start": start,
-        "end": end,
-        "blend_method": blend_method
-    })
+    result.metadata.update(
+        {
+            "operation": "blend_by_step",
+            "by_step_value": by_step_value,
+            "compare_mode": compare_mode,
+            "start": start,
+            "end": end,
+            "blend_method": blend_method,
+        }
+    )
 
     return result
 

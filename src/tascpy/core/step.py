@@ -50,7 +50,9 @@ class Step(DataHolder):
         if tolerance is not None:
             # 許容範囲内の値を検索
             for i, val in enumerate(self.values):
-                if val is not None and (value - tolerance) <= val <= (value + tolerance):
+                if val is not None and (value - tolerance) <= val <= (
+                    value + tolerance
+                ):
                     return i
         else:
             # 完全一致の値を検索

@@ -45,7 +45,9 @@ class TestSwitchByStep:
             compare_mode="index",
         )
 
-        expected_name = "switch(A,B@2_step)"  # _stepサフィックスが追加されているため変更
+        expected_name = (
+            "switch(A,B@2_step)"  # _stepサフィックスが追加されているため変更
+        )
         assert expected_name in result.columns
         expected = [1.0, 2.0, 30.0, 40.0, 50.0]  # インデックス0,1はA、2以降はB
         assert result[expected_name].values == expected
@@ -60,7 +62,9 @@ class TestSwitchByStep:
             compare_mode="value",
         )
 
-        expected_name = "switch(A,B@35_step)"  # _stepサフィックスが追加されているため変更
+        expected_name = (
+            "switch(A,B@35_step)"  # _stepサフィックスが追加されているため変更
+        )
         assert expected_name in result.columns
         expected = [1.0, 2.0, 3.0, 40.0, 50.0]  # ステップ値<35はA、>=35はB
         assert result[expected_name].values == expected
@@ -87,9 +91,9 @@ class TestSwitchByStep:
 
         with pytest.raises(KeyError):
             switch_by_step(sample_collection, "A", "NonExistent", threshold=2)
-    
+
     # 以下、拡張機能のテスト
-    
+
     def test_switch_by_index_with_by_step_value_false(self, sample_collection):
         """インデックスモードでby_step_valueがFalseの場合のテスト"""
         result = switch_by_step(
@@ -98,14 +102,14 @@ class TestSwitchByStep:
             "B",
             threshold=2,  # インデックス2で切り替え
             compare_mode="index",
-            by_step_value=False
+            by_step_value=False,
         )
 
         expected_name = "switch(A,B@2_index)"
         assert expected_name in result.columns
         expected = [1.0, 2.0, 30.0, 40.0, 50.0]  # インデックス0,1はA、2以降はB
         assert result[expected_name].values == expected
-        
+
         # メタデータの確認
         assert result.metadata["operation"] == "switch_by_step"
         assert result.metadata["by_step_value"] is False
@@ -119,7 +123,7 @@ class TestSwitchByStep:
             "B",
             threshold=2,  # インデックス値2で切り替え
             compare_mode="value",
-            by_step_value=False
+            by_step_value=False,
         )
 
         expected_name = "switch(A,B@2_index)"
@@ -137,7 +141,7 @@ class TestSwitchByStep:
             "B",
             threshold=30,  # ステップ値30で切り替え
             compare_mode="index",
-            by_step_value=True
+            by_step_value=True,
         )
 
         expected_name = "switch(A,B@30_step)"
@@ -155,13 +159,13 @@ class TestSwitchByStep:
             "B",
             threshold=25,  # 存在しないステップ値25
             compare_mode="index",
-            by_step_value=True
+            by_step_value=True,
         )
 
         # 戻り値のチェック（警告メッセージのチェックは削除）
         expected_name = "switch(A,B@25_step)"
         assert expected_name in result.columns
-        
+
         # 結果のチェック - ステップ値25は30に近いため、インデックス2と同等の動作になる
         expected = [1.0, 2.0, 30.0, 40.0, 50.0]
         assert result[expected_name].values == expected
@@ -189,7 +193,7 @@ class TestBlendByStep:
         values = result[expected_name].values
         assert values[0] == pytest.approx(1.0)  # インデックス0: A
         assert values[1] == pytest.approx(6.5)  # インデックス1: 実装の実際の値に修正
-        assert values[2] == pytest.approx(16.5)  # インデックス2: 中間点の混合値 
+        assert values[2] == pytest.approx(16.5)  # インデックス2: 中間点の混合値
         assert values[3] == pytest.approx(31.0)  # インデックス3: 実際の値に修正
         assert values[4] == pytest.approx(50.0)  # インデックス4: B
 
@@ -244,9 +248,9 @@ class TestBlendByStep:
                 end=3,
                 blend_method="invalid_method",  # 存在しないメソッド
             )
-            
+
     # 以下、拡張機能のテスト
-    
+
     def test_blend_by_step_value(self, sample_collection):
         """ステップ値によるブレンドテスト"""
         result = blend_by_step(
@@ -270,7 +274,7 @@ class TestBlendByStep:
         assert values[2] == pytest.approx(16.5)  # ステップ値30: 中間点
         assert values[3] == pytest.approx(40.0)  # ステップ値40: 終了点
         assert values[4] == pytest.approx(50.0)  # ステップ値50: B
-        
+
         # メタデータの確認
         assert result.metadata["operation"] == "blend_by_step"
         assert result.metadata["by_step_value"] is True
@@ -301,7 +305,7 @@ class TestBlendByStep:
         assert values[2] == pytest.approx(16.5)  # インデックス2: 中間点
         assert values[3] == pytest.approx(40.0)  # インデックス3: 終了点
         assert values[4] == pytest.approx(50.0)  # インデックス4: B
-        
+
         # メタデータの確認
         assert result.metadata["by_step_value"] is False
 
@@ -378,12 +382,12 @@ class TestBlendByStep:
         assert len(warnings) == 2  # 2つの警告（開始と終了）
         assert "25" in warnings[0]  # 開始ステップ値に関する警告
         assert "35" in warnings[1]  # 終了ステップ値に関する警告
-        
+
         # デフォルト値が使用されていること（開始=0、終了=最大インデックス）
         # または近い値が検出されていることを確認
         expected_name = "blend(A,B,25-35_step)"
         assert expected_name in result.columns
-        
+
         # 結果の値をチェック - デフォルト値を使用して補間が行われていることを確認
         values = result[expected_name].values
         # 先頭と末尾の値は元の列の値

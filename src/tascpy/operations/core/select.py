@@ -111,10 +111,14 @@ def select_step(
     if by_step_value:
         # ステップ値からインデックスに変換
         for step in steps:
-            idx = collection.step.find_step_index(step, tolerance=tolerance, default=None)
+            idx = collection.step.find_step_index(
+                step, tolerance=tolerance, default=None
+            )
             if idx is not None:
                 indices.append(idx)
-                found_steps.append(collection.step.values[idx])  # 実際に見つかったステップ値を記録
+                found_steps.append(
+                    collection.step.values[idx]
+                )  # 実際に見つかったステップ値を記録
             else:
                 # 存在しないステップは無視して記録
                 missing_steps.append(step)
