@@ -1,5 +1,7 @@
 """
-ColumnCollectionの選択操作（select, select_step）を示すサンプルコード
+ColumnCollectionの選択操作（select）を示すサンプルコード
+
+selectは統合された関数で、列名、行インデックス、またはステップ値による選択をサポートします
 """
 
 import os
@@ -150,16 +152,16 @@ def demonstrate_select_operations():
     print(f"Force2データ: {result['Force2'].values}")
     print()
 
-    print("4. ステップ値による選択 (select_step)")
-    # 特定のステップ値を持つ行を選択
-    result = ops.select_step(steps=[1, 4, 7, 10]).end()
+    print("4. ステップ値による選択 (select with steps)")
+    # 特定のステップ値を持つ行を選択（旧select_step関数と同じ）
+    result = ops.select(steps=[1, 4, 7, 10]).end()
     print(f"選択された行のステップ値: {result.step.values}")
     print(f"Force1データ: {result['Force1'].values}")
     print()
 
-    print("5. 列とステップの両方を選択 (select_step)")
-    # 特定の列と特定のステップ値を持つ行を選択
-    result = ops.select_step(
+    print("5. 列とステップの両方を選択 (select)")
+    # 特定の列と特定のステップ値を持つ行を選択（旧select_step関数と同じ）
+    result = ops.select(
         columns=["Displacement1", "Displacement2"], steps=[3, 6, 9]
     ).end()
     print(f"選択された列: {list(result.columns.keys())}")
@@ -168,36 +170,48 @@ def demonstrate_select_operations():
     print(f"Displacement2データ: {result['Displacement2'].values}")
     print()
 
-    print("6. 存在しないステップの扱い")
+    print("6. by_step_valueとtoleranceオプションの使用")
+    # ステップ値に近い値を許容範囲を指定して選択
+    result = ops.select(steps=[1.1, 3.9, 6.95], tolerance=0.1).end()
+    print(f"選択された行のステップ値（許容範囲あり）: {result.step.values}")
+    
+    # インデックスとして処理（by_step_value=False）
+    result_by_index = ops.select(steps=[1, 3, 5], by_step_value=False).end()
+    print(f"インデックス [1,3,5] での選択（ステップ値）: {result_by_index.step.values}")
+    print()
+
+    print("7. 存在しないステップの扱い")
     # 存在しないステップを指定した場合（存在するステップのみが選択され、存在しないステップは無視される）
-    result = ops.select_step(steps=[1, 4, 99]).end()
+    result = ops.select(steps=[1, 4, 99]).end()
     print(f"選択された行のステップ値: {result.step.values}")
     print(
         f"メタデータの'missing_steps': {result.metadata.get('missing_steps', 'なし')}"
     )
     print()
 
-    print("7. 選択操作と他の操作の組み合わせ")
-    # 選択した後に数学演算を適用
+    print("8. 統合されたselectを使った操作チェーン")
+    # 一度に列とステップを選択し、その後に演算を適用
     result = (
-        ops.select(columns=["Force1", "Displacement1"])  # まず列を選択
-        .select_step(steps=[4, 6, 8, 10])  # 次に特定のステップの行を選択
+        ops.select(
+            columns=["Force1", "Displacement1"], 
+            steps=[4, 6, 8, 10]
+        )
         .divide(
             "Force1",
             "Displacement1",
             result_column="Stiffness",
             handle_zero_division="none",
-        )  # 剛性を計算
+        )
         .end()
     )
 
-    print(f"選択後の処理結果:")
+    print(f"統合selectでの選択後の処理結果:")
     print(f"  選択された列: {list(result.columns.keys())}")
     print(f"  選択された行のステップ値: {result.step.values}")
     print(f"  計算された剛性: {result['Stiffness'].values}")
     print()
 
-    print("8. 日付による選択の例")
+    print("9. 日付による選択の例")
     # まず特定の日付に対応する行インデックスを特定
     date_indices = [
         i for i, date in enumerate(collection.date) if date.startswith("2020/12/02")
@@ -209,6 +223,16 @@ def demonstrate_select_operations():
     print(f"  ステップ値: {result.step.values}")
     print(f"  Force1データ: {result['Force1'].values}")
     print(f"  日付: {result.date}")
+    print()
+
+    print("10. 後方互換性（旧select_stepを使用）")
+    # 後方互換性のためにselect_stepも引き続き使用可能
+    result = ops.select_step(steps=[2, 5, 8]).end()
+    print(f"select_step結果のステップ値: {result.step.values}")
+    # 同等のselect関数の呼び出し
+    result2 = ops.select(steps=[2, 5, 8]).end()
+    print(f"同等のselect結果のステップ値: {result2.step.values}")
+    print(f"両方の結果が同じ: {result.step.values == result2.step.values}")
     print()
 
 

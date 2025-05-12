@@ -156,7 +156,7 @@ Args:
     inclusive: 境界値を含むかどうか
     by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
     tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
-    
+
 Returns:
     ColumnCollection: フィルタリングされたコレクション"""
         ...
@@ -249,21 +249,30 @@ Examples:
     def select(
         self,
         columns: Optional[list[str]] = None,
-        indices: Optional[list[int]] = None
+        indices: Optional[list[int]] = None,
+        steps: Optional[list[Union[float, int]]] = None,
+        by_step_value: bool = True,
+        tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
-        """指定した列名と行インデックスに基づいてデータを抽出する
+        """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出する
 
 Args:
     collection: 元のColumnCollection
     columns: 抽出する列名のリスト。Noneの場合は全列が対象
     indices: 抽出する行インデックスのリスト。Noneの場合は全行が対象
+    steps: 抽出するステップのリスト。Noneの場合は全行が対象
+        by_step_value=Trueの場合：ステップ値として解釈
+        by_step_value=Falseの場合：インデックスとして解釈
+    by_step_value: Trueの場合はstepsをステップ値として解釈、Falseの場合はインデックスとして解釈
+    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
 
 Returns:
     選択されたデータを含む新しいColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合
-    IndexError: 指定されたインデックスが範囲外の場合"""
+    IndexError: 明示的に指定されたindicesが範囲外の場合（stepsの場合は無視される）
+    ValueError: indicesとstepsの両方が指定された場合"""
         ...
     
 
@@ -275,6 +284,9 @@ Raises:
         tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
         """指定した列名とステップ番号に基づいてデータを抽出する
+
+注: この関数は後方互換性のために残されています。
+新しいコードでは select() 関数を使用することが推奨されます。
 
 Args:
     collection: 元のColumnCollection
@@ -288,8 +300,7 @@ Returns:
     選択されたデータを含む新しいColumnCollection
 
 Raises:
-    KeyError: 指定された列名が存在しない場合
-    IndexError: 指定されたインデックスが範囲外の場合"""
+    KeyError: 指定された列名が存在しない場合"""
         ...
     
 
