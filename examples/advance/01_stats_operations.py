@@ -7,11 +7,16 @@
 3. 異なるパラメータによる効果の比較
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.operations.proxy import CollectionOperations
+
+# 出力画像用のディレクトリパスを設定
+IMGS_DIR = os.path.join(os.path.dirname(__file__), "imgs")
+os.makedirs(IMGS_DIR, exist_ok=True)
 
 
 def create_sample_data_with_outliers(size=200, outlier_ratio=0.05):
@@ -190,7 +195,7 @@ def main():
     plt.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("stats_operations_result.png")  # 画像として保存
+    plt.savefig(os.path.join(IMGS_DIR, "stats_operations_result.png"))  # 画像として保存
     plt.show()
 
     # === 追加: 特定範囲のデータで検証 ===
@@ -253,8 +258,13 @@ def main():
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig("edge_handling_comparison.png")  # 画像として保存
+    plt.savefig(
+        os.path.join(IMGS_DIR, "edge_handling_comparison.png")
+    )  # 画像として保存
     plt.show()
+
+    print(f"\n画像ファイルを保存しました。")
+    print(f"保存先: {IMGS_DIR}")
 
 
 if __name__ == "__main__":

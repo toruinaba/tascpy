@@ -4,9 +4,14 @@
 特にステップやインデックスを基準にした2つのColumnの連結・切り替えの使用例を示します。
 """
 
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from tascpy.core.collection import ColumnCollection
+
+# 出力画像用のディレクトリパスを設定
+IMGS_DIR = os.path.join(os.path.dirname(__file__), "imgs")
+os.makedirs(IMGS_DIR, exist_ok=True)
 
 
 def main():
@@ -122,8 +127,11 @@ def main():
     plt.grid(True)
 
     plt.tight_layout()
-    plt.savefig("combine_example.png")
+    plt.savefig(os.path.join(IMGS_DIR, "combine_example.png"))
     plt.show()
+
+    print(f"\n画像ファイルを保存しました。")
+    print(f"保存先: {IMGS_DIR}")
 
 
 if __name__ == "__main__":
