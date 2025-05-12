@@ -120,7 +120,7 @@ def select(
                 "source_columns": list(collection.columns.keys()),
             }
         )
-        
+
         # select_step用のメタデータを追加
         if operation_type == "select_step":
             metadata.update(
@@ -136,7 +136,9 @@ def select(
     # 行の選択
     if final_indices is not None:
         # インデックスの範囲チェック (select操作のときのみエラーを発生させる）
-        if indices is not None and (max(final_indices) >= len(collection) or min(final_indices) < 0):
+        if indices is not None and (
+            max(final_indices) >= len(collection) or min(final_indices) < 0
+        ):
             raise IndexError("指定されたインデックスが範囲外です")
 
         # 選択された行のみを抽出

@@ -174,7 +174,7 @@ def demonstrate_select_operations():
     # ステップ値に近い値を許容範囲を指定して選択
     result = ops.select(steps=[1.1, 3.9, 6.95], tolerance=0.1).end()
     print(f"選択された行のステップ値（許容範囲あり）: {result.step.values}")
-    
+
     # インデックスとして処理（by_step_value=False）
     result_by_index = ops.select(steps=[1, 3, 5], by_step_value=False).end()
     print(f"インデックス [1,3,5] での選択（ステップ値）: {result_by_index.step.values}")
@@ -192,10 +192,7 @@ def demonstrate_select_operations():
     print("8. 統合されたselectを使った操作チェーン")
     # 一度に列とステップを選択し、その後に演算を適用
     result = (
-        ops.select(
-            columns=["Force1", "Displacement1"], 
-            steps=[4, 6, 8, 10]
-        )
+        ops.select(columns=["Force1", "Displacement1"], steps=[4, 6, 8, 10])
         .divide(
             "Force1",
             "Displacement1",

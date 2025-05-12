@@ -36,7 +36,7 @@ def test_select_with_operations_chain(large_collection):
 
     # まず列を選択
     cols_selected = ops.select(columns=["Force", "Displacement"])
-    
+
     # 次に行を選択（新しいCollectionOperationsを作成）
     ops2 = CollectionOperations(cols_selected)
     result = ops2.select(indices=list(range(0, 50, 5)))  # 0, 5, 10, ... , 45
@@ -47,20 +47,21 @@ def test_select_with_operations_chain(large_collection):
     assert result.step.values == [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]
     expected_force = [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5]
     assert list(result["Force"].values) == expected_force
-    
+
     # 新しい統合されたselect関数を使った場合のテスト
     ops3 = CollectionOperations(large_collection)
     combined_result = ops3.select(
-        columns=["Force", "Displacement"],
-        indices=list(range(0, 50, 5))
+        columns=["Force", "Displacement"], indices=list(range(0, 50, 5))
     )
-    
+
     # 両方の結果が同じであることを検証
     assert len(combined_result) == len(result)
     assert list(combined_result.columns.keys()) == list(result.columns.keys())
     assert combined_result.step.values == result.step.values
     assert list(combined_result["Force"].values) == list(result["Force"].values)
-    assert list(combined_result["Displacement"].values) == list(result["Displacement"].values)
+    assert list(combined_result["Displacement"].values) == list(
+        result["Displacement"].values
+    )
 
 
 def test_select_step_with_operations_chain(large_collection):
@@ -79,9 +80,7 @@ def test_select_step_with_operations_chain(large_collection):
     assert list(result["Temperature"].values) == [21.0, 22.0, 23.0, 24.0, 25.0]
 
     # 新しいselect関数を使った場合も同じ結果が得られることを確認
-    result2 = ops.select(
-        steps=[10, 20, 30, 40, 50], columns=["Time", "Temperature"]
-    )
+    result2 = ops.select(steps=[10, 20, 30, 40, 50], columns=["Time", "Temperature"])
     assert len(result2) == 5
     assert list(result2.columns.keys()) == ["Time", "Temperature"]
     assert list(result2["Time"].values) == list(result["Time"].values)
@@ -153,7 +152,9 @@ def test_sequential_select_operations(large_collection):
     assert list(combined_result.columns.keys()) == ["Force", "Temperature"]
     assert combined_result.step.values == rows_selected.step.values
     assert list(combined_result["Force"].values) == list(rows_selected["Force"].values)
-    assert list(combined_result["Temperature"].values) == list(rows_selected["Temperature"].values)
+    assert list(combined_result["Temperature"].values) == list(
+        rows_selected["Temperature"].values
+    )
 
 
 def test_select_and_transform(large_collection):
@@ -162,7 +163,7 @@ def test_select_and_transform(large_collection):
 
     # 一部の列を選択
     cols_result = ops.select(columns=["Force", "Displacement"])
-    
+
     # 新しいCollectionOperationsを作成して特定のステップを選択
     ops2 = CollectionOperations(cols_result)
     result = ops2.select(steps=list(range(0, 50, 10)))  # 0, 10, 20, 30, 40
@@ -179,14 +180,14 @@ def test_select_and_transform(large_collection):
         # 結果の検証
         assert "Stress" in transformed.columns
         assert len(transformed) == 5
-        
+
     # 新しいselect関数を使った場合のテスト - 1回の呼び出しで列とステップ両方を指定
     ops4 = CollectionOperations(large_collection)
     result2 = ops4.select(
         columns=["Force", "Displacement"],
-        steps=list(range(0, 50, 10))  # 0, 10, 20, 30, 40
+        steps=list(range(0, 50, 10)),  # 0, 10, 20, 30, 40
     )
-    
+
     assert len(result2) == 5
     assert list(result2.columns.keys()) == ["Force", "Displacement"]
     assert result2.step.values == [0, 10, 20, 30, 40]
