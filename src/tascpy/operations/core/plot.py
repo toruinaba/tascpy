@@ -292,6 +292,11 @@ def visualize_outliers(
 
     # 異常値のみを強調表示（元のデータポイント上に）
     if outlier_indices:
+        print(f"visualize_outliers: {len(outlier_indices)}個の異常値をプロットします")
+        print(
+            f"最初の3つの異常値データ: {list(zip(outlier_x[:3], outlier_y[:3])) if outlier_x else '空'}"
+        )
+
         ax.scatter(
             outlier_x,
             outlier_y,
@@ -301,6 +306,8 @@ def visualize_outliers(
             label="異常値",
             zorder=10,  # 他のデータポイントより前面に表示
         )
+    else:
+        print("visualize_outliers: 異常値がありません")
 
     # 異常値の数をタイトルに表示（オプション）
     outlier_count = len(outlier_indices)
@@ -313,9 +320,9 @@ def visualize_outliers(
     # グリッド線を追加して読みやすくする
     ax.grid(True, alpha=0.3)
 
-    # グラフを表示
-    plt.tight_layout()
-    plt.show()
+    # 注: plt.show()をコメントアウト - これはインタラクティブ環境で必要ですが
+    # スクリプト内で複数回呼び出すと問題を引き起こす可能性があります
+    # plt.tight_layout() は呼び出し元で実行します
 
     # 異常値検出結果を含むコレクションを返す
     return result

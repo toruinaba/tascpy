@@ -373,17 +373,17 @@ Args:
     min_abs_value: 比率計算時の最小絶対値
     scale_factor: スケール調整係数
     **kwargs: プロット関数に渡す追加のキーワード引数
-    
+
 Returns:
     ColumnCollection: 異常値検出フラグを含む新しいコレクション
-    
+
 Examples:
     >>> # 基本的な異常値の可視化
     >>> collection.ops.visualize_outliers('pressure_data').end()
     >>>
     >>> # 異常値検出パラメータのカスタマイズ
     >>> collection.ops.visualize_outliers(
-    ...     'temperature', 
+    ...     'temperature',
     ...     window_size=5,
     ...     threshold=0.3
     ... ).end()

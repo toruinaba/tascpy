@@ -11,6 +11,11 @@
 
 import os
 import numpy as np
+
+# Matplotlibバックエンドを明示的に設定（グラフ表示問題の対応）
+import matplotlib
+
+matplotlib.use("Agg")  # 非インタラクティブバックエンド（ファイル出力向け）
 import matplotlib.pyplot as plt
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
@@ -193,6 +198,13 @@ def main():
     plt.figure(figsize=(12, 10))
     plt.subplot(2, 1, 1)
 
+    # デバッグ情報を追加
+    print("\n--- デバッグ情報（厳しいしきい値） ---")
+    print(f"データサイズ: {len(collection1['data'].values)}")
+    print(
+        f"None値の数: {collection1['data'].values.count(None) if collection1['data'].values.count(None) is not None else 0}"
+    )
+
     result_vis1 = ops1.visualize_outliers(
         column="data",
         window_size=15,
@@ -204,6 +216,17 @@ def main():
         normal_alpha=0.7,
     ).end()
 
+    # 検出された異常値フラグを確認
+    outlier_indices1 = [
+        i
+        for i, flag in enumerate(result_vis1["_outlier_flags_data"].values)
+        if flag == 1
+    ]
+    print(f"検出された異常値のインデックス数: {len(outlier_indices1)}")
+    print(
+        f"最初の5つの異常値インデックス: {outlier_indices1[:5] if outlier_indices1 else '検出されませんでした'}"
+    )
+
     # タイトルを明示的に設定（タイトル内に閾値を数値で表示）
     plt.title(f"標準データの異常値検出（厳しいしきい値: 0.3）")
     plt.xlabel("ステップ")
@@ -211,6 +234,9 @@ def main():
 
     # visualize_outliers を使用した異常値の可視化（緩いしきい値）
     plt.subplot(2, 1, 2)
+
+    # デバッグ情報を追加
+    print("\n--- デバッグ情報（緩いしきい値） ---")
 
     result_vis2 = ops1.visualize_outliers(
         column="data",
@@ -223,13 +249,32 @@ def main():
         normal_alpha=0.7,
     ).end()
 
+    # 検出された異常値フラグを確認
+    outlier_indices2 = [
+        i
+        for i, flag in enumerate(result_vis2["_outlier_flags_data"].values)
+        if flag == 1
+    ]
+    print(f"検出された異常値のインデックス数: {len(outlier_indices2)}")
+    print(
+        f"最初の5つの異常値インデックス: {outlier_indices2[:5] if outlier_indices2 else '検出されませんでした'}"
+    )
+
     # タイトルを明示的に設定
     plt.title(f"標準データの異常値検出（緩いしきい値: 0.7）")
     plt.xlabel("ステップ")
     plt.ylabel("データ値")
 
     plt.tight_layout()
-    plt.savefig(os.path.join(IMGS_DIR, "outlier_visualization_comparison.png"))
+
+    # 保存前に図のサイズをチェック
+    fig = plt.gcf()
+    fig_size = fig.get_size_inches()
+    print(f"\n保存する図のサイズ (インチ): {fig_size}")
+    print(f"保存する図のDPI: {fig.dpi}")
+
+    # 画像ファイルとして保存（高解像度指定）
+    plt.savefig(os.path.join(IMGS_DIR, "outlier_visualization_comparison.png"), dpi=150)
 
     # 検出された異常値の数を計算
     strict_outlier_count = sum(result_vis1["_outlier_flags_data"].values)
@@ -343,7 +388,15 @@ def main():
     plt.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(IMGS_DIR, "outlier_removal_effect.png"))
+
+    # 保存前に図のサイズをチェック
+    fig = plt.gcf()
+    fig_size = fig.get_size_inches()
+    print(f"\n保存する図のサイズ (インチ): {fig_size}")
+    print(f"保存する図のDPI: {fig.dpi}")
+
+    # 高解像度で保存
+    plt.savefig(os.path.join(IMGS_DIR, "outlier_removal_effect.png"), dpi=150)
 
     # === 5. エッジ処理と様々なパラメータの比較 ===
     print("\n5. エッジ処理と様々なパラメータの比較")
@@ -396,7 +449,15 @@ def main():
     ax2.set_ylabel("データ値", fontsize=10)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(IMGS_DIR, "edge_handling_outlier_comparison.png"))
+
+    # 保存前に図のサイズをチェック
+    fig = plt.gcf()
+    fig_size = fig.get_size_inches()
+    print(f"\n保存する図のサイズ (インチ): {fig_size}")
+    print(f"保存する図のDPI: {fig.dpi}")
+
+    # 高解像度で保存
+    plt.savefig(os.path.join(IMGS_DIR, "edge_handling_outlier_comparison.png"), dpi=150)
 
     # === 6. クリーニング後のデータ分析 ===
     print("\n6. クリーニング後のデータ分析")
@@ -433,7 +494,15 @@ def main():
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join(IMGS_DIR, "cleaned_data_trend.png"))
+
+    # 保存前に図のサイズをチェック
+    fig = plt.gcf()
+    fig_size = fig.get_size_inches()
+    print(f"\n保存する図のサイズ (インチ): {fig_size}")
+    print(f"保存する図のDPI: {fig.dpi}")
+
+    # 高解像度で保存
+    plt.savefig(os.path.join(IMGS_DIR, "cleaned_data_trend.png"), dpi=150)
 
     print(f"\n画像ファイルを保存しました。")
     print(f"保存先: {IMGS_DIR}")
