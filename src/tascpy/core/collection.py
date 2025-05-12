@@ -219,23 +219,55 @@ class ColumnCollection:
             raise ValueError(f"nは{len(self)}以下である必要があります")
         return self[-n:]
 
-    def describe(self) -> Dict[str, Dict[str, Any]]:
+    def describe(self, detail: bool = False) -> Dict[str, Dict[str, Any]]:
         """データの概要を取得
+
+        Args:
+            detail: 詳細表示するかどうか。True の場合は統計情報も含む。
+
         Returns:
-            辞書: 各列の統計情報を含む辞書
+            辞書: 各列の情報を含む辞書
         """
         stats = {}
         for name, column in self.columns.items():
-            # columnが数値の場合は統計情報を計算
-            if isinstance(column.values, (list, tuple)):
-                stats[name] = {
-                    "count": len(column.values),
-                    "mean": sum(column.values) / len(column.values),
-                    "min": min(column.values),
-                    "max": max(column.values),
-                }
-            else:
+            # 簡易表示の場合は列名とデータ数のみ
+            if not detail:
                 stats[name] = {"count": len(column.values)}
+            # 詳細表示の場合は統計情報も含む
+            else:
+                if isinstance(column, NumberColumn):
+                    stats[name] = {
+                        "count": len(column.values),
+                        "mean": column.mean(),
+                        "min": column.min(),
+                        "max": column.max(),
+                        "std": column.std(),
+                        "type": str(type(column).__name__),
+                    }
+                elif isinstance(column.values, (list, tuple)) and all(
+                    isinstance(x, (int, float)) for x in column.values if x is not None
+                ):
+                    # 数値のリストだが NumberColumn ではない場合
+                    values = [x for x in column.values if x is not None]
+                    if values:
+                        stats[name] = {
+                            "count": len(column.values),
+                            "mean": sum(values) / len(values),
+                            "min": min(values),
+                            "max": max(values),
+                            "type": str(type(column).__name__),
+                        }
+                    else:
+                        stats[name] = {
+                            "count": len(column.values),
+                            "type": str(type(column).__name__),
+                        }
+                else:
+                    # 数値以外のデータの場合
+                    stats[name] = {
+                        "count": len(column.values),
+                        "type": str(type(column).__name__),
+                    }
         return stats
 
     def apply(self, func: Callable[[List[Any]], List[Any]]) -> "ColumnCollection":
