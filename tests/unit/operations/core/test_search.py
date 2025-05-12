@@ -77,14 +77,61 @@ def test_search_by_range(sample_collection):
 def test_search_by_step_range(sample_collection):
     """search_by_step_rangeのテスト"""
     # 境界値を含む
-    result = search_by_step_range(sample_collection, 2, 4, inclusive=True)
+    result = search_by_step_range(sample_collection, min=2, max=4, inclusive=True)
     assert len(result) == 3
     assert result.step.values == [2, 3, 4]
     
     # 境界値を含まない
-    result = search_by_step_range(sample_collection, 2, 4, inclusive=False)
+    result = search_by_step_range(sample_collection, min=2, max=4, inclusive=False)
     assert len(result) == 1
     assert result.step.values == [3]
+    
+    # メタデータに操作情報が記録されていることを確認
+    assert "operation" in result.metadata
+    assert result.metadata["operation"] == "search_by_step_range"
+    assert result.metadata["by_step_value"] is True
+
+
+# 拡張機能のテスト
+def test_search_by_step_range_index_mode(sample_collection):
+    """インデックスによる範囲検索のテスト（by_step_value=False）"""
+    # 境界値を含む
+    result = search_by_step_range(
+        sample_collection, min=1, max=3, inclusive=True, by_step_value=False
+    )
+    # インデックス1～3（ステップ値 2, 3, 4）が選択される
+    assert len(result) == 3
+    assert result.step.values == [2, 3, 4]
+    
+    # 境界値を含まない
+    result = search_by_step_range(
+        sample_collection, min=1, max=3, inclusive=False, by_step_value=False
+    )
+    # インデックス2（ステップ値 3）のみ選択される
+    assert len(result) == 1
+    assert result.step.values == [3]
+    
+    # メタデータに操作情報が記録されていることを確認
+    assert "operation" in result.metadata
+    assert result.metadata["operation"] == "search_by_step_range"
+    assert result.metadata["by_step_value"] is False
+
+
+def test_search_by_step_range_empty_result(sample_collection):
+    """検索結果が空の場合のテスト"""
+    # 範囲外の値を指定
+    result = search_by_step_range(sample_collection, min=10, max=20)
+    # 空の結果が返される
+    assert len(result) == 0
+    assert result.step.values == []
+    
+    # インデックスモードで範囲外を指定
+    result = search_by_step_range(
+        sample_collection, min=10, max=20, by_step_value=False
+    )
+    # 空の結果が返される
+    assert len(result) == 0
+    assert result.step.values == []
 
 
 def test_search_by_condition(sample_collection):

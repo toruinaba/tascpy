@@ -118,3 +118,50 @@ class TestSelectStep:
         assert list(result.columns.keys()) == ["A", "B"]
         assert len(result) == 3  # ステップ5は存在するので3つ
         assert list(result.step.values) == [2, 4, 5]
+
+    # 以下、拡張機能のテスト
+
+    def test_select_by_index(self, sample_collection):
+        """インデックスによる選択テスト（by_step_value=False）"""
+        result = select_step(sample_collection, steps=[0, 2, 4], by_step_value=False)
+
+        # 結果の検証
+        assert len(result) == 3
+        assert list(result.step.values) == [1, 3, 5]  # インデックス0,2,4に対応するステップ値
+        assert list(result["A"].values) == [10, 30, 50]
+        assert "by_step_value" in result.metadata
+        assert result.metadata["by_step_value"] is False
+
+    def test_select_with_tolerance(self, sample_collection):
+        """許容範囲を指定した選択テスト"""
+        # ステップ値にない値（1.2, 3.1, 4.95）を指定し、許容範囲内のステップ値を選択
+        result = select_step(
+            sample_collection, steps=[1.2, 3.1, 4.95], by_step_value=True, tolerance=0.2
+        )
+
+        # 結果の検証
+        assert len(result) == 3
+        assert list(result.step.values) == [1, 3, 5]  # 許容範囲内の値が選択される
+        assert list(result["A"].values) == [10, 30, 50]
+
+    def test_select_with_tolerance_no_match(self, sample_collection):
+        """許容範囲を指定しても見つからない場合のテスト"""
+        result = select_step(
+            sample_collection, steps=[6.5, 7.5], by_step_value=True, tolerance=0.1
+        )
+
+        # 結果の検証 - 一致するステップが見つからないので空のコレクション
+        assert len(result) == 0
+        assert result.step.values == []
+        assert "missing_steps" in result.metadata
+        assert sorted(result.metadata["missing_steps"]) == [6.5, 7.5]
+
+    def test_select_by_index_out_of_range(self, sample_collection):
+        """範囲外のインデックスを指定した場合のテスト"""
+        result = select_step(sample_collection, steps=[-1, 10], by_step_value=False)
+
+        # 結果の検証 - 範囲外のインデックスは無視される
+        assert len(result) == 0
+        assert result.step.values == []
+        assert "missing_steps" in result.metadata
+        assert sorted(result.metadata["missing_steps"]) == [-1, 10]

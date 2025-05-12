@@ -141,16 +141,22 @@ Returns:
 
     def search_by_step_range(
         self,
-        min_step: Any,
-        max_step: Any,
-        inclusive: bool = True
+        min: Union[int, float],
+        max: Union[int, float],
+        inclusive: bool = True,
+        by_step_value: bool = True,
+        tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
         """ステップ範囲による検索
+
 Args:
     collection: 対象コレクション
-    min_step: 最小ステップ値
-    max_step: 最大ステップ値
+    min: 最小ステップ値（by_step_value=Trueの場合）または最小インデックス（by_step_value=Falseの場合）
+    max: 最大ステップ値（by_step_value=Trueの場合）または最大インデックス（by_step_value=Falseの場合）
     inclusive: 境界値を含むかどうか
+    by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
+    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+    
 Returns:
     ColumnCollection: フィルタリングされたコレクション"""
         ...
@@ -263,21 +269,27 @@ Raises:
 
     def select_step(
         self,
-        steps: list[float],
-        columns: Optional[list[str]] = None
+        steps: list[Union[float, int]],
+        columns: Optional[list[str]] = None,
+        by_step_value: bool = True,
+        tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
         """指定した列名とステップ番号に基づいてデータを抽出する
 
 Args:
     collection: 元のColumnCollection
-    steps: 抽出するステップ番号のリスト
+    steps: 抽出するステップ番号のリスト（by_step_value=Trueの場合）または
+           インデックスのリスト（by_step_value=Falseの場合）
     columns: 抽出する列名のリスト。Noneの場合は全列が対象
+    by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
+    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
 
 Returns:
     選択されたデータを含む新しいColumnCollection
 
 Raises:
-    KeyError: 指定された列名が存在しない場合"""
+    KeyError: 指定された列名が存在しない場合
+    IndexError: 指定されたインデックスが範囲外の場合"""
         ...
     
 
@@ -285,24 +297,31 @@ Raises:
         self,
         column1: str,
         column2: str,
-        step_threshold: Union[int, float],
-        compare_mode: str = 'index',
+        threshold: Union[int, float],
+        compare_mode: str = 'value',
+        by_step_value: bool = True,
         result_column: Optional[str] = None,
-        in_place: bool = False
+        in_place: bool = False,
+        tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
         """ステップ値を基準に2つのColumnを切り替える
 
-指定されたステップ値を境界として、それより前はcolumn1、それ以降はcolumn2の値を使用した
-新しいColumnを生成します。
+指定されたステップ値またはインデックスを境界として、それより前はcolumn1、
+それ以降はcolumn2の値を使用した新しいColumnを生成します。
 
 Args:
     collection: ColumnCollectionオブジェクト
     column1: 閾値より前（または以下）の値を取得する列名
     column2: 閾値より後（または以上）の値を取得する列名
-    step_threshold: 切り替え基準となるステップ値（または指標値）
-    compare_mode: 比較モード ("index": インデックス位置, "value": ステップの値)
+    threshold: 切り替え基準となる値
+        by_step_value=True かつ compare_mode="value" の場合：ステップ値
+        by_step_value=True かつ compare_mode="index" の場合：ステップ値でインデックスを検索
+        by_step_value=False の場合：インデックス値
+    compare_mode: 比較モード ("value": ステップの値, "index": インデックス位置)
+    by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
     result_column: 結果を格納する列名（デフォルトはNone、自動生成）
     in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
 
 Returns:
     ColumnCollection: 切り替え結果の列を含むColumnCollection
@@ -317,29 +336,39 @@ Raises:
         self,
         column1: str,
         column2: str,
-        step_start: Union[int, float],
-        step_end: Union[int, float],
-        compare_mode: str = 'index',
+        start: Union[int, float],
+        end: Union[int, float],
+        compare_mode: str = 'value',
+        by_step_value: bool = True,
         blend_method: str = 'linear',
         result_column: Optional[str] = None,
-        in_place: bool = False
+        in_place: bool = False,
+        tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
         """ステップ値の範囲内で2つのColumnをブレンドする
 
-指定された開始ステップから終了ステップまでの間で、column1からcolumn2へ徐々に
-ブレンドした新しいColumnを生成します。開始ステップより前はcolumn1、終了ステップより後は
+指定された開始点から終了点までの間で、column1からcolumn2へ徐々に
+ブレンドした新しいColumnを生成します。開始点より前はcolumn1、終了点より後は
 column2の値のみを使用します。
 
 Args:
     collection: ColumnCollectionオブジェクト
     column1: ブレンド開始時（または範囲外の低い方）の値を取得する列名
     column2: ブレンド終了時（または範囲外の高い方）の値を取得する列名
-    step_start: ブレンド開始ステップ値（または指標値）
-    step_end: ブレンド終了ステップ値（または指標値）
-    compare_mode: 比較モード ("index": インデックス位置, "value": ステップの値)
+    start: ブレンド開始点
+        by_step_value=True かつ compare_mode="value" の場合：ステップ値
+        by_step_value=True かつ compare_mode="index" の場合：ステップ値でインデックスを検索
+        by_step_value=False の場合：インデックス値
+    end: ブレンド終了点
+        by_step_value=True かつ compare_mode="value" の場合：ステップ値
+        by_step_value=True かつ compare_mode="index" の場合：ステップ値でインデックスを検索
+        by_step_value=False の場合：インデックス値
+    compare_mode: 比較モード ("value": ステップの値, "index": インデックス位置)
+    by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
     blend_method: ブレンド方法 ("linear", "smooth", "log", "exp")
     result_column: 結果を格納する列名（デフォルトはNone、自動生成）
     in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+    tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
 
 Returns:
     ColumnCollection: ブレンド結果の列を含むColumnCollection

@@ -103,14 +103,23 @@ def search_by_range(
 
 @operation(domain="core")
 def search_by_step_range(
-    collection: ColumnCollection, min_step: Any, max_step: Any, inclusive: bool = True
+    collection: ColumnCollection, 
+    min: Union[int, float], 
+    max: Union[int, float], 
+    inclusive: bool = True,
+    by_step_value: bool = True,  # 追加：ステップ値を使うかインデックスを使うか
+    tolerance: Optional[float] = None,  # 追加：ステップ値検索の許容範囲
 ) -> ColumnCollection:
     """ステップ範囲による検索
+    
     Args:
         collection: 対象コレクション
-        min_step: 最小ステップ値
-        max_step: 最大ステップ値
+        min: 最小ステップ値（by_step_value=Trueの場合）または最小インデックス（by_step_value=Falseの場合）
+        max: 最大ステップ値（by_step_value=Trueの場合）または最大インデックス（by_step_value=Falseの場合）
         inclusive: 境界値を含むかどうか
+        by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
+        tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+        
     Returns:
         ColumnCollection: フィルタリングされたコレクション
     """
@@ -120,11 +129,17 @@ def search_by_step_range(
     else:
         min_op, max_op = operator.gt, operator.lt
     
-    # フィルタリング処理
+    # インデックスのリストを初期化
     indices = []
-    for i, val in enumerate(collection.step.values):
-        if val is not None and min_op(val, min_step) and max_op(val, max_step):
-            indices.append(i)
+
+    if by_step_value:
+        # ステップ値に基づくフィルタリング
+        for i, val in enumerate(collection.step.values):
+            if val is not None and min_op(val, min) and max_op(val, max):
+                indices.append(i)
+    else:
+        # インデックスに基づくフィルタリング
+        indices = [i for i in range(len(collection)) if min_op(i, min) and max_op(i, max)]
     
     # 新しいコレクションの作成
     result = collection.clone()
@@ -134,6 +149,15 @@ def search_by_step_range(
     
     for col_name, col in result.columns.items():
         col.values = [col.values[i] for i in indices]
+    
+    # メタデータを更新
+    result.metadata.update({
+        "operation": "search_by_step_range",
+        "by_step_value": by_step_value,
+        "min": min,
+        "max": max,
+        "inclusive": inclusive
+    })
     
     return result
 

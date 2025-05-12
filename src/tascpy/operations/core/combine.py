@@ -16,24 +16,31 @@ def switch_by_step(
     collection: ColumnCollection,
     column1: str,
     column2: str,
-    step_threshold: Union[int, float],
-    compare_mode: str = "index",
+    threshold: Union[int, float],
+    compare_mode: str = "value",  # "value" と "index" を意味的に反転
+    by_step_value: bool = True,  # 追加：ステップ値を使うかインデックスを使うか
     result_column: Optional[str] = None,
     in_place: bool = False,
+    tolerance: Optional[float] = None,  # 追加：ステップ値検索の許容範囲
 ) -> ColumnCollection:
     """ステップ値を基準に2つのColumnを切り替える
 
-    指定されたステップ値を境界として、それより前はcolumn1、それ以降はcolumn2の値を使用した
-    新しいColumnを生成します。
+    指定されたステップ値またはインデックスを境界として、それより前はcolumn1、
+    それ以降はcolumn2の値を使用した新しいColumnを生成します。
 
     Args:
         collection: ColumnCollectionオブジェクト
         column1: 閾値より前（または以下）の値を取得する列名
         column2: 閾値より後（または以上）の値を取得する列名
-        step_threshold: 切り替え基準となるステップ値（または指標値）
-        compare_mode: 比較モード ("index": インデックス位置, "value": ステップの値)
+        threshold: 切り替え基準となる値
+            by_step_value=True かつ compare_mode="value" の場合：ステップ値
+            by_step_value=True かつ compare_mode="index" の場合：ステップ値でインデックスを検索
+            by_step_value=False の場合：インデックス値
+        compare_mode: 比較モード ("value": ステップの値, "index": インデックス位置)
+        by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
         result_column: 結果を格納する列名（デフォルトはNone、自動生成）
         in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+        tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
 
     Returns:
         ColumnCollection: 切り替え結果の列を含むColumnCollection
@@ -63,15 +70,46 @@ def switch_by_step(
 
     # 結果の列名を決定
     if result_column is None:
-        result_column = f"switch({column1},{column2}@{step_threshold})"
+        mode_str = "step" if by_step_value else "index"
+        result_column = f"switch({column1},{column2}@{threshold}_{mode_str})"
 
     # 新しい値の生成
     new_values = []
 
-    for i, step_val in enumerate(steps):
-        comparison_value = i if compare_mode == "index" else step_val
+    # しきい値の処理
+    threshold_idx = threshold
+    if by_step_value and compare_mode == "index":
+        # ステップ値からインデックスに変換
+        threshold_idx = collection.step.find_step_index(
+            threshold, tolerance=tolerance, default=len(collection) // 2
+        )
+        if threshold_idx is None:
+            # 見つからない場合はデフォルト値（中間点）を使用
+            threshold_idx = len(collection) // 2
+            # 警告メッセージをメタデータに追加
+            if "warnings" not in result.metadata:
+                result.metadata["warnings"] = []
+            result.metadata["warnings"].append(
+                f"ステップ値 {threshold} が見つかりませんでした。インデックス {threshold_idx} を使用します。"
+            )
 
-        if comparison_value < step_threshold:
+    for i, step_val in enumerate(steps):
+        if compare_mode == "value":
+            # ステップ値による比較
+            if by_step_value:
+                # ステップ値を直接比較
+                comparison_value = step_val
+                use_column1 = comparison_value < threshold
+            else:
+                # インデックス値で比較
+                comparison_value = i
+                use_column1 = comparison_value < threshold
+        else:  # compare_mode == "index"
+            # インデックス位置による比較
+            use_column1 = i < threshold_idx
+
+        # 値の選択
+        if use_column1:
             new_values.append(values1[i])
         else:
             new_values.append(values2[i])
@@ -84,6 +122,14 @@ def switch_by_step(
     column = detect_column_type(None, result_column, unit, new_values)
     result.add_column(result_column, column)
 
+    # メタデータを更新
+    result.metadata.update({
+        "operation": "switch_by_step",
+        "by_step_value": by_step_value,
+        "compare_mode": compare_mode,
+        "threshold": threshold
+    })
+
     return result
 
 
@@ -92,29 +138,39 @@ def blend_by_step(
     collection: ColumnCollection,
     column1: str,
     column2: str,
-    step_start: Union[int, float],
-    step_end: Union[int, float],
-    compare_mode: str = "index",
+    start: Union[int, float],
+    end: Union[int, float],
+    compare_mode: str = "value",  # "value" と "index" を意味的に反転
+    by_step_value: bool = True,  # 追加：ステップ値を使うかインデックスを使うか
     blend_method: str = "linear",
     result_column: Optional[str] = None,
     in_place: bool = False,
+    tolerance: Optional[float] = None,  # 追加：ステップ値検索の許容範囲
 ) -> ColumnCollection:
     """ステップ値の範囲内で2つのColumnをブレンドする
 
-    指定された開始ステップから終了ステップまでの間で、column1からcolumn2へ徐々に
-    ブレンドした新しいColumnを生成します。開始ステップより前はcolumn1、終了ステップより後は
+    指定された開始点から終了点までの間で、column1からcolumn2へ徐々に
+    ブレンドした新しいColumnを生成します。開始点より前はcolumn1、終了点より後は
     column2の値のみを使用します。
 
     Args:
         collection: ColumnCollectionオブジェクト
         column1: ブレンド開始時（または範囲外の低い方）の値を取得する列名
         column2: ブレンド終了時（または範囲外の高い方）の値を取得する列名
-        step_start: ブレンド開始ステップ値（または指標値）
-        step_end: ブレンド終了ステップ値（または指標値）
-        compare_mode: 比較モード ("index": インデックス位置, "value": ステップの値)
+        start: ブレンド開始点
+            by_step_value=True かつ compare_mode="value" の場合：ステップ値
+            by_step_value=True かつ compare_mode="index" の場合：ステップ値でインデックスを検索
+            by_step_value=False の場合：インデックス値
+        end: ブレンド終了点
+            by_step_value=True かつ compare_mode="value" の場合：ステップ値
+            by_step_value=True かつ compare_mode="index" の場合：ステップ値でインデックスを検索
+            by_step_value=False の場合：インデックス値
+        compare_mode: 比較モード ("value": ステップの値, "index": インデックス位置)
+        by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
         blend_method: ブレンド方法 ("linear", "smooth", "log", "exp")
         result_column: 結果を格納する列名（デフォルトはNone、自動生成）
         in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+        tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
 
     Returns:
         ColumnCollection: ブレンド結果の列を含むColumnCollection
@@ -139,18 +195,13 @@ def blend_by_step(
     if len(values1) != len(values2):
         raise ValueError(f"列の長さが一致しません: {len(values1)} vs {len(values2)}")
 
-    # ステップ範囲のバリデーション
-    if step_end <= step_start:
-        raise ValueError(
-            f"終了ステップ({step_end})は開始ステップ({step_start})より大きくなければなりません"
-        )
-
     # ステップの取得
     steps = collection.step.values
 
     # 結果の列名を決定
     if result_column is None:
-        result_column = f"blend({column1},{column2},{step_start}-{step_end})"
+        mode_str = "step" if by_step_value else "index"
+        result_column = f"blend({column1},{column2},{start}-{end}_{mode_str})"
 
     # ブレンド関数の選択
     blend_functions = {
@@ -169,27 +220,98 @@ def blend_by_step(
 
     blend_func = blend_functions[blend_method]
 
+    # ステップ値/インデックスの変換処理
+    start_idx = start
+    end_idx = end
+
+    # 初期値チェック
+    if compare_mode == "value" and by_step_value:
+        # ステップ値の範囲チェック
+        if end <= start:
+            raise ValueError(
+                f"終了値({end})は開始値({start})より大きくなければなりません"
+            )
+    elif compare_mode == "index" and by_step_value:
+        # ステップ値からインデックスに変換
+        start_idx = collection.step.find_step_index(start, tolerance=tolerance, default=None)
+        end_idx = collection.step.find_step_index(end, tolerance=tolerance, default=None)
+        
+        # 見つからない場合はデフォルト値を使用
+        if start_idx is None:
+            start_idx = 0
+            # 警告メッセージをメタデータに追加
+            if "warnings" not in result.metadata:
+                result.metadata["warnings"] = []
+            result.metadata["warnings"].append(
+                f"ステップ値 {start} が見つかりませんでした。インデックス {start_idx} を使用します。"
+            )
+        
+        if end_idx is None:
+            end_idx = len(collection) - 1
+            # 警告メッセージをメタデータに追加
+            if "warnings" not in result.metadata:
+                result.metadata["warnings"] = []
+            result.metadata["warnings"].append(
+                f"ステップ値 {end} が見つかりませんでした。インデックス {end_idx} を使用します。"
+            )
+        
+        # インデックス範囲のチェック
+        if end_idx <= start_idx:
+            raise ValueError(
+                f"終了インデックス({end_idx})は開始インデックス({start_idx})より大きくなければなりません"
+            )
+    else:  # インデックス直接指定の場合
+        if end <= start:
+            raise ValueError(
+                f"終了インデックス({end})は開始インデックス({start})より大きくなければなりません"
+            )
+
     # 新しい値の生成
     new_values = []
 
     for i, step_val in enumerate(steps):
-        comparison_value = i if compare_mode == "index" else step_val
-
-        if comparison_value < step_start:
-            # 開始ステップより前は最初の列の値を使用
-            new_values.append(values1[i])
-        elif comparison_value > step_end:
-            # 終了ステップより後は2番目の列の値を使用
-            new_values.append(values2[i])
-        else:
-            # ブレンド範囲内では徐々に切り替え
-            t = (comparison_value - step_start) / (step_end - step_start)
-            t_transformed = blend_func(t)
-            # テストケースに合わせて、t=0でcol1（Aの値）、t=1でcol2（Bの値）になるように
-            blended_value = (
-                values1[i] * (1 - t_transformed) + values2[i] * t_transformed
-            )
-            new_values.append(blended_value)
+        # 比較する値を決定
+        if compare_mode == "value":
+            if by_step_value:
+                # ステップ値を直接比較
+                comparison_value = step_val
+                
+                if comparison_value < start:
+                    # 開始ステップ値より前は最初の列の値
+                    new_values.append(values1[i])
+                elif comparison_value > end:
+                    # 終了ステップ値より後は2番目の列の値
+                    new_values.append(values2[i])
+                else:
+                    # ブレンド範囲内では徐々に切り替え
+                    t = (comparison_value - start) / (end - start)
+                    t_transformed = blend_func(t)
+                    blended_value = values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                    new_values.append(blended_value)
+            else:
+                # インデックス値を直接比較
+                comparison_value = i
+                
+                if comparison_value < start:
+                    new_values.append(values1[i])
+                elif comparison_value > end:
+                    new_values.append(values2[i])
+                else:
+                    t = (comparison_value - start) / (end - start)
+                    t_transformed = blend_func(t)
+                    blended_value = values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                    new_values.append(blended_value)
+        else:  # compare_mode == "index"
+            # インデックスでの比較
+            if i < start_idx:
+                new_values.append(values1[i])
+            elif i > end_idx:
+                new_values.append(values2[i])
+            else:
+                t = (i - start_idx) / (end_idx - start_idx)
+                t_transformed = blend_func(t)
+                blended_value = values1[i] * (1 - t_transformed) + values2[i] * t_transformed
+                new_values.append(blended_value)
 
     # 新しい列を追加
     # 元の列の単位を継承
@@ -198,6 +320,16 @@ def blend_by_step(
     # detect_column_typeを正しく呼び出す
     column = detect_column_type(None, result_column, unit, new_values)
     result.add_column(result_column, column)
+
+    # メタデータを更新
+    result.metadata.update({
+        "operation": "blend_by_step",
+        "by_step_value": by_step_value,
+        "compare_mode": compare_mode,
+        "start": start,
+        "end": end,
+        "blend_method": blend_method
+    })
 
     return result
 

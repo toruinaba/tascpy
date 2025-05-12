@@ -6,7 +6,7 @@ select は列名および行インデックスのリストのどちらかもし�
 select_step は行インデックスではなくstep番号のリストを受け取って抜き出す操作。
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 
 from tascpy.core.collection import ColumnCollection
 from ..registry import operation
@@ -81,35 +81,52 @@ def select(
 @operation(domain="core")
 def select_step(
     collection: ColumnCollection,
-    steps: List[float],
+    steps: List[Union[int, float]],
     columns: Optional[List[str]] = None,
+    by_step_value: bool = True,  # 追加：ステップ値を使うかインデックスを使うか
+    tolerance: Optional[float] = None,  # 追加：ステップ値検索の許容範囲
 ) -> ColumnCollection:
     """指定した列名とステップ番号に基づいてデータを抽出する
 
     Args:
         collection: 元のColumnCollection
-        steps: 抽出するステップ番号のリスト
+        steps: 抽出するステップ番号のリスト（by_step_value=Trueの場合）または
+               インデックスのリスト（by_step_value=Falseの場合）
         columns: 抽出する列名のリスト。Noneの場合は全列が対象
+        by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
+        tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
 
     Returns:
         選択されたデータを含む新しいColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合
+        IndexError: 指定されたインデックスが範囲外の場合
     """
-    # ステップ番号からインデックスに変換
+    # インデックスリストを初期化
     indices = []
     found_steps = []
     missing_steps = []
 
-    for step in steps:
-        try:
-            idx = collection.step.values.index(step)
-            indices.append(idx)
-            found_steps.append(step)
-        except ValueError:
-            # 存在しないステップは無視して記録
-            missing_steps.append(step)
+    if by_step_value:
+        # ステップ値からインデックスに変換
+        for step in steps:
+            idx = collection.step.find_step_index(step, tolerance=tolerance, default=None)
+            if idx is not None:
+                indices.append(idx)
+                found_steps.append(collection.step.values[idx])  # 実際に見つかったステップ値を記録
+            else:
+                # 存在しないステップは無視して記録
+                missing_steps.append(step)
+    else:
+        # 直接インデックスとして使用
+        for idx in steps:
+            if 0 <= idx < len(collection):
+                indices.append(idx)
+                found_steps.append(collection.step.values[idx])
+            else:
+                # 範囲外のインデックスは無視して記録
+                missing_steps.append(idx)
 
     # 選択するステップがない場合は空のコレクションを返す
     if not indices:
@@ -146,6 +163,7 @@ def select_step(
                 "source_columns": list(collection.columns.keys()),
                 "selected_steps": found_steps,
                 "missing_steps": missing_steps,
+                "by_step_value": by_step_value,
             }
         )
 
@@ -160,6 +178,7 @@ def select_step(
             "operation": "select_step",
             "selected_steps": found_steps,
             "missing_steps": missing_steps,
+            "by_step_value": by_step_value,
         }
     )
 
