@@ -21,20 +21,26 @@ def interpolate_at_point(
     power: float = 2.0,
     result_prefix: str = "interp_",
 ) -> CoordinateCollection:
-    """座標点での値を補間して計算する
+    """座標点での値を補間して計算します
+
+    指定された座標点 (x, y, z) において、既存の座標値に基づいて値を補間します。
+    補間方法として逆距離加重法、最近傍法、線形補間法を選択できます。
 
     Args:
         collection: 座標コレクション
-        x: 補間するX座標
-        y: 補間するY座標
-        z: 補間するZ座標 (2Dの場合はNone)
-        target_columns: 補間対象の列名リスト (Noneの場合は座標を持つ全列)
+        x: 補間する X 座標
+        y: 補間する Y 座標
+        z: 補間する Z 座標 (2D の場合は None)
+        target_columns: 補間対象の列名リスト (None の場合は座標を持つ全列)
         method: 補間方法 ("inverse_distance", "nearest", "linear")
         power: 逆距離加重法のパワーパラメータ
         result_prefix: 結果列の接頭辞
 
     Returns:
         CoordinateCollection: 補間結果を含むコレクション
+
+    Raises:
+        ValueError: 補間に使用できる座標付き列がない場合
     """
     result = collection.clone()
 
@@ -129,20 +135,26 @@ def interpolate_grid(
     power: float = 2.0,
     result_prefix: str = "grid_",
 ) -> CoordinateCollection:
-    """指定した領域のグリッド上で値を補間する
+    """指定した領域のグリッド上で値を補間します
+
+    指定された x-y 平面上の矩形領域をグリッドに分割し、各グリッド点での値を補間します。
+    補間結果はメタデータと結果列に保存されます。
 
     Args:
         collection: 座標コレクション
-        x_range: X座標の範囲 (min, max)
-        y_range: Y座標の範囲 (min, max)
+        x_range: X 座標の範囲 (min, max)
+        y_range: Y 座標の範囲 (min, max)
         grid_size: グリッドサイズ (nx, ny)
         target_column: 補間対象の列名
-        method: 補間方法
+        method: 補間方法 ("inverse_distance", "nearest", "linear")
         power: 逆距離加重法のパワーパラメータ
         result_prefix: 結果列の接頭辞
 
     Returns:
         CoordinateCollection: グリッド補間結果を含むコレクション
+
+    Raises:
+        ValueError: 有効な座標情報がない場合、または指定した列が存在しない場合
     """
     result = collection.clone()
 
@@ -249,18 +261,24 @@ def spatial_interpolation_to_points(
     power: float = 2.0,
     result_prefix: str = "interp_",
 ) -> CoordinateCollection:
-    """ソース列からターゲット列の座標位置に値を補間する
+    """ソース列からターゲット列の座標位置に値を補間します
+
+    指定されたソース列の座標位置の値を使用して、ターゲット列の座標位置における
+    値を補間します。複数のソースからの補間値の平均が計算されます。
 
     Args:
         collection: 座標コレクション
-        source_columns: 補間ソースとなる列名リスト（Noneの場合は座標を持つ全列）
+        source_columns: 補間ソースとなる列名リスト（None の場合は座標を持つ全列）
         target_columns: 補間先の座標を持つ列名リスト
-        method: 補間方法
+        method: 補間方法 ("inverse_distance", "nearest", "linear")
         power: 逆距離加重法のパワーパラメータ
         result_prefix: 結果列の接頭辞
 
     Returns:
         CoordinateCollection: 補間結果を含むコレクション
+
+    Raises:
+        ValueError: 補間元または補間先の座標付き列がない場合
     """
     result = collection.clone()
 
@@ -369,7 +387,10 @@ def spatial_interpolation_to_points(
 def _inverse_distance_weighting(
     point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
 ) -> float:
-    """逆距離加重法による補間
+    """逆距離加重法による補間を行います
+
+    点からの距離の逆数にべき乗をかけることで重み付けを行い、補間値を計算します。
+    距離が近いほど大きな影響を与える補間方法です。
 
     Args:
         point_data: 点のデータ（point, value, col_name）
@@ -406,12 +427,15 @@ def _inverse_distance_weighting(
 def _nearest_neighbor(
     point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
 ) -> float:
-    """最近傍法による補間
+    """最近傍法による補間を行います
+
+    補間位置から最も近い点の値をそのまま使用する単純な補間方法です。
+    パラメータ power は使用しませんが、インターフェースの統一のために受け取ります。
 
     Args:
         point_data: 点のデータ（point, value, col_name）
         x, y, z: 補間する座標位置
-        power: 使用しないが、インターフェースの統一のため受け取る
+        power: 使用しないパラメータ（インターフェース統一のため）
 
     Returns:
         float: 補間値
@@ -437,15 +461,16 @@ def _nearest_neighbor(
 def _linear_interpolation(
     point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
 ) -> float:
-    """線形補間（実装簡略化のため、逆距離加重法と同様の実装）
+    """線形補間を行います（実装は簡略化されています）
 
-    実際の線形補間は複数の点が必要なため、これは簡略化した実装です。
-    本来は三角形分割などを用いた多点での線形補間が必要です。
+    本来の線形補間は複数の点が必要ですが、この実装では簡略化のため
+    逆距離加重法（power=1.0）を使用しています。理想的には三角形分割などを
+    用いた多点での線形補間が必要です。
 
     Args:
         point_data: 点のデータ（point, value, col_name）
         x, y, z: 補間する座標位置
-        power: 使用しないが、インターフェースの統一のため受け取る
+        power: 使用しないパラメータ（インターフェース統一のため）
 
     Returns:
         float: 補間値

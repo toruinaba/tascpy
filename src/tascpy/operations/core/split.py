@@ -8,25 +8,28 @@ from ..registry import operation
 def split_by_integers(
     collection: ColumnCollection, markers: List[int]
 ) -> List[ColumnCollection]:
-    """
-    整数リストの値でデータを分割します。同じマーカー値を持つデータは同じグループに集約されます。
+    """整数リストの値でデータを分割します
+
+    同じマーカー値を持つデータは同じグループに集約されます。
+    マーカー値の種類に応じて複数のコレクションを生成します。
 
     Args:
-        collection: 分割するColumnCollectionオブジェクト
+        collection: 分割する ColumnCollection オブジェクト
         markers: 各データ値がどのグループに属するかを示す整数リスト（データと同じ長さ）
 
     Returns:
-        分割後のColumnCollectionオブジェクトのリスト。各ColumnCollectionは同じマーカー値を持つ
-        データで構成され、マーカー値に基づいて昇順に並べられます。
+        List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト。
+        各 ColumnCollection は同じマーカー値を持つデータで構成され、
+        マーカー値に基づいて昇順に並べられます。
 
     Raises:
         ValueError: データとマーカーの長さが一致しない場合
 
     Examples:
-        # データ値を3つのグループに分類
+        # データ値を 3 つのグループに分類
         markers = [2, 1, 2, 3, 1, 3]  # マーカー値が示す分類グループ
         collection_groups = split_by_integers(collection, markers)
-        # 結果: [グループ1のCollection, グループ2のCollection, グループ3のCollection]
+        # 結果: [グループ 1 の Collection, グループ 2 の Collection, グループ 3 の Collection]
     """
     from ...utils.split import split_list_by_integers
 

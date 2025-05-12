@@ -19,10 +19,13 @@ from .registry import OperationRegistry
 
 
 def get_return_type_annotation(func: Callable) -> str:
-    """関数の戻り値の型アノテーションを取得する
+    """関数の戻り値の型アノテーションを取得します
+
+    get_type_hints を使って関数の戻り値の型情報を取得し、
+    適切な文字列表現に変換します。
 
     Args:
-        func: 対象の関数
+        func: 型情報を取得する対象の関数
 
     Returns:
         str: 型アノテーションの文字列表現
@@ -39,10 +42,13 @@ def get_return_type_annotation(func: Callable) -> str:
 
 
 def format_annotation(annotation: Any) -> str:
-    """型アノテーションを適切な文字列形式に変換
+    """型アノテーションを適切な文字列形式に変換します
+
+    複合型や特殊な型アノテーションを適切な文字列表現に変換します。
+    Union, Optional, List などの typing モジュールの型に対応しています。
 
     Args:
-        annotation: 型アノテーション
+        annotation: 変換する型アノテーション
 
     Returns:
         str: 文字列に変換した型アノテーション
@@ -130,13 +136,17 @@ def format_annotation(annotation: Any) -> str:
 def generate_operation_stub(
     func: Callable, domain: str, output_file: Path, class_name: str
 ) -> None:
-    """操作関数からスタブメソッドを生成しファイルに書き込む
+    """操作関数からスタブメソッドを生成しファイルに書き込みます
+
+    指定された関数を解析し、メソッドチェーン用のスタブメソッドを生成して
+    指定されたファイルに追記します。関数の引数、型ヒント、docstring を
+    解析してスタブ情報を作成します。
 
     Args:
-        func: 操作関数
-        domain: ドメイン名
-        output_file: 出力先ファイルパス
-        class_name: スタブクラス名
+        func: スタブを生成する操作関数
+        domain: 操作のドメイン名
+        output_file: スタブを書き込む出力先ファイルパス
+        class_name: 生成するスタブクラス名
     """
     sig = inspect.signature(func)
     doc = inspect.getdoc(func) or ""
@@ -199,7 +209,12 @@ def generate_operation_stub(
 
 
 def generate_stubs() -> None:
-    """全てのドメインとそれらの操作メソッドのスタブを生成"""
+    """全てのドメインとそれらの操作メソッドのスタブを生成します
+
+    各ドメインの操作関数を解析し、VS Code の Pylance などの静的型チェッカーで
+    自動補完と型チェックが機能するためのスタブファイルを生成します。
+    生成されたスタブは operations/stubs ディレクトリに保存されます。
+    """
     logging.info("スタブファイルの生成を開始します...")
 
     # スタブディレクトリを作成

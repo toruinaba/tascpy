@@ -18,19 +18,25 @@ def moving_average(
     edge_handling: str = "asymmetric",
     in_place: bool = False,
 ) -> ColumnCollection:
-    """
-    指定した列に対して移動平均を計算します。
+    """指定した列に対して移動平均を計算します
+
+    指定された列の各値に対して、周辺値を使用した平均値を算出します。
+    エッジ処理方法を選択することで、端部の計算方法を調整できます。
 
     Args:
-        collection: 処理対象のColumnCollection
+        collection: 処理対象の ColumnCollection
         column: 処理対象の列名
         window_size: 移動平均のウィンドウサイズ（奇数推奨）
-        result_column: 結果を格納する列名（指定がない場合は自動生成）
-        edge_handling: エッジ処理方法 ("symmetric", "asymmetric")
+        result_column: 結果を格納する列名（None の場合は自動生成）
+        edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
         in_place: True の場合、結果を元の列に上書き
 
     Returns:
         ColumnCollection: 移動平均が計算された列を含むコレクション
+
+    Raises:
+        KeyError: 指定された列が存在しない場合
+        ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合
     """
     if column not in collection.columns:
         raise KeyError(f"列 '{column}' が存在しません")
@@ -110,21 +116,27 @@ def detect_outliers(
     scale_factor: float = 1.0,
     result_column: Optional[str] = None,
 ) -> ColumnCollection:
-    """
-    移動平均との差分比率を用いた異常値検出を行います。
+    """移動平均との差分比率を用いた異常値検出を行います
+
+    データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
+    検出結果は新しい列に 0（正常）または 1（異常）のフラグとして格納されます。
 
     Args:
-        collection: 処理対象のColumnCollection
+        collection: 処理対象の ColumnCollection
         column: 処理対象の列名
         window_size: 移動平均のウィンドウサイズ（奇数推奨）
         threshold: 異常値とみなす移動平均との差分比率の閾値
-        edge_handling: エッジ処理方法 ("symmetric", "asymmetric")
+        edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
         min_abs_value: 比率計算時の最小絶対値
         scale_factor: スケール調整係数
-        result_column: 結果を格納する列名（指定がない場合は自動生成）
+        result_column: 結果を格納する列名（None の場合は自動生成）
 
     Returns:
         ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）
+
+    Raises:
+        KeyError: 指定された列が存在しない場合
+        ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合
     """
     if column not in collection.columns:
         raise KeyError(f"列 '{column}' が存在しません")

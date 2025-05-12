@@ -14,7 +14,10 @@ from ...core.column import Column
 def calculate_distance(
     collection: CoordinateCollection, column1: str, column2: str
 ) -> float:
-    """2つの列の座標間の距離を計算する
+    """2つの列の座標間の距離を計算します
+
+    指定された2つの列の座標位置間のユークリッド距離を計算します。
+    2次元または3次元座標に対応しています。
 
     Args:
         collection: 座標コレクション
@@ -23,6 +26,9 @@ def calculate_distance(
 
     Returns:
         float: 2点間のユークリッド距離
+
+    Raises:
+        ValueError: 座標情報がない場合
     """
     return collection.calculate_distance(column1, column2)
 
@@ -33,15 +39,21 @@ def calculate_distance_matrix(
     columns: Optional[List[str]] = None,
     result_column_prefix: str = "distance_",
 ) -> CoordinateCollection:
-    """選択した列の間の距離行列を計算し、結果列を追加する
+    """選択した列の間の距離行列を計算し、結果列を追加します
+
+    指定された列間の全ての組み合わせについて距離を計算し、距離行列を作成します。
+    計算結果はメタデータに保存され、列ペア間の距離も個別の列として追加されます。
 
     Args:
         collection: 座標コレクション
-        columns: 計算対象の列名リスト（Noneの場合は座標を持つ全列）
+        columns: 計算対象の列名リスト（None の場合は座標を持つ全列）
         result_column_prefix: 結果列の接頭辞
 
     Returns:
         CoordinateCollection: 距離行列を含むコレクション
+
+    Raises:
+        ValueError: 列が2つ未満の場合
     """
     result = collection.clone()
 
@@ -102,16 +114,22 @@ def find_nearest_neighbors(
     n_neighbors: int = 3,
     result_column: Optional[str] = None,
 ) -> CoordinateCollection:
-    """指定した列に最も近い座標を持つ近傍列を探す
+    """指定した列に最も近い座標を持つ近傍列を探します
+
+    指定された列を基準として、座標空間上で最も近い n 個の列を探索します。
+    結果はメタデータに保存され、近傍情報も新しい列として追加されます。
 
     Args:
         collection: 座標コレクション
         column: 基準となる列名
         n_neighbors: 取得する近傍の数
-        result_column: 結果列名（Noneの場合、自動生成）
+        result_column: 結果列名（None の場合、自動生成）
 
     Returns:
         CoordinateCollection: 近傍情報を含むコレクション
+
+    Raises:
+        ValueError: 指定された列が存在しない場合、または座標情報がない場合
     """
     result = collection.clone()
 
@@ -191,17 +209,23 @@ def spatial_clustering(
     result_column: str = "cluster",
     algorithm: str = "kmeans",
 ) -> CoordinateCollection:
-    """座標情報に基づいてクラスタリングを行う
+    """座標情報に基づいてクラスタリングを行います
+
+    列の座標位置に基づいて、類似した位置にある列をグループ化します。
+    クラスタリング結果はメタデータに保存され、各列のクラスタ情報も追加されます。
 
     Args:
         collection: 座標コレクション
         n_clusters: クラスタ数
-        columns: クラスタリング対象の列名リスト（Noneの場合は座標を持つ全列）
+        columns: クラスタリング対象の列名リスト（None の場合は座標を持つ全列）
         result_column: 結果列名
         algorithm: クラスタリングアルゴリズム（"kmeans", "hierarchical"）
 
     Returns:
         CoordinateCollection: クラスタリング結果を含むコレクション
+
+    Raises:
+        ValueError: クラスタ数が列数より多い場合、または有効な座標データがない場合
     """
     result = collection.clone()
 

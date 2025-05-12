@@ -13,7 +13,9 @@ from ...domains.coordinate import CoordinateCollection
 def get_column_coordinates(
     collection: CoordinateCollection, column: str
 ) -> Dict[str, Optional[float]]:
-    """列の座標情報を取得する
+    """列の座標情報を取得します
+
+    指定された列に設定されている座標情報（x, y, z）を取得します。
 
     Args:
         collection: 座標コレクション
@@ -34,14 +36,17 @@ def set_column_coordinates(
     y: Optional[float] = None,
     z: Optional[float] = None,
 ) -> CoordinateCollection:
-    """指定した列の座標値を設定する
+    """指定した列の座標値を設定します
+
+    列に対して x、y、z の各座標値を設定します。
+    設定しない座標はそのままの値が維持されます。
 
     Args:
         collection: 座標コレクション
         column: 列名
-        x: X座標
-        y: Y座標
-        z: Z座標
+        x: X 座標
+        y: Y 座標
+        z: Z 座標
 
     Returns:
         CoordinateCollection: 更新されたコレクション
@@ -53,7 +58,9 @@ def set_column_coordinates(
 
 @operation(domain="coordinate")
 def get_columns_with_coordinates(collection: CoordinateCollection) -> List[str]:
-    """座標情報が設定されている列のリストを取得する
+    """座標情報が設定されている列のリストを取得します
+
+    コレクション内で座標情報が設定されている全ての列名のリストを返します。
 
     Args:
         collection: 座標コレクション
@@ -68,7 +75,10 @@ def get_columns_with_coordinates(collection: CoordinateCollection) -> List[str]:
 def extract_coordinates(
     collection: CoordinateCollection, result_prefix: str = "coord_"
 ) -> CoordinateCollection:
-    """各列の座標値を新しい列としてコレクションに追加する
+    """各列の座標値を新しい列としてコレクションに追加します
+
+    座標情報が設定されている列の x、y、z 座標値を取得し、それぞれを独立した列として
+    コレクションに追加します。新しい列名には指定された接頭辞が付与されます。
 
     Args:
         collection: 座標コレクション

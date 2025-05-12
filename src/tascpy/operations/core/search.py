@@ -9,14 +9,22 @@ from ..registry import operation
 def search_by_value(
     collection: ColumnCollection, column_name: str, op_str: str, value: Any
 ) -> ColumnCollection:
-    """値による検索
+    """値による検索を行います
+
+    指定された列の値に対して比較演算子を適用し、条件に一致する行を抽出します。
+
     Args:
         collection: 対象コレクション
         column_name: 列名
         op_str: 演算子文字列 (">", "<", ">=", "<=", "==", "!=")
         value: 比較する値
+
     Returns:
         ColumnCollection: フィルタリングされたコレクション
+
+    Raises:
+        ValueError: 無効な演算子が指定された場合
+        KeyError: 指定された列が存在しない場合
     """
     # 演算子マッピング
     ops = {
@@ -67,15 +75,23 @@ def search_by_range(
     max_value: Any,
     inclusive: bool = True,
 ) -> ColumnCollection:
-    """範囲による検索
+    """範囲による検索を行います
+
+    指定された列の値が特定の範囲内にある行を抽出します。
+    境界値を含めるかどうかを選択できます。
+
     Args:
         collection: 対象コレクション
         column_name: 列名
         min_value: 最小値
         max_value: 最大値
-        inclusive: 境界値を含むかどうか
+        inclusive: 境界値を含むかどうか（True の場合は境界値を含む）
+
     Returns:
         ColumnCollection: フィルタリングされたコレクション
+
+    Raises:
+        KeyError: 指定された列が存在しない場合
     """
     # 指定された列が存在するか確認
     if column_name not in collection.columns:
@@ -113,18 +129,21 @@ def search_by_step_range(
     min: Union[int, float],
     max: Union[int, float],
     inclusive: bool = True,
-    by_step_value: bool = True,  # 追加：ステップ値を使うかインデックスを使うか
-    tolerance: Optional[float] = None,  # 追加：ステップ値検索の許容範囲
+    by_step_value: bool = True,
+    tolerance: Optional[float] = None,
 ) -> ColumnCollection:
-    """ステップ範囲による検索
+    """ステップ範囲による検索を行います
+
+    指定されたステップ範囲またはインデックス範囲に該当する行を抽出します。
+    ステップ値での検索とインデックスでの検索を選択できます。
 
     Args:
         collection: 対象コレクション
-        min: 最小ステップ値（by_step_value=Trueの場合）または最小インデックス（by_step_value=Falseの場合）
-        max: 最大ステップ値（by_step_value=Trueの場合）または最大インデックス（by_step_value=Falseの場合）
-        inclusive: 境界値を含むかどうか
-        by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
-        tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+        min: 最小ステップ値（by_step_value=True の場合）または最小インデックス（by_step_value=False の場合）
+        max: 最大ステップ値（by_step_value=True の場合）または最大インデックス（by_step_value=False の場合）
+        inclusive: 境界値を含むかどうか（True の場合は境界値を含む）
+        by_step_value: True の場合はステップ値として解釈、False の場合はインデックスとして解釈
+        tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
 
     Returns:
         ColumnCollection: フィルタリングされたコレクション
@@ -176,10 +195,15 @@ def search_by_step_range(
 def search_by_condition(
     collection: ColumnCollection, condition_func: Callable[[Dict[str, Any]], bool]
 ) -> ColumnCollection:
-    """条件関数による検索
+    """条件関数による検索を行います
+
+    各行のデータを辞書形式で条件関数に渡し、結果が True となる行だけを抽出します。
+    任意の複雑な条件を柔軟に適用することができます。
+
     Args:
         collection: 対象コレクション
-        condition_func: 各行データを受け取り、真偽値を返す関数
+        condition_func: 各行データを受け取り、真偽値を返す関数。引数は {列名: 値} の辞書形式
+
     Returns:
         ColumnCollection: フィルタリングされたコレクション
     """
@@ -210,12 +234,20 @@ def search_by_condition(
 def search_missing_values(
     collection: ColumnCollection, columns: Optional[List[str]] = None
 ) -> ColumnCollection:
-    """欠損値がある行を検索
+    """欠損値がある行を検索します
+
+    指定された列に欠損値（None）を含む行だけを抽出します。
+    データのクリーニングや欠損値の分析に役立ちます。
+
     Args:
         collection: 対象コレクション
-        columns: 検査対象の列名リスト（Noneの場合は全列）
+        columns: 検査対象の列名リスト（None の場合は全列）
+
     Returns:
         ColumnCollection: 欠損値を持つ行だけのコレクション
+
+    Raises:
+        KeyError: 指定された列が存在しない場合
     """
     # 検査対象の列を決定
     target_columns = columns if columns is not None else list(collection.columns.keys())
@@ -254,14 +286,22 @@ def search_missing_values(
 def search_top_n(
     collection: ColumnCollection, column_name: str, n: int, descending: bool = True
 ) -> ColumnCollection:
-    """指定した列の上位N件を検索
+    """指定した列の上位 N 件を検索します
+
+    指定した列の値に基づいて、上位（または下位）N 件のデータを抽出します。
+    ソート順序を指定することで、最大値または最小値の上位を取得できます。
+
     Args:
         collection: 対象コレクション
-        column_name: 列名
-        n: 上位件数
-        descending: 降順ソート（True）または昇順ソート（False）
+        column_name: 値の基準となる列名
+        n: 抽出する件数
+        descending: True の場合は降順ソート（大きい順）、False の場合は昇順ソート（小さい順）
+
     Returns:
         ColumnCollection: フィルタリングされたコレクション
+
+    Raises:
+        KeyError: 指定された列が存在しない場合
     """
     # 列が存在するか確認
     if column_name not in collection.columns:

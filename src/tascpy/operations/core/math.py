@@ -15,17 +15,19 @@ def add(
     result_column: Optional[str] = None,
     in_place: bool = False,
 ) -> ColumnCollection:
-    """列または定数を加算
+    """列または定数を加算します
+
+    指定された列に対して、別の列または定数値を加算し、結果を新しい列として格納します。
 
     Args:
-        collection: ColumnCollectionオブジェクト
+        collection: ColumnCollection オブジェクト
         column1: 加算元の列名
         column2_or_value: 加算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-        in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+        result_column: 結果を格納する列名（デフォルトは None、自動生成）
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
     Returns:
-        ColumnCollection: 演算結果の列を含むColumnCollection
+        ColumnCollection: 演算結果の列を含む ColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合
@@ -101,17 +103,19 @@ def subtract(
     result_column: Optional[str] = None,
     in_place: bool = False,
 ) -> ColumnCollection:
-    """列または定数を減算
+    """列または定数を減算します
+
+    指定された列から別の列または定数値を減算し、結果を新しい列として格納します。
 
     Args:
-        collection: ColumnCollectionオブジェクト
+        collection: ColumnCollection オブジェクト
         column1: 減算元の列名
         column2_or_value: 減算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-        in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+        result_column: 結果を格納する列名（デフォルトは None、自動生成）
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
     Returns:
-        ColumnCollection: 演算結果の列を含むColumnCollection
+        ColumnCollection: 演算結果の列を含む ColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合
@@ -185,17 +189,19 @@ def multiply(
     result_column: Optional[str] = None,
     in_place: bool = False,
 ) -> ColumnCollection:
-    """列または定数を乗算
+    """列または定数を乗算します
+
+    指定された列に対して、別の列または定数値を乗算し、結果を新しい列として格納します。
 
     Args:
-        collection: ColumnCollectionオブジェクト
+        collection: ColumnCollection オブジェクト
         column1: 乗算元の列名
         column2_or_value: 乗算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-        in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+        result_column: 結果を格納する列名（デフォルトは None、自動生成）
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
     Returns:
-        ColumnCollection: 演算結果の列を含むColumnCollection
+        ColumnCollection: 演算結果の列を含む ColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合
@@ -274,21 +280,24 @@ def divide(
     in_place: bool = False,
     handle_zero_division: str = "error",
 ) -> ColumnCollection:
-    """列または定数で除算
+    """列または定数で除算します
+
+    指定された列を別の列または定数値で除算し、結果を新しい列として格納します。
+    ゼロ除算の処理方法を指定することもできます。
 
     Args:
-        collection: ColumnCollectionオブジェクト
+        collection: ColumnCollection オブジェクト
         column1: 除算元の列名
         column2_or_value: 除算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-        in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+        result_column: 結果を格納する列名（デフォルトは None、自動生成）
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
         handle_zero_division: ゼロ除算の処理方法
             "error": ゼロ除算エラーを発生させる
-            "none": 結果をNoneとして扱う
+            "none": 結果を None として扱う
             "inf": 結果を無限大（float('inf')）として扱う
 
     Returns:
-        ColumnCollection: 演算結果の列を含むColumnCollection
+        ColumnCollection: 演算結果の列を含む ColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合
@@ -408,14 +417,17 @@ def evaluate(
 ) -> ColumnCollection:
     """数式文字列を評価し、結果を新しい列に格納します
 
+    指定された数式を評価し、その結果を新しい列として追加します。
+    数式内では各列の値を変数として参照でき、基本的な数学関数も使用できます。
+
     Args:
-        collection: ColumnCollectionオブジェクト
+        collection: ColumnCollection オブジェクト
         expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
-        result_column: 結果を格納する列名（デフォルトはNone、自動生成）
-        in_place: Trueの場合は元のオブジェクトを変更、Falseの場合は新しいオブジェクトを作成
+        result_column: 結果を格納する列名（デフォルトは None、自動生成）
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
     Returns:
-        ColumnCollection: 演算結果の列を含むColumnCollection
+        ColumnCollection: 演算結果の列を含む ColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合
@@ -620,19 +632,21 @@ def diff(
     method: str = "central",
     in_place: bool = False,
 ) -> ColumnCollection:
-    """
-    指定された2つの列間の微分を計算します（dy/dx）。
+    """指定された 2 つの列間の微分を計算します（dy/dx）
+
+    指定された独立変数 x と従属変数 y に対して微分係数を計算します。
+    数値微分には中心差分、前方差分、後方差分の 3 つの方法が利用できます。
 
     Args:
-        collection: 操作対象のColumnCollection
+        collection: 操作対象の ColumnCollection
         y_column: 微分の分子となる列（従属変数）
         x_column: 微分の分母となる列（独立変数）
-        result_column: 結果を格納する列名（Noneの場合は自動生成）
+        result_column: 結果を格納する列名（None の場合は自動生成）
         method: 微分方法（"central", "forward", "backward"）
-        in_place: 結果を同じコレクションに上書きするか
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
     Returns:
-        微分結果を含むColumnCollection
+        ColumnCollection: 微分結果を含む ColumnCollection
 
     Raises:
         KeyError: 列が存在しない場合
@@ -711,20 +725,22 @@ def integrate(
     initial_value: float = 0.0,
     in_place: bool = False,
 ) -> ColumnCollection:
-    """
-    指定された2つの列間の積分を計算します（∫y dx）。
+    """指定された 2 つの列間の積分を計算します（∫y dx）
+
+    指定された独立変数 x と従属変数 y に対して定積分を計算します。
+    現在は台形法による積分のみをサポートしています。
 
     Args:
-        collection: 操作対象のColumnCollection
+        collection: 操作対象の ColumnCollection
         y_column: 積分対象の列（被積分関数）
         x_column: 積分の基準となる列（積分変数）
-        result_column: 結果を格納する列名（Noneの場合は自動生成）
-        method: 積分方法（現在は"trapezoid"のみサポート）
+        result_column: 結果を格納する列名（None の場合は自動生成）
+        method: 積分方法（現在は "trapezoid" のみサポート）
         initial_value: 積分の初期値
-        in_place: 結果を同じコレクションに上書きするか
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
 
     Returns:
-        積分結果を含むColumnCollection
+        ColumnCollection: 積分結果を含む ColumnCollection
 
     Raises:
         KeyError: 列が存在しない場合

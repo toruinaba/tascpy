@@ -25,15 +25,17 @@ class OperationRegistry:
         domain: str = "core",
         shared_with: Optional[List[str]] = None,
     ) -> Callable:
-        """操作をレジストリに登録するデコレーター
+        """操作をレジストリに登録するデコレーターです
+
+        指定されたドメインに操作（関数）を登録し、必要に応じて複数のドメインと共有します。
 
         Args:
             func: 登録する関数（デコレーターとして使用する場合）
-            domain: 操作のドメイン（"core", "timeseries", "signal"など）
+            domain: 操作のドメイン（"core", "timeseries", "signal" など）
             shared_with: 操作を共有する追加ドメインのリスト
 
         Returns:
-            登録された関数（変更なし）
+            Callable: 登録された関数（変更なし）
 
         例:
             @operation
@@ -74,13 +76,16 @@ class OperationRegistry:
 
     @classmethod
     def get_operations(cls, domain: str = "core") -> Dict[str, Callable]:
-        """指定されたドメインの操作を取得
+        """指定されたドメインの操作を取得します
+
+        ドメイン内に登録されている全ての操作を辞書形式で返します。
+        まだ初期化されていないドメインの場合は、自動的に検出・初期化します。
 
         Args:
-            domain: 操作のドメイン
+            domain: 操作のドメイン名
 
         Returns:
-            指定されたドメインの操作の辞書 {操作名 → 関数}
+            Dict[str, Callable]: 指定されたドメインの操作の辞書 {操作名 → 関数}
         """
         # 初期化されていない場合は自動検出
         if domain not in cls._initialized_domains:
@@ -90,10 +95,13 @@ class OperationRegistry:
 
     @classmethod
     def get_all_operations(cls) -> Dict[str, Callable]:
-        """全ての操作を取得
+        """全ての操作を取得します
+
+        全てのドメインに登録されている操作を一つの辞書にまとめて返します。
+        複数のドメインに同名の操作がある場合は、後のドメインの操作で上書きされます。
 
         Returns:
-            全ドメインの操作を統合した辞書 {操作名 → 関数}
+            Dict[str, Callable]: 全ドメインの操作を統合した辞書 {操作名 → 関数}
         """
         all_ops = {}
         for domain_ops in cls._operations.values():
@@ -102,10 +110,13 @@ class OperationRegistry:
 
     @classmethod
     def discover_domains(cls) -> List[str]:
-        """利用可能なドメインを動的に検出
+        """利用可能なドメインを動的に検出します
+
+        operations ディレクトリ内のサブディレクトリからドメイン名を検出し、
+        それぞれのドメインのオペレーションを自動的に読み込みます。
 
         Returns:
-            検出されたドメイン名のリスト
+            List[str]: 検出されたドメイン名のリスト
         """
         # コアドメインは常に存在する
         domains = ["core"]
@@ -182,13 +193,15 @@ class OperationRegistry:
     def list_available_operations(
         cls, domain: Optional[str] = None
     ) -> Dict[str, List[str]]:
-        """利用可能な操作の一覧を取得
+        """利用可能な操作の一覧を取得します
+
+        特定のドメインまたは全てのドメインにおける利用可能な操作を一覧表示します。
 
         Args:
-            domain: 特定のドメイン（指定しない場合は全ドメイン）
+            domain: 特定のドメイン（None の場合は全ドメイン）
 
         Returns:
-            {ドメイン名: [操作名のリスト]} の辞書
+            Dict[str, List[str]]: {ドメイン名: [操作名のリスト]} の辞書
         """
         result = {}
 
@@ -209,14 +222,17 @@ class OperationRegistry:
     def get_operation_info(
         cls, operation_name: str, domain: Optional[str] = None
     ) -> Dict[str, Any]:
-        """操作の詳細情報を取得
+        """操作の詳細情報を取得します
+
+        指定された操作名に対応する関数の詳細情報（シグネチャ、ドキュメント、パラメータ情報など）を
+        辞書形式で取得します。
 
         Args:
             operation_name: 操作名
-            domain: ドメイン（指定しない場合は全ドメインから検索）
+            domain: ドメイン（None の場合は全ドメインから検索）
 
         Returns:
-            操作の詳細情報を含む辞書
+            Dict[str, Any]: 操作の詳細情報を含む辞書
         """
         # 操作関数を見つける
         func = None
@@ -268,9 +284,10 @@ class OperationRegistry:
 
     @classmethod
     def generate_stubs(cls) -> None:
-        """操作のスタブファイルを生成する
+        """操作のスタブファイルを生成します
 
-        Pylanceなどの静的型チェッカーのための型情報を提供するスタブファイルを生成します。
+        Pylance などの静的型チェッカーのための型情報を提供するスタブファイルを生成します。
+        このメソッドは、メソッドチェーンの自動補完を有効にするために使用されます。
         """
         # スタブ生成を避けるための循環インポートの回避
         if cls._stubs_generated:

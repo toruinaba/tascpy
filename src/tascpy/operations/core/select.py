@@ -20,25 +20,28 @@ def select(
     by_step_value: bool = True,
     tolerance: Optional[float] = None,
 ) -> ColumnCollection:
-    """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出する
+    """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出します
+
+    複数の方法でデータ抽出を行うことができる汎用的な選択操作です。
+    列の選択、インデックスによる行の選択、ステップ値による行の選択を組み合わせて使用できます。
 
     Args:
-        collection: 元のColumnCollection
-        columns: 抽出する列名のリスト。Noneの場合は全列が対象
-        indices: 抽出する行インデックスのリスト。Noneの場合は全行が対象
-        steps: 抽出するステップのリスト。Noneの場合は全行が対象
-            by_step_value=Trueの場合：ステップ値として解釈
-            by_step_value=Falseの場合：インデックスとして解釈
-        by_step_value: Trueの場合はstepsをステップ値として解釈、Falseの場合はインデックスとして解釈
-        tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+        collection: 元の ColumnCollection
+        columns: 抽出する列名のリスト。None の場合は全列が対象
+        indices: 抽出する行インデックスのリスト。None の場合は全行が対象
+        steps: 抽出するステップのリスト。None の場合は全行が対象
+            by_step_value=True の場合：ステップ値として解釈
+            by_step_value=False の場合：インデックスとして解釈
+        by_step_value: True の場合は steps をステップ値として解釈、False の場合はインデックスとして解釈
+        tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
 
     Returns:
-        選択されたデータを含む新しいColumnCollection
+        ColumnCollection: 選択されたデータを含む新しい ColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合
-        IndexError: 明示的に指定されたindicesが範囲外の場合（stepsの場合は無視される）
-        ValueError: indicesとstepsの両方が指定された場合
+        IndexError: 明示的に指定された indices が範囲外の場合（steps の場合は無視される）
+        ValueError: indices と steps の両方が指定された場合
     """
     # indicesとstepsの両方が指定された場合はエラー
     if indices is not None and steps is not None:
@@ -183,21 +186,21 @@ def select_step(
     by_step_value: bool = True,
     tolerance: Optional[float] = None,
 ) -> ColumnCollection:
-    """指定した列名とステップ番号に基づいてデータを抽出する
+    """指定した列名とステップ番号に基づいてデータを抽出します
 
     注: この関数は後方互換性のために残されています。
     新しいコードでは select() 関数を使用することが推奨されます。
 
     Args:
-        collection: 元のColumnCollection
-        steps: 抽出するステップ番号のリスト（by_step_value=Trueの場合）または
-               インデックスのリスト（by_step_value=Falseの場合）
-        columns: 抽出する列名のリスト。Noneの場合は全列が対象
-        by_step_value: Trueの場合はステップ値として解釈、Falseの場合はインデックスとして解釈
-        tolerance: ステップ値検索時の許容範囲（by_step_value=Trueの場合のみ有効）
+        collection: 元の ColumnCollection
+        steps: 抽出するステップ番号のリスト（by_step_value=True の場合）または
+               インデックスのリスト（by_step_value=False の場合）
+        columns: 抽出する列名のリスト。None の場合は全列が対象
+        by_step_value: True の場合はステップ値として解釈、False の場合はインデックスとして解釈
+        tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
 
     Returns:
-        選択されたデータを含む新しいColumnCollection
+        ColumnCollection: 選択されたデータを含む新しい ColumnCollection
 
     Raises:
         KeyError: 指定された列名が存在しない場合

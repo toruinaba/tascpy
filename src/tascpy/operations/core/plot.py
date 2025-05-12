@@ -28,15 +28,18 @@ def plot(
     ax: Optional[plt.Axes] = None,
     **kwargs,
 ) -> ColumnCollection:
-    """グラフを描画する
+    """グラフを描画します
+
+    コレクション内のデータを散布図または線グラフとして可視化します。
+    x軸またはy軸にstepを使用することもできます。
 
     Args:
         collection: 対象コレクション
-        x_column: x軸の列名（Noneの場合はstepを使用）
-        y_column: y軸の列名（Noneの場合はstepを使用）
-        plot_type: プロットの種類 ('scatter' または 'line')
-        ax: 既存のAxesオブジェクト（Noneの場合は新しい図を作成）
-        **kwargs: Matplotlibのプロット関数に渡す追加のキーワード引数
+        x_column: x軸の列名（None の場合は step を使用）
+        y_column: y軸の列名（None の場合は step を使用）
+        plot_type: プロットの種類（'scatter' または 'line'）
+        ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
+        **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
     Returns:
         ColumnCollection: 元のコレクション
@@ -45,16 +48,16 @@ def plot(
         >>> # 散布図の描画
         >>> collection.plot('x_col', 'y_col')
         >>>
-        >>> # stepをx軸として使用
+        >>> # step を x軸として使用
         >>> collection.plot(None, 'y_col')
         >>>
-        >>> # stepをy軸として使用
+        >>> # step を y軸として使用
         >>> collection.plot('x_col', None)
         >>>
         >>> # 線グラフの描画
         >>> collection.plot('x_col', 'y_col', plot_type='line', color='red')
         >>>
-        >>> # 既存のaxesに追加
+        >>> # 既存の axes に追加
         >>> fig, ax = plt.subplots()
         >>> collection.plot('x_col', 'y_col', ax=ax)
         >>> collection.plot('x_col2', 'y_col2', ax=ax)  # 2つ目のプロットを追加

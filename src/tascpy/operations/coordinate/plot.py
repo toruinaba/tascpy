@@ -41,22 +41,28 @@ def plot_spatial_values(
     step_index: Optional[int] = None,
     **kwargs,
 ) -> CoordinateCollection:
-    """座標空間上に値の分布をプロットする
+    """座標空間上に値の分布をプロットします
+
+    指定された列の値を座標空間上にマッピングして可視化します。
+    異なる種類のプロット（散布図、線グラフ、テキスト、等高線、サーフェス）から選択できます。
 
     Args:
         collection: 座標コレクション
         value_column: 値を表示する列名
-        ax: 既存のAxesオブジェクト（Noneの場合は新しい図を作成）
+        ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
         plot_type: プロットの種類 ('scatter', 'line', 'text', 'contour', 'surface')
         color_map: カラーマップ名またはカラーマップオブジェクト
-        size_column: マーカーサイズを決定する列名（Noneの場合は一定サイズ）
+        size_column: マーカーサイズを決定する列名（None の場合は一定サイズ）
         size_scale: マーカーサイズのスケールファクター
         show_colorbar: カラーバーを表示するかどうか
-        step_index: 使用するステップのインデックス（Noneの場合は最初のステップを使用）
-        **kwargs: Matplotlibのプロット関数に渡す追加のキーワード引数
+        step_index: 使用するステップのインデックス（None の場合は最初のステップを使用）
+        **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
     Returns:
         CoordinateCollection: 元のコレクション
+
+    Raises:
+        ValueError: プロットタイプが無効な場合や座標情報を持つ列がない場合
     """
     # プロットタイプの検証
     valid_plot_types = ["scatter", "line", "text", "contour", "surface"]
@@ -236,17 +242,23 @@ def plot_coordinates(
     dimension: str = "2d",
     **kwargs,
 ) -> CoordinateCollection:
-    """座標情報を使って各列の位置をプロットする
+    """座標情報を使って各列の位置をプロットします
+
+    コレクション内の各列に設定されている座標位置を2Dまたは3Dで可視化します。
+    各点には対応する列名をラベルとして表示することができます。
 
     Args:
         collection: 座標コレクション
-        ax: 既存のAxesオブジェクト（Noneの場合は新しい図を作成）
+        ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
         labels: 各点にラベルを表示するかどうか
         dimension: 描画次元 ('2d' または '3d')
-        **kwargs: Matplotlibのプロット関数に渡す追加のキーワード引数
+        **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
     Returns:
         CoordinateCollection: 元のコレクション
+
+    Raises:
+        ValueError: 座標情報を持つ列がない場合
     """
     # 座標を持つ列のリストを取得
     coord_columns = collection.get_columns_with_coordinates()
@@ -306,22 +318,29 @@ def plot_spatial_heatmap(
     step_index: Optional[int] = None,
     **kwargs,
 ) -> CoordinateCollection:
-    """座標に基づいてヒートマップを作成
+    """座標に基づいてヒートマップを作成します
+
+    指定された列の値を座標空間上に補間し、ヒートマップとして可視化します。
+    補間法や解像度を調整して、さまざまな表現が可能です。
 
     Args:
         collection: 座標コレクション
         value_column: ヒートマップ値として使用する列名
         resolution: ヒートマップの解像度 (nx, ny)
         interpolation_method: 補間方法 ('linear', 'cubic', 'nearest')
-        ax: 既存のAxesオブジェクト（Noneの場合は新しい図を作成）
+        ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
         color_map: カラーマップ名
         show_colorbar: カラーバーを表示するかどうか
         show_points: オリジナルのデータ点を表示するかどうか
-        step_index: 使用するステップのインデックス（Noneの場合は最初のステップを使用）
-        **kwargs: Matplotlibのプロット関数に渡す追加のキーワード引数
+        step_index: 使用するステップのインデックス（None の場合は最初のステップを使用）
+        **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
     Returns:
         CoordinateCollection: 元のコレクション
+
+    Raises:
+        ValueError: 座標情報を持つ列がない場合や値が無効な場合
+        ImportError: SciPy がインストールされていない場合
     """
     # 座標を持つ列のリストを取得
     coord_columns = collection.get_columns_with_coordinates()
@@ -423,18 +442,24 @@ def plot_coordinate_distance(
     color_map: str = "viridis",
     **kwargs,
 ) -> CoordinateCollection:
-    """座標間の距離関係を可視化
+    """座標間の距離関係を可視化します
+
+    コレクション内の列間の座標距離を行列、ネットワーク、またはヒストグラムとして
+    可視化します。距離関係を理解し分析するのに役立ちます。
 
     Args:
         collection: 座標コレクション
-        reference_column: 基準となる列名（Noneの場合はすべての列の組み合わせ）
-        ax: 既存のAxesオブジェクト（Noneの場合は新しい図を作成）
+        reference_column: 基準となる列名（None の場合はすべての列の組み合わせ）
+        ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
         plot_type: プロット種類 ('matrix', 'network', 'histogram')
         color_map: カラーマップ名
-        **kwargs: Matplotlibのプロット関数に渡す追加のキーワード引数
+        **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
     Returns:
         CoordinateCollection: 元のコレクション
+
+    Raises:
+        ValueError: 座標情報を持つ列がない場合や有効な距離が計算できない場合
     """
     # 座標を持つ列のリストを取得
     coord_columns = collection.get_columns_with_coordinates()
@@ -571,19 +596,26 @@ def plot_coordinate_timeseries(
     animate: bool = False,
     **kwargs,
 ) -> CoordinateCollection:
-    """時系列データと座標情報を組み合わせて可視化
+    """時系列データと座標情報を組み合わせて可視化します
+
+    座標情報を持つデータの時系列変化を、静的なグラフまたはアニメーションとして
+    表示します。静的表示では時間と値の関係を、アニメーションでは空間上の値の
+    変化を可視化できます。
 
     Args:
         collection: 座標コレクション
         value_column: 値として使用する列名
-        time_column: 時系列軸として使用する列名（Noneの場合はステップ）
-        ax: 既存のAxesオブジェクト（Noneの場合は新しい図を作成）
+        time_column: 時系列軸として使用する列名（None の場合はステップ）
+        ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
         color_map: カラーマップ名
         animate: アニメーションを生成するかどうか
-        **kwargs: Matplotlibのプロット関数に渡す追加のキーワード引数
+        **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
     Returns:
         CoordinateCollection: 元のコレクション
+
+    Raises:
+        ValueError: 座標情報を持つ列がない場合や値列・時系列列が存在しない場合
     """
     # 座標を持つ列のリストを取得
     coord_columns = collection.get_columns_with_coordinates()

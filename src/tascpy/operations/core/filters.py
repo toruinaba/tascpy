@@ -12,17 +12,23 @@ def filter_by_value(
     value: Any,
     tolerance: Optional[float] = None,
 ) -> ColumnCollection:
-    """指定された列の値が指定された値と等しい行をフィルタリング
+    """指定された列の値が指定された値と等しい行をフィルタリングします
+
+    指定された列の値が特定の値と一致する行だけを含む新しいコレクションを返します。
+    許容誤差（tolerance）を指定すると、その範囲内の値も含めることができます。
+
     Args:
-        collection: ColumnCollectionオブジェクト
+        collection: ColumnCollection オブジェクト
         column_name: フィルタリングする列の名前
         value: フィルタリングする値
-        tolerance: 値の許容範囲（デフォルトはNone）
+        tolerance: 値の許容範囲（デフォルトは None）
+
     Returns:
-        フィルタリングされたColumnCollectionオブジェクト
+        ColumnCollection: フィルタリングされた ColumnCollection オブジェクト
+
     Raises:
         KeyError: 指定された列名が存在しない場合
-        TypeError: 指定された列がColumnオブジェクトでない場合
+        TypeError: 指定された列が Column オブジェクトでない場合
     """
     if column_name not in collection.columns:
         raise KeyError(f"列'{column_name}'が存在しません")
@@ -53,16 +59,19 @@ def filter_by_value(
 def filter_out_none(
     collection: ColumnCollection, columns: Optional[List[str]] = None, mode: str = "any"
 ) -> ColumnCollection:
-    """None値を含む行をフィルタリングして除外する
+    """None 値を含む行をフィルタリングして除外します
+
+    指定された列に None 値を含む行を除外した新しいコレクションを返します。
+    モードによって、いずれかの列が None の場合に除外するか、全ての列が None の場合に除外するかを選択できます。
 
     Args:
-        collection: ColumnCollectionオブジェクト
-        columns: フィルタリングする対象の列名リスト（デフォルトはNone、すべての列が対象）
-        mode: フィルタリングモード 'any'（いずれかの列がNoneの行を除外）または
-              'all'（すべての列がNoneの行を除外）
+        collection: ColumnCollection オブジェクト
+        columns: フィルタリングする対象の列名リスト（デフォルトは None、すべての列が対象）
+        mode: フィルタリングモード 'any'（いずれかの列が None の行を除外）または
+              'all'（すべての列が None の行を除外）
 
     Returns:
-        フィルタリングされたColumnCollectionオブジェクト
+        ColumnCollection: フィルタリングされた ColumnCollection オブジェクト
 
     Raises:
         ValueError: 不正なモードが指定された場合
@@ -107,23 +116,23 @@ def filter_out_none(
 def remove_consecutive_duplicates_across(
     collection: ColumnCollection, columns: List[str], dup_type: str = "all"
 ) -> ColumnCollection:
-    """複数の列間で共通の連続重複データを削除した新しいColumnCollectionオブジェクトを返します。
+    """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します
 
     すべての指定された列で、連続するデータポイントが同じ値を持つ場合にのみ、
-    その重複を1つだけ残して削除します。
+    その重複を 1 つだけ残して削除します。重複判定のタイプによって動作が変わります。
 
     Args:
-        collection: 処理するColumnCollectionオブジェクト
+        collection: 処理する ColumnCollection オブジェクト
         columns: 処理対象の列名リスト
         dup_type: 重複判定のタイプ
                  'all': すべての列で値に変化がない場合に重複と判定
                  'any': 一部の列だけでも値に変化がある場合は重複と判定しない
 
     Returns:
-        ColumnCollection: 連続する重複を削除したデータを持つ新しいColumnCollectionオブジェクト
+        ColumnCollection: 連続する重複を削除したデータを持つ新しい ColumnCollection オブジェクト
 
     Raises:
-        ValueError: 不正なdup_typeが指定された場合
+        ValueError: 不正な dup_type が指定された場合
         KeyError: 指定された列名が存在しない場合
 
     Examples:
