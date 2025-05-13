@@ -195,6 +195,7 @@ print("1. 基本的な散布図")
 fig, ax = plt.subplots(figsize=(8, 5))
 
 # メソッドチェーンで必要な列だけを選択してから散布図をプロット
+# axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(columns=["Displacement1", "Force1"])
     .plot(
@@ -212,6 +213,7 @@ ax.set_title("荷重-変位関係 (散布図)")
 ax.set_xlabel("変位 (mm)")
 ax.set_ylabel("荷重 (kN)")
 plt.grid(True)
+# 明示的にplt.showを呼び出して表示
 plt.show()
 print("散布図を表示しました")
 print()
@@ -226,6 +228,7 @@ print("2. 線グラフとデータの間引き")
 fig, ax = plt.subplots(figsize=(8, 5))
 
 # チェーンメソッドの特徴を活かし、データの選択と可視化を一連の流れで実現
+# axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(
         indices=list(range(0, len(collection), 2))
@@ -249,6 +252,7 @@ ax.set_title("荷重-変位曲線 (線グラフ、間引きあり)")
 ax.set_xlabel("変位 (mm)")
 ax.set_ylabel("荷重 (kN)")
 plt.grid(True)
+# 明示的にplt.showを呼び出して表示
 plt.show()
 print("間引きデータの線グラフを表示しました")
 print()
@@ -270,6 +274,7 @@ step_second_half = (
 fig, ax = plt.subplots(figsize=(10, 6))
 
 # 前半データを選択してプロット（メソッドチェーンで操作）
+# axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select_step(steps=step_first_half)
     .plot(
@@ -285,6 +290,7 @@ fig, ax = plt.subplots(figsize=(10, 6))
 )
 
 # 後半データを選択してプロット（メソッドチェーンで操作）
+# axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select_step(steps=step_second_half)
     .plot(
@@ -300,6 +306,7 @@ fig, ax = plt.subplots(figsize=(10, 6))
 )
 
 # 試験体2の全データをプロット（メソッドチェーンで操作）
+# axを渡すことでplt.showは呼び出されない
 if "Force2" in collection.columns and "Displacement2" in collection.columns:
     (
         collection.ops.plot(
@@ -319,6 +326,7 @@ ax.set_xlabel("変位 (mm)")
 ax.set_ylabel("荷重 (kN)")
 ax.grid(True)
 ax.legend()
+# 明示的にplt.showを呼び出して表示
 plt.show()
 print("複数線グラフを表示しました")
 print()
@@ -331,6 +339,7 @@ print("4. サブプロット（selectで列を選択）")
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
 # チェーンメソッドで試験体1のデータを選択してプロット
+# axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(columns=["Displacement1", "Force1"])
     .plot(
@@ -345,6 +354,7 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 )
 
 # 試験体2のデータが存在する場合はチェーンメソッドでプロット
+# axを渡すことでplt.showは呼び出されない
 if "Force2" in collection.columns and "Displacement2" in collection.columns:
     (
         collection.ops.select(columns=["Displacement2", "Force2"])
@@ -470,6 +480,7 @@ ax2.grid(True)
 ax2.legend()
 
 plt.tight_layout()
+# 明示的にplt.showを呼び出して表示
 plt.show()
 print("サブプロットを表示しました")
 print()
@@ -492,6 +503,7 @@ fig, ax = plt.subplots(figsize=(10, 6))
 
 # チェーンメソッドによるデータ変換の流れを示す
 # 複数の変換操作を一連のチェーンとして実行
+# axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select_step(steps=step_middle)  # まず特定ステップのデータを選択
     .multiply("Force1", 1000)  # kN -> N に変換
@@ -519,6 +531,7 @@ ax.set_title("選択したステップ区間の応力-ひずみ線図")
 ax.set_xlabel("ひずみ (%)")
 ax.set_ylabel("応力 (MPa)")
 plt.grid(True)
+# 明示的にplt.showを呼び出して表示
 plt.show()
 print("応力-ひずみ線図を表示しました")
 
@@ -532,6 +545,7 @@ print("\n6. 複合可視化（カスタム図の作成）")
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
 # 主軸（上側）: 荷重-変位曲線
+# axを渡すことでplt.showは呼び出されない
 (
     collection.ops.plot(
         x_column="Displacement1",
@@ -604,5 +618,6 @@ ax2.grid(True)
 ax2.legend(loc="upper right")
 
 plt.tight_layout()
+# 明示的にplt.showを呼び出して表示
 plt.show()
 print("複合グラフを表示しました")

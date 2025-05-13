@@ -304,7 +304,7 @@ Args:
     x_column: x軸の列名（None の場合は step を使用）
     y_column: y軸の列名（None の場合は step を使用）
     plot_type: プロットの種類（'scatter' または 'line'）
-    ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
+    ax: 既存の Axes オブジェクト（None の場合は新しい図を作成し、表示します）
     **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
 
 Returns:
@@ -326,7 +326,8 @@ Examples:
     >>> # 既存の axes に追加
     >>> fig, ax = plt.subplots()
     >>> collection.plot('x_col', 'y_col', ax=ax)
-    >>> collection.plot('x_col2', 'y_col2', ax=ax)  # 2つ目のプロットを追加"""
+    >>> collection.plot('x_col2', 'y_col2', ax=ax)  # 2つ目のプロットを追加
+    >>> plt.show()  # 最後にまとめて表示"""
         ...
     
 
@@ -406,7 +407,7 @@ Examples:
     ...     'temperature', threshold=0.3, ax=ax2
     ... ).end()
     >>> plt.tight_layout()
-    >>> plt.show()"""
+    >>> plt.show()  # 最後にまとめて表示"""
         ...
     
 
@@ -414,7 +415,7 @@ Examples:
         self,
         columns: Optional[list[str]] = None,
         indices: Optional[list[int]] = None,
-        steps: Optional[list[Union[float, int]]] = None,
+        steps: Optional[list[Union[int, float]]] = None,
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> "CoreCollectionOperations":
@@ -445,7 +446,7 @@ Raises:
 
     def select_step(
         self,
-        steps: list[Union[float, int]],
+        steps: list[Union[int, float]],
         columns: Optional[list[str]] = None,
         by_step_value: bool = True,
         tolerance: Optional[float] = None

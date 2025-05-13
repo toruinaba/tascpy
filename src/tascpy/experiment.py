@@ -11,7 +11,6 @@ from pathlib import Path
 from .core.collection import ColumnCollection
 from .core.column import Column
 from .core.io_formats import get_format, FILE_FORMATS
-from .channel import Channel
 
 
 class Experiment(ColumnCollection):
@@ -67,23 +66,6 @@ class Experiment(ColumnCollection):
     def steps(self) -> List[int]:
         """ステップ値のリスト"""
         return self.step.values
-
-    @property
-    def dict(self) -> Dict[str, Channel]:
-        """従来のdict形式でデータを返す
-
-        互換性のために、ColumnオブジェクトをChannelオブジェクトに変換して返す
-
-        Returns:
-            Dict[str, Channel]: チャンネル名とChannelオブジェクトの辞書
-        """
-        result = {}
-        for name, column in self.columns.items():
-            ch_name = column.ch or name
-            result[ch_name] = Channel(
-                ch=ch_name, name=name, unit=column.unit, data=column.values
-            )
-        return result
 
     def save(
         self, filepath: Union[str, Path], format_name: str = "standard", **kwargs

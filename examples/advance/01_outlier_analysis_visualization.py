@@ -149,10 +149,15 @@ print(
     f"None値の数: {collection1['data'].values.count(None) if collection1['data'].values.count(None) is not None else 0}"
 )
 
-# 2つの異なるしきい値で異常値を可視化（単一のチェーンメソッドで実装）
+# 2つの異なるしきい値で異常値を可視化
 plt.figure(figsize=(12, 10))
 
+# サブプロットを作成
+ax1 = plt.subplot(2, 1, 1)  # 最初のサブプロット
+ax2 = plt.subplot(2, 1, 2)  # 2つ目のサブプロット
+
 # 厳しいしきい値と緩いしきい値で異常値検出を行う
+# メソッドチェーンを使用し、axパラメータを渡してplt.showを自動呼び出しさせない
 result_vis = (
     collection1.ops
     # 最初のサブプロットに厳しいしきい値での可視化
@@ -163,7 +168,7 @@ result_vis = (
         plot_type="line",
         highlight_color="red",
         outlier_marker="o",
-        ax=plt.subplot(2, 1, 1),  # 最初のサブプロット
+        ax=ax1,  # 明示的にaxを渡すのでplt.showは呼ばれない
         normal_alpha=0.7,
     )
     # 次のサブプロットに緩いしきい値での可視化
@@ -174,7 +179,7 @@ result_vis = (
         plot_type="line",
         highlight_color="orange",
         outlier_marker="^",
-        ax=plt.subplot(2, 1, 2),  # 2つ目のサブプロット
+        ax=ax2,  # 明示的にaxを渡すのでplt.showは呼ばれない
         normal_alpha=0.7,
     ).end()
 )
@@ -184,17 +189,17 @@ strict_outlier_count = sum(result_vis["_outlier_flags_data"].values)
 loose_outlier_count = 22  # デバッグ出力から確認した値
 
 # サブプロットのタイトルを設定
-plt.gcf().axes[0].set_title(f"標準データの異常値検出（厳しいしきい値: 0.3）")
-plt.gcf().axes[0].set_xlabel("ステップ")
-plt.gcf().axes[0].set_ylabel("データ値")
+ax1.set_title(f"標準データの異常値検出（厳しいしきい値: 0.3）")
+ax1.set_xlabel("ステップ")
+ax1.set_ylabel("データ値")
 
-plt.gcf().axes[1].set_title(f"標準データの異常値検出（緩いしきい値: 0.7）")
-plt.gcf().axes[1].set_xlabel("ステップ")
-plt.gcf().axes[1].set_ylabel("データ値")
+ax2.set_title(f"標準データの異常値検出（緩いしきい値: 0.7）")
+ax2.set_xlabel("ステップ")
+ax2.set_ylabel("データ値")
 
 plt.tight_layout()
 
-# 画像ファイルとして保存（高解像度指定）
+# 明示的にplt.showを呼び出さずに画像ファイルとして保存（高解像度指定）
 plt.savefig(os.path.join(IMGS_DIR, "outlier_visualization_comparison.png"), dpi=150)
 
 print(f"- 実際の異常値の数: {len(true_outlier_indices1)}")
@@ -293,11 +298,13 @@ stats_without_outliers = analyze_data_distribution(
 # 除去前後の比較を可視化
 plt.figure(figsize=(12, 12))
 
-# プロット1: 元データと異常値除去後のデータの比較
-plt.subplot(2, 1, 1)
+# サブプロットを作成
+ax1 = plt.subplot(2, 1, 1)
+ax2 = plt.subplot(2, 1, 2)
 
+# プロット1: 元データと異常値除去後のデータの比較
 # 元データ
-plt.plot(
+ax1.plot(
     steps,
     collection2["data"].values,
     "o-",
@@ -309,7 +316,7 @@ plt.plot(
 
 # 異常値を除去したデータ
 cleaned_steps = result_with_removal.step
-plt.plot(
+ax1.plot(
     cleaned_steps,
     result_with_removal["data"].values,
     "o-",
@@ -319,17 +326,15 @@ plt.plot(
     label="異常値除去後データ",
 )
 
-plt.title("異常値除去の効果")
-plt.xlabel("インデックス")
-plt.ylabel("値")
-plt.legend()
-plt.grid(True, alpha=0.3)
+ax1.set_title("異常値除去の効果")
+ax1.set_xlabel("インデックス")
+ax1.set_ylabel("値")
+ax1.legend()
+ax1.grid(True, alpha=0.3)
 
 # プロット2: ヒストグラム比較
-plt.subplot(2, 1, 2)
-
 # 異常値を含むデータのヒストグラム
-plt.hist(
+ax2.hist(
     [x for x in collection2["data"].values if x is not None],
     bins=20,
     alpha=0.5,
@@ -338,7 +343,7 @@ plt.hist(
 )
 
 # 異常値を除去したデータのヒストグラム
-plt.hist(
+ax2.hist(
     [x for x in result_with_removal["data"].values if x is not None],
     bins=20,
     alpha=0.5,
@@ -347,14 +352,14 @@ plt.hist(
 )
 
 # 平均値のマーカー
-plt.axvline(
+ax2.axvline(
     stats_with_outliers["mean"],
     color="blue",
     linestyle="dashed",
     linewidth=2,
     label="平均値（異常値あり）",
 )
-plt.axvline(
+ax2.axvline(
     stats_without_outliers["mean"],
     color="green",
     linestyle="dashed",
@@ -362,13 +367,14 @@ plt.axvline(
     label="平均値（異常値除去後）",
 )
 
-plt.title("データ分布の比較")
-plt.xlabel("値")
-plt.ylabel("頻度")
-plt.legend()
-plt.grid(True, alpha=0.3)
+ax2.set_title("データ分布の比較")
+ax2.set_xlabel("値")
+ax2.set_ylabel("頻度")
+ax2.legend()
+ax2.grid(True, alpha=0.3)
 
 plt.tight_layout()
+# 明示的にplt.showを呼び出さずに画像ファイルとして保存
 plt.savefig(os.path.join(IMGS_DIR, "outlier_removal_effect.png"), dpi=150)
 
 # ----------------------------------------------------
@@ -379,7 +385,12 @@ print("\n5. エッジ処理と様々なパラメータの比較")
 # データセット2のサブセットを作成（特定範囲の抽出）
 plt.figure(figsize=(12, 12))
 
+# サブプロットを作成
+ax1 = plt.subplot(2, 1, 1)  # 対称エッジ処理用
+ax2 = plt.subplot(2, 1, 2)  # 非対称エッジ処理用
+
 # 対称および非対称エッジ処理を1つのチェーンで比較
+# axを渡すことでplt.showは呼び出されない
 comparison_result = (
     collection2.ops
     # まずステップ範囲でサブセット抽出
@@ -391,7 +402,7 @@ comparison_result = (
         threshold=0.3,
         edge_handling="symmetric",  # 対称エッジ処理
         highlight_color="red",
-        ax=plt.subplot(2, 1, 1),  # 最初のサブプロット
+        ax=ax1,  # 明示的にaxを渡すのでplt.showは呼ばれない
         normal_color="blue",
         plot_type="scatter",
     )
@@ -402,7 +413,7 @@ comparison_result = (
         threshold=0.3,
         edge_handling="asymmetric",  # 非対称エッジ処理
         highlight_color="magenta",
-        ax=plt.subplot(2, 1, 2),  # 2つ目のサブプロット
+        ax=ax2,  # 明示的にaxを渡すのでplt.showは呼ばれない
         normal_color="cyan",
         plot_type="scatter",
     ).end()
@@ -414,20 +425,21 @@ symmetric_outlier_count = sum(comparison_result["_outlier_flags_data"].values)
 asymmetric_outlier_count = 1  # デバッグ出力から取得した値
 
 # サブプロットのタイトルと軸ラベルを設定
-plt.gcf().axes[0].set_title(
+ax1.set_title(
     f"異常値検出 - 対称エッジ処理（検出数: {symmetric_outlier_count}個）", fontsize=12
 )
-plt.gcf().axes[0].set_xlabel("ステップ", fontsize=10)
-plt.gcf().axes[0].set_ylabel("データ値", fontsize=10)
+ax1.set_xlabel("ステップ", fontsize=10)
+ax1.set_ylabel("データ値", fontsize=10)
 
-plt.gcf().axes[1].set_title(
+ax2.set_title(
     f"異常値検出 - 非対称エッジ処理（検出数: {asymmetric_outlier_count}個）",
     fontsize=12,
 )
-plt.gcf().axes[1].set_xlabel("ステップ", fontsize=10)
-plt.gcf().axes[1].set_ylabel("データ値", fontsize=10)
+ax2.set_xlabel("ステップ", fontsize=10)
+ax2.set_ylabel("データ値", fontsize=10)
 
 plt.tight_layout()
+# 明示的にplt.showを呼び出さずに画像ファイルとして保存
 plt.savefig(os.path.join(IMGS_DIR, "edge_handling_outlier_comparison.png"), dpi=150)
 
 # ----------------------------------------------------
@@ -477,6 +489,7 @@ plt.ylabel("値")
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
+# 明示的にplt.showを呼び出さずに画像ファイルとして保存
 plt.savefig(os.path.join(IMGS_DIR, "cleaned_data_trend.png"), dpi=150)
 
 # 出力画像の一覧を表示
