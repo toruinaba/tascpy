@@ -347,7 +347,7 @@ from tascpy.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
-スタブファイルは `src/tascpy/operations/stubs/` ディレクトリに生成され、VS Code / Pylance での自動補完が有効になります。新しい操作メソッドの追加や変更時は、次回インポート時に自動的に最新のスタブファイルが生成されます。
+スタブファイルは `src/tascpy/typing/` ディレクトリに生成され、VS Code / Pylance での自動補完が有効になります。新しい操作メソッドの追加や変更時は、次回インポート時に自動的に最新のスタブファイルが生成されます。
 
 ### スタブファイルの仕組み
 
@@ -356,8 +356,13 @@ generate_stubs()
 - `stub_generator.py`: メインのスタブ生成ロジック
 - 型情報維持のための `TypeVar` の活用
 
+
+## サンプルコードの作成方針
+- examples以下に格納されるサンプルコードについては可読性を重視し、関数を用いず平文とする
+- 同じく可読性を向上させるためメソッドチェーンを活用したサンプルコードを作成
+
+
 ## 重要な注意事項
 - `tests/data` および `sandbox` ディレクトリは読み込み禁止
 - 国際化対応は不要（日本語UIで問題なし）
 - 提案は日本語
-
