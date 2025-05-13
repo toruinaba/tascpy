@@ -1,5 +1,8 @@
 """
 ColumnCollectionのデータ変換を示すサンプルコード
+
+このサンプルではtascpyのメソッドチェーンを活用して、データの様々な変換操作を実行します。
+単位変換、数学的変換、正規化、微分・積分などを連続的に実行する方法を示します。
 """
 
 import os
@@ -8,47 +11,102 @@ from tascpy.core.collection import ColumnCollection
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-SAMPLE_CSV_PATH = os.path.join(DATA_DIR, "sample.csv")
+# sample.csvからload_displacement_sample.csvに変更
+SAMPLE_CSV_PATH = os.path.join(DATA_DIR, "load_displacement_sample.csv")
 
+print("-- ColumnCollectionのデータ変換 --\n")
 
-def load_sample_data():
-    """サンプルデータの読み込みと拡張"""
-    try:
-        # CSVファイルからデータを読み込む
-        collection = ColumnCollection.from_file(
-            filepath=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
-        )
+# ----------------------------------------------------
+# データの準備
+# ----------------------------------------------------
 
-        # データの拡張（モデル変換用にさらにデータを追加）
-        collection_extended = extend_sample_data(collection)
-        return collection_extended
-    except FileNotFoundError:
-        print(f"ファイル '{SAMPLE_CSV_PATH}' が見つかりません。")
-        return create_sample_data()  # ファイルが見つからない場合は模擬データを作成
-
-
-def create_sample_data():
-    """CSVファイルがない場合の模擬データ作成（拡張版）"""
-    steps = list(range(1, 11))
+# CSVファイルからデータを読み込む
+try:
+    collection = ColumnCollection.from_file(
+        filepath=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
+    )
+    print("CSVファイルからデータを読み込みました")
+except FileNotFoundError:
+    # サンプルファイルがない場合は模擬データを作成
+    print(f"ファイル '{SAMPLE_CSV_PATH}' が見つかりません。模擬データを作成します。")
+    # 模擬データの作成
+    steps = list(range(1, 16))  # より多くのデータポイントを作成
     columns = {
-        "Force1": [None, None, 0.0, 2.9, 2.9, 3.5, 5.0, 7.2, 9.1, 10.0],
-        "Force2": [None, None, 0.0, 8.8, 8.8, 10.2, 12.5, 15.8, 18.3, 20.0],
-        "Displacement1": [None, None, 0.00, 0.08, 0.08, 0.12, 0.25, 0.38, 0.52, 0.65],
-        "Displacement2": [None, None, 0.00, 0.56, 0.61, 0.75, 1.10, 1.45, 1.82, 2.20],
+        "Force1": [
+            None,
+            None,
+            0.0,
+            2.9,
+            2.9,
+            3.5,
+            5.0,
+            7.2,
+            9.1,
+            10.0,
+            12.0,
+            13.5,
+            15.0,
+            16.2,
+            18.0,
+        ],
+        "Force2": [
+            None,
+            None,
+            0.0,
+            8.8,
+            8.8,
+            10.2,
+            12.5,
+            15.8,
+            18.3,
+            20.0,
+            22.0,
+            24.0,
+            26.0,
+            27.5,
+            29.0,
+        ],
+        "Displacement1": [
+            None,
+            None,
+            0.00,
+            0.08,
+            0.08,
+            0.12,
+            0.25,
+            0.38,
+            0.52,
+            0.65,
+            0.75,
+            0.85,
+            0.95,
+            1.05,
+            1.15,
+        ],
+        "Displacement2": [
+            None,
+            None,
+            0.00,
+            0.56,
+            0.61,
+            0.75,
+            1.10,
+            1.45,
+            1.82,
+            2.20,
+            2.50,
+            2.80,
+            3.10,
+            3.30,
+            3.50,
+        ],
     }
     metadata = {
-        "date": [
-            "2020/11/30",
-            "2020/11/30",
-            "2020/12/01",
-            "2020/12/01",
-            "2020/12/01",
-            "2020/12/02",
-            "2020/12/02",
-            "2020/12/02",
-            "2020/12/03",
-            "2020/12/03",
-        ],
+        "date": ["2020/11/30"] * 2
+        + ["2020/12/01"] * 3
+        + ["2020/12/02"] * 3
+        + ["2020/12/03"] * 2
+        + ["2020/12/04"] * 5,
         "time": [
             "17:21:36",
             "17:29:40",
@@ -60,291 +118,273 @@ def create_sample_data():
             "14:45:00",
             "08:20:00",
             "09:00:00",
+            "10:00:00",
+            "11:00:00",
+            "12:00:00",
+            "13:00:00",
+            "14:00:00",
         ],
         "title": "無題",
     }
-    return ColumnCollection(steps, columns, metadata, auto_detect_types=True)
+    collection = ColumnCollection(steps, columns, metadata, auto_detect_types=True)
 
+# データの初期状態を表示
+print("\n初期データ:")
+print(f"行数: {len(collection)}")
+print(f"カラム: {list(collection.columns.keys())}")
+print(f"Force1の例: {collection['Force1'].values[:5]}...")
+print(f"Displacement1の例: {collection['Displacement1'].values[:5]}...")
 
-def extend_sample_data(collection):
-    """サンプルデータに行を追加して拡張する"""
-    extended = collection.clone()
+# ----------------------------------------------------
+# 1. 前処理：欠損値のフィルタリング
+# ----------------------------------------------------
+print("\n1. 前処理：欠損値(None)のフィルタリングとゼロ置換")
 
-    # 追加の行データを準備
-    new_steps = list(
-        range(max(extended.step.values) + 1, max(extended.step.values) + 6)
-    )
-    new_force1 = [3.5, 5.0, 7.2, 9.1, 10.0]
-    new_force2 = [10.2, 12.5, 15.8, 18.3, 20.0]
-    new_disp1 = [0.12, 0.25, 0.38, 0.52, 0.65]
-    new_disp2 = [0.75, 1.10, 1.45, 1.82, 2.20]
-    new_dates = ["2020/12/02", "2020/12/02", "2020/12/02", "2020/12/03", "2020/12/03"]
-    new_times = ["09:15:00", "10:30:00", "14:45:00", "08:20:00", "09:00:00"]
+# フィルタリング条件を緩和: None値を持つデータも含めて処理する
+# 代わりにNoneをゼロに置き換える前処理に重点を置く
+preprocessed = collection.clone()
+columns_to_convert = ["Force1", "Force2", "Displacement1", "Displacement2"]
+for column in columns_to_convert:
+    if column in preprocessed.columns:
+        preprocessed.columns[column].values = [
+            0 if v is None else v for v in preprocessed.columns[column].values
+        ]
 
-    # 新しいコレクションを作成（既存のデータと新しいデータを結合）
-    steps = extended.step.values + new_steps
+print(f"処理後の行数: {len(preprocessed)}")
+print(f"処理後のForce1: {preprocessed['Force1'].values}")
+print(f"処理後のDisplacement1: {preprocessed['Displacement1'].values}")
 
-    columns = {}
-    for col_name in extended.columns.keys():
-        col = extended.columns[col_name]
-        if col_name == "Force1":
-            new_values = col.values + new_force1
-        elif col_name == "Force2":
-            new_values = col.values + new_force2
-        elif col_name == "Displacement1":
-            new_values = col.values + new_disp1
-        elif col_name == "Displacement2":
-            new_values = col.values + new_disp2
-        else:
-            new_values = col.values + [None] * len(new_steps)
+# ----------------------------------------------------
+# 2. 単位変換：チェーンメソッドを活用
+# ----------------------------------------------------
+print("\n2. 単位変換：チェーンメソッドを活用")
 
-        # 同じ型のカラムを作成
-        new_col = col.clone()
-        new_col.values = new_values
-        columns[col_name] = new_col
-
-    # メタデータも更新
-    metadata = extended.metadata.copy()
-    if "date" in metadata:
-        metadata["date"] = metadata["date"] + new_dates
-    if "time" in metadata:
-        metadata["time"] = metadata["time"] + new_times
-
-    # 拡張されたコレクションを返す
-    return ColumnCollection(steps, columns, metadata)
-
-
-def preprocess_data_for_transform(collection):
-    """変換操作のためにデータを前処理（Noneの処理など）"""
-    # 変換操作のデモのために、Noneをもつデータをフィルタリングしたコピーを作成
-    result = collection.clone()
-
-    # Noneを持つ行をフィルタリング（フィルタ方法の例として）
-    ops = result.ops
-    filtered = ops.filter_by_value("Force1", lambda x: x is not None).end()
-
-    # フィルタリング後のデータが空かチェック
-    if len(filtered) == 0:
-        print(
-            "警告: フィルタリング後のデータが0件です。より緩いフィルタリングを試みます。"
-        )
-        # より緩いフィルタリングを試す（Force2列が存在する場合）
-        if "Force2" in result.columns:
-            filtered = result.ops.filter_by_value(
-                "Force2", lambda x: x is not None
-            ).end()
-
-        # それでも空なら、元のデータを返す
-        if len(filtered) == 0:
-            print(
-                "警告: フィルタリング後も0件です。フィルタリングを適用せずに続行します。"
-            )
-            return result
-
-    return filtered
-
-
-def replace_none_with_zero(collection, columns):
-    """指定された列のNone値を0に置き換える"""
-    result = collection.clone()
-    for column in columns:
-        if column in result.columns:
-            result.columns[column].values = [
-                0 if value is None else value for value in result.columns[column].values
-            ]
-    return result
-
-
-def demonstrate_transforms():
-    """データ変換操作のデモンストレーション"""
-    # データの読み込みと前処理
-    collection = load_sample_data()
-    # None値を持つ行をフィルタリングしたデータを使用
-    filtered = preprocess_data_for_transform(collection)
-
-    print("初期データ:")
-    print(f"行数: {len(filtered)}")
-    print(f"Force1: {filtered['Force1'].values}")
-    print(f"Displacement1: {filtered['Displacement1'].values}")
-    print()
-
-    # None値を0に置き換え（数値演算を行うため）
-    filtered = replace_none_with_zero(
-        filtered, ["Force1", "Displacement1", "Force2", "Displacement2"]
-    )
-
-    # 操作プロキシを取得
-    ops = filtered.ops
-
-    print("1. selectを使用して変換に必要な列のみを選択")
-    # 変換に必要な列のみを選択
-    selected = ops.select(columns=["Force1", "Displacement1"]).end()
-    selected_ops = selected.ops
-
-    print(f"選択された列: {list(selected.columns.keys())}")
-    print(f"  選択後の行数: {len(selected)}")
-    print()
-
-    print("2. 単位変換")
-    # kN -> N （1000倍）
-    result = selected_ops.multiply("Force1", 1000, result_column="Force1_N").end()
-    # 重要: 新しい結果に基づいてopsを更新
-    result_ops = result.ops
-
-    # mm -> m （0.001倍）
-    result = result_ops.multiply(
+# メソッドチェーンで複数の操作を一度に実行
+# selectで関連する列だけを選択し、そのまま単位変換の処理チェーンにつなげる
+unit_converted = (
+    preprocessed.ops.select(columns=["Force1", "Displacement1"])
+    .multiply("Force1", 1000, result_column="Force1_N")  # kN -> N （1000倍）
+    .multiply(
         "Displacement1", 0.001, result_column="Displacement1_m"
-    ).end()
-    result_ops = result.ops
+    )  # mm -> m （0.001倍）
+    .end()
+)
 
-    print(f"力の単位変換: kN -> N")
-    print(f"  元データ (kN): {result['Force1'].values}")
-    print(f"  変換後 (N): {result['Force1_N'].values}")
+print("単位変換の結果:")
+print(f"力の単位変換: kN -> N")
+print(f"  元データ (kN): {unit_converted['Force1'].values[:5]}...")
+print(f"  変換後 (N): {unit_converted['Force1_N'].values[:5]}...")
+print(f"変位の単位変換: mm -> m")
+print(f"  元データ (mm): {unit_converted['Displacement1'].values[:5]}...")
+print(f"  変換後 (m): {unit_converted['Displacement1_m'].values[:5]}...")
 
-    print(f"変位の単位変換: mm -> m")
-    print(f"  元データ (mm): {result['Displacement1'].values}")
-    print(f"  変換後 (m): {result['Displacement1_m'].values}")
-    print()
+# ----------------------------------------------------
+# 3. 特定ステップの選択と処理
+# ----------------------------------------------------
+print("\n3. 特定ステップの選択と処理")
 
-    print("3. select_stepを使用して特定のステップの変換")
-    # 重要なステップを選択（例: 中間のステップのみ）
-    step_indices = list(range(3, 8))
-    step_selected = ops.select_step(steps=step_indices).end()
-    step_ops = step_selected.ops
+# 特定のステップだけを選択し、その後チェーンで変換処理
+step_indices = list(range(3, 8))  # 3から7のステップを選択
+step_result = (
+    preprocessed.ops.select_step(steps=step_indices)
+    .multiply("Force1", 1000, result_column="Force1_N")  # kN -> N
+    .multiply("Displacement1", 0.001, result_column="Displacement1_m")  # mm -> m
+    .end()
+)
 
-    # 選択したステップに対して変換を適用
-    result = step_ops.multiply("Force1", 1000, result_column="Force1_N").end()
-    result_ops = result.ops
-    result = result_ops.multiply(
-        "Displacement1", 0.001, result_column="Displacement1_m"
-    ).end()
+print(f"選択したステップ値: {step_result.step.values}")
+print(f"  変換後Force1_N: {step_result['Force1_N'].values}")
+print(f"  変換後Displacement1_m: {step_result['Displacement1_m'].values}")
 
-    print(f"選択したステップ値: {result.step.values}")
-    print(f"  変換後 (N): {result['Force1_N'].values}")
-    print(f"  変換後 (m): {result['Displacement1_m'].values}")
-    print()
+# ----------------------------------------------------
+# 4. 物理量の計算：応力・ひずみ計算
+# ----------------------------------------------------
+print("\n4. 物理量の計算：応力・ひずみ計算")
 
-    # 全データに戻して以降の変換を続行
-    ops = filtered.ops
-    result = ops.multiply("Force1", 1000, result_column="Force1_N").end()
-    ops = result.ops
-    result = ops.multiply("Displacement1", 0.001, result_column="Displacement1_m").end()
-    ops = result.ops
+# 全データで単位変換したコレクションを用意
+full_converted = (
+    preprocessed.ops.multiply("Force1", 1000, result_column="Force1_N")
+    .multiply("Displacement1", 0.001, result_column="Displacement1_m")
+    .end()
+)
 
-    print("4. 応力・ひずみ計算")
-    # 応力計算 (σ = F/A): 断面積を50mm² (= 5.0e-5 m²) と仮定
-    area_mm2 = 50.0
-    area_m2 = area_mm2 * 1e-6
+# 物理量の計算をチェーンメソッドで実行
+area_mm2 = 50.0  # 断面積 (mm²)
+area_m2 = area_mm2 * 1e-6  # 断面積 (m²)
+length_m = 0.05  # 初期長さ (m)
 
-    result = ops.divide(
-        "Force1_N", area_m2, result_column="Stress_Pa"
-    ).end()  # Pa = N/m²
-    ops = result.ops
-    result = ops.divide(
-        "Stress_Pa", 1e6, result_column="Stress_MPa"
-    ).end()  # MPa = Pa/1e6
-    ops = result.ops
+physical_result = (
+    full_converted.ops
+    # 応力計算 (σ = F/A)
+    .divide("Force1_N", area_m2, result_column="Stress_Pa")  # Pa = N/m²
+    .divide("Stress_Pa", 1e6, result_column="Stress_MPa")  # MPa = Pa/1e6
+    # ひずみ計算 (ε = ΔL/L)
+    .divide("Displacement1_m", length_m, result_column="Strain")  # 無次元
+    .multiply("Strain", 100, result_column="Strain_percent")  # % = 無次元 * 100
+    .end()
+)
 
-    # ひずみ計算 (ε = ΔL/L): 初期長さを50mm (= 0.05 m) と仮定
-    length_m = 0.05
-    result = ops.divide(
-        "Displacement1_m", length_m, result_column="Strain"
-    ).end()  # 無次元
-    ops = result.ops
-    result = ops.multiply(
-        "Strain", 100, result_column="Strain_percent"
-    ).end()  # % = 無次元 * 100
-    ops = result.ops
+print(f"応力計算: σ = F/A (断面積 = {area_mm2} mm²)")
+print(f"  応力 (MPa): {physical_result['Stress_MPa'].values[:5]}...")
+print(f"ひずみ計算: ε = ΔL/L (初期長さ = {length_m*1000} mm)")
+print(f"  ひずみ (%): {physical_result['Strain_percent'].values[:5]}...")
 
-    print(f"応力計算: σ = F/A (断面積 = {area_mm2} mm²)")
-    print(f"  応力 (MPa): {result['Stress_MPa'].values}")
+# ----------------------------------------------------
+# 5. 特定データの対数変換
+# ----------------------------------------------------
+print("\n5. 特定データの対数変換")
 
-    print(f"ひずみ計算: ε = ΔL/L (初期長さ = {length_m*1000} mm)")
-    print(f"  ひずみ (%): {result['Strain_percent'].values}")
-    print()
+# 特定のステップを選択して対数変換を適用するチェーンメソッド
+# 微分計算などの演算のために有効なデータポイントに限定する
+important_steps = [6, 7, 8, 9, 10]  # 重要なステップ
+log_result = (
+    physical_result.ops.select_step(steps=important_steps)
+    .search_by_value("Strain", ">", 0.0)  # 対数計算のため正の値のみ選択
+    .log("Strain", base=math.e, result_column="LogStrain")
+    .log("Stress_Pa", base=10, result_column="LogStress")
+    .end()
+)
 
-    print("5. 特定のステップの応力-ひずみデータを変換")
-    # 特定のステップ（例: 後半のデータ）だけを選択
-    important_steps = [6, 7, 8, 9, 10]  # 重要なステップ
-    step_selected = ops.select_step(steps=important_steps).end()
-    step_ops = step_selected.ops
+print(f"選択したステップの対数変換:")
+print(f"  選択したステップ: {log_result.step.values}")
+print(f"  対数ひずみ: {log_result['LogStrain'].values}")
+print(f"  対数応力: {log_result['LogStress'].values}")
 
-    # 選択したデータに対して対数変換を適用
-    result = step_ops.log("Strain", base=math.e, result_column="LogStrain").end()
-    result_ops = result.ops
-    result = result_ops.log("Stress_Pa", base=10, result_column="LogStress").end()
+# ----------------------------------------------------
+# 6. データの正規化
+# ----------------------------------------------------
+print("\n6. データの正規化")
 
-    print(f"選択したステップの対数変換:")
-    print(f"  選択したステップ: {result.step.values}")
-    print(f"  対数ひずみ: {result['LogStrain'].values}")
-    print(f"  対数応力: {result['LogStress'].values}")
-    print()
+# 正規化計算のために十分なデータを確保（初期のNone値を変換済み）
+norm_data = preprocessed.ops.select_step(
+    steps=range(3, 15)
+).end()  # 有効なデータのみを選択
 
-    # 全データセットに戻る
-    ops = result.ops
-
-    print("6. 正規化")
-    # 変位データの正規化 (min-max法)
-    result = ops.normalize(
+# 単一のチェーンでデータ正規化の複数の手法を適用
+norm_result = (
+    norm_data.ops.normalize(
         "Displacement1", method="minmax", result_column="Disp_norm_minmax"
+    )
+    .normalize("Force1", method="zscore", result_column="Force_norm_zscore")
+    .end()
+)
+
+print(f"変位の正規化（Min-Max法: [0,1]範囲）")
+print(f"  元データ: {norm_result['Displacement1'].values[:5]}...")
+print(f"  正規化後: {norm_result['Disp_norm_minmax'].values[:5]}...")
+print(f"荷重の正規化（Z-score法: 平均0、標準偏差1）")
+print(f"  元データ: {norm_result['Force1'].values[:5]}...")
+print(f"  正規化後: {norm_result['Force_norm_zscore'].values[:5]}...")
+
+# ----------------------------------------------------
+# 7. 累積計算
+# ----------------------------------------------------
+print("\n7. 累積計算")
+
+# 累積和計算のデモ（実装されていない場合は手動で計算）
+try:
+    cum_result = norm_data.ops.cumsum(
+        "Displacement1", result_column="Cumulative_Displacement"
     ).end()
-    ops = result.ops
-    # 荷重データの正規化 (Z-score法)
-    result = ops.normalize(
-        "Force1", method="zscore", result_column="Force_norm_zscore"
-    ).end()
-    ops = result.ops
 
-    print(f"変位の正規化（Min-Max法: [0,1]範囲）")
-    print(f"  元データ: {result['Displacement1'].values}")
-    print(f"  正規化後: {result['Disp_norm_minmax'].values}")
-
-    print(f"荷重の正規化（Z-score法: 平均0、標準偏差1）")
-    print(f"  元データ: {result['Force1'].values}")
-    print(f"  正規化後: {result['Force_norm_zscore'].values}")
-    print()
-
-    # cumsumメソッドが利用できないためスキップ
-    print("7. 累積計算（機能は未実装のためスキップします）")
-    # 変位の累積値を手動で計算（デモのため）
-    disp_values = result["Displacement1"].values
+    print(f"変位の累積和:")
+    print(f"  元データ: {norm_data['Displacement1'].values[:5]}...")
+    print(f"  累積和: {cum_result['Cumulative_Displacement'].values[:5]}...")
+except AttributeError:
+    print("累積和機能は未実装のためスキップします")
+    # 手動での累積和計算
+    disp_values = norm_data["Displacement1"].values
     cumsum_values = []
     running_sum = 0
     for val in disp_values:
         running_sum += val
         cumsum_values.append(running_sum)
 
-    print(f"変位の累積和:")
-    print(f"  元データ: {disp_values}")
-    print(f"  累積和: {cumsum_values}")
-    print()
+    print(f"手動計算による変位の累積和:")
+    print(f"  元データ: {disp_values[:5]}...")
+    print(f"  累積和: {cumsum_values[:5]}...")
 
-    # diffとintegrateも未実装の可能性があるが、確認するためにコードを保持
-    try:
-        print("8. 微分と積分（近似計算）")
-        # 荷重変位曲線からの剛性（接線剛性: dF/dx）計算
-        result = ops.diff(
-            "Force1", "Displacement1", result_column="Stiffness_dF_dx"
-        ).end()
-        ops = result.ops
+# ----------------------------------------------------
+# 8. 微分と積分（実装されていたら）
+# ----------------------------------------------------
+print("\n8. 微分と積分（近似計算）")
 
-        # 荷重変位曲線からのエネルギー（面積積分）計算
-        result = ops.integrate(
+try:
+    # 微分計算のために有効なデータポイントを確保
+    # Force1とDisplacement1の値が有意であるデータのみを選択
+    calc_data = (
+        norm_data.ops.search_by_value("Force1", ">", 0)
+        .search_by_value("Displacement1", ">", 0)
+        .end()
+    )
+
+    # 荷重変位曲線の微分と積分をチェーンメソッドで連続実行
+    calculus_result = (
+        calc_data.ops.diff("Force1", "Displacement1", result_column="Stiffness_dF_dx")
+        .integrate(
             "Force1", "Displacement1", method="trapezoid", result_column="Energy"
-        ).end()
-        ops = result.ops
+        )
+        .end()
+    )
 
-        print(f"剛性計算（微分: dF/dx）:")
-        print(f"  荷重: {result['Force1'].values}")
-        print(f"  変位: {result['Displacement1'].values}")
-        print(f"  剛性: {result['Stiffness_dF_dx'].values}")
+    print(f"剛性計算（微分: dF/dx）:")
+    print(f"  元の荷重: {calc_data['Force1'].values}")
+    print(f"  元の変位: {calc_data['Displacement1'].values}")
+    print(f"  剛性: {calculus_result['Stiffness_dF_dx'].values}")
+    print(f"エネルギー計算（積分: ∫F·dx）:")
+    print(f"  エネルギー: {calculus_result['Energy'].values}")
+except AttributeError:
+    print("微分・積分機能は未実装のためスキップします")
+except ValueError as e:
+    print(f"微分・積分計算でエラーが発生しました: {str(e)}")
+    print(
+        "微分計算には少なくとも2点、積分計算にはいくつかの有効なデータポイントが必要です"
+    )
+    print("データセットが小さすぎるか、値の変動が不十分な可能性があります")
 
-        print(f"エネルギー計算（積分: ∫F·dx）:")
-        print(f"  エネルギー: {result['Energy'].values}")
-    except AttributeError:
-        print("8. 微分と積分（機能は未実装のためスキップします）")
+# ----------------------------------------------------
+# 9. 複合操作の例：変換・計算・フィルタリング
+# ----------------------------------------------------
+print("\n9. 複合操作の例：変換・計算・フィルタリング")
 
+try:
+    # 複数の操作を単一のチェーンで実行する例
+    # 十分なデータポイントが利用可能であることを確認
+    complex_result = (
+        preprocessed.ops
+        # 単位変換
+        .multiply("Force1", 1000, result_column="Force1_N")
+        .multiply("Displacement1", 0.001, result_column="Displacement1_m")
+        # 物理量計算
+        .divide("Force1_N", area_m2, result_column="Stress_Pa")
+        .divide("Displacement1_m", length_m, result_column="Strain")
+        # 特定の値でフィルタリング（エラー防止のため緩い条件に）
+        .search_by_value("Stress_Pa", ">=", 0)
+        # 追加演算
+        .multiply("Stress_Pa", 0.000001, result_column="Stress_MPa")
+        .end()
+    )
 
-if __name__ == "__main__":
-    print("-- ColumnCollectionのデータ変換 --\n")
-    demonstrate_transforms()
+    # 条件を満たすデータがある場合のみ対数変換を実行
+    if len(complex_result) > 0 and any(s > 0 for s in complex_result["Strain"].values):
+        # 正の値のみを対象にして対数変換
+        positive_strain = (
+            complex_result.ops.search_by_value("Strain", ">", 0.0)
+            .log("Strain", base=math.e, result_column="LogStrain")
+            .end()
+        )
+
+        print("複合処理の結果:")
+        print(f"  処理後の行数: {len(positive_strain)}")
+        print(f"  選択されたステップ: {positive_strain.step.values}")
+        print(f"  応力値 (MPa): {positive_strain['Stress_MPa'].values[:5]}...")
+        print(f"  対数ひずみ: {positive_strain['LogStrain'].values[:5]}...")
+    else:
+        print(
+            "複合処理の結果: 条件を満たすデータがないため対数変換はスキップされました"
+        )
+        print(f"  処理後の行数: {len(complex_result)}")
+        print(f"  選択されたステップ: {complex_result.step.values}")
+        print(f"  応力値 (MPa): {complex_result['Stress_MPa'].values[:5]}...")
+except Exception as e:
+    print(f"複合操作の実行中にエラーが発生しました: {str(e)}")
