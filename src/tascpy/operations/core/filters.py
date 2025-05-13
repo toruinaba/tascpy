@@ -59,16 +59,16 @@ def filter_by_value(
 def filter_out_none(
     collection: ColumnCollection, columns: Optional[List[str]] = None, mode: str = "any"
 ) -> ColumnCollection:
-    """None 値を含む行をフィルタリングして除外します
+    """None値およびNaN値を含む行をフィルタリングして除外します
 
-    指定された列に None 値を含む行を除外した新しいコレクションを返します。
-    モードによって、いずれかの列が None の場合に除外するか、全ての列が None の場合に除外するかを選択できます。
+    指定された列にNone値またはNaN値を含む行を除外した新しいコレクションを返します。
+    モードによって、いずれかの列が欠損値の場合に除外するか、全ての列が欠損値の場合に除外するかを選択できます。
 
     Args:
         collection: ColumnCollection オブジェクト
         columns: フィルタリングする対象の列名リスト（デフォルトは None、すべての列が対象）
-        mode: フィルタリングモード 'any'（いずれかの列が None の行を除外）または
-              'all'（すべての列が None の行を除外）
+        mode: フィルタリングモード 'any'（いずれかの列が欠損値の行を除外）または
+              'all'（すべての列が欠損値の行を除外）
 
     Returns:
         ColumnCollection: フィルタリングされた ColumnCollection オブジェクト
@@ -77,6 +77,15 @@ def filter_out_none(
         ValueError: 不正なモードが指定された場合
         KeyError: 指定された列名が存在しない場合
     """
+    import math
+
+    try:
+        import numpy as np
+
+        HAS_NUMPY = True
+    except ImportError:
+        HAS_NUMPY = False
+
     if mode not in ["any", "all"]:
         raise ValueError("モードは'any'または'all'のいずれかである必要があります")
 
@@ -88,17 +97,40 @@ def filter_out_none(
         if col_name not in collection.columns:
             raise KeyError(f"列'{col_name}'が存在しません")
 
-    # Noneをフィルタリングするマスクを作成
+    # NoneとNaN値をチェックする関数
+    def is_valid_value(value):
+        # Noneチェック
+        if value is None:
+            return False
+
+        # NaNチェック（mathモジュール）
+        try:
+            if isinstance(value, float) and math.isnan(value):
+                return False
+        except (TypeError, ValueError):
+            pass
+
+        # NumpyのNaNチェック
+        if HAS_NUMPY:
+            try:
+                if isinstance(value, (float, np.number)) and np.isnan(value):
+                    return False
+            except (TypeError, ValueError):
+                pass
+
+        return True
+
+    # NoneとNaN値をフィルタリングするマスクを作成
     if mode == "any":
-        # いずれかの列がNoneの行を除外
+        # いずれかの列が欠損値の行を除外
         mask = [
-            all(collection[col_name][i] is not None for col_name in target_columns)
+            all(is_valid_value(collection[col_name][i]) for col_name in target_columns)
             for i in range(len(collection.step))
         ]
     else:  # mode == "all"
-        # すべての列がNoneの行を除外
+        # すべての列が欠損値の行を除外
         mask = [
-            any(collection[col_name][i] is not None for col_name in target_columns)
+            any(is_valid_value(collection[col_name][i]) for col_name in target_columns)
             for i in range(len(collection.step))
         ]
 

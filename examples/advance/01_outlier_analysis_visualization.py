@@ -46,7 +46,7 @@ def create_sample_data_with_outliers(
     """異常値を含むサンプルデータを生成します
 
     正弦波をベースに、指定された割合でランダムな位置に異常値を挿入します。
-    また、一部のデータにはNone値（欠損値）も挿入します。
+    また、一部のデータにはnp.nan値（欠損値）も挿入します。
 
     Args:
         size: データのサイズ
@@ -79,11 +79,11 @@ def create_sample_data_with_outliers(
                 amplitude + np.random.rand() * amplitude * 2
             )  # 下側の異常値
 
-    # 一部にNone値（欠損値）を入れる
+    # 一部にnp.nan値（欠損値）を入れる
     none_indices = np.random.choice(size, int(size * 0.02), replace=False)
     for idx in none_indices:
-        if idx not in outlier_indices:  # 異常値とNone値が重複しないようにする
-            data[idx] = None
+        if idx not in outlier_indices:  # 異常値とnp.nan値が重複しないようにする
+            data[idx] = np.nan
 
     return data.tolist(), outlier_indices
 
@@ -142,11 +142,20 @@ print(f"- 移動平均(window=21)の最初の5件: {result1['ma21'].values[:5]}"
 # ----------------------------------------------------
 print("\n3. 異常値の検出と可視化")
 
+# NaN値が含まれる場合、事前にfilter_out_noneでフィルタリング
+filtered_collection = collection1.ops.filter_out_none(columns=["data"]).end()
+
+print(f"- 元データの行数: {len(collection1)}")
+print(f"- NaN値除去後の行数: {len(filtered_collection)}")
+print(
+    f"- 除去されたNaN値のデータポイント数: {len(collection1) - len(filtered_collection)}"
+)
+
 # デバッグ情報を追加
 print("\n--- デバッグ情報 ---")
-print(f"データサイズ: {len(collection1['data'].values)}")
+print(f"データサイズ: {len(filtered_collection['data'].values)}")
 print(
-    f"None値の数: {collection1['data'].values.count(None) if collection1['data'].values.count(None) is not None else 0}"
+    f"None値の数: {filtered_collection['data'].values.count(None) if filtered_collection['data'].values.count(None) is not None else 0}"
 )
 
 # 2つの異なるしきい値で異常値を可視化
@@ -159,7 +168,7 @@ ax2 = plt.subplot(2, 1, 2)  # 2つ目のサブプロット
 # 厳しいしきい値と緩いしきい値で異常値検出を行う
 # メソッドチェーンを使用し、axパラメータを渡してplt.showを自動呼び出しさせない
 result_vis = (
-    collection1.ops
+    filtered_collection.ops.filter_out_none(columns=["data"])  # NaN値を除去
     # 最初のサブプロットに厳しいしきい値での可視化
     .visualize_outliers(
         column="data",
@@ -175,7 +184,7 @@ result_vis = (
     .visualize_outliers(
         column="data",
         window_size=15,
-        threshold=0.7,  # 緩いしきい値
+        threshold=0.9,  # 緩いしきい値
         plot_type="line",
         highlight_color="orange",
         outlier_marker="^",
@@ -212,11 +221,15 @@ print(f"- 検出された異常値の数（緩いしきい値）: {loose_outlier
 print("\n4. 異常値の除去と効果の確認")
 
 # 異常値を除去（データセット2を使用）
-result_with_removal = collection2.ops.remove_outliers(
-    column="data",
-    window_size=15,
-    threshold=0.3,
-).end()
+result_with_removal = (
+    collection2.ops.filter_out_none(columns=["data"])
+    .remove_outliers(
+        column="data",
+        window_size=15,
+        threshold=0.1,
+    )
+    .end()
+)
 
 # 除去後のデータ数を確認
 print(f"- 元データの行数: {len(collection2)}")
@@ -392,14 +405,14 @@ ax2 = plt.subplot(2, 1, 2)  # 非対称エッジ処理用
 # 対称および非対称エッジ処理を1つのチェーンで比較
 # axを渡すことでplt.showは呼び出されない
 comparison_result = (
-    collection2.ops
+    collection2.ops.filter_out_none(columns=["data"])  # NaN値を除去
     # まずステップ範囲でサブセット抽出
     .search_by_step_range(min=50, max=100)
     # 対称エッジ処理による異常値検出
     .visualize_outliers(
         column="data",
-        window_size=7,
-        threshold=0.3,
+        window_size=15,
+        threshold=0.1,
         edge_handling="symmetric",  # 対称エッジ処理
         highlight_color="red",
         ax=ax1,  # 明示的にaxを渡すのでplt.showは呼ばれない
@@ -409,8 +422,8 @@ comparison_result = (
     # 非対称エッジ処理による異常値検出
     .visualize_outliers(
         column="data",
-        window_size=7,
-        threshold=0.3,
+        window_size=15,
+        threshold=0.1,
         edge_handling="asymmetric",  # 非対称エッジ処理
         highlight_color="magenta",
         ax=ax2,  # 明示的にaxを渡すのでplt.showは呼ばれない

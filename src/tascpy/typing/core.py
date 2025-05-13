@@ -57,16 +57,16 @@ Raises:
         columns: Optional[list[str]] = None,
         mode: str = 'any'
     ) -> "CoreCollectionOperations":
-        """None 値を含む行をフィルタリングして除外します
+        """None値およびNaN値を含む行をフィルタリングして除外します
 
-指定された列に None 値を含む行を除外した新しいコレクションを返します。
-モードによって、いずれかの列が None の場合に除外するか、全ての列が None の場合に除外するかを選択できます。
+指定された列にNone値またはNaN値を含む行を除外した新しいコレクションを返します。
+モードによって、いずれかの列が欠損値の場合に除外するか、全ての列が欠損値の場合に除外するかを選択できます。
 
 Args:
     collection: ColumnCollection オブジェクト
     columns: フィルタリングする対象の列名リスト（デフォルトは None、すべての列が対象）
-    mode: フィルタリングモード 'any'（いずれかの列が None の行を除外）または
-          'all'（すべての列が None の行を除外）
+    mode: フィルタリングモード 'any'（いずれかの列が欠損値の行を除外）または
+          'all'（すべての列が欠損値の行を除外）
 
 Returns:
     ColumnCollection: フィルタリングされた ColumnCollection オブジェクト
