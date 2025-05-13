@@ -252,16 +252,16 @@ def remove_outliers(
         result_column=outlier_column,
     )
 
-    # 異常値フラグが0（正常値）のデータポイントだけを保持するマスクを作成
+    # 異常値フラグが1（異常値）のデータポイントを除外するマスクを作成
     mask = [flag == 0 for flag in result[outlier_column].values]
 
     # フィルタリング処理
-    filtered_data = {
-        name: [col[i] for i, m in enumerate(mask) if m]
-        for name, col in result.columns.items()
-        if name != outlier_column  # 一時的な異常値フラグ列を除外
-    }
-    filtered_step = [result.step[i] for i, m in enumerate(mask) if m]
+    filtered_data = {}
+    for name, col in result.columns.items():
+        if name != outlier_column:  # 一時的な異常値フラグ列を除外
+            filtered_data[name] = [col.values[i] for i, m in enumerate(mask) if m]
+
+    filtered_step = [result.step.values[i] for i, m in enumerate(mask) if m]
 
     # 新しいコレクションを返す
     return ColumnCollection(filtered_step, filtered_data, result.metadata.copy())
