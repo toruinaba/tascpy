@@ -213,12 +213,12 @@ def generate_stubs() -> None:
 
     各ドメインの操作関数を解析し、VS Code の Pylance などの静的型チェッカーで
     自動補完と型チェックが機能するためのスタブファイルを生成します。
-    生成されたスタブは operations/stubs ディレクトリに保存されます。
+    生成されたスタブは typing ディレクトリに保存されます。
     """
     logging.info("スタブファイルの生成を開始します...")
 
-    # スタブディレクトリを作成
-    stub_dir = Path(__file__).parent / "stubs"
+    # スタブディレクトリを作成 - operations/stubs から typing に変更
+    stub_dir = Path(__file__).parent.parent / "typing"
     stub_dir.mkdir(exist_ok=True)
 
     # __init__.pyファイルを作成
@@ -229,7 +229,7 @@ def generate_stubs() -> None:
         f.write(
             "from typing import cast, TypeVar, Union, overload, Any, Dict, List, Optional, Callable\n"
         )
-        f.write("from ...core.collection import ColumnCollection\n\n")
+        f.write("from ..core.collection import ColumnCollection\n\n")
 
     # すべてのドメインを発見
     domains = OperationRegistry.discover_domains()
@@ -241,7 +241,7 @@ def generate_stubs() -> None:
         f.write(
             "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic\n"
         )
-        f.write("from ...core.collection import ColumnCollection\n\n")
+        f.write("from ..core.collection import ColumnCollection\n\n")
         f.write("T = TypeVar('T', bound='CollectionOperationsBase')\n\n")
         f.write("class CollectionOperationsBase:\n")
         f.write('    """コレクション操作の基底クラス"""\n\n')
@@ -269,7 +269,7 @@ def generate_stubs() -> None:
             f.write(
                 "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast\n"
             )
-            f.write("from ...core.collection import ColumnCollection\n")
+            f.write("from ..core.collection import ColumnCollection\n")
             f.write("from .proxy_base import CollectionOperationsBase\n\n")
 
             # ドメイン固有のクラス名を生成 (例: CoreCollectionOperations)

@@ -1,6 +1,6 @@
 # 自動生成されたload_displacementドメインのスタブファイル - 編集しないでください
 from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast
-from ...core.collection import ColumnCollection
+from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 
 class LoadDisplacementCollectionOperations(CollectionOperationsBase):

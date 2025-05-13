@@ -1,6 +1,6 @@
 # 自動生成されたcoordinateドメインのスタブファイル - 編集しないでください
 from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast
-from ...core.collection import ColumnCollection
+from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 
 class CoordinateCollectionOperations(CollectionOperationsBase):
@@ -237,7 +237,7 @@ Raises:
         x_range: tuple[float, float],
         y_range: tuple[float, float],
         grid_size: tuple[int, int] = (10, 10),
-        target_column: str = None,
+        target_column: Optional[str] = None,
         method: str = 'inverse_distance',
         power: float = 2.0,
         result_prefix: str = 'grid_'

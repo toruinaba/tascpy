@@ -1,6 +1,6 @@
 # 自動生成されたプロキシベーススタブ - 編集しないでください
 from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic
-from ...core.collection import ColumnCollection
+from ..core.collection import ColumnCollection
 
 T = TypeVar('T', bound='CollectionOperationsBase')
 

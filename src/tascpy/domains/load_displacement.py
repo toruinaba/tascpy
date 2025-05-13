@@ -5,7 +5,7 @@ from ..core.column import Column
 from .factory import DomainCollectionFactory
 
 if TYPE_CHECKING:
-    from ..operations.stubs.load_displacement import (
+    from ..typing.load_displacement import (
         LoadDisplacementCollectionOperations,
     )
 
@@ -66,7 +66,7 @@ class LoadDisplacementCollection(ColumnCollection):
         from ..operations.proxy import CollectionOperations
 
         if TYPE_CHECKING:
-            from ..operations.stubs.load_displacement import (
+            from ..typing.load_displacement import (
                 LoadDisplacementCollectionOperations,
             )
 

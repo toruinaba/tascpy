@@ -21,7 +21,7 @@ from .column import (
 from ..core.io_formats import get_format, FILE_FORMATS
 
 if TYPE_CHECKING:
-    from ..operations.stubs.core import CoreCollectionOperations
+    from ..typing.core import CoreCollectionOperations
 
 T = TypeVar("T")
 
@@ -29,9 +29,15 @@ T = TypeVar("T")
 class ColumnCollection:
     """複数のcollumnと一つのstepを保持するクラス"""
 
-    domain = "core"
+    domain: str = "core"
 
-    def __init__(self, step, columns, metadata=None, auto_detect_types=False):
+    def __init__(
+        self,
+        step: Step,
+        columns: dict[str, Union[Column, NumberColumn, StringColumn, InvalidColumn]],
+        metadata=None,
+        auto_detect_types=False,
+    ):
         """
         Args:
             step: Stepオブジェクトまたはステップ値のリスト
@@ -41,9 +47,9 @@ class ColumnCollection:
         """
         # ステップの初期化
         if isinstance(step, Step):
-            self.step = step
+            self.step: Step = step
         else:
-            self.step = Step(values=step if step is not None else [])
+            self.step: Step = Step(values=step if step is not None else [])
 
         # 列の初期化
         self.columns = {}
@@ -64,7 +70,7 @@ class ColumnCollection:
     def __len__(self) -> int:
         return len(self.step)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Union["ColumnCollection", Column, Dict[str, Any]]:
         """キーに基づいてデータにアクセス
         Args:
             key: 列名、チャンネル名、またはインデックス(整数/スライス)
@@ -175,7 +181,7 @@ class ColumnCollection:
 
         if TYPE_CHECKING:
             # ColumnCollectionのドメインはcoreなので、CoreCollectionOperationsのみを返す
-            from ..operations.stubs.core import CoreCollectionOperations
+            from ..typing.core import CoreCollectionOperations
 
             return CoreCollectionOperations(self, domain="core")  # type: ignore
         else:

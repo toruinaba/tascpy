@@ -130,7 +130,7 @@ def interpolate_grid(
     x_range: Tuple[float, float],
     y_range: Tuple[float, float],
     grid_size: Tuple[int, int] = (10, 10),
-    target_column: str = None,
+    target_column: Optional[str] = None,
     method: str = "inverse_distance",
     power: float = 2.0,
     result_prefix: str = "grid_",

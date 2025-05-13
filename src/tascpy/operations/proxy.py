@@ -3,10 +3,10 @@ from typing import Any, Dict, List, Optional, Callable, TypeVar, Union, TYPE_CHE
 from ..core.collection import ColumnCollection
 
 if TYPE_CHECKING:
-    from .stubs.proxy_base import CollectionOperationsBase
-    from .stubs.core import CoreCollectionOperations
-    from .stubs.load_displacement import LoadDisplacementCollectionOperations
-    from .stubs.coordinate import CoordinateCollectionOperations
+    from ..typing.proxy_base import CollectionOperationsBase
+    from ..typing.core import CoreCollectionOperations
+    from ..typing.load_displacement import LoadDisplacementCollectionOperations
+    from ..typing.coordinate import CoordinateCollectionOperations
 
 
 class CollectionOperations:

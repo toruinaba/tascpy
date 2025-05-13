@@ -3,7 +3,7 @@
 tascpy のスタブファイル生成用スクリプト
 
 このスクリプトを実行すると、operationsモジュールのスタブファイルが
-src/tascpy/operations/stubs/ ディレクトリに生成されます。
+src/tascpy/typing/ ディレクトリに生成されます。
 これにより、動的に生成されるメソッドに対してPylanceの自動補完が機能するようになります。
 """
 

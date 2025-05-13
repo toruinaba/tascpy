@@ -6,7 +6,7 @@ from ..core.column import Column
 from .factory import DomainCollectionFactory
 
 if TYPE_CHECKING:
-    from ..operations.stubs.coordinate import CoordinateCollectionOperations
+    from ..typing.coordinate import CoordinateCollectionOperations
 
 
 class CoordinateCollection(ColumnCollection):
@@ -62,7 +62,7 @@ class CoordinateCollection(ColumnCollection):
         from ..operations.proxy import CollectionOperations
 
         if TYPE_CHECKING:
-            from ..operations.stubs.coordinate import CoordinateCollectionOperations
+            from ..typing.coordinate import CoordinateCollectionOperations
 
             return CoordinateCollectionOperations(self, domain="coordinate")  # type: ignore
         else:
