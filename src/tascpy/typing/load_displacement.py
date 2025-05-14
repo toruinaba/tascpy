@@ -228,18 +228,75 @@ Returns:
         ...
     
 
+    def get_curve_data(
+        self,
+        curve_name: str
+    ) -> "LoadDisplacementCollectionOperations":
+        """メタデータに格納された曲線データを取得
+
+Args:
+    collection: 荷重-変位コレクション
+    curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
+
+Returns:
+    Dict[str, Any]: 曲線データ（x, y, metadataを含む辞書）
+
+Raises:
+    ValueError: 指定した曲線が存在しない場合"""
+        ...
+    
+
+    def get_curve_columns(
+        self,
+        curve_name: str
+    ) -> "LoadDisplacementCollectionOperations":
+        """メタデータに格納された曲線データをColumnオブジェクトとして取得
+
+Args:
+    collection: 荷重-変位コレクション
+    curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
+
+Returns:
+    Tuple[Optional[Column], Optional[Column]]:
+        (x軸のColumn, y軸のColumn)のタプル。曲線が存在しない場合は(None, None)
+
+Raises:
+    ValueError: 指定した曲線データにColumnが含まれていない場合
+    ValueError: 指定した曲線が存在しない場合"""
+        ...
+    
+
+    def list_available_curves(
+        self,
+        
+    ) -> "LoadDisplacementCollectionOperations":
+        """利用可能な曲線の一覧を取得
+
+Args:
+    collection: 荷重-変位コレクション
+
+Returns:
+    List[str]: 利用可能な曲線名のリスト"""
+        ...
+    
+
     def create_skeleton_curve(
         self,
         has_decrease: bool = False,
         decrease_type: str = 'envelope',
         cycle_column: Optional[str] = None,
         result_load_column: Optional[str] = None,
-        result_disp_column: Optional[str] = None
+        result_disp_column: Optional[str] = None,
+        store_as_columns: bool = False
     ) -> "LoadDisplacementCollectionOperations":
         """荷重-変位データからスケルトン曲線を作成
 
 複数サイクルの荷重-変位データから、包絡線（スケルトン曲線）を作成します。
 スケルトン曲線は、各サイクルの最大応答値を結んだ曲線です。
+
+デフォルトでは、スケルトン曲線はメタデータの "curves" セクションに格納されます。
+これにより、列の長さが異なるデータを格納できます。
+また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
 
 Args:
     collection: 荷重-変位コレクション
@@ -248,6 +305,7 @@ Args:
     cycle_column: サイクル列名（指定なしの場合は自動生成）
     result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
     result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
+    store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
 
 Returns:
     LoadDisplacementCollection: スケルトン曲線データを含むコレクション"""
@@ -258,18 +316,24 @@ Returns:
         self,
         cycle_column: Optional[str] = None,
         result_load_column: Optional[str] = None,
-        result_disp_column: Optional[str] = None
+        result_disp_column: Optional[str] = None,
+        store_as_columns: bool = False
     ) -> "LoadDisplacementCollectionOperations":
         """荷重-変位データから累積曲線を作成
 
 複数サイクルの荷重-変位データから、累積変形曲線を作成します。
 累積曲線は、各サイクルの変形を累積的に加算した曲線です。
 
+デフォルトでは、累積曲線はメタデータの "curves" セクションに格納されます。
+これにより、列の長さが異なるデータを格納できます。
+また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
+
 Args:
     collection: 荷重-変位コレクション
     cycle_column: サイクル列名（指定なしの場合は自動生成）
     result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
     result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
+    store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
 
 Returns:
     LoadDisplacementCollection: 累積曲線データを含むコレクション"""
@@ -292,7 +356,7 @@ Args:
     **kwargs: matplotlib の plot 関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
+    LoadDisplacementCollection: 元の荷重-変位コレクション"""
         ...
     
 
@@ -310,6 +374,9 @@ Returns:
 create_skeleton_curve 関数で作成したスケルトン曲線をプロットします。
 元の荷重-変位データと比較して表示することも可能です。
 
+スケルトン曲線データは、列または metadata["curves"]["skeleton_curve"] から取得します。
+メタデータに格納されている場合はそちらが優先されます。
+
 Args:
     collection: スケルトン曲線を含む荷重-変位コレクション
     plot_original: 元の荷重-変位データもプロットするかどうか
@@ -320,7 +387,10 @@ Args:
     skeleton_kwargs: スケルトン曲線プロット用の追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
+    LoadDisplacementCollection: 元の荷重-変位コレクション
+
+Raises:
+    ValueError: スケルトン曲線データが列にもメタデータにも見つからない場合"""
         ...
     
 
@@ -338,6 +408,9 @@ Returns:
 create_cumulative_curve 関数で作成した累積曲線をプロットします。
 元の荷重-変位データと比較して表示することも可能です。
 
+累積曲線データは、列または metadata["curves"]["cumulative_curve"] から取得します。
+メタデータに格納されている場合はそちらが優先されます。
+
 Args:
     collection: 累積曲線を含む荷重-変位コレクション
     plot_original: 元の荷重-変位データもプロットするかどうか
@@ -348,29 +421,10 @@ Args:
     cumulative_kwargs: 累積曲線プロット用の追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
-        ...
-    
+    LoadDisplacementCollection: 元の荷重-変位コレクション
 
-    def plot_multiple_curves(
-        self,
-        curves: list[dict[str, Any]],
-        ax: Optional[Axes] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """複数の曲線を一つのグラフにプロットします
-
-元の荷重-変位データ、スケルトン曲線、累積曲線など、
-複数の曲線を一つのグラフに表示します。
-
-Args:
-    collection: 曲線データを含む荷重-変位コレクション
-    curves: プロットする曲線のリスト。例:
-           [{"type": "original"},
-            {"type": "skeleton", "load_col": "load_skeleton", "disp_col": "disp_skeleton"}]
-    ax: プロット先の軸（None の場合は新規作成）
-
-Returns:
-    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
+Raises:
+    ValueError: 累積曲線データが列にもメタデータにも見つからない場合"""
         ...
     
 
@@ -398,7 +452,7 @@ Args:
     **kwargs: matplotlib の plot 関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
+    LoadDisplacementCollection: 元の荷重-変位コレクション"""
         ...
     
 
@@ -418,7 +472,7 @@ Args:
     **kwargs: matplotlib の plot 関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
+    LoadDisplacementCollection: 元の荷重-変位コレクション"""
         ...
     
 
@@ -442,6 +496,6 @@ Args:
     **kwargs: プロット関数に渡す追加引数
 
 Returns:
-    Tuple[Figure, Axes]: プロットの figure と axes オブジェクト"""
+    LoadDisplacementCollection: 元の荷重-変位コレクション"""
         ...
     

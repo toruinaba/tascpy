@@ -55,6 +55,125 @@ class LoadDisplacementCollection(ColumnCollection):
                     f"displacement_column に指定したカラム '{displacement_column}' が見つかりません"
                 )
 
+    def __getitem__(self, key: str) -> Any:
+        """項目へのアクセスを提供するメソッド
+
+        通常のカラムアクセスに加え、ドット区切りのパス形式でメタデータやカーブデータへのアクセスをサポート。
+        例:
+            collection["load"] -> 荷重カラム (通常のアクセス)
+            collection["curves.skeleton_curve"] -> スケルトン曲線データ辞書
+            collection["curves.skeleton_curve.y"] -> スケルトン曲線のy座標データ
+            collection["curves.skeleton_curve.columns.y"] -> スケルトン曲線のy座標カラムオブジェクト
+            collection["analysis.yield_point"] -> メタデータ内の降伏点情報（analysisキーを直接指定）
+            collection["metadata.analysis.yield_point"] -> 上と同じ（metadataキーを明示）
+
+        Args:
+            key: カラム名またはドット区切りのアクセスパス
+
+        Returns:
+            Any: 取得したデータ（カラム、リスト、辞書など）
+
+        Raises:
+            KeyError: 指定されたキーまたはパスが見つからない場合
+        """
+        # キーにドットが含まれる場合はパスアクセスとして処理
+        if "." in key:
+            path_parts = key.split(".")
+
+            # メタデータへの直接アクセスをチェック
+            # metadata キーなしでもメタデータ内の要素にアクセスできるようにする
+            if path_parts[0] in self.metadata and path_parts[0] not in [
+                "curves",
+                "metadata",
+            ]:
+                current = self.metadata
+                try:
+                    for part in path_parts:
+                        if isinstance(current, dict):
+                            if part not in current:
+                                raise KeyError(
+                                    f"'{part}' というキーはパス '{key}' の中に存在しません"
+                                )
+                            current = current[part]
+                        else:
+                            raise KeyError(
+                                f"'{part}' にアクセスしようとしましたが、現在のオブジェクトは辞書ではありません"
+                            )
+                    return current
+                except KeyError as e:
+                    raise KeyError(f"{str(e)}")
+
+            # 以下は既存のパス処理コード
+            current = self
+
+            # パスを辿って再帰的にアクセス
+            for part in path_parts:
+                if isinstance(current, dict):
+                    if part not in current:
+                        raise KeyError(
+                            f"'{part}' というキーはパス '{key}' の中に存在しません"
+                        )
+                    current = current[part]
+                elif isinstance(current, LoadDisplacementCollection):
+                    try:
+                        # 次の部分がメタデータの場合
+                        if part == "metadata":
+                            current = current.metadata
+                        # 次の部分がカーブデータの場合
+                        elif part == "curves":
+                            # curves キーがなくても空辞書を返す
+                            current = current.metadata.get("curves", {})
+                        # 次の部分が通常のカラムの場合
+                        else:
+                            current = current[part]  # 通常のカラムアクセス
+                    except KeyError:
+                        raise KeyError(
+                            f"'{part}' というキーはコレクションに存在しません"
+                        )
+                else:
+                    # リストやその他のオブジェクトにインデックスとしてアクセス試行
+                    try:
+                        if isinstance(current, list) and part.isdigit():
+                            current = current[int(part)]
+                        elif hasattr(current, part):
+                            current = getattr(current, part)
+                        else:
+                            raise KeyError(
+                                f"'{part}' というキーまたは属性が存在しません"
+                            )
+                    except (IndexError, AttributeError):
+                        raise KeyError(
+                            f"パス '{key}' の '{part}' 部分でアクセスエラーが発生しました"
+                        )
+
+            return current
+
+        # 特殊ショートカットキーの処理
+        if key == "load":
+            return super().__getitem__(self.load_column)
+        elif key == "displacement":
+            return super().__getitem__(self.displacement_column)
+        elif key == "curves":
+            # curves キーがなくても空辞書を返す
+            return self.metadata.get("curves", {})
+        # メタデータへの直接アクセス（単一キー）
+        elif key in self.metadata and key not in self.columns:
+            return self.metadata[key]
+
+        # 通常のカラムアクセス
+        try:
+            return super().__getitem__(key)
+        except KeyError:
+            # カーブデータへの直接アクセス試行
+            if (
+                self.metadata
+                and "curves" in self.metadata
+                and key in self.metadata["curves"]
+            ):
+                return self.metadata["curves"][key]
+            # それ以外はエラー
+            raise KeyError(f"'{key}' というカラムまたはカーブデータが見つかりません")
+
     @property
     def domain(self) -> str:
         """ドメイン識別子を返す"""
@@ -111,6 +230,32 @@ class LoadDisplacementCollection(ColumnCollection):
             load_column=ld_info.get("load_column", "load"),
             displacement_column=ld_info.get("displacement_column", "displacement"),
         )
+
+    def keys(self) -> list[str]:
+        """利用可能なキーのリストを返す
+
+        通常のカラム名に加えて、メタデータのトップレベルキーも含める
+        ただし、カラム名と衝突するメタデータのキーは優先度が低くなる
+
+        Returns:
+            list[str]: カラム名とアクセス可能なメタデータキーのリスト
+        """
+        # 基本のキーセット
+        key_set = set(self.columns.keys())
+
+        # 特殊キーを追加
+        key_set.add("step")
+        key_set.add("load")
+        key_set.add("displacement")
+        key_set.add("curves")
+
+        # メタデータのトップレベルキーを追加（カラム名と衝突しないもの）
+        if self.metadata:
+            for meta_key in self.metadata.keys():
+                if meta_key not in key_set and meta_key not in ["curves", "metadata"]:
+                    key_set.add(meta_key)
+
+        return sorted(list(key_set))
 
 
 # ファクトリ関数の定義

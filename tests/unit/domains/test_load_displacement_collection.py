@@ -191,3 +191,155 @@ class TestLoadDisplacementCollection:
 
         # とりあえず操作プロキシのドメインが正しいことを確認
         assert ops._domain == "load_displacement"
+
+    def test_getitem_basic_access(self):
+        """__getitem__メソッドの基本アクセステスト"""
+        # LoadDisplacementCollectionを作成
+        ld_collection = LoadDisplacementCollection(
+            self.steps, {"load": self.loads, "displacement": self.displacements}
+        )
+
+        # 通常のカラムアクセスが機能することを確認
+        assert list(ld_collection["load"].values) == self.loads
+        assert list(ld_collection["displacement"].values) == self.displacements
+
+        # ショートカットアクセスの確認
+        assert list(ld_collection["load"].values) == list(
+            ld_collection[ld_collection.load_column].values
+        )
+        assert list(ld_collection["displacement"].values) == list(
+            ld_collection[ld_collection.displacement_column].values
+        )
+
+    def test_getitem_metadata_access(self):
+        """__getitem__メソッドのメタデータアクセステスト"""
+        # LoadDisplacementCollectionを作成
+        ld_collection = LoadDisplacementCollection(
+            self.steps, {"load": self.loads, "displacement": self.displacements}
+        )
+
+        # 曲線データを持つメタデータを追加
+        ld_collection.metadata["curves"] = {
+            "skeleton_curve": {
+                "x": [0.0, 0.1, 0.2],
+                "y": [0.0, 10.0, 20.0],
+                "metadata": {
+                    "source_columns": ["load", "displacement"],
+                    "description": "スケルトン曲線",
+                },
+                "columns": {
+                    "x": ld_collection["displacement"].clone(),
+                    "y": ld_collection["load"].clone(),
+                },
+            }
+        }
+
+        # 曲線データにアクセス
+        assert ld_collection["curves"] == ld_collection.metadata["curves"]
+        assert (
+            ld_collection["skeleton_curve"]
+            == ld_collection.metadata["curves"]["skeleton_curve"]
+        )
+
+        # ドット記法によるアクセス
+        assert (
+            ld_collection["curves.skeleton_curve"]
+            == ld_collection.metadata["curves"]["skeleton_curve"]
+        )
+        assert (
+            ld_collection["curves.skeleton_curve.x"]
+            == ld_collection.metadata["curves"]["skeleton_curve"]["x"]
+        )
+        assert (
+            ld_collection["curves.skeleton_curve.y"]
+            == ld_collection.metadata["curves"]["skeleton_curve"]["y"]
+        )
+
+        # より深いレベルへのアクセス
+        assert (
+            ld_collection["curves.skeleton_curve.metadata.description"]
+            == "スケルトン曲線"
+        )
+        assert (
+            ld_collection["curves.skeleton_curve.metadata.source_columns.0"] == "load"
+        )
+        assert (
+            ld_collection["curves.skeleton_curve.metadata.source_columns.1"]
+            == "displacement"
+        )
+
+        # カラムオブジェクトへのアクセス
+        assert isinstance(
+            ld_collection["curves.skeleton_curve.columns.x"],
+            type(ld_collection["displacement"]),
+        )
+        assert isinstance(
+            ld_collection["curves.skeleton_curve.columns.y"],
+            type(ld_collection["load"]),
+        )
+
+    def test_getitem_error_handling(self):
+        """__getitem__メソッドのエラーハンドリングテスト"""
+        # LoadDisplacementCollectionを作成
+        ld_collection = LoadDisplacementCollection(
+            self.steps, {"load": self.loads, "displacement": self.displacements}
+        )
+
+        # メタデータがない状態での"curves"アクセス
+        # curves キーがなくてもエラーにならないことを確認
+        assert ld_collection["curves"] == {}
+
+        # 存在しないカラムへのアクセスでKeyErrorが発生することを確認
+        with pytest.raises(KeyError) as exc_info:
+            _ = ld_collection["nonexistent_column"]
+        assert "nonexistent_column" in str(exc_info.value)
+
+        # 存在しないパスへのアクセスでKeyErrorが発生することを確認
+        with pytest.raises(KeyError) as exc_info:
+            _ = ld_collection["curves.nonexistent_curve"]
+        assert "curves" in str(exc_info.value) or "nonexistent_curve" in str(
+            exc_info.value
+        )
+
+        # 不正なパスへのアクセスでKeyErrorが発生することを確認
+        with pytest.raises(KeyError) as exc_info:
+            _ = ld_collection["load.invalid.path"]
+        assert "invalid" in str(exc_info.value) or "path" in str(exc_info.value)
+
+    def test_getitem_with_complex_curve_data(self):
+        """複雑な曲線データがある場合の__getitem__メソッドテスト"""
+        # LoadDisplacementCollectionを作成
+        ld_collection = LoadDisplacementCollection(
+            self.steps, {"load": self.loads, "displacement": self.displacements}
+        )
+
+        # 複数の曲線データを含むメタデータを追加
+        ld_collection.metadata["curves"] = {
+            "skeleton_curve": {
+                "x": [0.0, 0.1, 0.2],
+                "y": [0.0, 10.0, 20.0],
+                "parameters": {"method": "envelope", "has_decrease": False},
+            },
+            "cumulative_curve": {
+                "x": [0.0, 0.2, 0.4, 0.6],
+                "y": [0.0, 20.0, 30.0, 40.0],
+                "parameters": {"method": "cumulative", "cycle_column": "cycle"},
+            },
+        }
+
+        # 異なる曲線データへのアクセス
+        assert ld_collection["skeleton_curve"]["x"][1] == 0.1
+        assert ld_collection["cumulative_curve"]["y"][2] == 30.0
+
+        # ドット記法による複数の曲線データへのアクセス
+        assert ld_collection["curves.skeleton_curve.parameters.method"] == "envelope"
+        assert (
+            ld_collection["curves.cumulative_curve.parameters.cycle_column"] == "cycle"
+        )
+
+        # 短縮形でのアクセス
+        assert ld_collection["skeleton_curve"] == ld_collection["curves.skeleton_curve"]
+        assert (
+            ld_collection["cumulative_curve"]
+            == ld_collection["curves.cumulative_curve"]
+        )

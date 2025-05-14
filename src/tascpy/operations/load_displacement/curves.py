@@ -1,10 +1,10 @@
 """荷重-変位データの特殊曲線生成関数"""
 
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Union, Any, Literal
 import numpy as np
 from ...operations.registry import operation
 from ...domains.load_displacement import LoadDisplacementCollection
-from ...core.column import Column
+from ...core.column import Column, NumberColumn
 from ...utils.split import split_list_by_integers
 from .utils import (
     get_load_column,
@@ -15,6 +15,123 @@ from .utils import (
 from .cycles import cycle_count
 
 
+def _extend_data_edge(x_data, y_data, target, target_type="x", extend_position="end"):
+    """指定された方向にデータを線形補間により延長する関数
+
+    Args:
+        x_data: x座標データ
+        y_data: y座標データ
+        target: 延長先のターゲット値
+        target_type: 延長する軸の種類 ("x"または"y")
+        extend_position: 延長する位置 ("start"または"end")
+
+    Returns:
+        Tuple: 延長後の(x, y)座標
+    """
+    if extend_position == "end":
+        if len(x_data) < 2 or len(y_data) < 2:
+            return target, y_data[-1] if target_type == "x" else x_data[-1]
+
+        x1, y1 = x_data[-2], y_data[-2]
+        x2, y2 = x_data[-1], y_data[-1]
+    else:  # start
+        if len(x_data) < 2 or len(y_data) < 2:
+            return target, y_data[0] if target_type == "x" else x_data[0]
+
+        x1, y1 = x_data[0], y_data[0]
+        x2, y2 = x_data[1], y_data[1]
+
+    if target_type == "x":
+        if x1 == x2:
+            return target, y1
+        y = y1 + (y2 - y1) * (target - x1) / (x2 - x1)
+        return target, y
+    else:  # "y"
+        if y1 == y2:
+            return x1, target
+        x = x1 + (x2 - x1) * (target - y1) / (y2 - y1)
+        return x, target
+
+
+@operation(domain="load_displacement")
+def get_curve_data(
+    collection: LoadDisplacementCollection,
+    curve_name: str,
+) -> Dict[str, Any]:
+    """メタデータに格納された曲線データを取得
+
+    Args:
+        collection: 荷重-変位コレクション
+        curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
+
+    Returns:
+        Dict[str, Any]: 曲線データ（x, y, metadataを含む辞書）
+
+    Raises:
+        ValueError: 指定した曲線が存在しない場合
+    """
+    if (
+        collection.metadata is None
+        or "curves" not in collection.metadata
+        or curve_name not in collection.metadata["curves"]
+    ):
+        raise ValueError(f"曲線 '{curve_name}' はコレクションに存在しません")
+
+    return collection.metadata["curves"][curve_name]
+
+
+@operation(domain="load_displacement")
+def get_curve_columns(
+    collection: LoadDisplacementCollection,
+    curve_name: str,
+) -> Tuple[Optional[Column], Optional[Column]]:
+    """メタデータに格納された曲線データをColumnオブジェクトとして取得
+
+    Args:
+        collection: 荷重-変位コレクション
+        curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
+
+    Returns:
+        Tuple[Optional[Column], Optional[Column]]:
+            (x軸のColumn, y軸のColumn)のタプル。曲線が存在しない場合は(None, None)
+
+    Raises:
+        ValueError: 指定した曲線データにColumnが含まれていない場合
+        ValueError: 指定した曲線が存在しない場合
+    """
+    if (
+        collection.metadata is None
+        or "curves" not in collection.metadata
+        or curve_name not in collection.metadata["curves"]
+    ):
+        raise ValueError(f"曲線 '{curve_name}' が存在しません")
+
+    curve_data = collection.metadata["curves"][curve_name]
+
+    if "columns" not in curve_data:
+        raise ValueError(f"曲線 '{curve_name}' にColumnデータが含まれていません")
+
+    return curve_data["columns"]["x"], curve_data["columns"]["y"]
+
+
+@operation(domain="load_displacement")
+def list_available_curves(
+    collection: LoadDisplacementCollection,
+) -> List[str]:
+    """利用可能な曲線の一覧を取得
+
+    Args:
+        collection: 荷重-変位コレクション
+
+    Returns:
+        List[str]: 利用可能な曲線名のリスト
+    """
+    if collection.metadata is None or "curves" not in collection.metadata:
+        return []
+
+    return list(collection.metadata["curves"].keys())
+
+
 @operation(domain="load_displacement")
 def create_skeleton_curve(
     collection: LoadDisplacementCollection,
@@ -23,11 +140,16 @@ def create_skeleton_curve(
     cycle_column: Optional[str] = None,
     result_load_column: Optional[str] = None,
     result_disp_column: Optional[str] = None,
+    store_as_columns: bool = False,
 ) -> LoadDisplacementCollection:
     """荷重-変位データからスケルトン曲線を作成
 
     複数サイクルの荷重-変位データから、包絡線（スケルトン曲線）を作成します。
     スケルトン曲線は、各サイクルの最大応答値を結んだ曲線です。
+
+    デフォルトでは、スケルトン曲線はメタデータの "curves" セクションに格納されます。
+    これにより、列の長さが異なるデータを格納できます。
+    また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
 
     Args:
         collection: 荷重-変位コレクション
@@ -36,6 +158,7 @@ def create_skeleton_curve(
         cycle_column: サイクル列名（指定なしの場合は自動生成）
         result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
         result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
+        store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
 
     Returns:
         LoadDisplacementCollection: スケルトン曲線データを含むコレクション
@@ -83,35 +206,6 @@ def create_skeleton_curve(
     p_ske = []
     d_ske = []
     p_max = 0.0
-
-    # 内部関数: 線形補間による延長
-    def _extend_data_edge(
-        x_data, y_data, target, target_type="x", extend_position="end"
-    ):
-        """指定された方向にデータを延長する関数"""
-        if extend_position == "end":
-            if len(x_data) < 2 or len(y_data) < 2:
-                return target, y_data[-1] if target_type == "x" else x_data[-1]
-
-            x1, y1 = x_data[-2], y_data[-2]
-            x2, y2 = x_data[-1], y_data[-1]
-        else:  # start
-            if len(x_data) < 2 or len(y_data) < 2:
-                return target, y_data[0] if target_type == "x" else x_data[0]
-
-            x1, y1 = x_data[0], y_data[0]
-            x2, y2 = x_data[1], y_data[1]
-
-        if target_type == "x":
-            if x1 == x2:
-                return target, y1
-            y = y1 + (y2 - y1) * (target - x1) / (x2 - x1)
-            return target, y
-        else:  # "y"
-            if y1 == y2:
-                return x1, target
-            x = x1 + (x2 - x1) * (target - y1) / (y2 - y1)
-            return x, target
 
     # 増加部分（最大荷重まで）
     for cyc in range(1, max_marker + 1):
@@ -273,30 +367,74 @@ def create_skeleton_curve(
     # 結果を新しいコレクションとして作成
     result = collection.clone()
 
-    # 結果列を追加
-    result.columns[result_load_column] = Column(
-        ch=None,
-        name=result_load_column,
-        unit=(
-            collection[load_column].unit
-            if hasattr(collection[load_column], "unit")
-            else None
-        ),
-        values=p_ske,
-        metadata={"description": f"Skeleton curve load from {load_column}"},
+    # 単位情報の取得
+    load_unit = (
+        collection[load_column].unit
+        if hasattr(collection[load_column], "unit")
+        else None
+    )
+    disp_unit = (
+        collection[disp_column].unit
+        if hasattr(collection[disp_column], "unit")
+        else None
     )
 
-    result.columns[result_disp_column] = Column(
-        ch=None,
-        name=result_disp_column,
-        unit=(
-            collection[disp_column].unit
-            if hasattr(collection[disp_column], "unit")
-            else None
-        ),
-        values=d_ske,
-        metadata={"description": f"Skeleton curve displacement from {disp_column}"},
+    # メタデータにカーブデータを格納
+    if result.metadata is None:
+        result.metadata = {}
+
+    if "curves" not in result.metadata:
+        result.metadata["curves"] = {}
+
+    # 荷重と変位のColumnオブジェクトを作成
+    load_column_obj = NumberColumn(
+        ch=collection[load_column].ch,
+        name=f"skeleton_curve_load",
+        unit=load_unit,
+        values=p_ske,
+        metadata={
+            "description": f"Skeleton curve load from {load_column}",
+            "source_column": load_column,
+        },
     )
+
+    disp_column_obj = NumberColumn(
+        ch=collection[disp_column].ch,
+        name=f"skeleton_curve_disp",
+        unit=disp_unit,
+        values=d_ske,
+        metadata={
+            "description": f"Skeleton curve displacement from {disp_column}",
+            "source_column": disp_column,
+        },
+    )
+
+    # スケルトン曲線データをメタデータに格納
+    result.metadata["curves"]["skeleton_curve"] = {
+        "x": d_ske,
+        "y": p_ske,
+        "columns": {
+            "x": disp_column_obj,
+            "y": load_column_obj,
+        },
+        "metadata": {
+            "source_columns": {"load": load_column, "displacement": disp_column},
+            "description": "Skeleton curve derived from load-displacement data",
+            "units": {"x": disp_unit, "y": load_unit},
+            "parameters": {
+                "has_decrease": has_decrease,
+                "decrease_type": decrease_type,
+            },
+        },
+    }
+
+    # 互換性のために列も追加する（オプション）
+    if store_as_columns:
+        result.columns[result_load_column] = load_column_obj.clone()
+        result.columns[result_load_column].name = result_load_column
+
+        result.columns[result_disp_column] = disp_column_obj.clone()
+        result.columns[result_disp_column].name = result_disp_column
 
     return result
 
@@ -307,17 +445,23 @@ def create_cumulative_curve(
     cycle_column: Optional[str] = None,
     result_load_column: Optional[str] = None,
     result_disp_column: Optional[str] = None,
+    store_as_columns: bool = False,
 ) -> LoadDisplacementCollection:
     """荷重-変位データから累積曲線を作成
 
     複数サイクルの荷重-変位データから、累積変形曲線を作成します。
     累積曲線は、各サイクルの変形を累積的に加算した曲線です。
 
+    デフォルトでは、累積曲線はメタデータの "curves" セクションに格納されます。
+    これにより、列の長さが異なるデータを格納できます。
+    また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
+
     Args:
         collection: 荷重-変位コレクション
         cycle_column: サイクル列名（指定なしの場合は自動生成）
         result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
         result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
+        store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
 
     Returns:
         LoadDisplacementCollection: 累積曲線データを含むコレクション
@@ -355,35 +499,6 @@ def create_cumulative_curve(
     # サイクルごとに分割
     splitted_loads = split_list_by_integers(loads_list, markers_list)
     splitted_displacements = split_list_by_integers(disps_list, markers_list)
-
-    # 内部関数: 線形補間による延長
-    def _extend_data_edge(
-        x_data, y_data, target, target_type="x", extend_position="end"
-    ):
-        """指定された方向にデータを延長する関数"""
-        if extend_position == "end":
-            if len(x_data) < 2 or len(y_data) < 2:
-                return target, y_data[-1] if target_type == "x" else x_data[-1]
-
-            x1, y1 = x_data[-2], y_data[-2]
-            x2, y2 = x_data[-1], y_data[-1]
-        else:  # start
-            if len(x_data) < 2 or len(y_data) < 2:
-                return target, y_data[0] if target_type == "x" else x_data[0]
-
-            x1, y1 = x_data[0], y_data[0]
-            x2, y2 = x_data[1], y_data[1]
-
-        if target_type == "x":
-            if x1 == x2:
-                return target, y1
-            y = y1 + (y2 - y1) * (target - x1) / (x2 - x1)
-            return target, y
-        else:  # "y"
-            if y1 == y2:
-                return x1, target
-            x = x1 + (x2 - x1) * (target - y1) / (y2 - y1)
-            return x, target
 
     # 累積曲線の計算
     p_cum = []
@@ -437,29 +552,69 @@ def create_cumulative_curve(
     # 結果を新しいコレクションとして作成
     result = collection.clone()
 
-    # 結果列を追加
-    result.columns[result_load_column] = Column(
-        ch=None,
-        name=result_load_column,
-        unit=(
-            collection[load_column].unit
-            if hasattr(collection[load_column], "unit")
-            else None
-        ),
-        values=p_cum,
-        metadata={"description": f"Cumulative load from {load_column}"},
+    # 単位情報の取得
+    load_unit = (
+        collection[load_column].unit
+        if hasattr(collection[load_column], "unit")
+        else None
+    )
+    disp_unit = (
+        collection[disp_column].unit
+        if hasattr(collection[disp_column], "unit")
+        else None
     )
 
-    result.columns[result_disp_column] = Column(
-        ch=None,
-        name=result_disp_column,
-        unit=(
-            collection[disp_column].unit
-            if hasattr(collection[disp_column], "unit")
-            else None
-        ),
-        values=d_cum,
-        metadata={"description": f"Cumulative displacement from {disp_column}"},
+    # メタデータにカーブデータを格納
+    if result.metadata is None:
+        result.metadata = {}
+
+    if "curves" not in result.metadata:
+        result.metadata["curves"] = {}
+
+    # 荷重と変位のColumnオブジェクトを作成
+    load_column_obj = NumberColumn(
+        ch=collection[load_column].ch,
+        name=f"cumulative_curve_load",
+        unit=load_unit,
+        values=p_cum,
+        metadata={
+            "description": f"Cumulative curve load from {load_column}",
+            "source_column": load_column,
+        },
     )
+
+    disp_column_obj = NumberColumn(
+        ch=collection[disp_column].ch,
+        name=f"cumulative_curve_disp",
+        unit=disp_unit,
+        values=d_cum,
+        metadata={
+            "description": f"Cumulative curve displacement from {disp_column}",
+            "source_column": disp_column,
+        },
+    )
+
+    # 累積曲線データをメタデータに格納
+    result.metadata["curves"]["cumulative_curve"] = {
+        "x": d_cum,
+        "y": p_cum,
+        "columns": {
+            "x": disp_column_obj,
+            "y": load_column_obj,
+        },
+        "metadata": {
+            "source_columns": {"load": load_column, "displacement": disp_column},
+            "description": "Cumulative curve derived from load-displacement data",
+            "units": {"x": disp_unit, "y": load_unit},
+        },
+    }
+
+    # 互換性のために列も追加する（オプション）
+    if store_as_columns:
+        result.columns[result_load_column] = load_column_obj.clone()
+        result.columns[result_load_column].name = result_load_column
+
+        result.columns[result_disp_column] = disp_column_obj.clone()
+        result.columns[result_disp_column].name = result_disp_column
 
     return result

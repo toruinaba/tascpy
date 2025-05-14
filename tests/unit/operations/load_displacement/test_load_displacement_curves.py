@@ -3,11 +3,14 @@
 import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import Column
+from tascpy.core.column import Column, NumberColumn
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 from tascpy.operations.load_displacement.curves import (
     create_skeleton_curve,
     create_cumulative_curve,
+    get_curve_data,
+    get_curve_columns,
+    list_available_curves,
 )
 from tascpy.operations.load_displacement.cycles import cycle_count
 
@@ -70,8 +73,8 @@ class TestLoadDisplacementCurves:
 
     def test_create_skeleton_curve_basic(self):
         """create_skeleton_curve関数の基本機能テスト"""
-        # スケルトン曲線を作成
-        result = create_skeleton_curve(self.ld_collection)
+        # スケルトン曲線を作成（旧形式との互換性モードで実行）
+        result = create_skeleton_curve(self.ld_collection, store_as_columns=True)
 
         # 結果のコレクション型の確認
         assert isinstance(result, LoadDisplacementCollection)
@@ -93,6 +96,48 @@ class TestLoadDisplacementCurves:
         # 最大値の対応する変位が含まれていることを確認
         assert self.displacements[max_idx] in d_ske
 
+    def test_create_skeleton_curve_metadata(self):
+        """create_skeleton_curve関数のメタデータ格納機能のテスト"""
+        # スケルトン曲線をメタデータに格納するモードで作成（デフォルト）
+        result = create_skeleton_curve(self.ld_collection)
+
+        # 結果のコレクション型の確認
+        assert isinstance(result, LoadDisplacementCollection)
+
+        # 結果列が作成されていないことを確認
+        assert "load_skeleton" not in result.columns
+        assert "displacement_skeleton" not in result.columns
+
+        # メタデータにカーブデータが格納されていることを確認
+        assert result.metadata is not None
+        assert "curves" in result.metadata
+        assert "skeleton_curve" in result.metadata["curves"]
+
+        # カーブデータの構造を確認
+        curve_data = result.metadata["curves"]["skeleton_curve"]
+        assert "x" in curve_data
+        assert "y" in curve_data
+        assert "metadata" in curve_data
+
+        # メタデータの内容を確認
+        curve_metadata = curve_data["metadata"]
+        assert "source_columns" in curve_metadata
+        assert "description" in curve_metadata
+        assert "units" in curve_metadata
+        assert "parameters" in curve_metadata
+
+        # 元のデータとの整合性を確認
+        assert curve_metadata["source_columns"]["load"] == "load"
+        assert curve_metadata["source_columns"]["displacement"] == "displacement"
+
+        # データポイントの存在を確認
+        assert len(curve_data["x"]) > 0
+        assert len(curve_data["y"]) > 0
+        assert len(curve_data["x"]) == len(curve_data["y"])
+
+        # 最大荷重が含まれることを確認
+        assert max(self.loads) in curve_data["y"]
+
     def test_create_skeleton_curve_custom_names(self):
         """カスタムカラム名での create_skeleton_curve 関数のテスト"""
         # カスタム出力カラム名を指定してスケルトン曲線を作成
@@ -100,6 +145,7 @@ class TestLoadDisplacementCurves:
             self.custom_ld_collection,
             result_load_column="force_skl",
             result_disp_column="disp_skl",
+            store_as_columns=True,
         )
 
         # カスタム結果列の存在を確認
@@ -110,11 +156,23 @@ class TestLoadDisplacementCurves:
         assert "force_skeleton" not in result.columns
         assert "disp_skeleton" not in result.columns
 
+        # メタデータも正しく格納されていることを確認
+        assert "skeleton_curve" in result.metadata["curves"]
+        assert (
+            result.metadata["curves"]["skeleton_curve"]["metadata"]["source_columns"][
+                "load"
+            ]
+            == "force"
+        )
+
     def test_create_skeleton_curve_with_decrease(self):
         """減少部分を含むスケルトン曲線のテスト"""
         # 複数サイクルの場合
         result = create_skeleton_curve(
-            self.multi_cycle_collection, has_decrease=True, decrease_type="envelope"
+            self.multi_cycle_collection,
+            has_decrease=True,
+            decrease_type="envelope",
+            store_as_columns=True,
         )
 
         # 結果列の存在を確認
@@ -136,7 +194,10 @@ class TestLoadDisplacementCurves:
         """異なる減少部分の処理方法のテスト"""
         # envelope
         envelope_result = create_skeleton_curve(
-            self.multi_cycle_collection, has_decrease=True, decrease_type="envelope"
+            self.multi_cycle_collection,
+            has_decrease=True,
+            decrease_type="envelope",
+            store_as_columns=True,
         )
 
         # continuous_only
@@ -144,11 +205,15 @@ class TestLoadDisplacementCurves:
             self.multi_cycle_collection,
             has_decrease=True,
             decrease_type="continuous_only",
+            store_as_columns=True,
         )
 
         # both
         both_result = create_skeleton_curve(
-            self.multi_cycle_collection, has_decrease=True, decrease_type="both"
+            self.multi_cycle_collection,
+            has_decrease=True,
+            decrease_type="both",
+            store_as_columns=True,
         )
 
         # それぞれ結果が異なることを確認
@@ -162,7 +227,9 @@ class TestLoadDisplacementCurves:
     def test_create_cumulative_curve_basic(self):
         """create_cumulative_curve関数の基本機能テスト"""
         # 累積曲線を作成
-        result = create_cumulative_curve(self.multi_cycle_collection)
+        result = create_cumulative_curve(
+            self.multi_cycle_collection, store_as_columns=True
+        )
 
         # 結果のコレクション型の確認
         assert isinstance(result, LoadDisplacementCollection)
@@ -189,6 +256,44 @@ class TestLoadDisplacementCurves:
         else:
             assert False, "元の正の荷重値が累積曲線に含まれていません"
 
+    def test_create_cumulative_curve_metadata(self):
+        """create_cumulative_curve関数のメタデータ格納機能のテスト"""
+        # 累積曲線をメタデータに格納するモードで作成（デフォルト）
+        result = create_cumulative_curve(self.multi_cycle_collection)
+
+        # 結果のコレクション型の確認
+        assert isinstance(result, LoadDisplacementCollection)
+
+        # 結果列が作成されていないことを確認
+        assert "load_cumulative" not in result.columns
+        assert "displacement_cumulative" not in result.columns
+
+        # メタデータにカーブデータが格納されていることを確認
+        assert result.metadata is not None
+        assert "curves" in result.metadata
+        assert "cumulative_curve" in result.metadata["curves"]
+
+        # カーブデータの構造を確認
+        curve_data = result.metadata["curves"]["cumulative_curve"]
+        assert "x" in curve_data
+        assert "y" in curve_data
+        assert "metadata" in curve_data
+
+        # メタデータの内容を確認
+        curve_metadata = curve_data["metadata"]
+        assert "source_columns" in curve_metadata
+        assert "description" in curve_metadata
+        assert "units" in curve_metadata
+
+        # 元のデータとの整合性を確認
+        assert curve_metadata["source_columns"]["load"] == "load"
+        assert curve_metadata["source_columns"]["displacement"] == "displacement"
+
+        # データポイントの存在を確認
+        assert len(curve_data["x"]) > 0
+        assert len(curve_data["y"]) > 0
+        assert len(curve_data["x"]) == len(curve_data["y"])
+
     def test_create_cumulative_curve_custom_names(self):
         """カスタムカラム名での create_cumulative_curve 関数のテスト"""
         # カスタム出力カラム名を指定して累積曲線を作成
@@ -196,6 +301,7 @@ class TestLoadDisplacementCurves:
             self.multi_cycle_collection,
             result_load_column="load_cum",
             result_disp_column="disp_cum",
+            store_as_columns=True,
         )
 
         # カスタム結果列の存在を確認
@@ -249,3 +355,148 @@ class TestLoadDisplacementCurves:
                 break
 
         assert found_cycle_column
+
+    def test_get_curve_data(self):
+        """get_curve_data関数のテスト"""
+        # スケルトン曲線と累積曲線を作成
+        result = create_skeleton_curve(self.ld_collection)
+        result = create_cumulative_curve(result)
+
+        # スケルトン曲線データを取得
+        skeleton_data = get_curve_data(result, "skeleton_curve")
+
+        # データ構造と内容を確認
+        assert "x" in skeleton_data
+        assert "y" in skeleton_data
+        assert "metadata" in skeleton_data
+        assert len(skeleton_data["x"]) > 0
+        assert len(skeleton_data["y"]) > 0
+
+        # 累積曲線データを取得
+        cumulative_data = get_curve_data(result, "cumulative_curve")
+
+        # データ構造と内容を確認
+        assert "x" in cumulative_data
+        assert "y" in cumulative_data
+        assert "metadata" in cumulative_data
+        assert len(cumulative_data["x"]) > 0
+        assert len(cumulative_data["y"]) > 0
+
+        # 存在しない曲線名での例外発生テスト
+        with pytest.raises(ValueError):
+            get_curve_data(result, "nonexistent_curve")
+
+    def test_list_available_curves(self):
+        """list_available_curves関数のテスト"""
+        # 曲線がないコレクション
+        empty_result = list_available_curves(self.ld_collection)
+        assert len(empty_result) == 0
+
+        # スケルトン曲線のみ作成
+        skeleton_result = create_skeleton_curve(self.ld_collection)
+        curve_list = list_available_curves(skeleton_result)
+        assert len(curve_list) == 1
+        assert "skeleton_curve" in curve_list
+
+        # スケルトン曲線と累積曲線を作成
+        both_result = create_cumulative_curve(skeleton_result)
+        curve_list = list_available_curves(both_result)
+        assert len(curve_list) == 2
+        assert "skeleton_curve" in curve_list
+        assert "cumulative_curve" in curve_list
+
+    def test_store_as_columns_parameter(self):
+        """store_as_columns パラメータのテスト"""
+        # メタデータのみに格納（デフォルト）
+        metadata_only = create_skeleton_curve(
+            self.ld_collection, store_as_columns=False
+        )
+        assert "load_skeleton" not in metadata_only.columns
+        assert "displacement_skeleton" not in metadata_only.columns
+        assert "skeleton_curve" in metadata_only.metadata["curves"]
+
+        # 列とメタデータの両方に格納
+        both_storage = create_skeleton_curve(self.ld_collection, store_as_columns=True)
+        assert "load_skeleton" in both_storage.columns
+        assert "displacement_skeleton" in both_storage.columns
+        assert "skeleton_curve" in both_storage.metadata["curves"]
+
+        # メタデータと列のデータが一致していることを確認
+        col_x = both_storage["displacement_skeleton"].values
+        col_y = both_storage["load_skeleton"].values
+        meta_x = both_storage.metadata["curves"]["skeleton_curve"]["x"]
+        meta_y = both_storage.metadata["curves"]["skeleton_curve"]["y"]
+
+        assert len(col_x) == len(meta_x)
+        assert len(col_y) == len(meta_y)
+        for i in range(len(col_x)):
+            assert col_x[i] == meta_x[i]
+            assert col_y[i] == meta_y[i]
+
+    def test_get_curve_columns(self):
+        """get_curve_columns関数のテスト"""
+        # スケルトン曲線と累積曲線を作成
+        result = create_skeleton_curve(self.ld_collection)
+        result = create_cumulative_curve(result)
+
+        # スケルトン曲線のColumnオブジェクトを取得
+        disp_col, load_col = get_curve_columns(result, "skeleton_curve")
+
+        # Columnオブジェクトの型確認
+        assert isinstance(disp_col, NumberColumn)
+        assert isinstance(load_col, NumberColumn)
+
+        # Columnオブジェクトの内容確認
+        assert disp_col.name == "skeleton_curve_disp"
+        assert load_col.name == "skeleton_curve_load"
+
+        # 値の存在確認
+        assert len(disp_col.values) > 0
+        assert len(load_col.values) > 0
+
+        # メタデータの確認
+        assert "description" in disp_col.metadata
+        assert "source_column" in disp_col.metadata
+        assert disp_col.metadata["source_column"] == "displacement"
+        assert load_col.metadata["source_column"] == "load"
+
+        # 単位の確認
+        assert disp_col.unit == (
+            self.ld_collection["displacement"].unit
+            if hasattr(self.ld_collection["displacement"], "unit")
+            else None
+        )
+        assert load_col.unit == (
+            self.ld_collection["load"].unit
+            if hasattr(self.ld_collection["load"], "unit")
+            else None
+        )
+
+        # 累積曲線のColumnオブジェクトも取得
+        disp_col_cum, load_col_cum = get_curve_columns(result, "cumulative_curve")
+
+        # 基本情報の確認
+        assert isinstance(disp_col_cum, NumberColumn)
+        assert isinstance(load_col_cum, NumberColumn)
+        assert disp_col_cum.name == "cumulative_curve_disp"
+        assert load_col_cum.name == "cumulative_curve_load"
+
+        # 存在しない曲線名での例外発生テスト
+        with pytest.raises(ValueError):
+            get_curve_columns(result, "nonexistent_curve")
+
+        # メタデータにcolumnsキーがない古い形式の場合のテスト
+        # メタデータの構造を変更して古い形式をシミュレート
+        old_format_result = result.clone()
+        old_format_result.metadata["curves"]["test_curve"] = {
+            "x": [0, 1, 2],
+            "y": [0, 10, 20],
+            "metadata": {"description": "テスト用曲線"},
+        }
+
+        # Columnsキーがない曲線でget_curve_columnsを呼び出すと例外が発生するはず
+        with pytest.raises(ValueError) as exc_info:
+            get_curve_columns(old_format_result, "test_curve")
+
+        # 例外メッセージの確認
+        assert "Columnデータが含まれていません" in str(exc_info.value)

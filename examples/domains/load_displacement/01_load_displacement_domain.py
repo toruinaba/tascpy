@@ -19,7 +19,7 @@ print("===== CSVファイルからデータを読み込み =====")
 
 # プロジェクトルートからの相対パスでデータファイルを取得
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+project_root = os.path.abspath(os.path.join(current_dir, "../../../../"))
 data_dir = os.path.join(project_root, "examples/data")
 sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 
@@ -158,21 +158,19 @@ print(
 )
 print(f"  初期勾配 = {initial_slope_offset:.3f}")
 
-# チェーンメソッドで一般降伏法による降伏点の特定
+# チェーンメソッドで一般降伏法による降伏点を特定します
 yield_general_result = ld_collection.ops.find_yield_point(
     method="general",
-    range_start=0.05,  # オフセット法と同じ設定
-    range_end=0.25,  # オフセット法と同じ設定
-    factor=0.25,  # 初期勾配の25%を降伏点と定義
+    range_start=0.05,  # オフセット法と同じ設定です
+    range_end=0.25,  # オフセット法と同じ設定です
+    factor=0.25,  # 初期勾配の25%を降伏点と定義します
     result_prefix="yield_general",
 ).end()
 
-# 結果を取得
+# ドット記法を使って結果を取得します（__getitem__メソッド活用）
 yield_disp_general = yield_general_result["yield_general_displacement"].values[0]
 yield_load_general = yield_general_result["yield_general_load"].values[0]
-initial_slope_general = yield_general_result.metadata["analysis"]["yield_point"][
-    "initial_slope"
-]
+initial_slope_general = yield_general_result["analysis.yield_point.initial_slope"]
 
 print(f"一般降伏法による降伏点:")
 print(
