@@ -16,6 +16,7 @@ import logging
 import typing  # 明示的なインポート追加
 
 from .registry import OperationRegistry
+from ..core.collection import ColumnCollection
 
 
 def get_return_type_annotation(func: Callable) -> str:
@@ -133,6 +134,51 @@ def format_annotation(annotation: Any) -> str:
     return str(annotation).replace("typing.", "")
 
 
+def is_returning_collection_list(func: Callable) -> bool:
+    """関数が List[ColumnCollection] を返すかどうかを判定します
+
+    Args:
+        func: 判定対象の関数
+
+    Returns:
+        bool: List[ColumnCollection]を返す場合はTrue
+    """
+    # 型アノテーションから判定
+    try:
+        type_hints = get_type_hints(func)
+        if "return" not in type_hints:
+            return False
+
+        return_type = type_hints["return"]
+        origin = typing.get_origin(return_type)
+        args = typing.get_args(return_type)
+
+        # リスト型でかつ要素がColumnCollectionかチェック
+        if origin is list and args:
+            arg_type = args[0]
+            try:
+                if isinstance(arg_type, type) and issubclass(
+                    arg_type, ColumnCollection
+                ):
+                    return True
+            except TypeError:
+                # arg_typeがクラス型でない場合
+                pass
+    except Exception as e:
+        logging.debug(f"関数 {func.__name__} の戻り値型判定でエラー: {e}")
+
+    # コード解析による判定（型アノテーションがない場合のフォールバック）
+    try:
+        source = inspect.getsource(func)
+        # 'return [' または 'return List[' のパターンを検出（簡易的な検出）
+        if re.search(r"return\s+\[\w", source) or "List[ColumnCollection]" in source:
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
 def generate_operation_stub(
     func: Callable, domain: str, output_file: Path, class_name: str
 ) -> None:
@@ -188,8 +234,13 @@ def generate_operation_stub(
 
         params.append(param_str)
 
-    # 返値の型を CollectionOperations の適切なサブクラスに変更 - 常にメソッドチェーンのため自分自身を返す
-    return_type = f'"{class_name}"'
+    # 関数が List[ColumnCollection] を返すかどうかを判定
+    if is_returning_collection_list(func):
+        # CollectionListOperations を返すスタブを生成
+        return_type = f'"CollectionListOperations[{class_name}]"'
+    else:
+        # 通常の操作関数は自身のクラスを返す
+        return_type = f'"{class_name}"'
 
     # メソッド定義を生成
     joined_params = ",\n        ".join(params)
@@ -206,6 +257,116 @@ def generate_operation_stub(
     with output_file.open("a", encoding="utf-8") as f:
         f.write(method_def)
         f.write("\n")
+
+
+def generate_collection_list_operations_stub(stub_dir: Path) -> None:
+    """CollectionListOperationsクラスのスタブを生成します
+
+    Args:
+        stub_dir: スタブファイルを保存するディレクトリのパス
+    """
+    list_proxy_file = stub_dir / "list_proxy.py"
+    
+    with list_proxy_file.open("w", encoding="utf-8") as f:
+        f.write("# 自動生成されたCollectionListOperationsスタブ - 編集しないでください\n")
+        f.write("from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload\n")
+        f.write("from ..core.collection import ColumnCollection\n")
+        f.write("from .proxy_base import CollectionOperationsBase\n\n")
+        
+        f.write("# コレクション型のTypeVar\n")
+        f.write("C = TypeVar('C', bound=ColumnCollection)\n\n")
+        
+        f.write("class CollectionListOperations(Generic[C]):\n")
+        f.write('    """複数のColumnCollectionを一度に操作するためのプロキシクラス\n')
+        f.write("    \n")
+        f.write("    このクラスはPylanceの型チェックとオートコンプリートのためのスタブです。\n")
+        f.write("    実際の実行には使用されません。\n")
+        f.write('    """\n\n')
+        
+        # 基本メソッドを追加
+        f.write("    def __len__(self) -> int:\n")
+        f.write('        """コレクションリストの長さを返します"""\n')
+        f.write("        ...\n\n")
+        
+        f.write("    def __getitem__(\n")
+        f.write("        self, index: Union[int, slice]\n")
+        f.write("    ) -> Union[CollectionOperationsBase[C], \"CollectionListOperations[C]\"]:\n")
+        f.write('        """指定されたインデックスのCollectionOperationsを返します\n')
+        f.write("        \n")
+        f.write("        Args:\n")
+        f.write("            index: アクセスするインデックスまたはスライス\n")
+        f.write("            \n")
+        f.write("        Returns:\n")
+        f.write("            インデックスの場合はCollectionOperations、スライスの場合はCollectionListOperations\n")
+        f.write("            \n")
+        f.write("        Raises:\n")
+        f.write("            IndexError: インデックスが範囲外の場合\n")
+        f.write("            TypeError: インデックスが整数またはスライスでない場合\n")
+        f.write('        """\n')
+        f.write("        ...\n\n")
+        
+        # map メソッド
+        f.write("    def map(\n")
+        f.write("        self, operation: str, *args: Any, **kwargs: Any\n")
+        f.write("    ) -> Union[\"CollectionListOperations[C]\", List[Any]]:\n")
+        f.write('        """各コレクションに同じ操作を適用します\n')
+        f.write("        \n")
+        f.write("        Args:\n")
+        f.write("            operation: 適用する操作名\n")
+        f.write("            *args: 操作に渡す位置引数\n")
+        f.write("            **kwargs: 操作に渡すキーワード引数\n")
+        f.write("            \n")
+        f.write("        Returns:\n")
+        f.write("            操作結果のCollectionListOperationsまたは結果のリスト\n")
+        f.write("            \n")
+        f.write("        Raises:\n")
+        f.write("            AttributeError: 指定された操作が存在しない場合\n")
+        f.write('        """\n')
+        f.write("        ...\n\n")
+        
+        # filter メソッド
+        f.write("    def filter(\n")
+        f.write("        self, predicate: Callable[[C], bool]\n")
+        f.write("    ) -> \"CollectionListOperations[C]\":\n")
+        f.write('        """条件を満たすコレクションだけをフィルタリングします\n')
+        f.write("        \n")
+        f.write("        Args:\n")
+        f.write("            predicate: フィルタリング条件を判定する関数\n")
+        f.write("            \n")
+        f.write("        Returns:\n")
+        f.write("            フィルタリングされたコレクションを持つCollectionListOperations\n")
+        f.write('        """\n')
+        f.write("        ...\n\n")
+        
+        # concat メソッド
+        f.write("    def concat(self) -> CollectionOperationsBase[C]:\n")
+        f.write('        """全てのコレクションを連結して一つのCollectionOperationsを返します\n')
+        f.write("        \n")
+        f.write("        Returns:\n")
+        f.write("            連結されたデータを持つCollectionOperations\n")
+        f.write("            \n")
+        f.write("        Raises:\n")
+        f.write("            ValueError: 連結するコレクションが存在しない場合\n")
+        f.write('        """\n')
+        f.write("        ...\n\n")
+        
+        # end_all メソッド
+        f.write("    def end_all(self) -> List[C]:\n")
+        f.write('        """操作を終了し、ColumnCollectionのリストを返します"""\n')
+        f.write("        ...\n\n")
+        
+        # as_domain メソッド
+        f.write("    def as_domain(self, domain: str, **kwargs: Any) -> \"CollectionListOperations\":\n")
+        f.write('        """全てのコレクションを指定されたドメインに変換します\n')
+        f.write("        \n")
+        f.write("        Args:\n")
+        f.write("            domain: 変換先のドメイン名\n")
+        f.write("            **kwargs: 変換に渡す追加引数\n")
+        f.write("            \n")
+        f.write("        Returns:\n")
+        f.write("            変換されたコレクションリスト\n")
+        f.write('        """\n')
+        f.write("        ...")
 
 
 def generate_stubs() -> None:
@@ -261,6 +422,9 @@ def generate_stubs() -> None:
         f.write("            自身を返す\n")
         f.write('        """\n')
         f.write("        ...\n\n")
+    
+    # CollectionListOperationsのスタブファイルを生成
+    generate_collection_list_operations_stub(stub_dir)
 
     # ドメインごとのコレクションクラス名のマッピング
     domain_to_collection_class = {
@@ -301,7 +465,8 @@ def generate_stubs() -> None:
                 import_path = domain_import_paths.get(domain, f"..domains.{domain}")
                 f.write(f"from {import_path} import {collection_class_name}\n")
 
-            f.write("from .proxy_base import CollectionOperationsBase\n\n")
+            f.write("from .proxy_base import CollectionOperationsBase\n")
+            f.write("from .list_proxy import CollectionListOperations\n\n")
 
             # 他のドメイン型のインポート(coreドメインの場合)
             if domain == "core":
@@ -391,6 +556,10 @@ def generate_stubs() -> None:
         with init_file.open("a", encoding="utf-8") as f:
             f.write(f"from .{domain} import {class_name}\n")
 
+    # CollectionListOperationsを__init__.pyに追加
+    with init_file.open("a", encoding="utf-8") as f:
+        f.write("from .list_proxy import CollectionListOperations\n")
+
     # 型情報を__init__.pyに追加
     with init_file.open("a", encoding="utf-8") as f:
         f.write("\n# 型ヒント用の変数\n")
@@ -400,6 +569,7 @@ def generate_stubs() -> None:
         for domain in domains:
             class_name = f"{domain.title().replace('_', '')}CollectionOperations"
             f.write(f"    '{class_name}',\n")
+        f.write("    'CollectionListOperations',\n")
         f.write("]\n")
 
     logging.info(f"スタブファイルを {stub_dir} に生成しました")

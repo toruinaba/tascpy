@@ -3,6 +3,7 @@ from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Ge
 from ..core.collection import ColumnCollection
 from ..domains.load_displacement import LoadDisplacementCollection
 from .proxy_base import CollectionOperationsBase
+from .list_proxy import CollectionListOperations
 
 class LoadDisplacementCollectionOperations(CollectionOperationsBase[LoadDisplacementCollection]):
     """load_displacementドメインの操作メソッドスタブ定義
@@ -214,7 +215,7 @@ Returns:
     def split_by_cycles(
         self,
         cycle_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "CollectionListOperations[LoadDisplacementCollectionOperations]":
         """サイクル番号ごとにデータを分割
 
 データをサイクル番号ごとに分割し、各サイクルの

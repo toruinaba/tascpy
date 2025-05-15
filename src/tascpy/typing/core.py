@@ -2,6 +2,7 @@
 from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Generic, overload, Literal
 from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
+from .list_proxy import CollectionListOperations
 
 from .coordinate import CoordinateCollectionOperations
 from .load_displacement import LoadDisplacementCollectionOperations
@@ -1145,7 +1146,7 @@ Examples:
     def split_by_integers(
         self,
         markers: list[int]
-    ) -> "CoreCollectionOperations":
+    ) -> "CollectionListOperations[CoreCollectionOperations]":
         """整数リストの値でデータを分割します
 
 同じマーカー値を持つデータは同じグループに集約されます。

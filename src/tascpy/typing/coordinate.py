@@ -3,6 +3,7 @@ from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Ge
 from ..core.collection import ColumnCollection
 from ..domains.coordinate import CoordinateCollection
 from .proxy_base import CollectionOperationsBase
+from .list_proxy import CollectionListOperations
 
 class CoordinateCollectionOperations(CollectionOperationsBase[CoordinateCollection]):
     """coordinateドメインの操作メソッドスタブ定義

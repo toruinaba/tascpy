@@ -7,6 +7,7 @@ from ..core.collection import ColumnCollection
 from .core import CoreCollectionOperations
 from .coordinate import CoordinateCollectionOperations
 from .load_displacement import LoadDisplacementCollectionOperations
+from .list_proxy import CollectionListOperations
 
 # 型ヒント用の変数
 T = TypeVar('T', bound='CollectionOperationsBase')
@@ -16,4 +17,5 @@ __all__ = [
     'CoreCollectionOperations',
     'CoordinateCollectionOperations',
     'LoadDisplacementCollectionOperations',
+    'CollectionListOperations',
 ]

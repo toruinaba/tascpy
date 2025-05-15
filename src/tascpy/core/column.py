@@ -14,7 +14,13 @@ class Column(DataHolder):
     def clone(self):
         from copy import deepcopy
 
-        return Column(self.ch, self.name, self.unit, deepcopy(self.values))
+        return Column(
+            self.ch,
+            self.name,
+            self.unit,
+            deepcopy(self.values),
+            deepcopy(self.metadata),
+        )
 
     def count_nones(self) -> int:
         """None値の数をカウント"""
