@@ -290,4 +290,10 @@ def interpolate(
         {"interpolation_method": method, "interpolation_basis": base_column_name}
     )
 
-    return ColumnCollection(new_steps, new_data, new_metadata)
+    # 結果用の新しいコレクションを作成
+    result = collection.clone()
+    result.step = result.step.__class__(values=new_steps)
+    result.columns = new_data
+    result.metadata = new_metadata
+    
+    return result

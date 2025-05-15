@@ -10,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
 )
 from pathlib import Path
+from copy import deepcopy
 from .step import Step
 from .column import (
     Column,
@@ -129,7 +130,7 @@ class ColumnCollection:
         return ColumnCollection(
             step=self.step.clone(),
             columns={name: column.clone() for name, column in self.columns.items()},
-            metadata=self.metadata.copy(),
+            metadata=deepcopy(self.metadata),
         )
 
     def add_column(

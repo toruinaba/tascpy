@@ -134,7 +134,12 @@ def select(
                 }
             )
 
-        return ColumnCollection(step=[], columns=empty_columns, metadata=metadata)
+        # 空のコレクションを作成
+        result = collection.clone()
+        result.step = result.step.__class__(values=[])
+        result.columns = empty_columns
+        result.metadata = metadata
+        return result
 
     # 行の選択
     if final_indices is not None:
@@ -173,9 +178,17 @@ def select(
             }
         )
 
-    return ColumnCollection(
-        step=selected_steps, columns=selected_columns, metadata=metadata
-    )
+    # 結果用のオブジェクトを作成
+    result = collection.clone()
+    
+    # クローン済みの列と選択されたステップを設定
+    result.columns = selected_columns
+    result.step = result.step.__class__(values=selected_steps)
+    
+    # メタデータを更新
+    result.metadata = metadata
+    
+    return result
 
 
 @operation(domain="core")

@@ -46,13 +46,17 @@ def filter_by_value(
     else:
         mask = [val == value for val in column.values]
 
-    # フィルタリングされたデータを新しいColumnCollectionに格納
-    filtered_data = {
-        name: [col[i] for i, m in enumerate(mask) if m]
-        for name, col in collection.columns.items()
-    }
-    filtered_step = [collection.step[i] for i, m in enumerate(mask) if m]
-    return ColumnCollection(filtered_step, filtered_data, collection.metadata)
+    # 結果を格納するオブジェクトを準備
+    result = collection.clone()
+    
+    # フィルタリングされたデータを格納
+    for name, col in result.columns.items():
+        col.values = [col.values[i] for i, m in enumerate(mask) if m]
+    
+    # ステップ値も更新
+    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
+    
+    return result
 
 
 @operation(domain="core")
@@ -134,14 +138,17 @@ def filter_out_none(
             for i in range(len(collection.step))
         ]
 
-    # フィルタリングされたデータを新しいColumnCollectionに格納
-    filtered_data = {
-        name: [col[i] for i, m in enumerate(mask) if m]
-        for name, col in collection.columns.items()
-    }
-    filtered_step = [collection.step[i] for i, m in enumerate(mask) if m]
-
-    return ColumnCollection(filtered_step, filtered_data, collection.metadata.copy())
+    # 結果を格納するオブジェクトを準備
+    result = collection.clone()
+    
+    # フィルタリングされたデータを格納
+    for name, col in result.columns.items():
+        col.values = [col.values[i] for i, m in enumerate(mask) if m]
+    
+    # ステップ値も更新
+    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
+    
+    return result
 
 
 @operation(domain="core")
@@ -223,19 +230,17 @@ def remove_consecutive_duplicates_across(
             if should_keep:
                 indices_to_keep.append(i)
 
-    # 新しいColumnCollectionを作成
-    filtered_data = {}
-    for name, column in collection.columns.items():
-        filtered_values = [column.values[i] for i in indices_to_keep]
-        new_column = column.clone()
-        new_column.values = filtered_values
-        filtered_data[name] = new_column
-
-    filtered_step = [collection.step.values[i] for i in indices_to_keep]
-
-    return ColumnCollection(
-        step=filtered_step, columns=filtered_data, metadata=collection.metadata.copy()
-    )
+    # 結果を格納するオブジェクトを準備
+    result = collection.clone()
+    
+    # 選択したインデックスの値だけを残す
+    for name, column in result.columns.items():
+        column.values = [collection[name].values[i] for i in indices_to_keep]
+    
+    # ステップ値も更新
+    result.step.values = [collection.step.values[i] for i in indices_to_keep]
+    
+    return result
 
 
 @operation(domain="core")
@@ -287,13 +292,18 @@ def remove_outliers(
     # 異常値フラグが1（異常値）のデータポイントを除外するマスクを作成
     mask = [flag == 0 for flag in result[outlier_column].values]
 
+    # 新しいコレクションを準備
+    filtered_result = result.clone()
+    
+    # 一時的な異常値フラグ列を削除
+    if outlier_column in filtered_result.columns:
+        del filtered_result.columns[outlier_column]
+    
     # フィルタリング処理
-    filtered_data = {}
-    for name, col in result.columns.items():
-        if name != outlier_column:  # 一時的な異常値フラグ列を除外
-            filtered_data[name] = [col.values[i] for i, m in enumerate(mask) if m]
-
-    filtered_step = [result.step.values[i] for i, m in enumerate(mask) if m]
-
-    # 新しいコレクションを返す
-    return ColumnCollection(filtered_step, filtered_data, result.metadata.copy())
+    for name, col in filtered_result.columns.items():
+        col.values = [result[name].values[i] for i, m in enumerate(mask) if m]
+    
+    # ステップ値も更新
+    filtered_result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
+    
+    return filtered_result
