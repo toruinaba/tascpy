@@ -1,16 +1,17 @@
 # 自動生成されたcoordinateドメインのスタブファイル - 編集しないでください
-from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast
+from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Generic, overload, Literal
 from ..core.collection import ColumnCollection
+from ..domains.coordinate import CoordinateCollection
 from .proxy_base import CollectionOperationsBase
 
-class CoordinateCollectionOperations(CollectionOperationsBase):
+class CoordinateCollectionOperations(CollectionOperationsBase[CoordinateCollection]):
     """coordinateドメインの操作メソッドスタブ定義
     
     このクラスはPylanceの型チェックとオートコンプリートのためのスタブです。
     実際の実行には使用されません。
     """
 
-    def end(self) -> ColumnCollection:
+    def end(self) -> CoordinateCollection:
         """操作チェーンを終了し、最終的なColumnCollectionを取得"""
         ...
 

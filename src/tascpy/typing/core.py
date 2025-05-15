@@ -1,9 +1,12 @@
 # 自動生成されたcoreドメインのスタブファイル - 編集しないでください
-from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast
+from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Generic, overload, Literal
 from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 
-class CoreCollectionOperations(CollectionOperationsBase):
+from .coordinate import CoordinateCollectionOperations
+from .load_displacement import LoadDisplacementCollectionOperations
+
+class CoreCollectionOperations(CollectionOperationsBase[ColumnCollection]):
     """coreドメインの操作メソッドスタブ定義
     
     このクラスはPylanceの型チェックとオートコンプリートのためのスタブです。
@@ -1231,3 +1234,23 @@ Raises:
     ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
         ...
     
+
+    @overload
+    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CoordinateCollectionOperations:
+        ...
+
+    @overload
+    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:
+        ...
+
+    def as_domain(self, domain: str, **kwargs: Any) -> Any:
+        """現在のコレクションを指定されたドメインに変換
+        
+        Args:
+            domain: 変換先のドメイン名
+            **kwargs: 変換に渡す追加の引数
+        
+        Returns:
+            適切なドメイン特化型のCollectionOperationsオブジェクト
+        """
+        ...

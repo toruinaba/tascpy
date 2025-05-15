@@ -40,8 +40,24 @@ CSV_FORMAT = {
 }
 
 # TASCフォーマット定義 (以前のW-Nフォーマット)
-TASC_FORMAT = {
+TASC_TXT_FORMAT = {
     "delimiter": "\t",
+    "title_row": 0,
+    "ch_row": 1,  # 2行目にチャンネル名がある
+    "name_row": 2,  # チャンネル名をそのまま列名として使用
+    "unit_row": 3,  # 3行目に単位がある
+    "data_start_row": 4,  # 4行目からデータが始まる
+    "step_col": 0,  # ﾃﾞｰﾀ番号
+    "date_col": 1,  # 日付
+    "time_col": 2,  # 時刻
+    "data_start_col": 3,  # CH0 から始まる
+    "encoding": "shift_jis",  # TASCフォーマットはShift-JIS
+    "use_channel_name": True,  # チャンネル名（ch）ベースで保存
+}
+
+# TASCフォーマット定義 (以前のW-Nフォーマット)
+TASC_CSV_FORMAT = {
+    "delimiter": ",",
     "title_row": 0,
     "ch_row": 1,  # 2行目にチャンネル名がある
     "name_row": 2,  # チャンネル名をそのまま列名として使用
@@ -59,7 +75,8 @@ TASC_FORMAT = {
 FILE_FORMATS: Dict[str, Dict[str, Any]] = {
     "standard": STANDARD_FORMAT,
     "csv": CSV_FORMAT,
-    "tasc": TASC_FORMAT,
+    "tasc_txt": TASC_TXT_FORMAT,
+    "tasc_csv": TASC_CSV_FORMAT,
 }
 
 

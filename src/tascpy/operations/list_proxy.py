@@ -1,14 +1,15 @@
-from typing import Any, Dict, List, Optional, Callable, TypeVar, Union
+from typing import Any, Dict, List, Optional, Callable, TypeVar, Union, Generic
 from ..core.collection import ColumnCollection
 from .proxy import CollectionOperations
 
-T = TypeVar("T")
+# ColumnCollectionおよびその派生クラス用のTypeVar
+T = TypeVar("T", bound=ColumnCollection)
 
 
-class CollectionListOperations:
+class CollectionListOperations(Generic[T]):
     """複数のColumnCollectionを一度に操作するためのプロキシクラス"""
 
-    def __init__(self, collections: List[ColumnCollection], domain: str = "core"):
+    def __init__(self, collections: List[T], domain: str = "core"):
         """
         Args:
             collections: ColumnCollectionオブジェクトのリスト
@@ -23,7 +24,7 @@ class CollectionListOperations:
 
     def __getitem__(
         self, index: Union[int, slice]
-    ) -> Union[CollectionOperations, "CollectionListOperations"]:
+    ) -> Union[CollectionOperations[T], "CollectionListOperations[T]"]:
         """指定されたインデックスのCollectionOperationsを返します"""
         if isinstance(index, int):
             if index < 0 or index >= len(self._collections):
@@ -136,7 +137,7 @@ class CollectionListOperations:
 
         return CollectionOperations(result, self._domain)
 
-    def end_all(self) -> List[ColumnCollection]:
+    def end_all(self) -> List[T]:
         """操作を終了し、ColumnCollectionのリストを返します"""
         return self._collections
 

@@ -1,4 +1,14 @@
-from typing import Any, Dict, List, Optional, Callable, TypeVar, Union, TYPE_CHECKING
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Callable,
+    TypeVar,
+    Union,
+    TYPE_CHECKING,
+    Generic,
+)
 
 from ..core.collection import ColumnCollection
 
@@ -9,10 +19,14 @@ if TYPE_CHECKING:
     from ..typing.coordinate import CoordinateCollectionOperations
 
 
-class CollectionOperations:
+# ColumnCollectionおよびその派生クラス用のTypeVar
+T = TypeVar("T", bound=ColumnCollection)
+
+
+class CollectionOperations(Generic[T]):
     """ColumnCollectionの操作プロキシクラス, デコレーターパターンを使用"""
 
-    def __init__(self, collection: ColumnCollection, domain: str = "core"):
+    def __init__(self, collection: T, domain: str = "core"):
         """
         Args:
             collection: ColumnCollectionオブジェクト
@@ -81,7 +95,7 @@ class CollectionOperations:
         method.__doc__ = func.__doc__
         return method
 
-    def end(self) -> ColumnCollection:
+    def end(self) -> T:
         """操作を終了し、ColumnCollectionを返す"""
         return self._collection
 
@@ -118,7 +132,7 @@ class CollectionOperations:
         new_collection = self._collection.apply(func)
         return CollectionOperations(new_collection, self._domain)
 
-    def debug(self, message: Optional[str] = None) -> "CollectionOperations":
+    def debug(self, message: Optional[str] = None) -> "CollectionOperations[T]":
         """デバッグメッセージを表示
         Args:
             message: デバッグメッセージ

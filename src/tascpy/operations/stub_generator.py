@@ -227,7 +227,7 @@ def generate_stubs() -> None:
         f.write("# 自動生成されたスタブファイル - 編集しないでください\n")
         f.write("# このファイルはPylanceの自動補完と型チェック用です\n\n")
         f.write(
-            "from typing import cast, TypeVar, Union, overload, Any, Dict, List, Optional, Callable\n"
+            "from typing import cast, TypeVar, Union, overload, Any, Dict, List, Optional, Callable, Generic, Literal\n"
         )
         f.write("from ..core.collection import ColumnCollection\n\n")
 
@@ -239,13 +239,16 @@ def generate_stubs() -> None:
     with proxy_file.open("w", encoding="utf-8") as f:
         f.write("# 自動生成されたプロキシベーススタブ - 編集しないでください\n")
         f.write(
-            "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic\n"
+            "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload, Literal\n"
         )
         f.write("from ..core.collection import ColumnCollection\n\n")
+        f.write("# コレクション型のTypeVar\n")
+        f.write("C = TypeVar('C', bound=ColumnCollection)\n")
+        f.write("# 戻り値型のTypeVar\n")
         f.write("T = TypeVar('T', bound='CollectionOperationsBase')\n\n")
-        f.write("class CollectionOperationsBase:\n")
+        f.write("class CollectionOperationsBase(Generic[C]):\n")
         f.write('    """コレクション操作の基底クラス"""\n\n')
-        f.write("    def end(self) -> ColumnCollection:\n")
+        f.write("    def end(self) -> C:\n")
         f.write('        """操作チェーンを終了し、最終的なColumnCollectionを取得"""\n')
         f.write("        ...\n\n")
         f.write("    def debug(self, message: Optional[str] = None) -> T:\n")
@@ -259,23 +262,63 @@ def generate_stubs() -> None:
         f.write('        """\n')
         f.write("        ...\n\n")
 
+    # ドメインごとのコレクションクラス名のマッピング
+    domain_to_collection_class = {
+        "core": "ColumnCollection",
+        "load_displacement": "LoadDisplacementCollection",
+        "coordinate": "CoordinateCollection",
+        # 他のドメインに対応するコレクションクラスを追加
+    }
+
+    # ドメインごとのインポートパスのマッピング
+    domain_import_paths = {
+        "load_displacement": "..domains.load_displacement",
+        "coordinate": "..domains.coordinate",
+        # 他のドメインに対応するインポートパスを追加
+    }
+
     for domain in domains:
         # ドメイン固有のスタブファイルを作成
         domain_file = stub_dir / f"{domain}.py"
+
+        # ドメイン特化コレクションクラス名
+        collection_class_name = domain_to_collection_class.get(
+            domain, "ColumnCollection"
+        )
+
         with domain_file.open("w", encoding="utf-8") as f:
             f.write(
                 f"# 自動生成された{domain}ドメインのスタブファイル - 編集しないでください\n"
             )
             f.write(
-                "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast\n"
+                "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Generic, overload, Literal\n"
             )
             f.write("from ..core.collection import ColumnCollection\n")
+
+            # ドメイン特化コレクションのインポート
+            if domain != "core" and collection_class_name != "ColumnCollection":
+                # ドメイン特化型のインポートパス
+                import_path = domain_import_paths.get(domain, f"..domains.{domain}")
+                f.write(f"from {import_path} import {collection_class_name}\n")
+
             f.write("from .proxy_base import CollectionOperationsBase\n\n")
+
+            # 他のドメイン型のインポート(coreドメインの場合)
+            if domain == "core":
+                # as_domain メソッドで使用するために他のドメインの型をインポート
+                for other_domain in domains:
+                    if other_domain != "core":
+                        other_class = f"{other_domain.title().replace('_', '')}CollectionOperations"
+                        f.write(f"from .{other_domain} import {other_class}\n")
+                f.write("\n")
 
             # ドメイン固有のクラス名を生成 (例: CoreCollectionOperations)
             class_name = f"{domain.title().replace('_', '')}CollectionOperations"
 
-            f.write(f"class {class_name}(CollectionOperationsBase):\n")
+            # 特化コレクション型をジェネリックパラメータとして使用
+            f.write(
+                f"class {class_name}(CollectionOperationsBase[{collection_class_name}]):\n"
+            )
             f.write(f'    """{domain}ドメインの操作メソッドスタブ定義\n')
             f.write(f"    \n")
             f.write(
@@ -285,7 +328,7 @@ def generate_stubs() -> None:
             f.write(f'    """\n\n')
 
             # end() メソッドをオーバーライド
-            f.write(f"    def end(self) -> ColumnCollection:\n")
+            f.write(f"    def end(self) -> {collection_class_name}:\n")
             f.write(
                 f'        """操作チェーンを終了し、最終的なColumnCollectionを取得"""\n'
             )
@@ -312,6 +355,37 @@ def generate_stubs() -> None:
         # 各操作関数のスタブを生成
         for name, func in operations.items():
             generate_operation_stub(func, domain, domain_file, class_name)
+
+        # as_domain メソッドのスタブをオーバーロード形式で追加
+        if domain == "core":
+            with domain_file.open("a", encoding="utf-8") as f:
+                # ドメインごとにオーバーロードバージョンを追加
+                for target_domain in domains:
+                    if target_domain != "core":
+                        target_class = f"{target_domain.title().replace('_', '')}CollectionOperations"
+                        # Literal型を使用したオーバーロード版（デフォルト値なし）
+                        f.write(f"\n    @overload\n")
+                        f.write(
+                            f"    def as_domain(self, domain: Literal['{target_domain}'], **kwargs: Any) -> {target_class}:\n"
+                        )
+                        f.write(f"        ...\n")
+
+                # 一般版（どのドメインにも対応）
+                f.write(
+                    f"\n    def as_domain(self, domain: str, **kwargs: Any) -> Any:\n"
+                )
+                f.write(f'        """現在のコレクションを指定されたドメインに変換\n')
+                f.write(f"        \n")
+                f.write(f"        Args:\n")
+                f.write(f"            domain: 変換先のドメイン名\n")
+                f.write(f"            **kwargs: 変換に渡す追加の引数\n")
+                f.write(f"        \n")
+                f.write(f"        Returns:\n")
+                f.write(
+                    f"            適切なドメイン特化型のCollectionOperationsオブジェクト\n"
+                )
+                f.write(f'        """\n')
+                f.write(f"        ...\n")
 
         # ドメインクラスを__init__.pyに登録
         with init_file.open("a", encoding="utf-8") as f:

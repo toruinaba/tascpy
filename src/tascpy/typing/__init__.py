@@ -1,7 +1,7 @@
 # 自動生成されたスタブファイル - 編集しないでください
 # このファイルはPylanceの自動補完と型チェック用です
 
-from typing import cast, TypeVar, Union, overload, Any, Dict, List, Optional, Callable
+from typing import cast, TypeVar, Union, overload, Any, Dict, List, Optional, Callable, Generic, Literal
 from ..core.collection import ColumnCollection
 
 from .core import CoreCollectionOperations
