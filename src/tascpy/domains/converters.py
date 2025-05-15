@@ -47,6 +47,10 @@ def prepare_for_domain_conversion(
     # 変換元ドメインを決定（メタデータから取得、なければ "core"）
     source_domain = collection.metadata.get("domain", "core")
 
+    # coreドメインへの変換は汎用関数を使用
+    if target_domain == "core" and source_domain != "core":
+        return prepare_for_core(result, **kwargs)
+
     # 登録されている変換関数を探す
     converter_key = (source_domain, target_domain)
     if converter_key in _DOMAIN_CONVERTERS:
@@ -305,11 +309,150 @@ def prepare_for_coordinate(
     # 座標情報が見つかった場合、それをメタデータキーに設定
     if coordinate_columns:
         for col_name, coords in coordinate_columns.items():
-            if hasattr(collection.columns[col_name], "metadata"):
-                if not collection.columns[col_name].metadata:
-                    collection.columns[col_name].metadata = {}
-                collection.columns[col_name].metadata[coordinate_metadata_key] = coords
+            # メタデータが未設定の場合は初期化
+            if not collection.columns[col_name].metadata:
+                collection.columns[col_name].metadata = {}
+
+            # 座標情報をメタデータに設定
+            collection.columns[col_name].metadata[coordinate_metadata_key] = coords
 
     # 更新されたkwargsを返す
     kwargs.update({"coordinate_metadata_key": coordinate_metadata_key})
+    return collection, kwargs
+
+
+@register_domain_converter(source_domain="load_displacement", target_domain="core")
+def prepare_for_core_from_load_displacement(
+    collection: ColumnCollection, **kwargs: Any
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
+    """荷重-変位コレクションから一般コレクションへの変換準備を行う
+
+    Args:
+        collection: 変換元の荷重-変位コレクション
+        **kwargs: 追加のパラメータ
+
+    Returns:
+        Tuple[ColumnCollection, Dict[str, Any]]:
+            (変換用に準備されたコレクション, 更新されたkwargs)
+    """
+    # 汎用変換関数を使用
+    return prepare_for_core(collection, **kwargs)
+
+
+@register_domain_converter(source_domain="coordinate", target_domain="core")
+def prepare_for_core_from_coordinate(
+    collection: ColumnCollection, **kwargs: Any
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
+    """座標コレクションから一般コレクションへの変換準備を行う
+
+    Args:
+        collection: 変換元の座標コレクション
+        **kwargs: 追加のパラメータ
+
+    Returns:
+        Tuple[ColumnCollection, Dict[str, Any]]:
+            (変換用に準備されたコレクション, 更新されたkwargs)
+    """
+    # 汎用変換関数を使用
+    return prepare_for_core(collection, **kwargs)
+
+
+def prepare_for_core(
+    collection: ColumnCollection, **kwargs: Any
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
+    """任意のドメインからcoreドメインへの変換準備を行う汎用関数
+
+    Args:
+        collection: 変換元のコレクション
+        **kwargs: 追加のパラメータ
+
+    Returns:
+        Tuple[ColumnCollection, Dict[str, Any]]:
+            (変換用に準備されたコレクション, 更新されたkwargs)
+    """
+    # 元のドメインを取得
+    source_domain = collection.metadata.get("domain", "core")
+
+    # すでにcoreドメインの場合はそのまま返す
+    if source_domain == "core":
+        return collection, kwargs
+
+    # ドメイン固有の属性や設定を保存
+    if "domain_metadata" not in collection.metadata:
+        collection.metadata["domain_metadata"] = {}
+
+    domain_metadata = collection.metadata["domain_metadata"]
+    if source_domain not in domain_metadata:
+        domain_metadata[source_domain] = {}
+
+    # 各ドメイン固有の属性を保存
+    if source_domain == "load_displacement":
+        # 荷重-変位ドメインの属性を保存
+        # __dict__を使用して直接属性を取得
+        obj_dict = vars(collection)
+        if "_load_column" in obj_dict:
+            domain_metadata["load_displacement"]["load_column"] = obj_dict[
+                "_load_column"
+            ]
+        if "_displacement_column" in obj_dict:
+            domain_metadata["load_displacement"]["displacement_column"] = obj_dict[
+                "_displacement_column"
+            ]
+
+    elif source_domain == "coordinate":
+        # 座標ドメインの属性を保存
+        coordinate_metadata_key = kwargs.get("coordinate_metadata_key", "coordinates")
+        if "coordinate_metadata_key" in collection.metadata:
+            coordinate_metadata_key = collection.metadata["coordinate_metadata_key"]
+
+        # 座標情報を収集
+        coordinates = {}
+        for col_name, col in collection.columns.items():
+            if (
+                hasattr(col, "metadata")
+                and col.metadata
+                and coordinate_metadata_key in col.metadata
+            ):
+                coordinates[col_name] = col.metadata[coordinate_metadata_key]
+
+        # 明示的に属性をドメインメタデータに保存
+        domain_metadata["coordinate"]["coordinates"] = coordinates
+        domain_metadata["coordinate"][
+            "coordinate_metadata_key"
+        ] = coordinate_metadata_key
+
+    elif source_domain == "timeseries":
+        # 時系列ドメインの属性を保存
+        frequency = collection.metadata.get("frequency")
+        if frequency:
+            domain_metadata["timeseries"]["frequency"] = frequency
+
+    elif source_domain == "signal":
+        # 信号処理ドメインの属性を保存
+        if "original_timestamps" in collection.metadata:
+            domain_metadata["signal"]["original_timestamps"] = collection.metadata[
+                "original_timestamps"
+            ]
+
+        if "sample_rate" in collection.metadata:
+            domain_metadata["signal"]["sample_rate"] = collection.metadata[
+                "sample_rate"
+            ]
+
+    # その他の登録されているドメインの場合は、関連するメタデータを保存
+    # ここでは不明な属性も含めて、ドメイン固有のメタデータをすべて保存
+    for key, value in collection.metadata.items():
+        if key not in ["domain", "domain_metadata"]:
+            domain_metadata[source_domain][key] = value
+
+    # 継承した属性やプロパティの取得と保存
+    attributes_to_check = ["_domain_specific_attributes", "_custom_properties"]
+    for attr_name in attributes_to_check:
+        if hasattr(collection, attr_name) and getattr(collection, attr_name):
+            domain_metadata[source_domain][attr_name] = getattr(collection, attr_name)
+
+    # ドメイン名をcoreに変更
+    collection.metadata["domain"] = "core"
+
+    # 更新されたkwargsを返す
     return collection, kwargs
