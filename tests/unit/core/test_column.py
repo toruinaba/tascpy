@@ -345,3 +345,108 @@ class TestColumnCollectionAutoDetection:
                     # 型の比較
                     for name, column in expected.columns.items():
                         assert type(column) == type(result.columns[name])
+
+
+class TestNumberColumnStats:
+    """NumberColumnの統計メソッドのテストクラス"""
+
+    def setup_method(self):
+        """テスト環境の準備"""
+        # テスト用のNumberColumnインスタンスを作成
+        self.normal_col = NumberColumn("ch1", "normal", "unit", [1, 2, 3, 4, 5])
+        self.with_none_col = NumberColumn(
+            "ch2", "with_none", "unit", [1, None, 3, None, 5]
+        )
+        self.all_none_col = NumberColumn("ch3", "all_none", "unit", [None, None, None])
+        self.empty_col = NumberColumn("ch4", "empty", "unit", [])
+        self.single_col = NumberColumn("ch5", "single", "unit", [10])
+        self.float_col = NumberColumn("ch6", "float", "unit", [1.1, 2.2, 3.3, 4.4, 5.5])
+        self.invalid_col = InvalidColumn("ch7", "invalid", "unit", [None, None, None])
+
+    def test_max(self):
+        """max()メソッドのテスト"""
+        assert self.normal_col.max() == 5
+        assert self.with_none_col.max() == 5
+        assert self.all_none_col.max() is None
+        assert self.empty_col.max() is None
+        assert self.single_col.max() == 10
+        assert self.float_col.max() == 5.5
+        assert self.invalid_col.max() is None
+
+    def test_min(self):
+        """min()メソッドのテスト"""
+        assert self.normal_col.min() == 1
+        assert self.with_none_col.min() == 1
+        assert self.all_none_col.min() is None
+        assert self.empty_col.min() is None
+        assert self.single_col.min() == 10
+        assert self.float_col.min() == 1.1
+        assert self.invalid_col.min() is None
+
+    def test_mean(self):
+        """mean()メソッドのテスト"""
+        assert self.normal_col.mean() == 3
+        assert self.with_none_col.mean() == 3
+        assert self.all_none_col.mean() is None
+        assert self.empty_col.mean() is None
+        assert self.single_col.mean() == 10
+        assert pytest.approx(self.float_col.mean(), 0.01) == 3.3
+        assert self.invalid_col.mean() is None
+
+    def test_median(self):
+        """median()メソッドのテスト"""
+        assert self.normal_col.median() == 3
+        assert self.with_none_col.median() == 3
+        assert self.all_none_col.median() is None
+        assert self.empty_col.median() is None
+        assert self.single_col.median() == 10
+        assert self.float_col.median() == 3.3
+        assert self.invalid_col.median() is None
+
+    def test_std(self):
+        """std()メソッドのテスト"""
+        assert pytest.approx(self.normal_col.std(), 0.01) == 1.58
+        assert pytest.approx(self.with_none_col.std(), 0.01) == 2.0
+        assert self.all_none_col.std() is None
+        assert self.empty_col.std() is None
+        assert self.single_col.std() is None
+        assert pytest.approx(self.float_col.std(), 0.01) == 1.74  # 値を修正
+        assert self.invalid_col.std() is None
+
+    def test_variance(self):
+        """variance()メソッドのテスト"""
+        assert pytest.approx(self.normal_col.variance(), 0.01) == 2.5
+        assert pytest.approx(self.with_none_col.variance(), 0.01) == 4.0
+        assert self.all_none_col.variance() is None
+        assert self.empty_col.variance() is None
+        assert self.single_col.variance() is None
+        assert pytest.approx(self.float_col.variance(), 0.01) == 3.03  # 値を修正
+        assert self.invalid_col.variance() is None
+
+    def test_quantile(self):
+        """quantile()メソッドのテスト"""
+        # 基本的な動作確認
+        assert self.normal_col.quantile(0) == 1
+        assert self.normal_col.quantile(0.5) == 3
+        assert self.normal_col.quantile(1) == 5
+
+        # None値を含むケース
+        assert self.with_none_col.quantile(0) == 1
+        assert self.with_none_col.quantile(0.5) == 3
+        assert self.with_none_col.quantile(1) == 5
+
+        # エラーケース
+        assert self.all_none_col.quantile(0.5) is None
+        assert self.empty_col.quantile(0.5) is None
+        assert self.single_col.quantile(0.5) == 10
+        assert self.invalid_col.quantile(0.5) is None
+
+        # 浮動小数点値
+        assert pytest.approx(self.float_col.quantile(0.25), 0.01) == 2.2
+        assert pytest.approx(self.float_col.quantile(0.75), 0.01) == 4.4
+
+        # 不正なq値
+        with pytest.raises(ValueError):
+            self.normal_col.quantile(-0.1)
+        with pytest.raises(ValueError):
+            self.normal_col.quantile(1.1)

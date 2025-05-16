@@ -40,6 +40,105 @@ class Column(DataHolder):
             return False
         return any(value is None for value in self.values)
 
+    def _get_non_none_values(self) -> List[Any]:
+        """None以外の値のリストを返す"""
+        if self.values is None:
+            return []
+        return [v for v in self.values if v is not None]
+
+    def max(self) -> Optional[Any]:
+        """最大値を取得
+
+        Returns:
+            Any: データの最大値
+            None: データがない場合はNone
+        """
+        non_none_values = self._get_non_none_values()
+        if not non_none_values:
+            return None
+        try:
+            return max(non_none_values)
+        except (TypeError, ValueError):
+            # 比較できない型のデータが含まれる場合
+            return None
+
+    def min(self) -> Optional[Any]:
+        """最小値を取得
+
+        Returns:
+            Any: データの最小値
+            None: データがない場合はNone
+        """
+        non_none_values = self._get_non_none_values()
+        if not non_none_values:
+            return None
+        try:
+            return min(non_none_values)
+        except (TypeError, ValueError):
+            # 比較できない型のデータが含まれる場合
+            return None
+
+    def mean(self) -> Optional[float]:
+        """平均値を取得
+
+        Returns:
+            float: 数値データの平均値
+            None: データがない場合や数値以外の場合はNone
+        """
+        return None
+
+    def median(self) -> Optional[float]:
+        """中央値を取得
+
+        Returns:
+            float: 数値データの中央値
+            None: データがない場合や数値以外の場合はNone
+        """
+        return None
+
+    def std(self) -> Optional[float]:
+        """標準偏差を取得
+
+        Returns:
+            float: 数値データの標準偏差
+            None: データが1つ以下の場合や数値以外の場合はNone
+        """
+        return None
+
+    def sum(self) -> Optional[float]:
+        """合計値を取得
+
+        Returns:
+            float: 数値データの合計
+            None: データがない場合や数値以外の場合はNone
+            0: 計算可能だが合計が0の場合
+        """
+        return None
+
+    def variance(self) -> Optional[float]:
+        """分散を取得
+
+        Returns:
+            float: 数値データの分散
+            None: データが1つ以下の場合や数値以外の場合はNone
+        """
+        return None
+
+    def quantile(self, q: float) -> Optional[Any]:
+        """指定したパーセンタイルの値を取得
+
+        Args:
+            q: 0から1の間の割合（パーセンタイル値）
+
+        Returns:
+            Any: 指定したパーセンタイルの値
+            None: データがない場合や計算できない場合はNone
+
+        Raises:
+            ValueError: qが0から1の範囲外の場合
+        """
+        return None
+
 
 class NumberColumn(Column):
     """数値型データのみを格納するカラムクラス"""
@@ -68,6 +167,114 @@ class NumberColumn(Column):
             self.unit,
             deepcopy(self.values),
             deepcopy(self.metadata),
+        )
+
+    def mean(self) -> Optional[float]:
+        """平均値を取得
+
+        Returns:
+            float: 数値データの平均値
+            None: データがない場合はNone
+        """
+        non_none_values = self._get_non_none_values()
+        if not non_none_values:
+            return None
+        return sum(non_none_values) / len(non_none_values)
+
+    def median(self) -> Optional[float]:
+        """中央値を取得
+
+        Returns:
+            float: 数値データの中央値
+            None: データがない場合はNone
+        """
+        import statistics
+
+        non_none_values = self._get_non_none_values()
+        if not non_none_values:
+            return None
+        return statistics.median(non_none_values)
+
+    def std(self) -> Optional[float]:
+        """標準偏差を取得
+
+        Returns:
+            float: 数値データの標準偏差
+            None: データが1つ以下の場合はNone
+        """
+        import statistics
+
+        non_none_values = self._get_non_none_values()
+        if len(non_none_values) <= 1:
+            return None
+        return statistics.stdev(non_none_values)
+
+    def sum(self) -> float:
+        """合計値を取得
+
+        Returns:
+            float: 数値データの合計
+            0: データがない場合は0
+        """
+        non_none_values = self._get_non_none_values()
+        if not non_none_values:
+            return 0.0
+        return sum(non_none_values)
+
+    def variance(self) -> Optional[float]:
+        """分散を取得
+
+        Returns:
+            float: 数値データの分散
+            None: データが1つ以下の場合はNone
+        """
+        import statistics
+
+        non_none_values = self._get_non_none_values()
+        if len(non_none_values) <= 1:
+            return None
+        return statistics.variance(non_none_values)
+
+    def quantile(self, q: float) -> Optional[float]:
+        """指定したパーセンタイルの値を取得
+
+        Args:
+            q: 0から1の間の割合（パーセンタイル値）
+
+        Returns:
+            float: 指定したパーセンタイルの値
+            None: データがない場合はNone
+
+        Raises:
+            ValueError: qが0から1の範囲外の場合
+        """
+        import statistics
+
+        if not 0 <= q <= 1:
+            raise ValueError("qは0から1の間の値である必要があります")
+
+        non_none_values = self._get_non_none_values()
+        if not non_none_values:
+            return None
+
+        sorted_values = sorted(non_none_values)
+        if q == 0:
+            return sorted_values[0]
+        if q == 1:
+            return sorted_values[-1]
+
+        # 位置を計算
+        pos = q * (len(sorted_values) - 1)
+        pos_floor = int(pos)
+        pos_ceil = min(pos_floor + 1, len(sorted_values) - 1)
+
+        # 整数位置の場合はその値を返す
+        if pos == pos_floor:
+            return sorted_values[pos_floor]
+
+        # 補間
+        return sorted_values[pos_floor] * (pos_ceil - pos) + sorted_values[pos_ceil] * (
+            pos - pos_floor
         )
 
 
@@ -120,6 +327,10 @@ class InvalidColumn(Column):
             deepcopy(self.values),
             deepcopy(self.metadata),
         )
+
+    def sum(self) -> float:
+        """合計値を取得（常に0を返す）"""
+        return 0.0
 
 
 # 補助関数
