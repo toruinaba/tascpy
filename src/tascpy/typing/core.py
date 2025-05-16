@@ -4,8 +4,8 @@ from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 from .list_proxy import CollectionListOperations
 
-from .coordinate import CoordinateCollectionOperations
 from .load_displacement import LoadDisplacementCollectionOperations
+from .coordinate import CoordinateCollectionOperations
 
 class CoreCollectionOperations(CollectionOperationsBase[ColumnCollection]):
     """coreドメインの操作メソッドスタブ定義
@@ -296,7 +296,7 @@ Raises:
         y_column: Optional[str] = None,
         plot_type: str = 'scatter',
         ax: Optional[Axes] = None,
-        kwargs
+        **kwargs
     ) -> "CoreCollectionOperations":
         """グラフを描画します
 
@@ -352,7 +352,7 @@ Examples:
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0,
-        kwargs
+        **kwargs
     ) -> "CoreCollectionOperations":
         """異常値を可視化します
 
@@ -1237,11 +1237,11 @@ Raises:
     
 
     @overload
-    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CoordinateCollectionOperations:
+    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:
         ...
 
     @overload
-    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:
+    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CoordinateCollectionOperations:
         ...
 
     def as_domain(self, domain: str, **kwargs: Any) -> Any:

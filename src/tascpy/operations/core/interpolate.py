@@ -295,5 +295,5 @@ def interpolate(
     result.step = result.step.__class__(values=new_steps)
     result.columns = new_data
     result.metadata = new_metadata
-    
+
     return result

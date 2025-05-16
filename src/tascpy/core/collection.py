@@ -316,7 +316,7 @@ class ColumnCollection:
     def from_file(
         cls,
         filepath: Union[str, Path],
-        format_name: str = "tasc",
+        format_name: str = "tasc_txt",
         auto_detect_types=False,
         **kwargs,
     ) -> "ColumnCollection":
@@ -324,7 +324,7 @@ class ColumnCollection:
 
         Args:
             filepath: 読み込むファイルパス
-            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
+            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
             auto_detect_types: カラム型を自動判定するかどうか
             **kwargs: フォーマット設定を上書きするためのキーワード引数
 
@@ -361,7 +361,7 @@ class ColumnCollection:
     def from_stream(
         cls,
         file_stream: TextIO,
-        format_name: str = "tasc",
+        format_name: str = "tasc_txt",
         auto_detect_types=False,
         **kwargs,
     ) -> "ColumnCollection":
@@ -369,7 +369,7 @@ class ColumnCollection:
 
         Args:
             file_stream: 読み込むテキストストリーム
-            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
+            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
             auto_detect_types: カラム型を自動判定するかどうか
             **kwargs: フォーマット設定を上書きするためのキーワード引数
                 selected_columns: 読み込む列名またはチャンネル名のリスト。指定された列のみ読み込む
@@ -574,13 +574,13 @@ class ColumnCollection:
             return value_str
 
     def to_file(
-        self, output_path: Union[str, Path], format_name: str = "tasc", **kwargs
+        self, output_path: Union[str, Path], format_name: str = "tasc_txt", **kwargs
     ) -> None:
         """ColumnCollectionをファイルに出力する
 
         Args:
             output_path: 出力先ファイルパス
-            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
+            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
             **kwargs: フォーマット設定を上書きするためのキーワード引数
 
         Raises:

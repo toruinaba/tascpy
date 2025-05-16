@@ -212,7 +212,16 @@ def generate_operation_stub(
             first = False
             continue  # collection引数をスキップ
 
-        param_str = f"{name}"
+        # パラメータの種類に応じた処理
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            # *args のような可変長位置引数
+            param_str = f"*{name}"
+        elif param.kind == inspect.Parameter.VAR_KEYWORD:
+            # **kwargs のような可変長キーワード引数
+            param_str = f"**{name}"
+        else:
+            # 通常の引数（位置引数またはキーワード引数）
+            param_str = f"{name}"
 
         # 型アノテーションの処理
         # 1. get_type_hints から取得した型情報を優先
@@ -225,7 +234,7 @@ def generate_operation_stub(
             param_str += f": {annotation_str}"
 
         # デフォルト値の処理
-        if param.default != inspect.Parameter.empty:
+        if param.default != inspect.Parameter.empty and param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.VAR_KEYWORD:
             if param.default is None:
                 param_str += " = None"
             else:
@@ -441,6 +450,9 @@ def generate_stubs() -> None:
         # 他のドメインに対応するインポートパスを追加
     }
 
+    # coreドメインの操作を取得しておく（他のドメインのスタブにも追加するため）
+    core_operations = OperationRegistry.get_operations("core") 
+
     for domain in domains:
         # ドメイン固有のスタブファイルを作成
         domain_file = stub_dir / f"{domain}.py"
@@ -466,7 +478,22 @@ def generate_stubs() -> None:
                 f.write(f"from {import_path} import {collection_class_name}\n")
 
             f.write("from .proxy_base import CollectionOperationsBase\n")
-            f.write("from .list_proxy import CollectionListOperations\n\n")
+            f.write("from .list_proxy import CollectionListOperations\n")
+            
+            # 非coreドメインは必要なドメイン特化クラスをインポート（as_domainの戻り値型用）
+            if domain != "core":
+                f.write("from .core import CoreCollectionOperations\n")
+                
+                # 相互参照のために他のドメインの特化クラスをインポート
+                for other_domain in domains:
+                    if other_domain != domain and other_domain != "core":
+                        other_class = f"{other_domain.title().replace('_', '')}CollectionOperations"
+                        # 循環インポートを避けるためTYPE_CHECKINGを使用
+                        f.write(f"from typing import TYPE_CHECKING\n")
+                        f.write(f"if TYPE_CHECKING:\n")
+                        f.write(f"    from .{other_domain} import {other_class}\n")
+            
+            f.write("\n")
 
             # 他のドメイン型のインポート(coreドメインの場合)
             if domain == "core":
@@ -521,6 +548,13 @@ def generate_stubs() -> None:
         for name, func in operations.items():
             generate_operation_stub(func, domain, domain_file, class_name)
 
+        # 非coreドメインの場合は、core操作のスタブも追加
+        if domain != "core":
+            for name, func in core_operations.items():
+                # 同じ名前の操作が既にドメイン固有のものとして定義されていない場合のみ追加
+                if name not in operations:
+                    generate_operation_stub(func, "core", domain_file, class_name)
+
         # as_domain メソッドのスタブをオーバーロード形式で追加
         if domain == "core":
             with domain_file.open("a", encoding="utf-8") as f:
@@ -551,6 +585,38 @@ def generate_stubs() -> None:
                 )
                 f.write(f'        """\n')
                 f.write(f"        ...\n")
+        
+        # 非coreドメインの場合は、as_domain メソッドも追加
+        if domain != "core":
+            with domain_file.open("a", encoding="utf-8") as f:
+                # ドメインごとにオーバーロードバージョンを追加
+                for target_domain in domains:
+                    if target_domain != domain:  # 自分自身のドメインは除外
+                        target_class = f"{target_domain.title().replace('_', '')}CollectionOperations"
+                        # Literal型を使用したオーバーロード版
+                        f.write(f"\n    @overload\n")
+                        f.write(
+                            f"    def as_domain(self, domain: Literal['{target_domain}'], **kwargs: Any) -> {target_class}:\n"
+                        )
+                        f.write(f"        ...\n")
+
+                # 一般版（最低限CoreCollectionOperationsを返すことを保証）
+                f.write(
+                    f"\n    def as_domain(self, domain: str, **kwargs: Any) -> Union[CoreCollectionOperations, Any]:\n"
+                )
+                f.write(f'        """現在のコレクションを指定されたドメインに変換\n')
+                f.write(f"        \n")
+                f.write(f"        Args:\n")
+                f.write(f"            domain: 変換先のドメイン名\n")
+                f.write(f"            **kwargs: 変換に渡す追加の引数\n")
+                f.write(f"        \n")
+                f.write(f"        Returns:\n")
+                f.write(
+                    f"            適切なドメイン特化型のCollectionOperationsオブジェクト\n"
+                )
+                f.write(f'        """\n')
+                f.write(f"        ...\n")
+        
 
         # ドメインクラスを__init__.pyに登録
         with init_file.open("a", encoding="utf-8") as f:

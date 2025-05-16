@@ -180,14 +180,14 @@ def select(
 
     # 結果用のオブジェクトを作成
     result = collection.clone()
-    
+
     # クローン済みの列と選択されたステップを設定
     result.columns = selected_columns
     result.step = result.step.__class__(values=selected_steps)
-    
+
     # メタデータを更新
     result.metadata = metadata
-    
+
     return result
 
 

@@ -48,14 +48,14 @@ def filter_by_value(
 
     # 結果を格納するオブジェクトを準備
     result = collection.clone()
-    
+
     # フィルタリングされたデータを格納
     for name, col in result.columns.items():
         col.values = [col.values[i] for i, m in enumerate(mask) if m]
-    
+
     # ステップ値も更新
     result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
-    
+
     return result
 
 
@@ -140,14 +140,14 @@ def filter_out_none(
 
     # 結果を格納するオブジェクトを準備
     result = collection.clone()
-    
+
     # フィルタリングされたデータを格納
     for name, col in result.columns.items():
         col.values = [col.values[i] for i, m in enumerate(mask) if m]
-    
+
     # ステップ値も更新
     result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
-    
+
     return result
 
 
@@ -232,14 +232,14 @@ def remove_consecutive_duplicates_across(
 
     # 結果を格納するオブジェクトを準備
     result = collection.clone()
-    
+
     # 選択したインデックスの値だけを残す
     for name, column in result.columns.items():
         column.values = [collection[name].values[i] for i in indices_to_keep]
-    
+
     # ステップ値も更新
     result.step.values = [collection.step.values[i] for i in indices_to_keep]
-    
+
     return result
 
 
@@ -294,16 +294,18 @@ def remove_outliers(
 
     # 新しいコレクションを準備
     filtered_result = result.clone()
-    
+
     # 一時的な異常値フラグ列を削除
     if outlier_column in filtered_result.columns:
         del filtered_result.columns[outlier_column]
-    
+
     # フィルタリング処理
     for name, col in filtered_result.columns.items():
         col.values = [result[name].values[i] for i, m in enumerate(mask) if m]
-    
+
     # ステップ値も更新
-    filtered_result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
-    
+    filtered_result.step.values = [
+        result.step.values[i] for i, m in enumerate(mask) if m
+    ]
+
     return filtered_result
