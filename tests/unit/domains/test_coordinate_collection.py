@@ -208,3 +208,91 @@ class TestCoordinateCollection:
             coord_collection.calculate_distance("sensor1", "sensor2")
 
         assert "座標情報が不足" in str(exc_info.value)
+
+    def test_initialization_with_coordinates(self):
+        """初期化時に座標情報を設定するテスト"""
+        # 座標情報を辞書で定義
+        coordinates = {
+            "sensor1": {"x": 1.0, "y": 2.0, "z": 3.0},
+            "sensor2": {"x": 4.0, "y": 5.0},  # zは指定せず
+        }
+
+        # 座標情報を指定して初期化
+        coord_collection = CoordinateCollection(
+            self.steps,
+            {"sensor1": self.column1, "sensor2": self.column2},
+            coordinates=coordinates,
+        )
+
+        # 座標が正しく設定されていることを確認
+        x1, y1, z1 = coord_collection.get_column_coordinates("sensor1")
+        assert x1 == 1.0
+        assert y1 == 2.0
+        assert z1 == 3.0
+
+        x2, y2, z2 = coord_collection.get_column_coordinates("sensor2")
+        assert x2 == 4.0
+        assert y2 == 5.0
+        assert z2 is None
+
+        # 座標を持つカラムのリストが正しいことを確認
+        columns_with_coords = coord_collection.get_columns_with_coordinates()
+        assert set(columns_with_coords) == {"sensor1", "sensor2"}
+
+    def test_initialization_with_custom_key_and_coordinates(self):
+        """カスタムメタデータキーと座標情報を同時に指定するテスト"""
+        # 座標情報を辞書で定義
+        coordinates = {"sensor1": {"x": 10.0, "y": 20.0, "z": 30.0}}
+
+        # カスタムメタデータキーと座標情報を指定して初期化
+        coord_collection = CoordinateCollection(
+            self.steps,
+            {"sensor1": self.column1, "sensor2": self.column2},
+            coordinate_metadata_key="position",
+            coordinates=coordinates,
+        )
+
+        # カスタムキーが正しく設定されていることを確認
+        assert coord_collection.coordinate_metadata_key == "position"
+
+        # 座標が正しく設定されていることを確認
+        x, y, z = coord_collection.get_column_coordinates("sensor1")
+        assert x == 10.0
+        assert y == 20.0
+        assert z == 30.0
+
+        # メタデータが正しいキーで保存されていることを確認
+        assert "position" in coord_collection.columns["sensor1"].metadata
+        assert coord_collection.columns["sensor1"].metadata["position"]["x"] == 10.0
+
+    def test_factory_with_coordinates(self):
+        """ファクトリ関数を使用して座標情報を設定するテスト"""
+        from tascpy.domains.factory import DomainCollectionFactory
+
+        # 座標情報を辞書で定義
+        coordinates = {
+            "sensor1": {"x": 5.0, "y": 6.0, "z": 7.0},
+            "sensor2": {"x": 8.0, "y": 9.0, "z": 10.0},
+        }
+
+        # ファクトリ関数を使用して座標情報付きのコレクションを作成
+        coord_collection = DomainCollectionFactory.create(
+            "coordinate",
+            step=self.steps,
+            columns={"sensor1": self.column1, "sensor2": self.column2},
+            coordinates=coordinates,
+        )
+
+        # インスタンスタイプの確認
+        assert isinstance(coord_collection, CoordinateCollection)
+
+        # 座標が正しく設定されていることを確認
+        x1, y1, z1 = coord_collection.get_column_coordinates("sensor1")
+        assert x1 == 5.0
+        assert y1 == 6.0
+        assert z1 == 7.0
+
+        x2, y2, z2 = coord_collection.get_column_coordinates("sensor2")
+        assert x2 == 8.0
+        assert y2 == 9.0
+        assert z2 == 10.0

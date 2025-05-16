@@ -34,80 +34,6 @@ def calculate_distance(
 
 
 @operation(domain="coordinate")
-def calculate_distance_matrix(
-    collection: CoordinateCollection,
-    columns: Optional[List[str]] = None,
-    result_column_prefix: str = "distance_",
-) -> CoordinateCollection:
-    """選択した列の間の距離行列を計算し、結果列を追加します
-
-    指定された列間の全ての組み合わせについて距離を計算し、距離行列を作成します。
-    計算結果はメタデータに保存され、列ペア間の距離も個別の列として追加されます。
-
-    Args:
-        collection: 座標コレクション
-        columns: 計算対象の列名リスト（None の場合は座標を持つ全列）
-        result_column_prefix: 結果列の接頭辞
-
-    Returns:
-        CoordinateCollection: 距離行列を含むコレクション
-
-    Raises:
-        ValueError: 列が2つ未満の場合
-    """
-    result = collection.clone()
-
-    if columns is None:
-        columns = collection.get_columns_with_coordinates()
-
-    if len(columns) < 2:
-        raise ValueError("距離行列の計算には少なくとも2つの列が必要です")
-
-    # 距離行列の計算
-    n = len(columns)
-    distances = np.zeros((n, n))
-
-    for i in range(n):
-        for j in range(i + 1, n):
-            try:
-                dist = collection.calculate_distance(columns[i], columns[j])
-                distances[i, j] = dist
-                distances[j, i] = dist
-            except ValueError:
-                # 距離計算できない場合はNoneで埋める
-                distances[i, j] = np.nan
-                distances[j, i] = np.nan
-
-    # 距離行列をメタデータに保存
-    if "analysis" not in result.metadata:
-        result.metadata["analysis"] = {}
-
-    result.metadata["analysis"]["distance_matrix"] = {
-        "columns": columns,
-        "matrix": distances.tolist(),
-    }
-
-    # 結果を列として追加
-    for i, col1 in enumerate(columns):
-        for j, col2 in enumerate(columns):
-            if i < j:  # 対角成分と重複を避ける
-                result_name = f"{result_column_prefix}{col1}_to_{col2}"
-                result.columns[result_name] = Column(
-                    ch=None,
-                    name=result_name,
-                    unit="m",  # 単位はメートルと仮定
-                    values=[distances[i, j]] * len(collection.step),
-                    metadata={
-                        "description": f"Distance between {col1} and {col2}",
-                        "type": "coordinate_distance",
-                        "source_columns": [col1, col2],
-                    },
-                )
-
-    return result
-
-
-@operation(domain="coordinate")
 def find_nearest_neighbors(
     collection: CoordinateCollection,
     column: str,
@@ -219,7 +145,7 @@ def spatial_clustering(
         n_clusters: クラスタ数
         columns: クラスタリング対象の列名リスト（None の場合は座標を持つ全列）
         result_column: 結果列名
-        algorithm: クラスタリングアルゴリズム（"kmeans", "hierarchical"）
+        algorithm: クラスタリングアルゴリズム（"kmeans"）
 
     Returns:
         CoordinateCollection: クラスタリング結果を含むコレクション
@@ -265,22 +191,10 @@ def spatial_clustering(
     # 座標データをnumpy配列に変換
     X = np.array(coord_data)
 
-    # クラスタリングの実行
-    try:
-        # scikit-learnのインポート（必要に応じて）
-        from sklearn.cluster import KMeans, AgglomerativeClustering
-
-        if algorithm.lower() == "kmeans":
-            model = KMeans(n_clusters=n_clusters, random_state=42)
-        elif algorithm.lower() == "hierarchical":
-            model = AgglomerativeClustering(n_clusters=n_clusters)
-        else:
-            raise ValueError(f"サポートされていないアルゴリズム: {algorithm}")
-
-        labels = model.fit_predict(X)
-    except ImportError:
-        # scikit-learnがない場合は簡易的なK-meansを実装
+    if algorithm == "kmeans":
         labels = _simple_kmeans(X, n_clusters)
+    else:
+        raise ValueError(f"不明なアルゴリズム: {algorithm}")
 
     # クラスタリング結果をメタデータに保存
     if "analysis" not in result.metadata:

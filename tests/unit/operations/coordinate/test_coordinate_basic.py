@@ -8,7 +8,6 @@ from tascpy.operations.coordinate.basic import (
     get_column_coordinates,
     set_column_coordinates,
     get_columns_with_coordinates,
-    extract_coordinates,
 )
 
 
@@ -100,37 +99,3 @@ class TestCoordinateBasic:
         columns = get_columns_with_coordinates(updated)
         assert len(columns) == 3
         assert "sensor3" in columns
-
-    def test_extract_coordinates(self):
-        """extract_coordinates関数のテスト"""
-        # 座標を含む列を抽出
-        result = extract_coordinates(self.collection)
-
-        # 結果が新しいオブジェクトであることを確認
-        assert result is not self.collection
-
-        # 新しい座標列が追加されていることを確認
-        assert "coord_sensor1_x" in result.columns
-        assert "coord_sensor1_y" in result.columns
-        assert "coord_sensor1_z" in result.columns
-        assert "coord_sensor2_x" in result.columns
-        assert "coord_sensor2_y" in result.columns
-        assert "coord_sensor2_z" not in result.columns  # sensor2はz座標がない
-        assert "coord_sensor3_x" not in result.columns  # sensor3は座標がない
-
-        # 座標値が正しく設定されていることを確認
-        assert list(result["coord_sensor1_x"].values) == [1.0] * 5
-        assert list(result["coord_sensor1_y"].values) == [2.0] * 5
-        assert list(result["coord_sensor1_z"].values) == [3.0] * 5
-        assert list(result["coord_sensor2_x"].values) == [4.0] * 5
-        assert list(result["coord_sensor2_y"].values) == [5.0] * 5
-
-        # 抽出された座標列のメタデータが正しいことを確認
-        assert result["coord_sensor1_x"].metadata["type"] == "coordinate"
-        assert result["coord_sensor1_x"].metadata["component"] == "x"
-        assert result["coord_sensor1_x"].unit == "m"
-
-        # カスタム接頭辞でのテスト
-        custom_result = extract_coordinates(self.collection, result_prefix="pos_")
-        assert "pos_sensor1_x" in custom_result.columns
-        assert "coord_sensor1_x" not in custom_result.columns

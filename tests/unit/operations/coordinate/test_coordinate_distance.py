@@ -6,7 +6,6 @@ from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
 from tascpy.operations.coordinate.distance import (
     calculate_distance,
-    calculate_distance_matrix,
     find_nearest_neighbors,
     spatial_clustering,
 )
@@ -68,52 +67,9 @@ class TestCoordinateDistance:
         assert pytest.approx(dist) == 0.0  # 同じXY座標
 
         # 存在しない列を指定した場合
-        with pytest.raises(ValueError):
-            calculate_distance(self.collection, "sensor1", "nonexistent")
 
-    def test_calculate_distance_matrix(self):
-        """calculate_distance_matrix関数のテスト"""
-        # デフォルトパラメータで距離行列を計算
-        result = calculate_distance_matrix(self.collection)
-
-        # 結果が新しいオブジェクトであることを確認
-        assert result is not self.collection
-        assert isinstance(result, CoordinateCollection)
-
-        # メタデータに距離行列が保存されていることを確認
-        assert "analysis" in result.metadata
-        assert "distance_matrix" in result.metadata["analysis"]
-        assert "columns" in result.metadata["analysis"]["distance_matrix"]
-        assert "matrix" in result.metadata["analysis"]["distance_matrix"]
-
-        # 特定の距離列が作成されていることを確認
-        assert "distance_sensor1_to_sensor2" in result.columns
-        assert "distance_sensor1_to_sensor3" in result.columns
-        assert "distance_sensor1_to_sensor4" in result.columns
-        assert "distance_sensor2_to_sensor3" in result.columns
-
-        # 距離値が正しいことを確認
-        assert pytest.approx(result["distance_sensor1_to_sensor2"].values[0]) == 5.0
-        assert pytest.approx(result["distance_sensor1_to_sensor3"].values[0]) == 10.0
-        assert pytest.approx(result["distance_sensor1_to_sensor4"].values[0]) == 0.0
-
-        # カスタム接頭辞を指定した場合
-        custom_result = calculate_distance_matrix(
-            self.collection, result_column_prefix="dist_"
-        )
-        assert "dist_sensor1_to_sensor2" in custom_result.columns
-        assert "distance_sensor1_to_sensor2" not in custom_result.columns
-
-        # 特定の列のみを選択した場合
-        selected_result = calculate_distance_matrix(
-            self.collection, columns=["sensor1", "sensor2"]
-        )
-        assert "distance_sensor1_to_sensor2" in selected_result.columns
-        assert "distance_sensor1_to_sensor3" not in selected_result.columns
-
-        # 距離行列の列数が足りない場合のエラー
-        with pytest.raises(ValueError):
-            calculate_distance_matrix(self.collection, columns=["sensor1"])
+    with pytest.raises(ValueError):
+        calculate_distance(self.collection, "sensor1", "nonexistent")
 
     def test_find_nearest_neighbors(self):
         """find_nearest_neighbors関数のテスト"""

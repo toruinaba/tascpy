@@ -22,6 +22,7 @@ class CoordinateCollection(ColumnCollection):
         columns: Optional[Dict[str, Column]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         coordinate_metadata_key: str = "coordinates",
+        coordinates: Optional[Dict[str, Dict[str, Optional[float]]]] = None,
         **kwargs: Any,
     ):
         """初期化
@@ -31,6 +32,8 @@ class CoordinateCollection(ColumnCollection):
             columns: カラムデータ
             metadata: メタデータ
             coordinate_metadata_key: 座標データが格納されるメタデータのキー
+            coordinates: カラム名をキーとし、座標情報 {'x': float, 'y': float, 'z': float} を値とする辞書
+                例: {'column1': {'x': 1.0, 'y': 2.0, 'z': 3.0}, 'column2': {'x': 4.0, 'y': 5.0}}
         """
         super().__init__(step=step, columns=columns, metadata=metadata)
 
@@ -50,6 +53,17 @@ class CoordinateCollection(ColumnCollection):
                         "y": None,
                         "z": None,
                     }
+
+        # 初期化時に座標情報を設定
+        if coordinates:
+            for column_name, coords in coordinates.items():
+                if column_name in self.columns:
+                    self.set_column_coordinates(
+                        column_name,
+                        x=coords.get("x"),
+                        y=coords.get("y"),
+                        z=coords.get("z"),
+                    )
 
     @property
     def domain(self) -> str:
@@ -233,7 +247,18 @@ class CoordinateCollection(ColumnCollection):
 
 # ファクトリ関数の定義
 def create_coordinate_collection(**kwargs: Any) -> CoordinateCollection:
-    """座標コレクションを作成するファクトリ関数"""
+    """座標コレクションを作成するファクトリ関数
+
+    座標情報はkwargsの'coordinates'パラメータで渡される辞書として指定できます。
+
+    Args:
+        **kwargs: CoordinateCollectionコンストラクタに渡す引数
+            - coordinates: カラム名をキーとし、座標情報を値とする辞書（オプション）
+                例: {'column1': {'x': 1.0, 'y': 2.0, 'z': 3.0}}
+
+    Returns:
+        CoordinateCollection: 作成された座標コレクション
+    """
     return CoordinateCollection(**kwargs)
 
 
