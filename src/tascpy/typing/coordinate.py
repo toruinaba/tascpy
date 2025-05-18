@@ -130,29 +130,6 @@ Raises:
         ...
     
 
-    def calculate_distance_matrix(
-        self,
-        columns: Optional[list[str]] = None,
-        result_column_prefix: str = 'distance_'
-    ) -> "CoordinateCollectionOperations":
-        """選択した列の間の距離行列を計算し、結果列を追加します
-
-指定された列間の全ての組み合わせについて距離を計算し、距離行列を作成します。
-計算結果はメタデータに保存され、列ペア間の距離も個別の列として追加されます。
-
-Args:
-    collection: 座標コレクション
-    columns: 計算対象の列名リスト（None の場合は座標を持つ全列）
-    result_column_prefix: 結果列の接頭辞
-
-Returns:
-    CoordinateCollection: 距離行列を含むコレクション
-
-Raises:
-    ValueError: 列が2つ未満の場合"""
-        ...
-    
-
     def find_nearest_neighbors(
         self,
         column: str,
@@ -195,7 +172,7 @@ Args:
     n_clusters: クラスタ数
     columns: クラスタリング対象の列名リスト（None の場合は座標を持つ全列）
     result_column: 結果列名
-    algorithm: クラスタリングアルゴリズム（"kmeans", "hierarchical"）
+    algorithm: クラスタリングアルゴリズム（"kmeans"）
 
 Returns:
     CoordinateCollection: クラスタリング結果を含むコレクション
