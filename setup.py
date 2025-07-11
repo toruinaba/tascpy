@@ -7,7 +7,7 @@ from setuptools import find_packages
 
 setup(
     name="tascpy",
-    version="0.1.0",
+    version="0.1.2",
     description="タスク計測データ処理用のPythonライブラリ",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
@@ -17,7 +17,7 @@ setup(
     license="MIT",
     packages=find_packages("src"),
     package_dir={"": "src"},
-    py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
+    py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
     include_package_data=True,
     install_requires=open("requirements.txt").read().splitlines(),
     classifiers=[
@@ -33,7 +33,7 @@ setup(
     ],
     python_requires=">=3.8",
     entry_points={
-        'console_scripts': [
+        "console_scripts": [
             # 必要に応じてCLIエントリポイントを追加
         ],
     },
