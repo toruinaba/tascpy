@@ -618,3 +618,54 @@ def create_cumulative_curve(
         result.columns[result_disp_column].name = result_disp_column
 
     return result
+
+
+@operation(domain="load_displacement")
+def export_curve_to_csv(
+    collection: LoadDisplacementCollection,
+    curve_name: str,
+    file_path: str,
+    columns: Tuple[str, str] = ("x", "y"),
+    encoding: str = "utf-8",
+    include_header: bool = True,
+) -> None:
+    """メタデータに格納された曲線データを CSV ファイルにエクスポートします。
+
+    Args:
+        collection: LoadDisplacementCollection オブジェクト
+        curve_name: エクスポートする曲線名（"skeleton_curve" や "cumulative_curve" など）
+        file_path: 出力先の CSV ファイルパス
+        columns: エクスポートするカラム名タプル（デフォルトは ("x", "y")）
+        encoding: ファイルエンコーディング（デフォルトは "utf-8"）
+        include_header: ヘッダー行を含めるかどうか
+
+    Raises:
+        ValueError: 指定した曲線が存在しない場合、またはデータが不正な場合
+        IOError: ファイル書き込みに失敗した場合
+    """
+    if (
+        collection.metadata is None
+        or "curves" not in collection.metadata
+        or curve_name not in collection.metadata["curves"]
+    ):
+        raise ValueError(f"曲線 '{curve_name}' はコレクションに存在しません")
+    curve_data = collection.metadata["curves"][curve_name]
+    x_data = curve_data.get(columns[0])
+    y_data = curve_data.get(columns[1])
+    if x_data is None or y_data is None:
+        raise ValueError(f"曲線 '{curve_name}' に {columns} データが存在しません")
+    if len(x_data) != len(y_data):
+        raise ValueError(
+            f"x, y データの長さが一致しません: {len(x_data)} vs {len(y_data)}"
+        )
+    import csv
+
+    try:
+        with open(file_path, mode="w", encoding=encoding, newline="") as f:
+            writer = csv.writer(f)
+            if include_header:
+                writer.writerow([columns[0], columns[1]])
+            for x, y in zip(x_data, y_data):
+                writer.writerow([x, y])
+    except Exception as e:
+        raise IOError(f"CSV ファイルの書き込みに失敗しました: {e}")
