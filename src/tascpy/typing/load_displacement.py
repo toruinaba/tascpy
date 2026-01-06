@@ -346,6 +346,30 @@ Returns:
         ...
     
 
+    def export_curve_to_csv(
+        self,
+        curve_name: str,
+        file_path: str,
+        columns: tuple[str, str] = ('x', 'y'),
+        encoding: str = 'utf-8',
+        include_header: bool = True
+    ) -> "LoadDisplacementCollectionOperations":
+        """メタデータに格納された曲線データを CSV ファイルにエクスポートします。
+
+Args:
+    collection: LoadDisplacementCollection オブジェクト
+    curve_name: エクスポートする曲線名（"skeleton_curve" や "cumulative_curve" など）
+    file_path: 出力先の CSV ファイルパス
+    columns: エクスポートするカラム名タプル（デフォルトは ("x", "y")）
+    encoding: ファイルエンコーディング（デフォルトは "utf-8"）
+    include_header: ヘッダー行を含めるかどうか
+
+Raises:
+    ValueError: 指定した曲線が存在しない場合、またはデータが不正な場合
+    IOError: ファイル書き込みに失敗した場合"""
+        ...
+    
+
     def plot_load_displacement(
         self,
         ax: Optional[Axes] = None,
@@ -1097,6 +1121,58 @@ Args:
 
 Returns:
     ColumnCollection: カスタム合成結果の列を含むColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合"""
+        ...
+    
+
+    def sum_columns(
+        self,
+        columns: Optional[list[str]] = None,
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "LoadDisplacementCollectionOperations":
+        """複数の列を合計して新しい列を作成します。
+
+指定した複数の列の値を要素ごとに合計し、新しい列として追加します。
+列名を指定しない場合は、すべての数値列が対象となります。
+
+Args:
+    collection: ColumnCollection オブジェクト
+    columns: 合計対象の列名リスト（省略時はすべての数値列）
+    result_column: 結果を格納する列名（デフォルトは None で自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: 合計列を含む ColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合"""
+        ...
+    
+
+    def average_columns(
+        self,
+        columns: Optional[list[str]] = None,
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "LoadDisplacementCollectionOperations":
+        """複数の列の平均値を計算して新しい列を作成します。
+
+指定した複数の列の値を要素ごとに平均し、新しい列として追加します。
+列名を指定しない場合は、すべての数値列が対象となります。
+
+Args:
+    collection: ColumnCollection オブジェクト
+    columns: 平均対象の列名リスト（省略時はすべての数値列）
+    result_column: 結果を格納する列名（デフォルトは None で自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: 平均列を含む ColumnCollection
 
 Raises:
     KeyError: 指定された列名が存在しない場合

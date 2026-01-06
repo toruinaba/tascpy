@@ -266,28 +266,18 @@ def plot_yield_point(
     method = yield_data["method"]
     initial_slope = yield_data["initial_slope"]
 
-    # 元データプロット
-    if plot_original_data:
-        # 元の荷重変位データをプロットし、コレクションとaxを取得
-        collection = plot_load_displacement(
-            collection, ax=ax, label="Load-Displacement Data", **kwargs
-        )
-        # 使用されたaxオブジェクトを取得
-        if ax is None:
-            # 新しくplot_load_displacementが作成したaxを見つける必要がある
-            fig = plt.gcf()  # 現在のfigureを取得
-            ax = fig.axes[0]  # 最初のaxesを取得
-            created_new_figure = True
-        else:
-            fig = ax.figure
-            created_new_figure = False
+    # 軸が指定されていない場合は新規作成
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        created_new_figure = True
     else:
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            created_new_figure = True
-        else:
-            fig = ax.figure
-            created_new_figure = False
+        fig = ax.figure
+        created_new_figure = False
+
+    # 元の荷重変位データをプロットし、コレクションとaxを取得
+    collection = plot_load_displacement(
+        collection, ax=ax, label="Load-Displacement Data", **kwargs
+    )
 
     # 荷重と変位データの取得
     disp_data, load_data = get_valid_data(collection)
@@ -308,20 +298,20 @@ def plot_yield_point(
 
     # 初期勾配線のプロット
     if plot_initial_slope:
-        max_disp = np.max(disp_data)
-        x_vals = np.array([0, max_disp])
-        y_vals = initial_slope * x_vals
-        ax.plot(
-            x_vals, y_vals, "g--", label=f"Initial Slope: {initial_slope:.2f}", zorder=3
+        ax.axline(
+            xy1=(0, 0),
+            slope=initial_slope,
+            color="orange",
+            linestyle="--",
+            label="Initial Slope",
         )
 
     # オフセット法の場合はオフセット線も表示
     if method == "offset" and plot_offset_line:
         offset_value = yield_data["parameters"]["offset_value"]
-        max_disp = np.max(disp_data)
-        x_vals = np.array([0, max_disp])
-        y_vals = initial_slope * x_vals - initial_slope * offset_value
-        ax.plot(x_vals, y_vals, "b--", label=f"Offset Line ({offset_value})", zorder=2)
+        ax.axline(
+            xy1=(offset_value, 0), slope=initial_slope, color="blue", linestyle="--"
+        )
 
     # 一般降伏法の場合は勾配変化点の視覚化
     if method == "general":

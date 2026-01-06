@@ -4,8 +4,8 @@ from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 from .list_proxy import CollectionListOperations
 
-from .load_displacement import LoadDisplacementCollectionOperations
 from .coordinate import CoordinateCollectionOperations
+from .load_displacement import LoadDisplacementCollectionOperations
 
 class CoreCollectionOperations(CollectionOperationsBase[ColumnCollection]):
     """coreドメインの操作メソッドスタブ定義
@@ -628,6 +628,58 @@ Raises:
         ...
     
 
+    def sum_columns(
+        self,
+        columns: Optional[list[str]] = None,
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """複数の列を合計して新しい列を作成します。
+
+指定した複数の列の値を要素ごとに合計し、新しい列として追加します。
+列名を指定しない場合は、すべての数値列が対象となります。
+
+Args:
+    collection: ColumnCollection オブジェクト
+    columns: 合計対象の列名リスト（省略時はすべての数値列）
+    result_column: 結果を格納する列名（デフォルトは None で自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: 合計列を含む ColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合"""
+        ...
+    
+
+    def average_columns(
+        self,
+        columns: Optional[list[str]] = None,
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """複数の列の平均値を計算して新しい列を作成します。
+
+指定した複数の列の値を要素ごとに平均し、新しい列として追加します。
+列名を指定しない場合は、すべての数値列が対象となります。
+
+Args:
+    collection: ColumnCollection オブジェクト
+    columns: 平均対象の列名リスト（省略時はすべての数値列）
+    result_column: 結果を格納する列名（デフォルトは None で自動生成）
+    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+
+Returns:
+    ColumnCollection: 平均列を含む ColumnCollection
+
+Raises:
+    KeyError: 指定された列名が存在しない場合
+    ValueError: 列の長さが一致しない場合"""
+        ...
+    
+
     def add(
         self,
         column1: str,
@@ -1237,11 +1289,11 @@ Raises:
     
 
     @overload
-    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:
+    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CoordinateCollectionOperations:
         ...
 
     @overload
-    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CoordinateCollectionOperations:
+    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:
         ...
 
     def as_domain(self, domain: str, **kwargs: Any) -> Any:

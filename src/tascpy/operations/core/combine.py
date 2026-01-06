@@ -523,3 +523,107 @@ def custom_combine(
     result.add_column(result_column, column)
 
     return result
+
+
+@operation(domain="core")
+def sum_columns(
+    collection: ColumnCollection,
+    columns: Optional[List[str]] = None,
+    result_column: Optional[str] = None,
+    in_place: bool = False,
+) -> ColumnCollection:
+    """複数の列を合計して新しい列を作成します。
+    
+    指定した複数の列の値を要素ごとに合計し、新しい列として追加します。
+    列名を指定しない場合は、すべての数値列が対象となります。
+    
+    Args:
+        collection: ColumnCollection オブジェクト
+        columns: 合計対象の列名リスト（省略時はすべての数値列）
+        result_column: 結果を格納する列名（デフォルトは None で自動生成）
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    
+    Returns:
+        ColumnCollection: 合計列を含む ColumnCollection
+    
+    Raises:
+        KeyError: 指定された列名が存在しない場合
+        ValueError: 列の長さが一致しない場合
+    """
+    # 対象列の決定
+    if columns is None:
+        columns = [k for k, v in collection.columns.items() if hasattr(v, "values") and isinstance(v.values, (list, np.ndarray))]
+    if not columns:
+        raise ValueError("合計対象の列が指定されていません")
+    for col in columns:
+        if col not in collection.columns:
+            raise KeyError(f"列 '{col}' が存在しません")
+    # 長さチェック
+    lengths = [len(collection[c].values) for c in columns]
+    if len(set(lengths)) > 1:
+        raise ValueError(f"すべての列の長さが一致する必要があります: {lengths}")
+    # 合計計算
+    stacked = np.stack([collection[c].values for c in columns], axis=0)
+    new_values = np.sum(stacked, axis=0)
+    # 結果の列名
+    if result_column is None:
+        result_column = f"sum({'_'.join(columns)})"
+    # 元の列の単位を継承（最初の列）
+    original_column = collection[columns[0]]
+    unit = getattr(original_column, "unit", None)
+    column = detect_column_type(None, result_column, unit, new_values)
+    result = collection if in_place else collection.clone()
+    result.add_column(result_column, column)
+    return result
+
+
+@operation(domain="core")
+def average_columns(
+    collection: ColumnCollection,
+    columns: Optional[List[str]] = None,
+    result_column: Optional[str] = None,
+    in_place: bool = False,
+) -> ColumnCollection:
+    """複数の列の平均値を計算して新しい列を作成します。
+    
+    指定した複数の列の値を要素ごとに平均し、新しい列として追加します。
+    列名を指定しない場合は、すべての数値列が対象となります。
+    
+    Args:
+        collection: ColumnCollection オブジェクト
+        columns: 平均対象の列名リスト（省略時はすべての数値列）
+        result_column: 結果を格納する列名（デフォルトは None で自動生成）
+        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    
+    Returns:
+        ColumnCollection: 平均列を含む ColumnCollection
+    
+    Raises:
+        KeyError: 指定された列名が存在しない場合
+        ValueError: 列の長さが一致しない場合
+    """
+    # 対象列の決定
+    if columns is None:
+        columns = [k for k, v in collection.columns.items() if hasattr(v, "values") and isinstance(v.values, (list, np.ndarray))]
+    if not columns:
+        raise ValueError("平均対象の列が指定されていません")
+    for col in columns:
+        if col not in collection.columns:
+            raise KeyError(f"列 '{col}' が存在しません")
+    # 長さチェック
+    lengths = [len(collection[c].values) for c in columns]
+    if len(set(lengths)) > 1:
+        raise ValueError(f"すべての列の長さが一致する必要があります: {lengths}")
+    # 平均計算
+    stacked = np.stack([collection[c].values for c in columns], axis=0)
+    new_values = np.mean(stacked, axis=0)
+    # 結果の列名
+    if result_column is None:
+        result_column = f"average({'_'.join(columns)})"
+    # 元の列の単位を継承（最初の列）
+    original_column = collection[columns[0]]
+    unit = getattr(original_column, "unit", None)
+    column = detect_column_type(None, result_column, unit, new_values)
+    result = collection if in_place else collection.clone()
+    result.add_column(result_column, column)
+    return result
