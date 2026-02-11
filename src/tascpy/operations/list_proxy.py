@@ -19,6 +19,15 @@ class CollectionListOperations(Generic[T]):
         self._collections = collections
         self._domain = domain
 
+    def __getattr__(self, name: str) -> Callable:
+        """
+        未定義の属性アクセスをmapへの委譲として処理します
+        これにより op.split(...).smooth() のようなチェーンが可能になります
+        """
+        def method(*args, **kwargs):
+            return self.map(name, *args, **kwargs)
+        return method
+
     def __len__(self) -> int:
         """コレクションリストの長さを返します"""
         return len(self._collections)

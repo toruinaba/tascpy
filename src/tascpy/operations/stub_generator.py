@@ -270,6 +270,103 @@ def generate_operation_stub(
         f.write("\n")
 
 
+def generate_list_operation_stub(
+    func: Callable, output_file: Path
+) -> None:
+    """CollectionListOperations用のスタブメソッドを生成します"""
+    sig = inspect.signature(func)
+    doc = inspect.getdoc(func) or ""
+
+    try:
+        type_hints = get_type_hints(func)
+    except Exception:
+        type_hints = {}
+
+    # パラメータの構築 (generate_operation_stubと同様)
+    params = []
+    first = True
+    for name, param in sig.parameters.items():
+        if first:
+            first = False
+            continue
+
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            param_str = f"*{name}"
+        elif param.kind == inspect.Parameter.VAR_KEYWORD:
+            param_str = f"**{name}"
+        else:
+            param_str = f"{name}"
+
+        if name in type_hints:
+            annotation_str = format_annotation(type_hints[name])
+            param_str += f": {annotation_str}"
+        elif param.annotation != inspect.Parameter.empty:
+            annotation_str = format_annotation(param.annotation)
+            param_str += f": {annotation_str}"
+
+        if param.default != inspect.Parameter.empty and param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.VAR_KEYWORD:
+            if param.default is None:
+                param_str += " = None"
+            else:
+                default_repr = repr(param.default)
+                param_str += f" = {default_repr}"
+
+        params.append(param_str)
+
+    # 戻り値の型判定
+    # ColumnCollection (またはそのサブクラス) を返す場合は CollectionListOperations[C]
+    # それ以外は List[T]
+    
+    is_collection_return = False
+    if "return" in type_hints:
+        ret_type = type_hints["return"]
+        # Unionの場合の考慮が必要だが、簡易的に
+        try:
+             if isinstance(ret_type, type) and issubclass(ret_type, ColumnCollection):
+                 is_collection_return = True
+        except TypeError:
+             # 文字列参照などの場合
+             if str(ret_type).endswith("ColumnCollection"):
+                 is_collection_return = True
+    
+    # generate_operation_stubのis_returning_collection_listも考慮
+    if is_returning_collection_list(func):
+        # List[ColumnCollection] を返す場合 -> List[CollectionListOperations] ?
+        # mapの実装では、List[CollectionListOperations] ではなく flattened CollectionListOperations になる場合と
+        # List[List[Collection]] になる場合があり得るが、
+        # 基本的には CollectionListOperations を返すと仮定 (splitなど)
+        # もし split が List[Collection] を返すなら、list_proxy.split は CollectionListOperations (of original) を返す
+        # mapの実装: results.append(result) -> resultがlistならList[List]
+        # しかしColListOpsはList[Collection]をラップするもの。
+        # splitの結果は「分割されたコレクションのリスト」。
+        # これを各要素に適用すると、「リストのリスト」ができる。
+        # ここは型定義が難しいが、実用的には CollectionListOperations[C] でチェインを続けたいケースが多い
+        return_type = '"CollectionListOperations[C]"'
+    elif is_collection_return:
+        return_type = '"CollectionListOperations[C]"'
+    else:
+        # 通常の値を返す場合 -> List[ReturnType]
+        original_ret = "Any"
+        if "return" in type_hints:
+             original_ret = format_annotation(type_hints["return"])
+        return_type = f"List[{original_ret}]"
+
+    joined_params = ",\n        ".join(params)
+    method_def = f"""
+    def {func.__name__}(
+        self,
+        {joined_params}
+    ) -> {return_type}:
+        \"\"\"{doc}\"\"\"
+        ...
+    """
+
+    with output_file.open("a", encoding="utf-8") as f:
+        f.write(method_def)
+        f.write("\n")
+
+
+
 def generate_collection_list_operations_stub(stub_dir: Path) -> None:
     """CollectionListOperationsクラスのスタブを生成します
 
@@ -377,7 +474,31 @@ def generate_collection_list_operations_stub(stub_dir: Path) -> None:
         f.write("        Returns:\n")
         f.write("            変換されたコレクションリスト\n")
         f.write('        """\n')
-        f.write("        ...")
+        f.write("        ...\n")
+
+    # 全ドメインの操作を追加
+    domains = OperationRegistry.discover_domains()
+    # 既に追加したメソッド名を追跡して重複を防止 (coreとdomainで重複がある場合など)
+    added_methods = {"map", "filter", "concat", "end_all", "as_domain"}
+    
+    # coreを先に処理
+    if "core" in domains:
+        ops = OperationRegistry.get_operations("core")
+        for name, func in ops.items():
+            if name not in added_methods:
+                generate_list_operation_stub(func, list_proxy_file)
+                added_methods.add(name)
+    
+    # 他のドメインを処理
+    for domain in domains:
+        if domain == "core":
+            continue
+        ops = OperationRegistry.get_operations(domain)
+        for name, func in ops.items():
+            if name not in added_methods:
+                generate_list_operation_stub(func, list_proxy_file)
+                added_methods.add(name)
+
 
 
 def generate_stubs() -> None:
