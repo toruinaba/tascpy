@@ -69,3 +69,65 @@ def split_by_integers(
         result_collections.append(new_collection)
 
     return result_collections
+
+
+@operation(domain="core")
+def split_at_indices(
+    collection: ColumnCollection, indices: Union[int, List[int]]
+) -> List[ColumnCollection]:
+    """指定されたインデックスでコレクションを分割します
+
+    Args:
+        collection: 分割する ColumnCollection オブジェクト
+        indices: 分割するインデックス（intまたはList[int]）
+
+    Returns:
+        List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト
+    """
+    import numpy as np
+
+    if isinstance(indices, int):
+        indices_list = [indices]
+    else:
+        indices_list = sorted(list(set(indices)))
+
+    # validate indices
+    length = len(collection)
+    for idx in indices_list:
+        if idx < 0 or idx > length:
+            raise IndexError(f"インデックス {idx} は範囲外です (0-{length})")
+
+    # 分割ポイントを作成 (0とlengthを含める)
+    split_points = [0] + indices_list + [length]
+    # 重複を除去してソート
+    split_points = sorted(list(set(split_points)))
+
+    result_collections = []
+
+    for i in range(len(split_points) - 1):
+        start = split_points[i]
+        end = split_points[i + 1]
+
+        # 空の範囲はスキップする場合はここに追加
+        # if start == end: continue
+
+        # スライスを使用してサブセットを作成
+        # 現在のCollection実装がスライスをサポートしているか？ -> DataHolderは未サポートかも
+        # 手動で作成
+        subset_indices = range(start, end)
+        
+        # 新しいコレクションのデータを準備
+        new_steps = collection.step.values[start:end]
+        new_columns = {}
+
+        for name, column in collection.columns.items():
+            new_col = column.clone()
+            new_col.values = column.values[start:end]
+            new_columns[name] = new_col
+
+        new_collection = ColumnCollection(
+            step=new_steps, columns=new_columns, metadata=collection.metadata.copy()
+        )
+        result_collections.append(new_collection)
+
+    return result_collections

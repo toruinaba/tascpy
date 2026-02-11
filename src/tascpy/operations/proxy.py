@@ -15,8 +15,7 @@ from ..core.collection import ColumnCollection
 if TYPE_CHECKING:
     from ..typing.proxy_base import CollectionOperationsBase
     from ..typing.core import CoreCollectionOperations
-    from ..typing.load_displacement import LoadDisplacementCollectionOperations
-    from ..typing.coordinate import CoordinateCollectionOperations
+
 
 
 # ColumnCollectionおよびその派生クラス用のTypeVar
@@ -146,3 +145,36 @@ class CollectionOperations(Generic[T]):
         print(f"Columns: {self._collection.columns}")
         print(f"metadata: {self._collection.metadata}")
         return self
+
+    # --- Collectionへの委譲メソッド ---
+
+    def __len__(self) -> int:
+        return len(self._collection)
+
+    def __getitem__(self, key: Any) -> Any:
+        return self._collection[key]
+
+    def __iter__(self):
+        return iter(self._collection)
+
+    @property
+    def columns(self) -> Dict[str, Any]:
+        return self._collection.columns
+
+    @property
+    def step(self):
+        return self._collection.step
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        return self._collection.metadata
+
+    @property
+    def data(self):
+        """互換性のためのエイリアス"""
+        return self._collection
+
+    def __getattr__(self, name: str) -> Any:
+        """その他の属性やメソッドをCollectionに委譲"""
+        return getattr(self._collection, name)
+

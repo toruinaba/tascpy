@@ -275,9 +275,14 @@ def plot_yield_point(
         created_new_figure = False
 
     # 元の荷重変位データをプロットし、コレクションとaxを取得
-    collection = plot_load_displacement(
-        collection, ax=ax, label="Load-Displacement Data", **kwargs
-    )
+    if plot_original_data:
+        collection = plot_load_displacement(
+            collection, ax=ax, label="Load-Displacement Data", **kwargs
+        )
+    else:
+        # プロットしない場合でも、後続の処理のためにaxをcollectionに関連付けるなどの処理が必要な場合はここで行う
+        # ただし、現在の実装では単にプロットするだけなので、何もしなくて良い
+        pass
 
     # 荷重と変位データの取得
     disp_data, load_data = get_valid_data(collection)
@@ -536,6 +541,81 @@ def compare_yield_methods(
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.7)
     ax.set_title("Comparison of Yield Point Methods")
+
+    # 新しい図を作成した場合のみグラフを表示
+    if created_new_figure:
+        plt.show()
+
+    return collection
+
+
+@operation(domain="load_displacement")
+def plot_multiple_curves(
+    collection: LoadDisplacementCollection,
+    curves: List[Dict[str, Any]],
+    ax: Optional[Axes] = None,
+    **kwargs,
+) -> Tuple[Figure, Axes]:
+    """複数の曲線を指定してプロットします
+
+    Args:
+        collection: 荷重-変位コレクション
+        curves: プロットする曲線の設定リスト
+                [
+                    {"type": "original", "kwargs": {...}},
+                    {"type": "skeleton", "kwargs": {...}},
+                    {"type": "cumulative", "kwargs": {...}}
+                ]
+        ax: プロット先の軸（None の場合は新規作成）
+        **kwargs: その他のオプション
+
+    Returns:
+        LoadDisplacementCollection: 元のコレクション
+    """
+    # 軸が指定されていない場合は新規作成
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 8))
+        created_new_figure = True
+    else:
+        fig = ax.figure
+        created_new_figure = False
+
+    # 各曲線をプロット
+    for curve_config in curves:
+        curve_type = curve_config.get("type")
+        plot_kwargs = curve_config.get("kwargs", {}).copy()
+
+        if curve_type == "original":
+            # 元データのプロット
+            orig_load_column = get_load_column(collection)
+            orig_disp_column = get_displacement_column(collection)
+            plot_kwargs.setdefault("plot_type", "line")
+            core_plot(
+                collection,
+                x_column=orig_disp_column,
+                y_column=orig_load_column,
+                ax=ax,
+                **plot_kwargs,
+            )
+
+        elif curve_type == "skeleton":
+            # スケルトン曲線のプロット
+            try:
+                curve_data = get_curve_data(collection, "skeleton_curve")
+                ax.plot(curve_data["x"], curve_data["y"], **plot_kwargs)
+            except ValueError:
+                print("Warning: Skeleton curve data not found.")
+
+        elif curve_type == "cumulative":
+            # 累積曲線のプロット
+            try:
+                curve_data = get_curve_data(collection, "cumulative_curve")
+                ax.plot(curve_data["x"], curve_data["y"], **plot_kwargs)
+            except ValueError:
+                print("Warning: Cumulative curve data not found.")
+
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.7)
 
     # 新しい図を作成した場合のみグラフを表示
     if created_new_figure:

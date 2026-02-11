@@ -1,0 +1,7 @@
+DATA
+CH	DATE	TIME	T1
+NAME	DATE	TIME	T1
+UNIT			unit
+1			1.0
+2			2.0
+3			3.0

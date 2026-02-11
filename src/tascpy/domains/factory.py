@@ -74,3 +74,26 @@ class DomainCollectionFactory:
             Dict[str, str]: ドメイン名とその説明の辞書
         """
         return {domain: f"Factory for {domain}" for domain in cls._factories.keys()}
+
+    @classmethod
+    def get_collection_class(cls, domain: str) -> Optional[Type]:
+        """指定されたドメインのコレクションクラスを取得
+        Args:
+            domain: ドメイン名
+        Returns:
+            Type: コレクションクラス（取得できない場合はNone）
+        """
+        if domain not in cls._factories:
+            return None
+            
+        factory_func = cls._factories[domain]
+        import inspect
+        
+        # 戻り値の型アノテーションからクラスを取得
+        sig = inspect.signature(factory_func)
+        return_type = sig.return_annotation
+        
+        if return_type is not inspect.Signature.empty:
+            return return_type
+            
+        return None

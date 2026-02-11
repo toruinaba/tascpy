@@ -5,6 +5,7 @@
 
 import pytest
 import math
+import numpy as np
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.column import Column
 from src.tascpy.operations.proxy import CollectionOperations
@@ -49,8 +50,10 @@ class TestMovingAverage:
         expected = [15.0, 20.0, 30.0, 40.0, 50.0, 60.0, 65.0]
         assert len(result["ma3(normal)"].values) == 7
 
-        for actual, exp in zip(result["ma3(normal)"].values, expected):
-            assert abs(actual - exp) < 1e-6
+        expected = [15.0, 20.0, 30.0, 40.0, 50.0, 60.0, 65.0]
+        assert len(result["ma3(normal)"].values) == 7
+
+        np.testing.assert_allclose(result["ma3(normal)"].values, expected, atol=1e-6)
 
     def test_custom_result_column(self, sample_collection):
         """カスタム結果列名のテスト"""
@@ -102,7 +105,8 @@ class TestDetectOutliers:
 
         # 異常値フラグを検証
         expected = [0, 0, 1, 0, 0, 1, 0]  # インデックス2と5が異常値
-        assert result["outlier(with_outliers)"].values == expected
+        expected = [0, 0, 1, 0, 0, 1, 0]  # インデックス2と5が異常値
+        np.testing.assert_array_equal(result["outlier(with_outliers)"].values, expected)
 
     def test_custom_threshold(self, sample_collection):
         """カスタム閾値を使用した異常値検出のテスト"""

@@ -42,7 +42,7 @@ class TestLoadDisplacementCycles:
 
         # 期待されるサイクル値（実装に合わせて修正）
         expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        assert cycles == expected_cycles
+        np.testing.assert_array_equal(cycles, expected_cycles)
 
     def test_cycle_count_with_custom_column(self):
         """カスタムカラム名でのcycle_count関数テスト"""
@@ -64,7 +64,7 @@ class TestLoadDisplacementCycles:
         cycles = result["cycle_marker"].values
         # 実装に合わせて期待値を修正
         expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        assert cycles == expected_cycles
+        np.testing.assert_array_equal(cycles, expected_cycles)
 
     def test_cycle_count_with_custom_step(self):
         """カスタムステップ増分でのcycle_count関数テスト"""
@@ -77,7 +77,7 @@ class TestLoadDisplacementCycles:
 
         # 期待される値を実装に合わせて修正
         expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        assert cycles == expected_cycles
+        np.testing.assert_array_equal(cycles, expected_cycles)
 
         # ステップ増分を0.25に設定
         result = cycle_count(self.ld_collection, step=0.25)
@@ -87,7 +87,7 @@ class TestLoadDisplacementCycles:
 
         # 期待される値を実装に合わせて修正
         expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        assert cycles == expected_cycles
+        np.testing.assert_array_equal(cycles, expected_cycles)
 
     def test_split_by_cycles_basic(self):
         """split_by_cycles関数の基本動作テスト"""
@@ -153,4 +153,4 @@ class TestLoadDisplacementCycles:
 
         # 期待されるサイクル値を実装に合わせて修正
         expected_cycles = [1, 1, 1, 1, 1, 1, 1]
-        assert cycles == expected_cycles
+        np.testing.assert_array_equal(cycles, expected_cycles)

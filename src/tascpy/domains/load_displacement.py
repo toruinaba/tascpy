@@ -76,6 +76,9 @@ class LoadDisplacementCollection(ColumnCollection):
         Raises:
             KeyError: 指定されたキーまたはパスが見つからない場合
         """
+        if isinstance(key, int):
+            return super().__getitem__(key)
+
         # キーにドットが含まれる場合はパスアクセスとして処理
         if "." in key:
             path_parts = key.split(".")

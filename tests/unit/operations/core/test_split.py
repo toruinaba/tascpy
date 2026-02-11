@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.column import Column
 from src.tascpy.operations.core.split import split_by_integers
@@ -29,19 +30,19 @@ def test_split_by_integers_basic(sample_collection):
     assert len(result) == 3  # 3つのグループができているか
 
     # グループ1 (marker=1) の検証
-    assert result[0].step.values == [1, 3]
-    assert result[0].columns["A"].values == [10, 30]
-    assert result[0].columns["B"].values == [1.1, 3.3]
+    np.testing.assert_array_equal(result[0].step.values, [1, 3])
+    np.testing.assert_array_equal(result[0].columns["A"].values, [10, 30])
+    np.testing.assert_array_equal(result[0].columns["B"].values, [1.1, 3.3])
 
     # グループ2 (marker=2) の検証
-    assert result[1].step.values == [2, 5]
-    assert result[1].columns["A"].values == [20, 50]
-    assert result[1].columns["B"].values == [2.2, 5.5]
+    np.testing.assert_array_equal(result[1].step.values, [2, 5])
+    np.testing.assert_array_equal(result[1].columns["A"].values, [20, 50])
+    np.testing.assert_array_equal(result[1].columns["B"].values, [2.2, 5.5])
 
     # グループ3 (marker=3) の検証
-    assert result[2].step.values == [4, 6]
-    assert result[2].columns["A"].values == [40, 60]
-    assert result[2].columns["B"].values == [4.4, 6.6]
+    np.testing.assert_array_equal(result[2].step.values, [4, 6])
+    np.testing.assert_array_equal(result[2].columns["A"].values, [40, 60])
+    np.testing.assert_array_equal(result[2].columns["B"].values, [4.4, 6.6])
 
 
 def test_split_by_integers_single_marker(sample_collection):
@@ -52,16 +53,9 @@ def test_split_by_integers_single_marker(sample_collection):
 
     # 結果検証
     assert len(result) == 1  # 1つのグループができる
-    assert result[0].step.values == [1, 2, 3, 4, 5, 6]  # 元のステップと同じ
-    assert result[0].columns["A"].values == [10, 20, 30, 40, 50, 60]  # 元の値と同じ
-    assert result[0].columns["B"].values == [
-        1.1,
-        2.2,
-        3.3,
-        4.4,
-        5.5,
-        6.6,
-    ]  # 元の値と同じ
+    np.testing.assert_array_equal(result[0].step.values, [1, 2, 3, 4, 5, 6])  # 元のステップと同じ
+    np.testing.assert_array_equal(result[0].columns["A"].values, [10, 20, 30, 40, 50, 60])  # 元の値と同じ
+    np.testing.assert_array_equal(result[0].columns["B"].values, [1.1, 2.2, 3.3, 4.4, 5.5, 6.6])  # 元の値と同じ
 
 
 def test_split_by_integers_preserves_metadata(sample_collection):
@@ -105,8 +99,8 @@ def test_split_by_integers_with_proxy(sample_collection):
     # 個々のコレクションにアクセス
     first_group = result[0]
     assert isinstance(first_group, CollectionOperations)
-    assert first_group.end().step.values == [1, 3]
-    assert first_group.end().columns["A"].values == [10, 30]
+    np.testing.assert_array_equal(first_group.end().step.values, [1, 3])
+    np.testing.assert_array_equal(first_group.end().columns["A"].values, [10, 30])
 
     # スライスでのアクセスをテスト
     first_two = result[:2]
@@ -129,12 +123,12 @@ def test_split_by_integers_and_method_chain(sample_collection):
     # 個々のグループに対して操作
     group1 = result[0].end()
     assert len(group1) == 2  # マーカー1は2つある
-    assert group1.step.values == [1, 4]
+    np.testing.assert_array_equal(group1.step.values, [1, 4])
 
     group2 = result[1].end()
     assert len(group2) == 2  # マーカー2は2つある
-    assert group2.step.values == [2, 5]
+    np.testing.assert_array_equal(group2.step.values, [2, 5])
 
     group3 = result[2].end()
     assert len(group3) == 2  # マーカー3は2つある
-    assert group3.step.values == [3, 6]
+    np.testing.assert_array_equal(group3.step.values, [3, 6])

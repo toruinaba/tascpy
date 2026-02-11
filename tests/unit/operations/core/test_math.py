@@ -1,5 +1,6 @@
 import pytest
 import math
+import numpy as np
 from src.tascpy.operations.core.math import (
     add,
     subtract,
@@ -45,7 +46,7 @@ class TestAddOperation:
         
         assert "A+B" in result.columns
         expected = [6.0, 6.0, 6.0, 6.0, 6.0]
-        assert result["A+B"].values == expected
+        np.testing.assert_array_equal(result["A+B"].values, expected)
 
     def test_add_constant(self, sample_collection):
         """定数との加算テスト"""
@@ -54,7 +55,7 @@ class TestAddOperation:
         
         assert "A+10" in result.columns
         expected = [11.0, 12.0, 13.0, 14.0, 15.0]
-        assert result["A+10"].values == expected
+        np.testing.assert_array_equal(result["A+10"].values, expected)
 
     def test_add_with_none(self, sample_collection):
         """None値を含む列の加算テスト"""
@@ -62,15 +63,15 @@ class TestAddOperation:
         result = add(sample_collection, "with_none", 5)
         
         assert "with_none+5" in result.columns
-        expected = [6.0, None, 8.0, None, 10.0]
-        assert result["with_none+5"].values == expected
+        expected = [6.0, np.nan, 8.0, np.nan, 10.0]
+        np.testing.assert_array_equal(result["with_none+5"].values, expected)
         
         # with_none + B = [6.0, None, 6.0, None, 6.0]
         result = add(sample_collection, "with_none", "B")
         
         assert "with_none+B" in result.columns
-        expected = [6.0, None, 6.0, None, 6.0]
-        assert result["with_none+B"].values == expected
+        expected = [6.0, np.nan, 6.0, np.nan, 6.0]
+        np.testing.assert_array_equal(result["with_none+B"].values, expected)
 
     def test_add_with_custom_result_column(self, sample_collection):
         """カスタムの結果列名を指定したテスト"""
@@ -79,7 +80,7 @@ class TestAddOperation:
         
         assert result_column in result.columns
         expected = [6.0, 6.0, 6.0, 6.0, 6.0]
-        assert result[result_column].values == expected
+        np.testing.assert_array_equal(result[result_column].values, expected)
 
     def test_add_in_place(self, sample_collection):
         """in_place=True の場合のテスト"""
@@ -109,7 +110,7 @@ class TestSubtractOperation:
         
         assert "A-B" in result.columns
         expected = [-4.0, -2.0, 0.0, 2.0, 4.0]
-        assert result["A-B"].values == expected
+        np.testing.assert_array_equal(result["A-B"].values, expected)
 
     def test_subtract_constant(self, sample_collection):
         """定数との減算テスト"""
@@ -118,7 +119,7 @@ class TestSubtractOperation:
         
         assert "A-1" in result.columns
         expected = [0.0, 1.0, 2.0, 3.0, 4.0]
-        assert result["A-1"].values == expected
+        np.testing.assert_array_equal(result["A-1"].values, expected)
 
     def test_subtract_with_none(self, sample_collection):
         """None値を含む列の減算テスト"""
@@ -126,8 +127,8 @@ class TestSubtractOperation:
         result = subtract(sample_collection, "with_none", 1)
         
         assert "with_none-1" in result.columns
-        expected = [0.0, None, 2.0, None, 4.0]
-        assert result["with_none-1"].values == expected
+        expected = [0.0, np.nan, 2.0, np.nan, 4.0]
+        np.testing.assert_array_equal(result["with_none-1"].values, expected)
 
 
 class TestMultiplyOperation:
@@ -140,7 +141,7 @@ class TestMultiplyOperation:
         
         assert "A*B" in result.columns
         expected = [5.0, 8.0, 9.0, 8.0, 5.0]
-        assert result["A*B"].values == expected
+        np.testing.assert_array_equal(result["A*B"].values, expected)
 
     def test_multiply_constant(self, sample_collection):
         """定数との乗算テスト"""
@@ -149,7 +150,7 @@ class TestMultiplyOperation:
         
         assert "A*2" in result.columns
         expected = [2.0, 4.0, 6.0, 8.0, 10.0]
-        assert result["A*2"].values == expected
+        np.testing.assert_array_equal(result["A*2"].values, expected)
 
     def test_multiply_with_none(self, sample_collection):
         """None値を含む列の乗算テスト"""
@@ -157,8 +158,8 @@ class TestMultiplyOperation:
         result = multiply(sample_collection, "with_none", 2)
         
         assert "with_none*2" in result.columns
-        expected = [2.0, None, 6.0, None, 10.0]
-        assert result["with_none*2"].values == expected
+        expected = [2.0, np.nan, 6.0, np.nan, 10.0]
+        np.testing.assert_array_equal(result["with_none*2"].values, expected)
 
 
 class TestDivideOperation:
@@ -171,7 +172,7 @@ class TestDivideOperation:
         
         assert "C/A" in result.columns
         expected = [10.0, 10.0, 10.0, 10.0, 10.0]
-        assert result["C/A"].values == expected
+        np.testing.assert_array_equal(result["C/A"].values, expected)
 
     def test_divide_constant(self, sample_collection):
         """定数との除算テスト"""
@@ -180,7 +181,7 @@ class TestDivideOperation:
         
         assert "C/10" in result.columns
         expected = [1.0, 2.0, 3.0, 4.0, 5.0]
-        assert result["C/10"].values == expected
+        np.testing.assert_array_equal(result["C/10"].values, expected)
 
     def test_zero_division_error(self, sample_collection):
         """ゼロ除算のエラー処理テスト"""
@@ -191,7 +192,14 @@ class TestDivideOperation:
         # Noneモード
         result = divide(sample_collection, "A", 0, handle_zero_division="none")
         assert "A/0" in result.columns
-        assert all(v is None for v in result["A/0"].values)
+        # Helper function to check for nan or None safe
+        def is_nan_or_none(x):
+            try:
+                if x is None: return True
+                return np.isnan(float(x))
+            except (ValueError, TypeError):
+                return False
+        assert all(is_nan_or_none(v) for v in result["A/0"].values)
         
         # infモード
         result = divide(sample_collection, "A", 0, handle_zero_division="inf")
@@ -219,8 +227,8 @@ class TestOperationChaining:
         expected_intermediate = [3.0, 4.0, 5.0, 6.0, 7.0]  # A+2
         expected_final = [9.0, 12.0, 15.0, 18.0, 21.0]     # (A+2)*3
         
-        assert result["A+2"].values == expected_intermediate
-        assert result["(A+2)*3"].values == expected_final
+        np.testing.assert_array_equal(result["A+2"].values, expected_intermediate)
+        np.testing.assert_array_equal(result["(A+2)*3"].values, expected_final)
 
 
 class TestEvaluateOperation:
@@ -235,7 +243,7 @@ class TestEvaluateOperation:
         result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
         assert result_column in result.columns
         expected = [11.0, 10.0, 9.0, 8.0, 7.0]  # A + B*2 = 1+5*2, 2+4*2, ...
-        assert result[result_column].values == expected
+        np.testing.assert_array_equal(result[result_column].values, expected)
 
     def test_complex_expression(self, sample_collection):
         """複雑な式の評価テスト"""
@@ -247,7 +255,7 @@ class TestEvaluateOperation:
         assert result_column in result.columns
         # (1+5)*1, (2+4)*2, (3+3)*3, (4+2)*4, (5+1)*5
         expected = [6.0, 12.0, 18.0, 24.0, 30.0]
-        assert result[result_column].values == expected
+        np.testing.assert_array_equal(result[result_column].values, expected)
 
     def test_math_functions(self, sample_collection):
         """数学関数を含む式のテスト"""
@@ -265,7 +273,7 @@ class TestEvaluateOperation:
             math.sin(5.0) + math.cos(1.0)
         ]
         # 浮動小数点数の比較には丸めを使用
-        assert [round(a, 10) for a in result[result_column].values] == [round(e, 10) for e in expected]
+        np.testing.assert_allclose(result[result_column].values, expected)
 
     def test_with_none_values(self, sample_collection):
         """None値を含む列を使用した式のテスト"""
@@ -276,8 +284,8 @@ class TestEvaluateOperation:
         result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
         assert result_column in result.columns
         # (1*2+1), (None), (3*2+3), (None), (5*2+5)
-        expected = [3.0, None, 9.0, None, 15.0]
-        assert result[result_column].values == expected
+        expected = [3.0, np.nan, 9.0, np.nan, 15.0]
+        np.testing.assert_array_equal(result[result_column].values, expected)
 
     def test_custom_result_column(self, sample_collection):
         """カスタムの結果列名を指定したテスト"""
@@ -287,7 +295,7 @@ class TestEvaluateOperation:
         
         assert result_column in result.columns
         expected = [5.0, 8.0, 9.0, 8.0, 5.0]
-        assert result[result_column].values == expected
+        np.testing.assert_array_equal(result[result_column].values, expected)
 
     def test_in_place(self, sample_collection):
         """in_place=True の場合のテスト"""
@@ -353,7 +361,7 @@ class TestDiffOperation:
         assert "d(y)/d(x)" in result.columns
         # 中心差分法の結果（端点は前方/後方差分）
         expected = [3.0, 4.0, 6.0, 8.0, 9.0]
-        assert [round(v, 6) for v in result["d(y)/d(x)"].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result["d(y)/d(x)"].values, expected, rtol=1e-5)
 
     def test_diff_linear(self, diff_collection):
         """線形関数の微分テスト"""
@@ -362,7 +370,7 @@ class TestDiffOperation:
         
         assert "d(y_linear)/d(x)" in result.columns
         expected = [2.0, 2.0, 2.0, 2.0, 2.0]
-        assert [round(v, 6) for v in result["d(y_linear)/d(x)"].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result["d(y_linear)/d(x)"].values, expected, rtol=1e-5)
 
     def test_diff_methods(self, diff_collection):
         """各種微分メソッドのテスト"""
@@ -374,8 +382,11 @@ class TestDiffOperation:
         backward_result = diff(diff_collection, "y", "x", method="backward")
         
         # 中心差分と前方差分、後方差分の結果は異なる
-        assert central_result["d(y)/d(x)"].values != forward_result["d(y)/d(x)"].values
-        assert central_result["d(y)/d(x)"].values != backward_result["d(y)/d(x)"].values
+        # assert central_result["d(y)/d(x)"].values != forward_result["d(y)/d(x)"].values
+        # assert central_result["d(y)/d(x)"].values != backward_result["d(y)/d(x)"].values
+        # Array comparison
+        assert not np.array_equal(central_result["d(y)/d(x)"].values, forward_result["d(y)/d(x)"].values)
+        assert not np.array_equal(central_result["d(y)/d(x)"].values, backward_result["d(y)/d(x)"].values)
         
         # y = x^2 の場合：
         # forward差分: [3.0, 5.0, 7.0, 9.0, 9.0]
@@ -384,8 +395,8 @@ class TestDiffOperation:
         expected_forward = [3.0, 5.0, 7.0, 9.0, 9.0]
         expected_backward = [3.0, 3.0, 5.0, 7.0, 9.0]
         
-        assert [round(v, 6) for v in forward_result["d(y)/d(x)"].values] == [round(e, 6) for e in expected_forward]
-        assert [round(v, 6) for v in backward_result["d(y)/d(x)"].values] == [round(e, 6) for e in expected_backward]
+        np.testing.assert_allclose(forward_result["d(y)/d(x)"].values, expected_forward, rtol=1e-5)
+        np.testing.assert_allclose(backward_result["d(y)/d(x)"].values, expected_backward, rtol=1e-5)
 
     def test_diff_with_none(self, diff_collection):
         """None値を含む列の微分テスト"""
@@ -394,8 +405,8 @@ class TestDiffOperation:
         assert "d(with_none)/d(x)" in result.columns
         # None値を含むデータの微分では、None値の位置は結果もNone
         # [1.0, None, 9.0, None, 25.0] -> 微分結果
-        expected = [None, None, None, None, None]
-        assert result["d(with_none)/d(x)"].values == expected
+        expected = [np.nan, np.nan, np.nan, np.nan, np.nan]
+        np.testing.assert_array_equal(result["d(with_none)/d(x)"].values, expected)
 
     def test_diff_custom_result_column(self, diff_collection):
         """カスタムの結果列名を指定したテスト"""
@@ -405,7 +416,7 @@ class TestDiffOperation:
         assert result_column in result.columns
         # 中心差分法の結果
         expected = [3.0, 4.0, 6.0, 8.0, 9.0]
-        assert [round(v, 6) for v in result[result_column].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result[result_column].values, expected, rtol=1e-5)
 
     def test_diff_in_place(self, diff_collection):
         """in_place=True の場合のテスト"""
@@ -492,7 +503,7 @@ class TestIntegrateOperation:
         # 4.0 -> 6.0 + (1*2) = 8.0
         # 5.0 -> 8.0 + (1*2) = 10.0
         expected = [2.0, 4.0, 6.0, 8.0, 10.0]
-        assert [round(v, 6) for v in result["∫y_const·dx"].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result["∫y_const·dx"].values, expected, rtol=1e-5)
 
     def test_integrate_linear(self, integrate_collection):
         """線形関数の積分テスト"""
@@ -507,7 +518,7 @@ class TestIntegrateOperation:
         # 4.0 -> 5.0 + (1*(3+4)/2) = 5.0 + 3.5 = 8.5
         # 5.0 -> 8.5 + (1*(4+5)/2) = 8.5 + 4.5 = 13.0
         expected = [1.0, 2.5, 5.0, 8.5, 13.0]
-        assert [round(v, 6) for v in result["∫y_linear·dx"].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result["∫y_linear·dx"].values, expected, rtol=1e-5)
 
     def test_integrate_with_initial_value(self, integrate_collection):
         """初期値を指定した積分テスト"""
@@ -517,7 +528,7 @@ class TestIntegrateOperation:
         assert "∫y_const·dx" in result.columns
         # 台形積分の結果（初期値5.0から）
         expected = [5.0 + 2.0, 7.0 + 2.0, 9.0 + 2.0, 11.0 + 2.0, 13.0 + 2.0]
-        assert [round(v, 6) for v in result["∫y_const·dx"].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result["∫y_const·dx"].values, expected, rtol=1e-5)
 
     def test_integrate_with_none(self, integrate_collection):
         """None値を含む列の積分テスト"""
@@ -525,10 +536,9 @@ class TestIntegrateOperation:
         
         assert "∫with_none·dx" in result.columns
         # None値を含むデータの積分では、None値の位置は結果もNone
-        expected = [1.0, None, None, None, None]
+        expected = [1.0, np.nan, np.nan, np.nan, np.nan]
         # 最初の値は計算可能、残りはNoneとなる
-        assert result["∫with_none·dx"].values[0] == expected[0]
-        assert all(v is None for v in result["∫with_none·dx"].values[1:])
+        np.testing.assert_array_equal(result["∫with_none·dx"].values, expected)
 
     def test_integrate_custom_result_column(self, integrate_collection):
         """カスタムの結果列名を指定したテスト"""
@@ -538,7 +548,7 @@ class TestIntegrateOperation:
         assert result_column in result.columns
         # 台形積分の結果
         expected = [2.0, 4.0, 6.0, 8.0, 10.0]
-        assert [round(v, 6) for v in result[result_column].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result[result_column].values, expected, rtol=1e-5)
 
     def test_integrate_in_place(self, integrate_collection):
         """in_place=True の場合のテスト"""
@@ -600,4 +610,4 @@ class TestIntegrateOperation:
         expected_sorted = [2.0, 4.0, 6.0, 8.0, 10.0]
         # ただし、結果の配列はもとの順序を保持（値が対応する）
         expected = [10.0, 2.0, 6.0, 4.0, 8.0]
-        assert [round(v, 6) for v in result["∫y·dx"].values] == [round(e, 6) for e in expected]
+        np.testing.assert_allclose(result["∫y·dx"].values, expected, rtol=1e-5)

@@ -12,10 +12,14 @@ from .utils import (
     get_displacement_data,
     get_valid_data,
 )
+from ...operations.validation import requires_domain
+
 
 
 @operation(domain="load_displacement")
+@requires_domain("load_displacement")
 def calculate_slopes(
+
     collection: LoadDisplacementCollection,
     result_column: Optional[str] = None,
     x_column: Optional[str] = None,
@@ -65,10 +69,10 @@ def calculate_slopes(
             slope = (y_data[i] - y_data[i - 1]) / (x_data[i] - x_data[i - 1])
             slopes.append(slope)
         else:
-            slopes.append(None)
+            slopes.append(np.nan)
 
-    # 最初の点は傾きを計算できないのでNone
-    slopes = [None] + slopes
+    # 最初の点は傾きを計算できないのでNaN
+    slopes = [np.nan] + slopes
 
     # 結果列名の決定
     if result_column is None:
@@ -96,7 +100,9 @@ def calculate_slopes(
 
 
 @operation(domain="load_displacement")
+@requires_domain("load_displacement")
 def calculate_stiffness(
+
     collection: LoadDisplacementCollection,
     range_start: float = 0.2,
     range_end: float = 0.8,
@@ -151,7 +157,9 @@ def calculate_stiffness(
 
 
 @operation(domain="load_displacement")
+@requires_domain("load_displacement")
 def find_yield_point(
+
     collection: LoadDisplacementCollection,
     method: str = "offset",
     offset_value: float = 0.002,
@@ -640,3 +648,87 @@ def find_yield_point(
             return result
         else:
             raise
+
+
+@operation(domain="load_displacement")
+@requires_domain("load_displacement")
+def stiffness(
+    collection: LoadDisplacementCollection,
+    range_start: float = 0.2,
+    range_end: float = 0.8,
+    method: str = "linear_regression",
+) -> float:
+    """calculate_stiffness のエイリアス"""
+    return calculate_stiffness(
+        collection, range_start=range_start, range_end=range_end, method=method
+    )
+
+
+@operation(domain="load_displacement")
+@requires_domain("load_displacement")
+def yield_point(
+    collection: LoadDisplacementCollection,
+    method: str = "offset",
+    offset_value: float = 0.002,
+    range_start: float = 0.1,
+    range_end: float = 0.3,
+    factor: float = 0.33,
+    result_prefix: Optional[str] = "yield",
+    debug_mode: bool = False,
+    fail_silently: bool = False,
+) -> LoadDisplacementCollection:
+    """find_yield_point のエイリアス"""
+    return find_yield_point(
+        collection,
+        method=method,
+        offset_value=offset_value,
+        range_start=range_start,
+        range_end=range_end,
+        factor=factor,
+        result_prefix=result_prefix,
+        debug_mode=debug_mode,
+        fail_silently=fail_silently,
+    )
+
+
+
+@operation(domain="load_displacement")
+@requires_domain("load_displacement")
+def stiffness(
+    collection: LoadDisplacementCollection,
+    range_start: float = 0.2,
+    range_end: float = 0.8,
+    method: str = "linear_regression",
+) -> float:
+    """calculate_stiffness のエイリアス"""
+    return calculate_stiffness(
+        collection, range_start=range_start, range_end=range_end, method=method
+    )
+
+
+@operation(domain="load_displacement")
+@requires_domain("load_displacement")
+def yield_point(
+    collection: LoadDisplacementCollection,
+    method: str = "offset",
+    offset_value: float = 0.002,
+    range_start: float = 0.1,
+    range_end: float = 0.3,
+    factor: float = 0.33,
+    result_prefix: Optional[str] = "yield",
+    debug_mode: bool = False,
+    fail_silently: bool = False,
+) -> LoadDisplacementCollection:
+    """find_yield_point のエイリアス"""
+    return find_yield_point(
+        collection,
+        method=method,
+        offset_value=offset_value,
+        range_start=range_start,
+        range_end=range_end,
+        factor=factor,
+        result_prefix=result_prefix,
+        debug_mode=debug_mode,
+        fail_silently=fail_silently,
+    )
+

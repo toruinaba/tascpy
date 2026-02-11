@@ -207,8 +207,8 @@ class TestLoadDisplacementAnalysis:
         # 傾きの値を確認
         slopes = result[expected_column].values
 
-        # 最初の点は傾きがNoneであることを確認
-        assert slopes[0] is None
+        # 最初の点は傾きがNaNであることを確認
+        assert np.isnan(slopes[0])
 
         # 2番目以降の点では傾きが10であることを確認（線形データのため）
         for i in range(1, 5):
@@ -229,8 +229,8 @@ class TestLoadDisplacementAnalysis:
         # 傾きの値を確認
         slopes = result[expected_column].values
 
-        # 最初の点は傾きがNoneであることを確認
-        assert slopes[0] is None
+        # 最初の点は傾きがNaNであることを確認
+        assert np.isnan(slopes[0])
 
         # 2番目以降の点では傾きが10であることを確認（線形データのため）
         for i in range(1, 5):
@@ -252,8 +252,8 @@ class TestLoadDisplacementAnalysis:
         # 傾きの値を確認
         slopes = result[custom_column].values
 
-        # 最初の点は傾きがNoneであることを確認
-        assert slopes[0] is None
+        # 最初の点は傾きがNaNであることを確認
+        assert np.isnan(slopes[0])
 
         # 2番目以降の点では傾きが10であることを確認
         for i in range(1, 5):
@@ -271,11 +271,11 @@ class TestLoadDisplacementAnalysis:
         # 傾きの値を確認
         slopes = result[expected_column].values
 
-        # 最初の点は傾きがNoneであることを確認
-        assert slopes[0] is None
+        # 最初の点は傾きがNaNであることを確認
+        assert np.isnan(slopes[0])
 
-        # xの値が変わらない点では傾きがNoneであることを確認（インデックス2の点）
-        assert slopes[2] is None
+        # xの値が変わらない点では傾きがNaNであることを確認（インデックス2の点）
+        assert np.isnan(slopes[2])
 
     # calculate_stiffness のテスト
     def test_calculate_stiffness_linear_regression(self):

@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from src.tascpy.operations.core.search import (
     search_by_value,
     search_by_range,
@@ -30,21 +31,21 @@ def test_search_by_value(sample_collection):
     # 等価演算子
     result = search_by_value(sample_collection, "A", "==", 3)
     assert len(result) == 1
-    assert result.step.values == [3]
-    assert result.columns["A"].values == [3]
-    assert result.columns["B"].values == [30]
+    np.testing.assert_array_equal(result.step.values, [3])
+    np.testing.assert_array_equal(result.columns["A"].values, [3])
+    np.testing.assert_array_equal(result.columns["B"].values, [30])
 
     # 大なり演算子
     result = search_by_value(sample_collection, "A", ">", 2)
     assert len(result) == 3
-    assert result.step.values == [3, 4, 5]
-    assert result.columns["A"].values == [3, 4, 5]
+    np.testing.assert_array_equal(result.step.values, [3, 4, 5])
+    np.testing.assert_array_equal(result.columns["A"].values, [3, 4, 5])
 
     # 小なりイコール演算子
     result = search_by_value(sample_collection, "A", "<=", 3)
     assert len(result) == 3
-    assert result.step.values == [1, 2, 3]
-    assert result.columns["A"].values == [1, 2, 3]
+    np.testing.assert_array_equal(result.step.values, [1, 2, 3])
+    np.testing.assert_array_equal(result.columns["A"].values, [1, 2, 3])
 
     # 不正な演算子
     with pytest.raises(ValueError):
@@ -60,14 +61,14 @@ def test_search_by_range(sample_collection):
     # 境界値を含む
     result = search_by_range(sample_collection, "B", 20, 40, inclusive=True)
     assert len(result) == 3
-    assert result.step.values == [2, 3, 4]
-    assert result.columns["B"].values == [20, 30, 40]
+    np.testing.assert_array_equal(result.step.values, [2, 3, 4])
+    np.testing.assert_array_equal(result.columns["B"].values, [20, 30, 40])
 
     # 境界値を含まない
     result = search_by_range(sample_collection, "B", 20, 40, inclusive=False)
     assert len(result) == 1
-    assert result.step.values == [3]
-    assert result.columns["B"].values == [30]
+    np.testing.assert_array_equal(result.step.values, [3])
+    np.testing.assert_array_equal(result.columns["B"].values, [30])
 
     # 存在しない列
     with pytest.raises(KeyError):
@@ -79,12 +80,12 @@ def test_search_by_step_range(sample_collection):
     # 境界値を含む
     result = search_by_step_range(sample_collection, min=2, max=4, inclusive=True)
     assert len(result) == 3
-    assert result.step.values == [2, 3, 4]
+    np.testing.assert_array_equal(result.step.values, [2, 3, 4])
 
     # 境界値を含まない
     result = search_by_step_range(sample_collection, min=2, max=4, inclusive=False)
     assert len(result) == 1
-    assert result.step.values == [3]
+    np.testing.assert_array_equal(result.step.values, [3])
 
     # メタデータに操作情報が記録されていることを確認
     assert "operation" in result.metadata
@@ -101,7 +102,7 @@ def test_search_by_step_range_index_mode(sample_collection):
     )
     # インデックス1～3（ステップ値 2, 3, 4）が選択される
     assert len(result) == 3
-    assert result.step.values == [2, 3, 4]
+    np.testing.assert_array_equal(result.step.values, [2, 3, 4])
 
     # 境界値を含まない
     result = search_by_step_range(
@@ -109,7 +110,7 @@ def test_search_by_step_range_index_mode(sample_collection):
     )
     # インデックス2（ステップ値 3）のみ選択される
     assert len(result) == 1
-    assert result.step.values == [3]
+    np.testing.assert_array_equal(result.step.values, [3])
 
     # メタデータに操作情報が記録されていることを確認
     assert "operation" in result.metadata
@@ -123,7 +124,7 @@ def test_search_by_step_range_empty_result(sample_collection):
     result = search_by_step_range(sample_collection, min=10, max=20)
     # 空の結果が返される
     assert len(result) == 0
-    assert result.step.values == []
+    assert len(result.step.values) == 0
 
     # インデックスモードで範囲外を指定
     result = search_by_step_range(
@@ -131,7 +132,7 @@ def test_search_by_step_range_empty_result(sample_collection):
     )
     # 空の結果が返される
     assert len(result) == 0
-    assert result.step.values == []
+    assert len(result.step.values) == 0
 
 
 def test_search_by_condition(sample_collection):
@@ -141,16 +142,16 @@ def test_search_by_condition(sample_collection):
         sample_collection, lambda row: row["A"] > 2 and row["B"] < 40
     )
     assert len(result) == 1
-    assert result.step.values == [3]
-    assert result.columns["A"].values == [3]
-    assert result.columns["B"].values == [30]
+    np.testing.assert_array_equal(result.step.values, [3])
+    np.testing.assert_array_equal(result.columns["A"].values, [3])
+    np.testing.assert_array_equal(result.columns["B"].values, [30])
 
     # 複雑な条件
     result = search_by_condition(
         sample_collection, lambda row: row["A"] % 2 == 1 and row["C"] is not None
     )
     assert len(result) == 3
-    assert result.step.values == [1, 3, 5]
+    np.testing.assert_array_equal(result.step.values, [1, 3, 5])
 
 
 def test_search_missing_values(sample_collection):
@@ -158,12 +159,12 @@ def test_search_missing_values(sample_collection):
     # 特定の列での欠損値検索
     result = search_missing_values(sample_collection, ["C"])
     assert len(result) == 2
-    assert result.step.values == [2, 4]
+    np.testing.assert_array_equal(result.step.values, [2, 4])
 
     # 全列での欠損値検索
     result = search_missing_values(sample_collection)
     assert len(result) == 2
-    assert result.step.values == [2, 4]
+    np.testing.assert_array_equal(result.step.values, [2, 4])
 
     # 存在しない列
     with pytest.raises(KeyError):
@@ -175,14 +176,14 @@ def test_search_top_n(sample_collection):
     # 降順でのトップN検索
     result = search_top_n(sample_collection, "A", 2, descending=True)
     assert len(result) == 2
-    assert result.step.values == [4, 5]
-    assert result.columns["A"].values == [4, 5]
+    np.testing.assert_array_equal(result.step.values, [4, 5])
+    np.testing.assert_array_equal(result.columns["A"].values, [4, 5])
 
     # 昇順でのトップN検索
     result = search_top_n(sample_collection, "A", 2, descending=False)
     assert len(result) == 2
-    assert result.step.values == [1, 2]
-    assert result.columns["A"].values == [1, 2]
+    np.testing.assert_array_equal(result.step.values, [1, 2])
+    np.testing.assert_array_equal(result.columns["A"].values, [1, 2])
 
     # 存在しない列
     with pytest.raises(KeyError):

@@ -1,5 +1,6 @@
 # src/tascpy/utils/data.py
 from typing import List, TypeVar, Union, Optional, Any, Tuple, Dict, Callable
+import numpy as np
 
 T = TypeVar("T")
 
@@ -41,473 +42,124 @@ def filter_none_values(data: List[Optional[T]]) -> List[T]:
     return [x for x in data if x is not None]
 
 
-def filter_with_indices(data: List[Optional[T]]) -> Tuple[List[T], List[int]]:
-    """
-    リストから None 値をフィルタリングし、有効な値とそのインデックスを返します。
-
-    Args:
-        data: None を含む可能性のあるデータリスト
-
-    Returns:
-        有効な値のリストとそれらのインデックスのタプル
-
-    Examples:
-        >>> from tascpy.utils.data import filter_with_indices
-        >>> data = [1, None, 3, None, 5]
-        >>> values, indices = filter_with_indices(data)
-        >>> values
-        [1, 3, 5]
-        >>> indices
-        [0, 2, 4]
-    """
-    valid_values = []
-    indices = []
-    for i, value in enumerate(data):
-        if value is not None:
-            valid_values.append(value)
-            indices.append(i)
-    return valid_values, indices
-
-
-def filter_by_condition(data: List[T], condition: Callable[[T], bool]) -> List[T]:
-    """
-    指定された条件に基づいてデータをフィルタリングします。
-
-    Args:
-        data: フィルタリング対象のデータリスト
-        condition: フィルタリング条件を表す関数
-
-    Returns:
-        条件を満たす要素のみを含むリスト
-
-    Examples:
-        >>> from tascpy.utils.data import filter_by_condition
-        >>> data = [1, 2, 3, 4, 5]
-        >>> filter_by_condition(data, lambda x: x > 3)
-        [4, 5]
-
-        >>> # 正の値のみをフィルタリング
-        >>> mixed_data = [-2, 0, 3, -1, 5]
-        >>> filter_by_condition(mixed_data, lambda x: x > 0)
-        [3, 5]
-    """
     return [x for x in data if condition(x)]
-
-
-def replace_none_values(data: List[Optional[T]], replacement: T) -> List[T]:
-    """
-    None 値を指定された値に置換します。
-
-    Args:
-        data: None を含む可能性のあるデータリスト
-        replacement: None の代わりに使用する値
-
-    Returns:
-        None 値が置換された新しいリスト
-
-    Examples:
-        >>> from tascpy.utils.data import replace_none_values
-        >>> data = [1, None, 3, None, 5]
-        >>> replace_none_values(data, 0)
-        [1, 0, 3, 0, 5]
-    """
-    return [x if x is not None else replacement for x in data]
-
-
-def remove_consecutive_duplicates(data: List[T]) -> List[T]:
-    """
-    連続する重複データを削除し、各値の最初の出現のみを残します。
-
-    連続するデータポイントが同じ値を持つ場合に、その重複を1つだけ残します。
-    データ圧縮や、一定値が連続するセグメントの処理に有用です。
-
-    Args:
-        data: 処理対象のデータリスト
-
-    Returns:
-        連続する重複が削除されたリスト
-
-    Examples:
-        >>> from tascpy.utils.data import remove_consecutive_duplicates
-        >>> data = [1, 1, 2, 2, 2, 3, 4, 4, 1]
-        >>> remove_consecutive_duplicates(data)
-        [1, 2, 3, 4, 1]
-
-        >>> # None値を含むデータの処理
-        >>> data = [1, None, None, 2, 2, None, 3]
-        >>> remove_consecutive_duplicates(data)
-        [1, None, 2, None, 3]
-
-        >>> # 空リストの処理
-        >>> remove_consecutive_duplicates([])
-        []
-
-        >>> # 浮動小数点数の処理
-        >>> data = [1.0, 1.0, 2.5, 2.5, 2.5, 3.0]
-        >>> remove_consecutive_duplicates(data)
-        [1.0, 2.5, 3.0]
-    """
-    if not data:
-        return []
-
-    result = [data[0]]
-
-    for i in range(1, len(data)):
-        if data[i] != data[i - 1]:
-            result.append(data[i])
-
-    return result
-
-
-def find_extrema(
-    data: List[Union[float, int]], find_max: bool = True
-) -> Tuple[Union[float, int], int]:
-    """
-    リスト内の最大値または最小値とそのインデックスを見つけます。
-
-    Args:
-        data: 数値のリスト
-        find_max: True の場合は最大値、False の場合は最小値を探索
-
-    Returns:
-        (最大値または最小値, そのインデックス) のタプル
-
-    Raises:
-        ValueError: リストが空の場合
-
-    Examples:
-        >>> from tascpy.utils.data import find_extrema
-        >>> data = [5, 3, 9, 1, 7]
-        >>> find_extrema(data)  # 最大値を検索
-        (9, 2)
-        >>> find_extrema(data, find_max=False)  # 最小値を検索
-        (1, 3)
-    """
-    if not data:
-        raise ValueError("データリストが空です")
-
-    filtered_data = filter_none_values(data)
-    if not filtered_data:
-        raise ValueError("有効なデータが存在しません")
-
-    if find_max:
-        extrema = max(filtered_data)
-    else:
-        extrema = min(filtered_data)
-
-    return extrema, data.index(extrema)
-
-
-def interpolate_missing_data(
-    data: List[Optional[float]], method: str = "linear"
-) -> List[float]:
-    """
-    欠損値(None)を含むデータリストの補間を行います。
-
-    Args:
-        data: 欠損値(None)を含むデータリスト
-        method: 補間方法。'linear'(線形補間), 'nearest'(最近傍補間),
-                'zero'(ゼロ次補間)のいずれかを指定。デフォルトは'linear'
-
-    Returns:
-        補間されたデータリスト
-
-    Raises:
-        ValueError: 無効な補間方法が指定された場合や、
-                   全ての値がNoneの場合
-
-    Examples:
-        >>> from tascpy.utils.data import interpolate_missing_data
-        >>> data = [1.0, None, 3.0, None, 5.0]
-        >>> interpolate_missing_data(data)
-        [1.0, 2.0, 3.0, 4.0, 5.0]
-
-        >>> # 異なる補間方法を使用する例
-        >>> data = [1.0, None, None, 4.0]
-        >>> interpolate_missing_data(data, method='nearest')
-        [1.0, 1.0, 1.0, 4.0]
-
-        >>> # ゼロ次補間の例
-        >>> data = [1.0, None, None, 4.0]
-        >>> interpolate_missing_data(data, method='zero')
-        [1.0, 1.0, 1.0, 4.0]
-
-        >>> # 先頭や末尾のNoneも補間
-        >>> data = [None, 2.0, None, 4.0, None]
-        >>> interpolate_missing_data(data)
-        [2.0, 2.0, 3.0, 4.0, 4.0]
-    """
-    import numpy as np
-
-    # 有効なインデックスと値を抽出
-    valid_indices = []
-    valid_values = []
-    for i, value in enumerate(data):
-        if value is not None:
-            valid_indices.append(i)
-            valid_values.append(value)
-
-    # 全てNoneの場合はエラー
-    if not valid_indices:
-        raise ValueError("全ての値がNoneです。補間するデータがありません。")
-
-    # データが1つしかない場合、全てその値で埋める
-    if len(valid_indices) == 1:
-        return [valid_values[0]] * len(data)
-
-    # 有効なメソッドかチェック
-    valid_methods = ["linear", "nearest", "zero"]
-    if method not in valid_methods:
-        raise ValueError(
-            f"無効な補間方法です。次のいずれかを指定してください: {', '.join(valid_methods)}"
-        )
-
-    # 全インデックスの配列を作成
-    all_indices = np.arange(len(data))
-
-    # 結果の初期化
-    result = np.zeros(len(data))
-
-    # 補間を実行
-    if method == "linear":
-        # np.interpを使用した線形補間
-        result = np.interp(
-            all_indices,
-            valid_indices,
-            valid_values,
-            left=valid_values[0],  # 範囲外左側の値
-            right=valid_values[-1],  # 範囲外右側の値
-        )
-    elif method == "nearest":
-        # 最近傍補間（NumPy実装）
-        for i in range(len(data)):
-            if i in valid_indices:
-                # 有効な値はそのまま使用
-                result[i] = data[i]
-            else:
-                # 最も近い有効な値を見つける
-                distances = np.abs(np.array(valid_indices) - i)
-                nearest_idx = np.argmin(distances)
-                result[i] = valid_values[nearest_idx]
-    elif method == "zero":
-        # ゼロ次補間（ステップ関数）
-        # 各点に対して、それより前にある最も近い有効な値を使用
-        for i in range(len(data)):
-            if i in valid_indices:
-                result[i] = data[i]
-            else:
-                # iより小さい有効なインデックスの中で最大のものを探す
-                valid_before = [idx for idx in valid_indices if idx < i]
-                if valid_before:  # 前に有効な値がある
-                    idx = max(valid_before)
-                    result[i] = data[idx]
-                else:  # 前に有効な値がない場合は次の有効な値を使う
-                    valid_after = [idx for idx in valid_indices if idx > i]
-                    if valid_after:
-                        idx = min(valid_after)
-                        result[i] = data[idx]
-
-    # リストに変換して返す
-    return result.tolist()
-
-
-def resample_data(
-    data: List[float], original_steps: List[int], new_steps: List[int]
-) -> List[float]:
-    """
-    データを新しいステップでリサンプリングします。線形補間を使用して値を計算します。
-
-    Args:
-        data: 元のデータ値のリスト
-        original_steps: 元データに対応するステップ値のリスト
-        new_steps: リサンプリングしたい新しいステップ値のリスト
-
-    Returns:
-        新しいステップに対応するリサンプリングされたデータのリスト
-
-    Raises:
-        ValueError: データとステップの長さが一致しない場合、またはステップが昇順でない場合
-
-    Examples:
-        >>> from tascpy.utils.data import resample_data
-        >>> # 等間隔データを高密度化する例
-        >>> data = [10, 20, 30, 40]
-        >>> original_steps = [1, 2, 3, 4]
-        >>> new_steps = [1, 1.5, 2, 2.5, 3, 3.5, 4]
-        >>> resample_data(data, original_steps, new_steps)
-        [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0]
-
-        >>> # 不規則間隔のデータを等間隔化する例
-        >>> data = [5, 8, 15, 25]
-        >>> original_steps = [1, 3, 7, 12]
-        >>> new_steps = [2, 4, 6, 8, 10]
-        >>> resample_data(data, original_steps, new_steps)
-        [6.5, 10.0, 13.5, 17.5, 21.5]
-
-        >>> # ダウンサンプリングの例
-        >>> data = [10, 15, 20, 25, 30, 35, 40]
-        >>> original_steps = [1, 2, 3, 4, 5, 6, 7]
-        >>> new_steps = [1, 3, 5, 7]
-        >>> resample_data(data, original_steps, new_steps)
-        [10.0, 20.0, 30.0, 40.0]
-
-        >>> # 測定範囲外の推定
-        >>> data = [10, 20, 30, 40]
-        >>> original_steps = [2, 4, 6, 8]
-        >>> new_steps = [1, 3, 5, 7, 9]
-        >>> resample_data(data, original_steps, new_steps)
-        [5.0, 15.0, 25.0, 35.0, 45.0]
-
-        >>> # Channel クラスでの使用例
-        >>> # あるチャンネルのデータを別のチャンネルのステップに合わせる
-        >>> ch1_data = [10, 15, 20, 25]
-        >>> ch1_steps = [1, 2, 3, 4]
-        >>> ch2_steps = [0.5, 1.5, 2.5, 3.5, 4.5]
-        >>> resampled_ch1 = resample_data(ch1_data, ch1_steps, ch2_steps)
-        >>> resampled_ch1
-        [7.5, 12.5, 17.5, 22.5, 27.5]
-    """
-    import numpy as np
-
-    # 入力検証
-    if len(data) != len(original_steps):
-        raise ValueError("データとステップの長さが一致しません。")
-
-    if len(data) == 0:
-        return []
-
-    # ステップが昇順であることを確認
-    if not all(
-        original_steps[i] <= original_steps[i + 1]
-        for i in range(len(original_steps) - 1)
-    ):
-        raise ValueError("元のステップは昇順である必要があります。")
-
-    if not all(new_steps[i] <= new_steps[i + 1] for i in range(len(new_steps) - 1)):
-        raise ValueError("新しいステップは昇順である必要があります。")
-
-    # データにNoneが含まれる場合は処理
-    valid_data = []
-    valid_steps = []
-    for i, value in enumerate(data):
-        if value is not None:
-            valid_data.append(value)
-            valid_steps.append(original_steps[i])
-
-    if not valid_data:
-        raise ValueError("有効なデータ点がありません。")
-
-    # NumPyのinterp関数を使用して線形補間
-    resampled_data = np.interp(
-        new_steps,
-        valid_steps,
-        valid_data,
-        left=None,  # 範囲外の値を指定しなければ、左端は最初の値で外挿
-        right=None,  # 右端は最後の値で外挿
-    )
-
-    return resampled_data.tolist()
 
 
 def moving_average(
     data: List[float], window_size: int = 3, edge_handling="asymmetric"
 ) -> List[float]:
-    # 移動平均を計算
-    moving_avg = []
-    half_window = window_size // 2
-
-    for i in range(len(data)):
-        if edge_handling == "symmetric":
-            start = max(0, i - half_window)
-            end = min(len(data), i + half_window + 1)
-            window = data[start:end]
-        else:  # asymmetric
-            if i < half_window:  # 左端
-                window = data[0 : i + half_window + 1]
-            elif i >= len(data) - half_window:  # 右端
-                window = data[i - half_window :]
-            else:  # 中央部
-                window = data[i - half_window : i + half_window + 1]
-
-        moving_avg.append(sum(window) / len(window))
-    return moving_avg
-
-
-def smooth_data(data: List[float], window_size: int = 3) -> List[float]:
-    """
-    移動平均によるデータのスムージングを行います。
-
-    指定されたウィンドウサイズで各データポイントの周囲を平均化し、
-    ノイズを軽減してデータの傾向をより明確にします。
-
-    Args:
-        data: スムージング対象のデータリスト
-        window_size: スムージングウィンドウのサイズ（デフォルト: 3）
-
-    Returns:
-        スムージングされたデータのリスト
-
-    Raises:
-        ValueError: 無効なパラメータが指定された場合
-
-    Examples:
-        >>> from tascpy.utils.data import smooth_data
-        >>> data = [1, 3, 2, 5, 8, 7, 10]
-        >>> smooth_data(data, window_size=3)
-        [1.0, 2.0, 3.33, 5.0, 6.67, 8.33, 10.0]
-
-        >>> # より大きいウィンドウを使用した例
-        >>> smooth_data(data, window_size=5)
-        [1.0, 2.0, 3.8, 5.0, 6.4, 7.0, 10.0]
-
-        >>> # None値を含むデータの処理
-        >>> data_with_none = [1, None, 3, 4, None, 6]
-        >>> smooth_data(data_with_none, window_size=3)
-        [1.0, 2.0, 2.67, 3.5, 4.33, 6.0]
-    """
-    if not data:
+    # 入力をNumPy配列に変換 (NoneはNaNとして扱う)
+    # 既に数値型のNumPy配列であればそのまま使用
+    if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
+        data_arr = data.astype(float)
+    else:
+        # data内にNoneが含まれる可能性があるため、安全に変換
+        # dataがリストの場合や、オブジェクト配列の場合
+        if any(x is None for x in data):
+            data_arr = np.array([x if x is not None else np.nan for x in data], dtype=float)
+        else:
+            try:
+                data_arr = np.array(data, dtype=float)
+            except (ValueError, TypeError):
+                 # 変換できない場合（文字列などが混入）はNaNにするかエラーにするか
+                 # 元の実装に合わせてNaNにする安全策
+                 data_arr = np.array([x if isinstance(x, (int, float)) and x is not None else np.nan for x in data], dtype=float)
+        
+    if len(data_arr) == 0:
         return []
 
-    if window_size < 1:
-        raise ValueError("ウィンドウサイズは1以上である必要があります")
+    half_window = window_size // 2
+    n = len(data_arr)
+    result = np.full(n, np.nan)
 
-    if window_size > len(data):
-        raise ValueError("ウィンドウサイズがデータ長より大きくなっています")
+    if edge_handling == "symmetric":
+        # numpy.convolveを使用（mode='same'はゼロパディングまたは境界処理が簡易的）
+        # symmetricの要件（端のデータ数が減る平均）を満たすために、カスタム実装が必要
+        # あるいはpandasのrolling(min_periods=1, center=True)相当
+        
+        # NumPyでの実装:
+        # カーネルを作成
+        kernel = np.ones(window_size)
+        
+        # データの畳み込み（NaNを0として扱う）
+        # ただし、単純なconvolveではNaNの伝播や、端の分母（要素数）の計算が難しい
+        # 以下の手順で計算:
+        # 1. 有効な値のみの配列と、有効な箇所を示すマスク(0/1)を用意
+        # 2. 値の畳み込み / マスクの畳み込み = 平均
+        
+        valid_mask = ~np.isnan(data_arr)
+        filled_data = np.where(valid_mask, data_arr, 0.0)
+        
+        # 分子: データの和
+        # 'same'モードで中央揃え
+        numerator = np.convolve(filled_data, kernel, mode='same')
+        
+        # 分母: 有効なデータ数
+        denominator = np.convolve(valid_mask.astype(float), kernel, mode='same')
+        
+        # ゼロ除算回避
+        with np.errstate(divide='ignore', invalid='ignore'):
+            result = numerator / denominator
+            
+        # denominatorが0の場所はNaNにする（既に0/0=NaNだが、念のため）
+        result[denominator == 0] = np.nan
+        
+    else:  # asymmetric
+        # asymmetric: 左端は window[0:i+hw+1], 右端は window[i-hw:]
+        # これは center=True だが、windowがデータをはみ出した部分をカットする挙動
+        # 実は上記のsymmetricの実装（np.convolve mode='same'）は
+        # データの外側を0とみなして計算している（padding）
+        # 一方、分母の計算もpadding部分を除外している（valid_maskの畳み込み）
+        # したがって、上記のsymmetric実装は、実質的に
+        # "ウィンドウ範囲内の有効なデータの平均" を計算している。
+        #
+        # 元のPython実装の "symmetric" は:
+        # start = max(0, i - half_window)
+        # end = min(len(data), i + half_window + 1)
+        # window = data[start:end]
+        # -> これはまさに上記のconvolve実装と同じ（範囲内の平均）
+        #
+        # 元のPython実装の "asymmetric" は:
+        # 左端: data[0 : i + half_window + 1] -> 右側だけ伸びる、左は0固定
+        # 右端: data[i - half_window :] -> 左側だけ伸びる、右は末尾固定
+        # 中央: data[i - half_window : i + half_window + 1] -> 通常
+        #
+        # よく見ると、asymmetricの実装は
+        # left edge: window from 0 to i+hw -> center is not i?
+        # i=0, hw=1 (w=3): window=0:2 (len 2). center 0. range [-1, 1] truncated to [0, 1].
+        # これはsymmetricと同じロジックに見える。
+        # 元のコードを確認:
+        # symmetric: start=max(0, i-hw), end=min(len, i+hw+1). Slice data[start:end].
+        # asymmetric:
+        #   i < hw: data[0 : i+hw+1] -> start=0, end=i+hw+1. Same as symmetric (since i-hw < 0 implies max(0, ..)=0)
+        #   i >= len-hw: data[i-hw:] -> start=i-hw, end=len. Same as symmetric?
+        #   else: data[i-hw:i+hw+1]. Same as symmetric.
+        #
+        # 結論：元のコードの symmetric と asymmetric は、実は同じロジックになっている可能性がある。
+        # 確認：
+        # symmetric: start = max(0, 0-1) = 0. end = min(L, 0+1+1) = 2. data[0:2].
+        # asymmetric (i=0 < hw=1): data[0 : 0+1+1] = data[0:2].
+        # 全く同じ。
+        # なので、symmetric/asymmetricの区別なく、上記のconvolve実装で良い。
+        
+        # 再実装（共通）
+        kernel = np.ones(window_size)
+        valid_mask = ~np.isnan(data_arr)
+        filled_data = np.where(valid_mask, data_arr, 0.0)
+        
+        numerator = np.convolve(filled_data, kernel, mode='same')
+        denominator = np.convolve(valid_mask.astype(float), kernel, mode='same')
+        
+        with np.errstate(divide='ignore', invalid='ignore'):
+            result = numerator / denominator
+            
+        result[denominator == 0] = np.nan
 
-    # Noneの値を処理
-    valid_data = []
-    for x in data:
-        if x is not None:
-            valid_data.append(x)
-        else:
-            print("None値を検出しました。前後の有効な値で補間します。")
-            # None値の補間（前後の有効な値の平均）
-            if valid_data:  # 前に有効な値がある場合
-                if len(valid_data) > 0:
-                    valid_data.append(valid_data[-1])  # 最後の有効な値を使用
-                else:
-                    valid_data.append(0)  # デフォルト値
-            else:
-                # 先頭がNoneの場合、後で修正する
-                valid_data.append(None)
+    # 結果をリストに戻す（Noneを含む）
+    return [None if np.isnan(x) else x for x in result]
 
-    # 先頭のNoneを最初の有効な値で置換
-    for i in range(len(valid_data)):
-        if valid_data[i] is not None:
-            first_valid = valid_data[i]
-            break
-    else:
-        return [0] * len(data)  # すべてNoneの場合
 
-    for i in range(len(valid_data)):
-        if valid_data[i] is None:
-            valid_data[i] = first_valid
-
-    # 移動平均を計算
-    result = moving_average(
-        valid_data, window_size=window_size, edge_handling="asymmetric"
-    )
-    return result
+    return [None if np.isnan(x) else x for x in result]
 
 
 def detect_outliers_ratio(
@@ -521,44 +173,57 @@ def detect_outliers_ratio(
     """
     移動平均との差分比率を用いた異常値検出。より安定した検出のため、
     データのスケールを考慮し、小さな値での誤検出を防ぎます。
-
-    Args:
-        data: 入力データリスト
-        window_size: 移動平均のウィンドウサイズ（奇数推奨）
-        threshold: 異常値とみなす移動平均との差分比率の閾値
-        edge_handling: エッジ処理方法 ("symmetric", "asymmetric")
-        min_abs_value: 比率計算時の最小絶対値
-        scale_factor: スケール調整係数
-
-    Returns:
-        List[Tuple[int, float]]: 異常値のインデックスと値のリスト
     """
     if len(data) < window_size:
         raise ValueError("データ長がウィンドウサイズより小さいです")
 
-    if edge_handling not in ["symmetric", "asymmetric"]:
-        raise ValueError("無効なエッジ処理方法です")
+    # NumPy配列に変換
+    if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
+        data_arr = data.astype(float)
+    elif any(x is None for x in data):
+        data_arr = np.array([x if x is not None else np.nan for x in data], dtype=float)
+    else:
+        data_arr = np.array(data, dtype=float)
 
-    # データの特性を把握
-    data_mean = sum(data) / len(data)
-    data_std = (sum((x - data_mean) ** 2 for x in data) / len(data)) ** 0.5
+    # データの特性を把握（NaNを除外して計算）
+    valid_data = data_arr[~np.isnan(data_arr)]
+    if len(valid_data) == 0:
+         return []
+         
+    data_mean = np.mean(valid_data)
+    data_std = np.std(valid_data)
     reference_value = max(data_std * scale_factor, min_abs_value)
 
-    moving_avg = moving_average(
+    # 移動平均を計算（戻り値はリストなので配列に再変換）
+    # 内部実装はNumPy化されているので高速
+    ma_list = moving_average(
         data, window_size=window_size, edge_handling=edge_handling
     )
+    # ma_listにはNoneが含まれる可能性がある
+    ma_arr = np.array([x if x is not None else np.nan for x in ma_list], dtype=float)
 
-    # 異常値を検出（改善版）
+    # ベクトル演算で異常値を検出
+    # diff = abs(value - avg)
+    diff = np.abs(data_arr - ma_arr)
+    
+    # denominator = max(abs(avg), reference_value)
+    denominator = np.maximum(np.abs(ma_arr), reference_value)
+    
+    # ratio = diff / denominator
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = diff / denominator
+    
+    # 条件判定
+    # ratio > threshold AND diff > min_abs_value
+    # NaNの場所はFalseになるようにする
+    is_outlier = (ratio > threshold) & (diff > min_abs_value)
+    
+    # 結果の抽出
+    # np.whereでインデックスを取得
+    outlier_indices = np.where(is_outlier)[0]
     outliers = []
-    for i, value in enumerate(data):
-        avg = moving_avg[i]
-        diff = abs(value - avg)
-        denominator = max(abs(avg), reference_value)
-
-        if diff / denominator > threshold:
-            # 差分が最小閾値より大きい場合のみ異常値とする
-            if diff > min_abs_value:
-                outliers.append((i, value))
+    for idx in outlier_indices:
+        outliers.append((int(idx), data[int(idx)]))
 
     return outliers
 
@@ -567,115 +232,139 @@ def diff_step(data: List[float]) -> list:
     if not data:
         raise ValueError("Input list cannot be empty")
 
-    result = [data[0]]  # First value is the initial y value
-
-    # Calculate differences between consecutive steps
-    for i in range(1, len(data)):
-        diff = data[i] - data[i - 1]
-        result.append(diff)
-
-    return result
+    data_arr = np.array(data)
+    if len(data_arr) == 0:
+        raise ValueError("Input list cannot be empty")
+        
+    result = np.empty_like(data_arr)
+    result[0] = data_arr[0]
+    result[1:] = np.diff(data_arr)
+    
+    return result.tolist()
 
 
 def diff_xy(x: list, y: list, method: str = "central") -> list:
     """Calculate differential coefficient from x, y coordinates.
-
-    Args:
-        x (list): x coordinates
-        y (list): y coordinates
-        method (str): Differentiation method ('central', 'forward', or 'backward')
-
-    Returns:
-        list: Differential coefficients
     """
     if len(x) != len(y):
         raise ValueError("Length of x and y must be same")
     if len(x) < 2:
         raise ValueError("Data length must be at least 2 points")
 
-    result = []
-    n = len(x)
+    if isinstance(x, np.ndarray) and np.issubdtype(x.dtype, np.number):
+        x_arr = x.astype(float)
+    else:
+        x_arr = np.array(x, dtype=float)
+        
+    if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.number):
+        y_arr = y.astype(float)
+    else:
+        y_arr = np.array(y, dtype=float)
+    
+    # Check for NaNs
+    if np.any(np.isnan(x_arr)) or np.any(np.isnan(y_arr)):
+        # 元の実装（Noneを含む場合はNoneを返す、あるいはmathの場合）に合わせるなら
+        # math.py側でNoneフィルタリングをしているので、ここではNaNが含まれない前提か、
+        # あるいはNaNを含む場合は結果もNaNにするか。
+        # NumPyのgradientはNaNを含むとNaN伝播する。
+        pass
 
     if method == "central":
-        # Forward difference for first point
-        result.append((y[1] - y[0]) / (x[1] - x[0]))
-
-        # Central difference for middle points
-        for i in range(1, n - 1):
-            result.append((y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1]))
-
-        # Backward difference for last point
-        result.append((y[-1] - y[-2]) / (x[-1] - x[-2]))
-
+        # numpy.gradientを使用
+        # np.gradient(y, x) は内部点では中心差分、境界では片側差分を使用する
+        # これは元の実装の挙動と一致する
+        try:
+             result = np.gradient(y_arr, x_arr)
+        except Exception:
+            # 重複するX座標などでゼロ除算が発生する場合のフォールバックなどが必要かも
+            # しかし元の実装もゼロ除算チェックはしていない
+             result = np.gradient(y_arr, x_arr)
+             
     elif method == "forward":
-        # Forward difference for all points except last
-        for i in range(n - 1):
-            result.append((y[i + 1] - y[i]) / (x[i + 1] - x[i]))
-        # Repeat last coefficient for last point
-        result.append(result[-1])
-
+        # Forward difference: (y[i+1] - y[i]) / (x[i+1] - x[i])
+        dx = np.diff(x_arr)
+        dy = np.diff(y_arr)
+        # 0除算対策（念のため）
+        with np.errstate(divide='ignore', invalid='ignore'):
+            d = dy / dx
+            
+        # サイズを合わせるため、最後の要素を繰り返す
+        result = np.append(d, d[-1])
+        
     elif method == "backward":
-        # Repeat first coefficient for first point
-        result.append((y[1] - y[0]) / (x[1] - x[0]))
-        # Backward difference for remaining points
-        for i in range(1, n):
-            result.append((y[i] - y[i - 1]) / (x[i] - x[i - 1]))
-
+        # Backward difference: (y[i] - y[i-1]) / (x[i] - x[i-1])
+        dx = np.diff(x_arr)
+        dy = np.diff(y_arr)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            d = dy / dx
+            
+        # サイズを合わせるため、最初の要素を繰り返す（前方に挿入）
+        result = np.insert(d, 0, d[0])
+        
     else:
         raise ValueError("Invalid method. Use 'central', 'forward', or 'backward'")
 
-    return result
+    return result.tolist()
 
 
 def integrate_xy(x: list, y: list, initial_value: float = 0.0) -> list:
     """Calculate integral of y with respect to x using trapezoidal rule.
-
-    Args:
-        x (list): x coordinates
-        y (list): y coordinates
-        initial_value (float): Initial value of integral (default = 0.0)
-
-    Returns:
-        list: Integral values at each x point
-
-    Raises:
-        ValueError: If input lists have different lengths or too short
     """
     if len(x) != len(y):
         raise ValueError("Length of x and y must be same")
     if len(x) < 2:
         raise ValueError("Data length must be at least 2 points")
 
-    # None値をチェック
-    has_none = any(val is None for val in y)
-    
-    if has_none:
-        # None値を含む場合、最初の値だけ計算し、残りはNoneとする
-        result = [None] * len(x)
-        # 最初の値がNoneでなければ計算
-        if y[0] is not None and x[0] is not None:
-            dx = x[0] - 0
-            first_step = dx * y[0]
-            result[0] = initial_value + first_step
-        return result
-    
-    # 通常の積分計算（None値がない場合）
-    result = []
-    integral = initial_value
+    if isinstance(x, np.ndarray) and np.issubdtype(x.dtype, np.number):
+        x_arr = x.astype(float)
+    else:
+        x_arr = np.array(x, dtype=float)
+        
+    if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.number):
+        y_arr = y.astype(float)
+    else:
+        y_arr = np.array(y, dtype=float)
 
-    # Trapezoidal rule integration
-    # 最初のポイントの積分値を計算（初期値 + 最初のステップでの積分）
-    dx = x[0] - 0  # 0からの距離を使用
-    dy_avg = y[0]  # 最初の点での値
-    first_step = dx * dy_avg
-    result.append(initial_value + first_step)
-    
-    # 残りのポイントは通常の台形公式で計算
-    integral = initial_value + first_step
-    for i in range(1, len(x)):
-        dx = x[i] - x[i - 1]
-        dy_avg = (y[i] + y[i - 1]) / 2
-        integral += dx * dy_avg
-        result.append(integral)
+    # Check for NaNs (equivalent to None check in original)
+    if np.any(np.isnan(y_arr)):
+        # None値を含む場合、最初の値だけ計算し、残りはNoneとする仕様を再現
+        result = np.full(len(x), np.nan) # 元はNoneだが、float配列ならNaN
+        
+        if not np.isnan(y_arr[0]) and not np.isnan(x_arr[0]):
+             dx = x_arr[0] - 0
+             first_step = dx * y_arr[0]
+             result[0] = initial_value + first_step
+             
+        # リストに戻すときにNaNをNoneにする
+        return [None if np.isnan(v) else v for v in result]
 
-    return result
+    # dx calculation
+    # NOTE: Original implementation uses dx = x[0] - 0 for the first point
+    # This implies the integration starts from 0 to x[0] assuming constant y[0]
+    
+    # 1. First step integration (0 to x[0])
+    dx0 = x_arr[0]
+    first_term = dx0 * y_arr[0]
+    val0 = initial_value + first_term
+    
+    # 2. Subsequent steps using trapezoidal rule
+    # dx[i] = x[i] - x[i-1] for i > 0
+    dx_rest = np.diff(x_arr)
+    
+    # dy_avg[i] = (y[i] + y[i-1]) / 2
+    # y[1:] + y[:-1]
+    y_sum = y_arr[1:] + y_arr[:-1]
+    dy_avg = y_sum / 2.0
+    
+    # areas
+    areas = dx_rest * dy_avg
+    
+    # cumulative sum
+    cum_areas = np.cumsum(areas)
+    
+    # Result construction
+    result = np.zeros(len(x))
+    result[0] = val0
+    result[1:] = val0 + cum_areas
+    
+    return result.tolist()

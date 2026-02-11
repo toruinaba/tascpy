@@ -4,8 +4,8 @@ from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 from .list_proxy import CollectionListOperations
 
-from .coordinate import CoordinateCollectionOperations
 from .load_displacement import LoadDisplacementCollectionOperations
+from .coordinate import CoordinateCollectionOperations
 
 class CoreCollectionOperations(CollectionOperationsBase[ColumnCollection]):
     """coreドメインの操作メソッドスタブ定義
@@ -145,6 +145,72 @@ Returns:
 Raises:
     KeyError: 指定された列が存在しない場合
     ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
+        ...
+    
+
+    def filter_by_condition(
+        self,
+        column_name: str,
+        condition: <built-in function callable>
+    ) -> "CoreCollectionOperations":
+        """指定された列の値が条件を満たす行をフィルタリングします
+
+Args:
+    collection: ColumnCollection オブジェクト
+    column_name: 条件を適用する列の名前
+    condition: 値を引数に取り、bool値を返す関数
+
+Returns:
+    ColumnCollection: 条件を満たす行のみを含む新しいコレクション"""
+        ...
+    
+
+    def remove_steps(
+        self,
+        steps: list[Any],
+        tolerance: Optional[float] = None
+    ) -> "CoreCollectionOperations":
+        """指定されたステップ値を持つ行を削除します
+
+Args:
+    collection: ColumnCollection オブジェクト
+    steps: 削除するステップ値のリスト
+    tolerance: ステップ値の比較における許容誤差
+
+Returns:
+    ColumnCollection: 指定ステップが削除された新しいコレクション"""
+        ...
+    
+
+    def filter_val(
+        self,
+        column_name: str,
+        value: Any,
+        tolerance: Optional[float] = None
+    ) -> "CoreCollectionOperations":
+        """filter_by_value のエイリアス"""
+        ...
+    
+
+    def filter_cond(
+        self,
+        column_name: str,
+        condition: <built-in function callable>
+    ) -> "CoreCollectionOperations":
+        """filter_by_condition のエイリアス"""
+        ...
+    
+
+    def rm_outliers(
+        self,
+        column: str,
+        window_size: int = 3,
+        threshold: float = 0.5,
+        edge_handling: str = 'asymmetric',
+        min_abs_value: float = 1e-10,
+        scale_factor: float = 1.0
+    ) -> "CoreCollectionOperations":
+        """remove_outliers のエイリアス"""
         ...
     
 
@@ -415,6 +481,28 @@ Examples:
         ...
     
 
+    def plot_const_x(
+        self,
+        x_values: list[float],
+        y_columns: list[str],
+        ax: Optional[Axes] = None,
+        **kwargs
+    ) -> "CoreCollectionOperations":
+        """指定されたX値（定数リスト）に対して、複数の列の値をYとしてプロットします
+注: 単一行のコレクションに対して使用することを想定しています
+
+Args:
+    collection: ColumnCollection オブジェクト（通常は1行）
+    x_values: X軸の値のリスト
+    y_columns: Y軸として使用する列名のリスト
+    ax: Axesオブジェクト
+    **kwargs: plotの引数
+
+Returns:
+    ColumnCollection: 元のコレクション"""
+        ...
+    
+
     def select(
         self,
         columns: Optional[list[str]] = None,
@@ -473,6 +561,23 @@ Returns:
 
 Raises:
     KeyError: 指定された列名が存在しない場合"""
+        ...
+    
+
+    def fetch_near_step(
+        self,
+        column_name: str,
+        value: float
+    ) -> "CoreCollectionOperations":
+        """指定された値に最も近い行を取得します
+
+Args:
+    collection: ColumnCollection オブジェクト
+    column_name: 値を検索する列名
+    value: 検索する値
+
+Returns:
+    ColumnCollection: 最も近い値を持つ1行だけのコレクション"""
         ...
     
 
@@ -883,6 +988,151 @@ Raises:
         ...
     
 
+    def moving_average(
+        self,
+        column: str,
+        window_size: int = 3,
+        result_column: Optional[str] = None,
+        edge_handling: str = 'asymmetric',
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """指定した列に対して移動平均を計算します
+
+指定された列の各値に対して、周辺値を使用した平均値を算出します。
+エッジ処理方法を選択することで、端部の計算方法を調整できます。
+
+Args:
+    collection: 処理対象の ColumnCollection
+    column: 処理対象の列名
+    window_size: 移動平均のウィンドウサイズ（奇数推奨）
+    result_column: 結果を格納する列名（None の場合は自動生成）
+    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
+    in_place: True の場合、結果を元の列に上書き
+
+Returns:
+    ColumnCollection: 移動平均が計算された列を含むコレクション
+
+Raises:
+    KeyError: 指定された列が存在しない場合
+    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合"""
+        ...
+    
+
+    def detect_outliers(
+        self,
+        column: str,
+        window_size: int = 3,
+        threshold: float = 0.5,
+        edge_handling: str = 'asymmetric',
+        min_abs_value: float = 1e-10,
+        scale_factor: float = 1.0,
+        result_column: Optional[str] = None
+    ) -> "CoreCollectionOperations":
+        """移動平均との差分比率を用いた異常値検出を行います
+
+データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
+検出結果は新しい列に 0（正常）または 1（異常）のフラグとして格納されます。
+
+Args:
+    collection: 処理対象の ColumnCollection
+    column: 処理対象の列名
+    window_size: 移動平均のウィンドウサイズ（奇数推奨）
+    threshold: 異常値とみなす移動平均との差分比率の閾値
+    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
+    min_abs_value: 比率計算時の最小絶対値
+    scale_factor: スケール調整係数
+    result_column: 結果を格納する列名（None の場合は自動生成）
+
+Returns:
+    ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）
+
+Raises:
+    KeyError: 指定された列が存在しない場合
+    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
+        ...
+    
+
+    def gaussian_filter(
+        self,
+        column: str,
+        sigma: float = 1.0,
+        window_size: Optional[int] = None,
+        result_column: Optional[str] = None,
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """指定した列に対してガウシアンフィルタを適用します
+
+ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
+ノイズ除去特性が優れており、急激な変化を滑らかにします。
+
+Args:
+    collection: 処理対象の ColumnCollection
+    column: 処理対象の列名
+    sigma: ガウス分布の標準偏差（平滑化の強さ）
+    window_size: カーネルサイズ（デフォルトは 6*sigma + 1 の奇数）
+    result_column: 結果を格納する列名（None の場合は自動生成）
+    in_place: True の場合、結果を元の列に上書き
+
+Returns:
+    ColumnCollection: 平滑化された列を含むコレクション"""
+        ...
+    
+
+    def smooth(
+        self,
+        column: str,
+        method: str = 'moving_average',
+        window_size: int = 3,
+        sigma: float = 1.0,
+        result_column: Optional[str] = None,
+        in_place: bool = False,
+        **kwargs
+    ) -> "CoreCollectionOperations":
+        """指定した列のデータを平滑化します
+
+移動平均またはガウシアンフィルタを使用して、データのノイズを低減します。
+
+Args:
+    collection: 処理対象の ColumnCollection
+    column: 処理対象の列名
+    method: 平滑化手法 ("moving_average" または "gaussian")
+    window_size: ウィンドウサイズ（移動平均用、ガウシアンの場合はフィルタサイズに影響）
+    sigma: ガウシアンフィルタの標準偏差
+    result_column: 結果を格納する列名
+    in_place: True の場合、結果を元の列に上書き
+    **kwargs: その他の引数（moving_averageのedge_handlingなど）
+
+Returns:
+    ColumnCollection: 平滑化された列を含むコレクション"""
+        ...
+    
+
+    def ma(
+        self,
+        column: str,
+        window_size: int = 3,
+        result_column: Optional[str] = None,
+        edge_handling: str = 'asymmetric',
+        in_place: bool = False
+    ) -> "CoreCollectionOperations":
+        """moving_average のエイリアス"""
+        ...
+    
+
+    def outliers(
+        self,
+        column: str,
+        window_size: int = 3,
+        threshold: float = 0.5,
+        edge_handling: str = 'asymmetric',
+        min_abs_value: float = 1e-10,
+        scale_factor: float = 1.0,
+        result_column: Optional[str] = None
+    ) -> "CoreCollectionOperations":
+        """detect_outliers のエイリアス"""
+        ...
+    
+
     def sin(
         self,
         column: str,
@@ -1224,76 +1474,27 @@ Examples:
         ...
     
 
-    def moving_average(
+    def split_at_indices(
         self,
-        column: str,
-        window_size: int = 3,
-        result_column: Optional[str] = None,
-        edge_handling: str = 'asymmetric',
-        in_place: bool = False
-    ) -> "CoreCollectionOperations":
-        """指定した列に対して移動平均を計算します
-
-指定された列の各値に対して、周辺値を使用した平均値を算出します。
-エッジ処理方法を選択することで、端部の計算方法を調整できます。
+        indices: Union[int, list[int]]
+    ) -> "CollectionListOperations[CoreCollectionOperations]":
+        """指定されたインデックスでコレクションを分割します
 
 Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
-    in_place: True の場合、結果を元の列に上書き
+    collection: 分割する ColumnCollection オブジェクト
+    indices: 分割するインデックス（intまたはList[int]）
 
 Returns:
-    ColumnCollection: 移動平均が計算された列を含むコレクション
-
-Raises:
-    KeyError: 指定された列が存在しない場合
-    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合"""
+    List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト"""
         ...
     
-
-    def detect_outliers(
-        self,
-        column: str,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0,
-        result_column: Optional[str] = None
-    ) -> "CoreCollectionOperations":
-        """移動平均との差分比率を用いた異常値検出を行います
-
-データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
-検出結果は新しい列に 0（正常）または 1（異常）のフラグとして格納されます。
-
-Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    threshold: 異常値とみなす移動平均との差分比率の閾値
-    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
-    min_abs_value: 比率計算時の最小絶対値
-    scale_factor: スケール調整係数
-    result_column: 結果を格納する列名（None の場合は自動生成）
-
-Returns:
-    ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）
-
-Raises:
-    KeyError: 指定された列が存在しない場合
-    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
-        ...
-    
-
-    @overload
-    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CoordinateCollectionOperations:
-        ...
 
     @overload
     def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:
+        ...
+
+    @overload
+    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CoordinateCollectionOperations:
         ...
 
     def as_domain(self, domain: str, **kwargs: Any) -> Any:

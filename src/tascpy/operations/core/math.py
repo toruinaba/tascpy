@@ -5,6 +5,7 @@ from ..registry import operation
 import re
 import ast
 import math
+import numpy as np
 
 
 @operation(domain="core")
@@ -50,33 +51,46 @@ def add(
         else:
             result_column = f"{column1}+{column2_or_value}"
 
-    # 列同士の演算か定数との演算かを判定
+    # NumPyを使用して高速化
+    # Noneはnp.nanとして扱う
+    
+    # データをNumPy配列に変換
+    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
+        v1_arr = values1.astype(float)
+    else:
+        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
+
     if isinstance(column2_or_value, str):
         # 列同士の演算
         if column2_or_value not in collection.columns:
             raise KeyError(f"列 '{column2_or_value}' が存在しません")
 
         values2 = collection[column2_or_value].values
-
-        # 列のサイズチェック
+        
+        # サイズチェック
         if len(values1) != len(values2):
             raise ValueError(
                 f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
             )
 
-        # 加算処理
-        result_values = [
-            v1 + v2 if v1 is not None and v2 is not None else None
-            for v1, v2 in zip(values1, values2)
-        ]
+        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
+            v2_arr = values2.astype(float)
+        else:
+            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
+        
+        # ベクトル加算 (NaNを含む演算はNaNになる)
+        res_arr = v1_arr + v2_arr
+        
     else:
         # 定数との演算
         try:
             value = float(column2_or_value)
-            # 加算処理
-            result_values = [v + value if v is not None else None for v in values1]
+            res_arr = v1_arr + value
         except (ValueError, TypeError):
             raise ValueError(f"無効な値が指定されました: {column2_or_value}")
+
+    # 結果をリストに戻す (NaN -> None)
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -138,33 +152,39 @@ def subtract(
         else:
             result_column = f"{column1}-{column2_or_value}"
 
-    # 列同士の演算か定数との演算かを判定
+    # NumPyを使用して高速化
+    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
+        v1_arr = values1.astype(float)
+    else:
+        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
+
     if isinstance(column2_or_value, str):
         # 列同士の演算
         if column2_or_value not in collection.columns:
             raise KeyError(f"列 '{column2_or_value}' が存在しません")
 
         values2 = collection[column2_or_value].values
-
-        # 列のサイズチェック
+        
         if len(values1) != len(values2):
             raise ValueError(
                 f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
             )
 
-        # 減算処理
-        result_values = [
-            v1 - v2 if v1 is not None and v2 is not None else None
-            for v1, v2 in zip(values1, values2)
-        ]
+        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
+            v2_arr = values2.astype(float)
+        else:
+            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
+        res_arr = v1_arr - v2_arr
+        
     else:
         # 定数との演算
         try:
             value = float(column2_or_value)
-            # 減算処理
-            result_values = [v - value if v is not None else None for v in values1]
+            res_arr = v1_arr - value
         except (ValueError, TypeError):
             raise ValueError(f"無効な値が指定されました: {column2_or_value}")
+
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -228,33 +248,39 @@ def multiply(
             else:
                 result_column = f"{column1}*{column2_or_value}"
 
-    # 列同士の演算か定数との演算かを判定
+    # NumPyを使用して高速化
+    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
+        v1_arr = values1.astype(float)
+    else:
+        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
+
     if isinstance(column2_or_value, str):
         # 列同士の演算
         if column2_or_value not in collection.columns:
             raise KeyError(f"列 '{column2_or_value}' が存在しません")
 
         values2 = collection[column2_or_value].values
-
-        # 列のサイズチェック
+        
         if len(values1) != len(values2):
             raise ValueError(
                 f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
             )
 
-        # 乗算処理
-        result_values = [
-            v1 * v2 if v1 is not None and v2 is not None else None
-            for v1, v2 in zip(values1, values2)
-        ]
+        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
+            v2_arr = values2.astype(float)
+        else:
+            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
+        res_arr = v1_arr * v2_arr
+        
     else:
         # 定数との演算
         try:
             value = float(column2_or_value)
-            # 乗算処理
-            result_values = [v * value if v is not None else None for v in values1]
+            res_arr = v1_arr * value
         except (ValueError, TypeError):
             raise ValueError(f"無効な値が指定されました: {column2_or_value}")
+
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -327,71 +353,58 @@ def divide(
         else:
             result_column = f"{column1}/{column2_or_value}"
 
-    # 列同士の演算か定数との演算かを判定
+    # NumPyを使用して高速化
+    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
+        v1_arr = values1.astype(float)
+    else:
+        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
+    
+    # 分母を用意
     if isinstance(column2_or_value, str):
-        # 列同士の演算
         if column2_or_value not in collection.columns:
             raise KeyError(f"列 '{column2_or_value}' が存在しません")
-
         values2 = collection[column2_or_value].values
-
-        # 列のサイズチェック
         if len(values1) != len(values2):
-            raise ValueError(
+             raise ValueError(
                 f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
             )
-
-        # 除算処理
-        result_values = []
-        for v1, v2 in zip(values1, values2):
-            if v1 is None or v2 is None:
-                result_values.append(None)
-            elif v2 == 0:
-                # ゼロ除算の処理
-                if handle_zero_division == "error":
-                    raise ValueError("ゼロによる除算が発生しました")
-                elif handle_zero_division == "none":
-                    result_values.append(None)
-                else:  # "inf"
-                    result_values.append(
-                        float("inf")
-                        if v1 > 0
-                        else float("-inf") if v1 < 0 else float("nan")
-                    )
-            else:
-                result_values.append(v1 / v2)
+        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
+            v2_arr = values2.astype(float)
+        else:
+            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
     else:
-        # 定数との演算
         try:
-            value = float(column2_or_value)
-            if value == 0:
-                # ゼロ除算の処理
-                if handle_zero_division == "error":
-                    raise ValueError("ゼロによる除算が発生しました")
-                elif handle_zero_division == "none":
-                    result_values = [None for _ in values1]
-                else:  # "inf"
-                    result_values = [
-                        (
-                            float("inf")
-                            if v > 0
-                            else (
-                                float("-inf")
-                                if v < 0
-                                else float("nan") if v is not None else None
-                            )
-                        )
-                        for v in values1
-                    ]
-            else:
-                # 除算処理
-                result_values = [v / value if v is not None else None for v in values1]
-        except (ValueError, TypeError) as e:
-            # ここで補足されたエラーがゼロ除算エラーの場合は、それを再度発生させる
-            if "ゼロによる除算が発生しました" in str(e):
-                raise
-            # それ以外のエラーは変換エラーとして扱う
-            raise ValueError(f"無効な値が指定されました: {column2_or_value}")
+             value = float(column2_or_value)
+             v2_arr = np.full(len(values1), value, dtype=float)
+        except (ValueError, TypeError):
+             raise ValueError(f"無効な値が指定されました: {column2_or_value}")
+
+    # ゼロ除算のチェック
+    # handle_zero_division = "error" の場合、事前にチェック
+    if handle_zero_division == "error":
+        # 分母が0 かつ 分子が有効(NaNでない) な場所を探す
+        # v2 is 0 AND v1 is not NaN
+        zero_div_indices = (v2_arr == 0) & (~np.isnan(v1_arr))
+        if np.any(zero_div_indices):
+            raise ValueError("ゼロによる除算が発生しました")
+
+    # 除算実行
+    with np.errstate(divide='ignore', invalid='ignore'):
+        res_arr = v1_arr / v2_arr
+
+    # ゼロ除算処理
+    # inf / -inf / nan が結果に含まれる可能性がある
+    # "error"の場合は既にチェック済みなので、残りは "none" と "inf"
+    
+    if handle_zero_division == "none":
+        # inf, -inf を nan に変換 (nanは後でNoneになる)
+        is_inf = np.isinf(res_arr)
+        res_arr[is_inf] = np.nan
+        
+    # "inf" の場合はそのままでOK (np.inf, -np.inf, np.nan)
+    # ただし、0/0 は nan になる。元の実装では nan 扱い (float("nan")) なのでOK。
+
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -546,80 +559,126 @@ def evaluate(
         if suggestions:
             error_msg += "\n提案: "
             for missing, candidates in suggestions.items():
-                # f-stringの代わりに文字列連結を使用
-                candidate_strings = []
-                for c in candidates:
-                    candidate_strings.append("'" + c + "'")
-                joined_candidates = ", ".join(candidate_strings)
-                error_msg += f"\n  '{missing}' → もしかして {joined_candidates} ?"
-
+                error_msg += f"\n  - {missing}: {', '.join(candidates)} ?"
+        
         raise KeyError(error_msg)
 
-    # カラム値を含む辞書を作成
-    data_dict = {col: collection[col].values for col in column_names}
+    # 評価に使用する変数名のみを抽出
+    used_cols = list(all_vars)
 
-    # 数学関数を名前空間に追加
-    math_funcs = {
-        "sin": math.sin,
-        "cos": math.cos,
-        "tan": math.tan,
-        "exp": math.exp,
-        "log": math.log,
-        "sqrt": math.sqrt,
-        "abs": abs,
-        "max": max,
-        "min": min,
-        "pow": pow,
-        "round": round,
-        "pi": math.pi,
-        "e": math.e,
-    }
-
-    # 式を評価
+    # NumPyによるベクトル化評価を試みる
     try:
-        # 結果を計算するためのマッピング処理
-        length = len(collection)
-        result_values = []
-
-        # 各行に対して式を評価
-        for i in range(length):
-            # 各カラムの単一値を取得
-            row_data = {col: data_dict[col][i] for col in column_names}
-
-            # 値がNoneの場合の処理
-            if any(row_data[col] is None for col in column_names):
-                result_values.append(None)
-                continue
-
-            # 数学関数を行データに追加
-            eval_namespace = dict(row_data)
-            eval_namespace.update(math_funcs)
-
-            # 式を評価し結果を追加
-            restricted_globals = {"__builtins__": {}}
-            # 式をそのまま評価する（data_dict参照に置き換えない）
-            row_result = eval(expression, restricted_globals, eval_namespace)
-            result_values.append(row_result)
-
-        # 元の列の単位を継承（最初に見つかった数値カラムから）
-        unit = None
-        for col in column_names:
-            original_column = collection[col]
-            if hasattr(original_column, "unit"):
-                unit = original_column.unit
-                break
-
-        # 結果を新しい列として追加（既存の列名の場合は上書き）
-        if result_column in result.columns:
-            result.columns[result_column].values = result_values
+        # 名前空間の構築
+        namespace = {
+            "sin": np.sin,
+            "cos": np.cos,
+            "tan": np.tan,
+            "exp": np.exp,
+            "log": np.log,
+            "sqrt": np.sqrt,
+            "abs": np.abs,
+            "max": np.maximum,
+            "min": np.minimum,
+            "pow": np.power,
+            "round": np.round,
+            "pi": np.pi,
+            "e": np.e,
+        }
+        
+        # データの準備（None -> NaN）
+        for col_name in used_cols:
+            vals = collection[col_name].values
+            if isinstance(vals, np.ndarray) and np.issubdtype(vals.dtype, np.number):
+                arr = vals.astype(float)
+            else:
+                arr = np.array([v if v is not None else np.nan for v in vals], dtype=float)
+            namespace[col_name] = arr
+            
+        # 評価実行
+        with np.errstate(all='ignore'):
+            res = eval(expression, {"__builtins__": {}}, namespace)
+            
+        # 結果がNumPy配列でなければ（スカラー等）、配列にブロードキャスト
+        if np.isscalar(res):
+            res = np.full(len(collection), res)
+        elif isinstance(res, np.ndarray):
+            pass 
         else:
-            # 新しい列を追加
-            column = detect_column_type(None, result_column, unit, result_values)
-            result.add_column(result_column, column)
+             raise ValueError("Vectorized evaluation returned non-array")
+             
+        # 結果をリストに変換 (NaN -> None)
+        result_values = [None if np.isnan(v) else v for v in res.tolist()]
+        
+    except Exception:
+        # ベクトル評価に失敗した場合は、従来の行ごとの評価にフォールバック
+        try:
+            length = len(collection)
+            result_values = []
+            
+            # 数学関数（スカラー用）
+            math_funcs = {
+                "sin": math.sin,
+                "cos": math.cos,
+                "tan": math.tan,
+                "exp": math.exp,
+                "log": math.log,
+                "sqrt": math.sqrt,
+                "abs": abs,
+                "max": max,
+                "min": min,
+                "pow": math.pow,
+                "round": round,
+                "pi": math.pi,
+                "e": math.e,
+            }
+    
+            # 各行に対して式を評価
+            for i in range(length):
+                row_data = {}
+                is_row_valid = True
+                
+                # 値の取得とNoneチェック
+                for col in used_cols:
+                    val = collection.columns[col].values[i]
+                    if val is None:
+                        is_row_valid = False
+                        break
+                    row_data[col] = val
+                    
+                if not is_row_valid:
+                     result_values.append(None)
+                     continue
+    
+                eval_namespace = dict(row_data)
+                eval_namespace.update(math_funcs)
+    
+                restricted_globals = {"__builtins__": {}}
+                try:
+                     row_result = eval(expression, restricted_globals, eval_namespace)
+                     result_values.append(row_result)
+                except (ValueError, TypeError, ZeroDivisionError):
+                     result_values.append(None)
 
-        return result
-    except Exception as e:
-        raise ValueError(f"式 '{expression}' の評価中にエラーが発生しました: {str(e)}")
+        except Exception as e:
+             raise ValueError(f"式の評価中にエラーが発生しました: {str(e)}")
+
+    # 元の列の単位を継承（最初に見つかった数値カラムから）
+    unit = None
+    for col in used_cols:
+        original_column = collection[col]
+        if getattr(original_column, "unit", None):
+            unit = original_column.unit
+            break
+
+    # 結果を新しい列として追加（既存の列名の場合は上書き）
+    if result_column in result.columns:
+        result.columns[result_column].values = result_values
+    else:
+        # 新しい列を追加
+        column = detect_column_type(None, result_column, unit, result_values)
+        result.add_column(result_column, column)
+
+    return result
 
 
 # 微分と積分の関数を定義
@@ -674,8 +733,8 @@ def diff(
 
     # 連続するNone値でない値が必要な計算のため、None値がある場合は全体をNoneとする
     if None in y_values or None in x_values:
-        # None値を含む場合、結果はすべてNone
-        full_diff_values = [None] * len(x_values)
+        # None値を含む場合、結果はすべてNone (np.nanとして扱う)
+        full_diff_values = [np.nan] * len(x_values)
     else:
         # None値が無い場合のみ計算を実行
         valid_x = [x_values[i] for i in valid_indices]
@@ -692,7 +751,7 @@ def diff(
         diff_values = diff_xy(valid_x, valid_y, method=method)
 
         # 元のデータ長に合わせて結果を再構築
-        full_diff_values = [None] * len(x_values)
+        full_diff_values = [np.nan] * len(x_values)
         for idx, val in zip(valid_indices, diff_values):
             full_diff_values[idx] = val
 

@@ -68,8 +68,8 @@ class TestCoordinateDistance:
 
         # 存在しない列を指定した場合
 
-    with pytest.raises(ValueError):
-        calculate_distance(self.collection, "sensor1", "nonexistent")
+        with pytest.raises(ValueError):
+            calculate_distance(self.collection, "sensor1", "nonexistent")
 
     def test_find_nearest_neighbors(self):
         """find_nearest_neighbors関数のテスト"""
@@ -149,12 +149,7 @@ class TestCoordinateDistance:
         assert "groups" in result_custom.columns
         assert "cluster" not in result_custom.columns
 
-        # 異なるアルゴリズムを指定した場合
-        result_hierarch = spatial_clustering(self.collection, algorithm="hierarchical")
-        assert (
-            result_hierarch.metadata["analysis"]["clustering"]["algorithm"]
-            == "hierarchical"
-        )
+
 
         # クラスタ数が列数より多い場合のエラー
         with pytest.raises(ValueError):

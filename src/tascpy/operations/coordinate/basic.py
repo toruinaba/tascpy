@@ -7,10 +7,13 @@ from typing import Dict, Optional, List, Any, Tuple
 import numpy as np
 from ...operations.registry import operation
 from ...domains.coordinate import CoordinateCollection
+from ...operations.validation import requires_domain, requires_coordinates
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
 def get_column_coordinates(
+
     collection: CoordinateCollection, column: str
 ) -> Dict[str, Optional[float]]:
     """列の座標情報を取得します
@@ -29,6 +32,7 @@ def get_column_coordinates(
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
 def set_column_coordinates(
     collection: CoordinateCollection,
     column: str,
@@ -36,6 +40,7 @@ def set_column_coordinates(
     y: Optional[float] = None,
     z: Optional[float] = None,
 ) -> CoordinateCollection:
+
     """指定した列の座標値を設定します
 
     列に対して x、y、z の各座標値を設定します。
@@ -57,7 +62,9 @@ def set_column_coordinates(
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
 def get_columns_with_coordinates(collection: CoordinateCollection) -> List[str]:
+
     """座標情報が設定されている列のリストを取得します
 
     コレクション内で座標情報が設定されている全ての列名のリストを返します。
@@ -72,9 +79,12 @@ def get_columns_with_coordinates(collection: CoordinateCollection) -> List[str]:
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
 def extract_coordinates(
     collection: CoordinateCollection, result_prefix: str = "coord_"
 ) -> CoordinateCollection:
+
     """各列の座標値を新しい列としてコレクションに追加します
 
     座標情報が設定されている列の x、y、z 座標値を取得し、それぞれを独立した列として

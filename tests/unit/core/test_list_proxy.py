@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.column import Column
 from src.tascpy.operations.core.split import split_by_integers
@@ -38,9 +39,9 @@ def test_collection_list_getitem_index(collection_list):
     # インデックスでのアクセス
     item0 = collection_list[0]
     assert isinstance(item0, CollectionOperations)
-    assert item0.end().step.values == [1, 3]
-    assert item0.end().columns["A"].values == [10, 30]
-    assert item0.end().columns["B"].values == [1.1, 3.3]
+    np.testing.assert_array_equal(item0.end().step.values, [1, 3])
+    np.testing.assert_array_equal(item0.end().columns["A"].values, [10, 30])
+    np.testing.assert_allclose(item0.end().columns["B"].values, [1.1, 3.3])
 
     # インデックスが範囲外の場合
     with pytest.raises(IndexError):
@@ -122,9 +123,9 @@ def test_collection_list_end_all(collection_list):
     assert all(isinstance(col, ColumnCollection) for col in collections)
 
     # リストの内容を確認
-    assert collections[0].step.values == [1, 3]
-    assert collections[1].step.values == [2, 5]
-    assert collections[2].step.values == [4, 6]
+    np.testing.assert_array_equal(collections[0].step.values, [1, 3])
+    np.testing.assert_array_equal(collections[1].step.values, [2, 5])
+    np.testing.assert_array_equal(collections[2].step.values, [4, 6])
 
 
 def test_collection_list_chaining(collection_list):
@@ -141,7 +142,7 @@ def test_collection_list_chaining(collection_list):
     first_item = collection_list.filter(lambda col: len(col) >= 2)[0]
 
     assert isinstance(first_item, CollectionOperations)
-    assert first_item.end().step.values == [1, 3]
+    np.testing.assert_array_equal(first_item.end().step.values, [1, 3])
 
 
 def test_collection_list_with_nested_structures(collection_list):

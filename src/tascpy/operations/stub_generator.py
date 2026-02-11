@@ -17,6 +17,8 @@ import typing  # 明示的なインポート追加
 
 from .registry import OperationRegistry
 from ..core.collection import ColumnCollection
+from ..domains.factory import DomainCollectionFactory
+
 
 
 def get_return_type_annotation(func: Callable) -> str:
@@ -435,20 +437,43 @@ def generate_stubs() -> None:
     # CollectionListOperationsのスタブファイルを生成
     generate_collection_list_operations_stub(stub_dir)
 
-    # ドメインごとのコレクションクラス名のマッピング
-    domain_to_collection_class = {
-        "core": "ColumnCollection",
-        "load_displacement": "LoadDisplacementCollection",
-        "coordinate": "CoordinateCollection",
-        # 他のドメインに対応するコレクションクラスを追加
-    }
+    # ドメインごとのコレクションクラスとインポートパスを取得
+    domain_to_collection_class = {}
+    domain_import_paths = {}
 
-    # ドメインごとのインポートパスのマッピング
-    domain_import_paths = {
-        "load_displacement": "..domains.load_displacement",
-        "coordinate": "..domains.coordinate",
-        # 他のドメインに対応するインポートパスを追加
-    }
+    for domain in domains:
+        collection_cls = DomainCollectionFactory.get_collection_class(domain)
+        if collection_cls:
+            # クラス名を取得
+            if hasattr(collection_cls, "__name__"):
+                class_name = collection_cls.__name__
+            else:
+                class_name = str(collection_cls)
+            
+            domain_to_collection_class[domain] = class_name
+            
+            # モジュールパスを取得
+            if hasattr(collection_cls, "__module__"):
+                # src.tascpy.domains.xxx -> ..domains.xxx に変換
+                module_path = collection_cls.__module__
+                if "tascpy.domains" in module_path:
+                    # tascpy.domains以降を抽出
+                    parts = module_path.split("tascpy.domains.")
+                    if len(parts) > 1:
+                        relative_path = f"..domains.{parts[1]}"
+                        domain_import_paths[domain] = relative_path
+                    else:
+                        domain_import_paths[domain] = f"..domains.{domain}"
+                else:
+                     # フォールバック
+                    domain_import_paths[domain] = f"..domains.{domain}"
+            else:
+                domain_import_paths[domain] = f"..domains.{domain}"
+        else:
+            # デフォルト
+            domain_to_collection_class[domain] = "ColumnCollection"
+            domain_import_paths[domain] = f"..domains.{domain}"
+
 
     # coreドメインの操作を取得しておく（他のドメインのスタブにも追加するため）
     core_operations = OperationRegistry.get_operations("core") 

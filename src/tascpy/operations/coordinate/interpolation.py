@@ -8,10 +8,14 @@ import numpy as np
 from ...operations.registry import operation
 from ...domains.coordinate import CoordinateCollection
 from ...core.column import Column
+from ...operations.validation import requires_domain, requires_coordinates
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
 def interpolate_at_point(
+
     collection: CoordinateCollection,
     x: float,
     y: float,
@@ -69,7 +73,7 @@ def interpolate_at_point(
         # 値の取得
         values = collection[col_name].values
 
-        if not values:
+        if len(values) == 0:
             continue
 
         # 平均値または代表値
@@ -125,6 +129,8 @@ def interpolate_at_point(
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
 def interpolate_grid(
     collection: CoordinateCollection,
     x_range: Tuple[float, float],
@@ -135,6 +141,7 @@ def interpolate_grid(
     power: float = 2.0,
     result_prefix: str = "grid_",
 ) -> CoordinateCollection:
+
     """指定した領域のグリッド上で値を補間します
 
     指定された x-y 平面上の矩形領域をグリッドに分割し、各グリッド点での値を補間します。
@@ -171,7 +178,7 @@ def interpolate_grid(
     # 値の取得
     values = collection[target_column].values
 
-    if not values:
+    if len(values) == 0:
         raise ValueError(f"列 '{target_column}' に値がありません")
 
     # 補間対象の値を計算
@@ -253,6 +260,8 @@ def interpolate_grid(
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
 def spatial_interpolation_to_points(
     collection: CoordinateCollection,
     source_columns: Optional[List[str]] = None,
@@ -261,6 +270,7 @@ def spatial_interpolation_to_points(
     power: float = 2.0,
     result_prefix: str = "interp_",
 ) -> CoordinateCollection:
+
     """ソース列からターゲット列の座標位置に値を補間します
 
     指定されたソース列の座標位置の値を使用して、ターゲット列の座標位置における
@@ -312,7 +322,7 @@ def spatial_interpolation_to_points(
     for col_name in source_columns:
         values = collection[col_name].values
 
-        if not values:
+        if len(values) == 0:
             continue
 
         # 値の処理
@@ -477,3 +487,56 @@ def _linear_interpolation(
     """
     # 線形補間の代わりに逆距離加重法を使用
     return _inverse_distance_weighting(point_data, x, y, z, 1.0)  # power=1.0 が線形的
+
+
+@operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
+def interp_point(
+    collection: CoordinateCollection,
+    x: float,
+    y: float,
+    z: Optional[float] = None,
+    target_columns: Optional[List[str]] = None,
+    method: str = "inverse_distance",
+    power: float = 2.0,
+    result_prefix: str = "interp_",
+) -> CoordinateCollection:
+    """interpolate_at_point のエイリアス"""
+    return interpolate_at_point(
+        collection,
+        x=x,
+        y=y,
+        z=z,
+        target_columns=target_columns,
+        method=method,
+        power=power,
+        result_prefix=result_prefix,
+    )
+
+
+@operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
+def interp_grid(
+    collection: CoordinateCollection,
+    x_range: Tuple[float, float],
+    y_range: Tuple[float, float],
+    grid_size: Tuple[int, int] = (10, 10),
+    target_column: Optional[str] = None,
+    method: str = "inverse_distance",
+    power: float = 2.0,
+    result_prefix: str = "grid_",
+) -> CoordinateCollection:
+    """interpolate_grid のエイリアス"""
+    return interpolate_grid(
+        collection,
+        x_range=x_range,
+        y_range=y_range,
+        grid_size=grid_size,
+        target_column=target_column,
+        method=method,
+        power=power,
+        result_prefix=result_prefix,
+    )
+

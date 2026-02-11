@@ -8,10 +8,13 @@ import numpy as np
 from ...operations.registry import operation
 from ...domains.coordinate import CoordinateCollection
 from ...core.column import Column
+from ...operations.validation import requires_domain, requires_coordinates
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
 def calculate_distance(
+
     collection: CoordinateCollection, column1: str, column2: str
 ) -> float:
     """2つの列の座標間の距離を計算します
@@ -34,12 +37,15 @@ def calculate_distance(
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
 def find_nearest_neighbors(
     collection: CoordinateCollection,
     column: str,
     n_neighbors: int = 3,
     result_column: Optional[str] = None,
 ) -> CoordinateCollection:
+
     """指定した列に最も近い座標を持つ近傍列を探します
 
     指定された列を基準として、座標空間上で最も近い n 個の列を探索します。
@@ -128,6 +134,8 @@ def find_nearest_neighbors(
 
 
 @operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
 def spatial_clustering(
     collection: CoordinateCollection,
     n_clusters: int = 2,
@@ -135,6 +143,7 @@ def spatial_clustering(
     result_column: str = "cluster",
     algorithm: str = "kmeans",
 ) -> CoordinateCollection:
+
     """座標情報に基づいてクラスタリングを行います
 
     列の座標位置に基づいて、類似した位置にある列をグループ化します。
@@ -287,3 +296,48 @@ def _simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nd
                 centers[j] = X[mask].mean(axis=0)
 
     return labels
+
+
+@operation(domain="coordinate")
+@requires_domain("coordinate")
+def distance(
+    collection: CoordinateCollection, column1: str, column2: str
+) -> float:
+    """calculate_distance のエイリアス"""
+    return calculate_distance(collection, column1, column2)
+
+
+@operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
+def nearest_neighbors(
+    collection: CoordinateCollection,
+    column: str,
+    n_neighbors: int = 3,
+    result_column: Optional[str] = None,
+) -> CoordinateCollection:
+    """find_nearest_neighbors のエイリアス"""
+    return find_nearest_neighbors(
+        collection, column, n_neighbors=n_neighbors, result_column=result_column
+    )
+
+
+@operation(domain="coordinate")
+@requires_domain("coordinate")
+@requires_coordinates()
+def cluster(
+    collection: CoordinateCollection,
+    n_clusters: int = 2,
+    columns: Optional[List[str]] = None,
+    result_column: str = "cluster",
+    algorithm: str = "kmeans",
+) -> CoordinateCollection:
+    """spatial_clustering のエイリアス"""
+    return spatial_clustering(
+        collection,
+        n_clusters=n_clusters,
+        columns=columns,
+        result_column=result_column,
+        algorithm=algorithm,
+    )
+

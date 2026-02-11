@@ -43,8 +43,9 @@ class CoordinateCollection(ColumnCollection):
         )
 
         # 既存の列に座標情報がない場合は初期化する
-        if columns:
-            for col_name, col in columns.items():
+        # super().__init__ で self.columns に Column オブジェクトとして格納されているはず
+        if self.columns:
+            for col_name, col in self.columns.items():
                 if not hasattr(col, "metadata") or not col.metadata:
                     col.metadata = {}
                 if coordinate_metadata_key not in col.metadata:

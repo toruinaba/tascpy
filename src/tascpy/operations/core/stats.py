@@ -4,8 +4,11 @@
 """
 
 from typing import Optional, List, Dict, Any, Tuple, Union
+import numpy as np
+from ...utils.data import moving_average as utils_moving_average
 from ...core.collection import ColumnCollection
 from ...core.column import Column, detect_column_type
+
 from ..registry import operation
 
 
@@ -57,31 +60,9 @@ def moving_average(
     data = collection[column].values
 
     # 移動平均を計算
-    moving_avg = []
-    half_window = window_size // 2
-
-    for i in range(len(data)):
-        if edge_handling == "symmetric":
-            start = max(0, i - half_window)
-            end = min(len(data), i + half_window + 1)
-            window = [v for v in data[start:end] if v is not None]
-        else:  # asymmetric
-            if i < half_window:  # 左端
-                window = [v for v in data[0 : i + half_window + 1] if v is not None]
-            elif i >= len(data) - half_window:  # 右端
-                window = [v for v in data[i - half_window :] if v is not None]
-            else:  # 中央部
-                window = [
-                    v
-                    for v in data[i - half_window : i + half_window + 1]
-                    if v is not None
-                ]
-
-        # 窓内のデータが存在する場合のみ平均値を計算
-        if window:
-            moving_avg.append(sum(window) / len(window))
-        else:
-            moving_avg.append(None)
+    moving_avg = utils_moving_average(
+        data, window_size=window_size, edge_handling=edge_handling
+    )
 
     # 結果列名が指定されていない場合は自動生成
     if result_column is None:
@@ -157,14 +138,18 @@ def detect_outliers(
     data = collection[column].values
 
     # None値を除去した有効なデータのみでデータ特性を把握
-    valid_data = [x for x in data if x is not None]
+    # NumPyを使用して高速化
+    if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
+        valid_arr = data[~np.isnan(data)]
+    else:
+        valid_arr = np.array([x for x in data if x is not None], dtype=float)
 
-    if not valid_data:
+    if len(valid_arr) == 0:
         raise ValueError(f"列 '{column}' に有効なデータがありません")
 
     # データの特性を把握
-    data_mean = sum(valid_data) / len(valid_data)
-    data_std = (sum((x - data_mean) ** 2 for x in valid_data) / len(valid_data)) ** 0.5
+    data_mean = np.mean(valid_arr)
+    data_std = np.std(valid_arr)
     reference_value = max(data_std * scale_factor, min_abs_value)
 
     # 移動平均を計算
@@ -180,20 +165,39 @@ def detect_outliers(
 
     moving_avg = result[ma_col].values
 
-    # 異常値フラグを初期化（0=正常、1=異常）
-    outlier_flags = [0] * len(data)
+    # NumPy配列に変換 (None対応)
+    if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
+        data_arr = data.astype(float)
+    else:
+        # data contains None, ensure correct float conversion
+        data_arr = np.array([x if x is not None else np.nan for x in data], dtype=float)
+    
+    # reference_valueは既に計算済み (lines 165-168)
+    # data_mean, data_std are calculated from valid_data
 
-    # 異常値を検出
-    for i, value in enumerate(data):
-        if value is None or moving_avg[i] is None:
-            continue
+    # 移動平均列を取得 (Noneが含まれる可能性がある)
+    ma_values = result[ma_col].values
+    if isinstance(ma_values, np.ndarray) and np.issubdtype(ma_values.dtype, np.number):
+        ma_arr = ma_values.astype(float)
+    else:
+        ma_arr = np.array([x if x is not None else np.nan for x in ma_values], dtype=float)
 
-        avg = moving_avg[i]
-        diff = abs(value - avg)
-        denominator = max(abs(avg), reference_value)
-
-        if diff / denominator > threshold and diff > min_abs_value:
-            outlier_flags[i] = 1
+    # ベクトル演算
+    diff = np.abs(data_arr - ma_arr)
+    denominator = np.maximum(np.abs(ma_arr), reference_value)
+    
+    # 比率計算 (0除算などはNaNになる)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = diff / denominator
+        
+    # 条件判定
+    # ratio > threshold AND diff > min_abs_value
+    # NaNはFalse扱い
+    is_outlier = (ratio > threshold) & (diff > min_abs_value)
+    
+    # int型のフラグ配列 (0 or 1)
+    # np.whereでNaNはFalseになるので0になる
+    outlier_flags = np.where(is_outlier, 1, 0).tolist()
 
     # 結果列名が指定されていない場合は自動生成
     if result_column is None:
@@ -210,3 +214,196 @@ def detect_outliers(
     result.remove_column(ma_col)
 
     return result
+
+
+@operation(domain="core")
+def gaussian_filter(
+    collection: ColumnCollection,
+    column: str,
+    sigma: float = 1.0,
+    window_size: Optional[int] = None,
+    result_column: Optional[str] = None,
+    in_place: bool = False,
+) -> ColumnCollection:
+    """指定した列に対してガウシアンフィルタを適用します
+
+    ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
+    ノイズ除去特性が優れており、急激な変化を滑らかにします。
+
+    Args:
+        collection: 処理対象の ColumnCollection
+        column: 処理対象の列名
+        sigma: ガウス分布の標準偏差（平滑化の強さ）
+        window_size: カーネルサイズ（デフォルトは 6*sigma + 1 の奇数）
+        result_column: 結果を格納する列名（None の場合は自動生成）
+        in_place: True の場合、結果を元の列に上書き
+
+    Returns:
+        ColumnCollection: 平滑化された列を含むコレクション
+    """
+    if column not in collection.columns:
+        raise KeyError(f"列 '{column}' が存在しません")
+
+    # ウィンドウサイズの自動設定 (scipy.ndimage.gaussian_filter1d の truncate=4.0 相当を考慮)
+    if window_size is None:
+        # 4*sigma 程度をカバーするサイズ
+        radius = int(4.0 * sigma + 0.5)
+        window_size = 2 * radius + 1
+    
+    if window_size < 1:
+        raise ValueError("ウィンドウサイズは1以上である必要があります")
+
+    # 結果を格納するオブジェクトを準備
+    result = collection if in_place else collection.clone()
+
+    # 列の値を取得
+    data = collection[column].values
+    
+    # NumPy配列に変換 (None対応)
+    if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
+        data_arr = data.astype(float)
+    else:
+        # Noneを含む場合はNaNに変換
+        data_arr = np.array([x if x is not None else np.nan for x in data], dtype=float)
+
+    # ガウシアンカーネルの作成
+    # x = [-radius, ..., 0, ..., radius]
+    radius = window_size // 2
+    x = np.arange(-radius, radius + 1)
+    kernel = np.exp(-(x**2) / (2 * sigma**2))
+    kernel = kernel / np.sum(kernel)  # 正規化
+
+    # 畳み込み演算 (NaNを考慮)
+    valid_mask = ~np.isnan(data_arr)
+    filled_data = np.where(valid_mask, data_arr, 0.0)
+    
+    # データの畳み込み
+    numerator = np.convolve(filled_data, kernel, mode='same')
+    
+    # 重みの畳み込み（NaNがあった場合の補正用）
+    denominator = np.convolve(valid_mask.astype(float), kernel, mode='same')
+    
+    # 結果の計算
+    with np.errstate(divide='ignore', invalid='ignore'):
+        smoothed = numerator / denominator
+    
+    # 完全にデータがない場所はNaN
+    smoothed[denominator == 0] = np.nan
+    
+    # 結果リストへの変換 (NaN -> None)
+    result_values = [None if np.isnan(v) else v for v in smoothed]
+
+    # 結果列名が指定されていない場合は自動生成
+    if result_column is None:
+        result_column = f"gaussian(col={column},sigma={sigma})"
+
+    # 結果を格納
+    if result_column in result.columns:
+        result.columns[result_column].values = result_values
+    else:
+        source_column = collection[column]
+        column_type = detect_column_type(
+            getattr(source_column, "ch", None),
+            result_column,
+            getattr(source_column, "unit", None),
+            result_values,
+        )
+        result.add_column(result_column, column_type)
+
+    return result
+
+
+@operation(domain="core")
+def smooth(
+    collection: ColumnCollection,
+    column: str,
+    method: str = "moving_average",
+    window_size: int = 3,
+    sigma: float = 1.0,  # for gaussian
+    result_column: Optional[str] = None,
+    in_place: bool = False,
+    **kwargs
+) -> ColumnCollection:
+    """指定した列のデータを平滑化します
+
+    移動平均またはガウシアンフィルタを使用して、データのノイズを低減します。
+
+    Args:
+        collection: 処理対象の ColumnCollection
+        column: 処理対象の列名
+        method: 平滑化手法 ("moving_average" または "gaussian")
+        window_size: ウィンドウサイズ（移動平均用、ガウシアンの場合はフィルタサイズに影響）
+        sigma: ガウシアンフィルタの標準偏差
+        result_column: 結果を格納する列名
+        in_place: True の場合、結果を元の列に上書き
+        **kwargs: その他の引数（moving_averageのedge_handlingなど）
+
+    Returns:
+        ColumnCollection: 平滑化された列を含むコレクション
+    """
+    if method == "moving_average" or method == "ma":
+        return moving_average(
+            collection,
+            column,
+            window_size=window_size,
+            result_column=result_column,
+            in_place=in_place,
+            **kwargs
+        )
+    elif method == "gaussian":
+        return gaussian_filter(
+            collection,
+            column,
+            sigma=sigma,
+            window_size=kwargs.get("kernel_size", None), # window_size引数があればそれも考慮可能だが、gaussianはsigmaベースが一般的
+            result_column=result_column,
+            in_place=in_place,
+        )
+    else:
+        raise ValueError(f"不明な平滑化手法です: {method}. 'moving_average' または 'gaussian' を指定してください。")
+
+
+@operation(domain="core")
+def ma(
+    collection: ColumnCollection,
+    column: str,
+    window_size: int = 3,
+    result_column: Optional[str] = None,
+    edge_handling: str = "asymmetric",
+    in_place: bool = False,
+) -> ColumnCollection:
+    """moving_average のエイリアス"""
+    return moving_average(
+        collection,
+        column,
+        window_size=window_size,
+        result_column=result_column,
+        edge_handling=edge_handling,
+        in_place=in_place,
+    )
+
+
+@operation(domain="core")
+def outliers(
+    collection: ColumnCollection,
+    column: str,
+    window_size: int = 3,
+    threshold: float = 0.5,
+    edge_handling: str = "asymmetric",
+    min_abs_value: float = 1e-10,
+    scale_factor: float = 1.0,
+    result_column: Optional[str] = None,
+) -> ColumnCollection:
+    """detect_outliers のエイリアス"""
+    return detect_outliers(
+        collection,
+        column,
+        window_size=window_size,
+        threshold=threshold,
+        edge_handling=edge_handling,
+        min_abs_value=min_abs_value,
+        scale_factor=scale_factor,
+        result_column=result_column,
+    )
+
+

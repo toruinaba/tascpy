@@ -309,3 +309,123 @@ def remove_outliers(
     ]
 
     return filtered_result
+
+
+@operation(domain="core")
+def filter_by_condition(
+    collection: ColumnCollection, column_name: str, condition: callable
+) -> ColumnCollection:
+    """指定された列の値が条件を満たす行をフィルタリングします
+
+    Args:
+        collection: ColumnCollection オブジェクト
+        column_name: 条件を適用する列の名前
+        condition: 値を引数に取り、bool値を返す関数
+
+    Returns:
+        ColumnCollection: 条件を満たす行のみを含む新しいコレクション
+    """
+    if column_name not in collection.columns:
+        raise KeyError(f"列'{column_name}'が存在しません")
+
+    column = collection[column_name]
+    mask = [condition(val) for val in column.values]
+
+    # 結果を格納するオブジェクトを準備
+    result = collection.clone()
+
+    # フィルタリングされたデータを格納
+    for name, col in result.columns.items():
+        col.values = [col.values[i] for i, m in enumerate(mask) if m]
+
+    # ステップ値も更新
+    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
+
+    return result
+
+
+@operation(domain="core")
+def remove_steps(
+    collection: ColumnCollection, steps: List[Any], tolerance: Optional[float] = None
+) -> ColumnCollection:
+    """指定されたステップ値を持つ行を削除します
+
+    Args:
+        collection: ColumnCollection オブジェクト
+        steps: 削除するステップ値のリスト
+        tolerance: ステップ値の比較における許容誤差
+
+    Returns:
+        ColumnCollection: 指定ステップが削除された新しいコレクション
+    """
+    import numpy as np
+
+    current_steps = collection.step.values
+    steps_to_remove = set(steps)
+
+    if tolerance is None:
+        mask = [s not in steps_to_remove for s in current_steps]
+    else:
+        # toleranceがある場合は近似比較
+        mask = []
+        steps_arr = np.array(steps)
+        for s in current_steps:
+            # sがいずれかのremove_stepに近いか?
+            is_close = np.any(np.abs(steps_arr - s) <= tolerance)
+            mask.append(not is_close)
+
+    # 結果を格納するオブジェクトを準備
+    result = collection.clone()
+
+    # フィルタリングされたデータを格納
+    for name, col in result.columns.items():
+        col.values = [col.values[i] for i, m in enumerate(mask) if m]
+
+    # ステップ値も更新
+    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
+
+    return result
+
+
+@operation(domain="core")
+def filter_val(
+    collection: ColumnCollection,
+    column_name: str,
+    value: Any,
+    tolerance: Optional[float] = None,
+) -> ColumnCollection:
+    """filter_by_value のエイリアス"""
+    return filter_by_value(
+        collection, column_name, value, tolerance=tolerance
+    )
+
+
+@operation(domain="core")
+def filter_cond(
+    collection: ColumnCollection, column_name: str, condition: callable
+) -> ColumnCollection:
+    """filter_by_condition のエイリアス"""
+    return filter_by_condition(collection, column_name, condition)
+
+
+@operation(domain="core")
+def rm_outliers(
+    collection: ColumnCollection,
+    column: str,
+    window_size: int = 3,
+    threshold: float = 0.5,
+    edge_handling: str = "asymmetric",
+    min_abs_value: float = 1e-10,
+    scale_factor: float = 1.0,
+) -> ColumnCollection:
+    """remove_outliers のエイリアス"""
+    return remove_outliers(
+        collection,
+        column,
+        window_size=window_size,
+        threshold=threshold,
+        edge_handling=edge_handling,
+        min_abs_value=min_abs_value,
+        scale_factor=scale_factor,
+    )
+

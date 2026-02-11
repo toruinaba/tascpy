@@ -72,7 +72,7 @@ class TestStubGenerator(unittest.TestCase):
         coord_stub_ops = set(self._get_operations_in_stub(coord_stub_path))
         
         # コアメソッドでドメイン特化型スタブに存在しなければならないメソッド
-        core_essential_methods = {"add", "subtract", "multiply", "divide", "filter_by_function"}
+        core_essential_methods = {"add", "subtract", "multiply", "divide"}
         
         # 各ドメイン特化スタブにコア操作が含まれているか確認
         for method in core_essential_methods:

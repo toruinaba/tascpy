@@ -1,4 +1,5 @@
 import math
+import numpy as np
 from typing import Union, Optional, List, Dict, Any
 from ...core.collection import ColumnCollection
 from ...core.column import Column, detect_column_type
@@ -47,18 +48,19 @@ def sin(
         result_column = f"sin({column})"
 
     # sin関数適用
-    result_values = []
-    for value in values:
-        if value is None:
-            result_values.append(None)
-        else:
-            try:
-                # 度からラジアンに変換
-                if degrees:
-                    value = math.radians(value)
-                result_values.append(math.sin(value))
-            except (ValueError, TypeError):
-                result_values.append(None)
+    # NumPyを使用して高速化 (None対応)
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    
+    if degrees:
+        values_arr = np.radians(values_arr)
+        
+    res_arr = np.sin(values_arr)
+    
+    # 結果をリストに戻す (NaN -> None)
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -119,18 +121,19 @@ def cos(
         result_column = f"cos({column})"
 
     # cos関数適用
-    result_values = []
-    for value in values:
-        if value is None:
-            result_values.append(None)
-        else:
-            try:
-                # 度からラジアンに変換
-                if degrees:
-                    value = math.radians(value)
-                result_values.append(math.cos(value))
-            except (ValueError, TypeError):
-                result_values.append(None)
+    # NumPyを使用して高速化 (None対応)
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    
+    if degrees:
+        values_arr = np.radians(values_arr)
+        
+    res_arr = np.cos(values_arr)
+    
+    # 結果をリストに戻す (NaN -> None)
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -191,18 +194,19 @@ def tan(
         result_column = f"tan({column})"
 
     # tan関数適用
-    result_values = []
-    for value in values:
-        if value is None:
-            result_values.append(None)
-        else:
-            try:
-                # 度からラジアンに変換
-                if degrees:
-                    value = math.radians(value)
-                result_values.append(math.tan(value))
-            except (ValueError, TypeError):
-                result_values.append(None)
+    # NumPyを使用して高速化 (None対応)
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    
+    if degrees:
+        values_arr = np.radians(values_arr)
+        
+    res_arr = np.tan(values_arr)
+    
+    # 結果をリストに戻す (NaN -> None)
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -262,7 +266,13 @@ def exp(
         result_column = f"exp({column})"
 
     # 指数関数適用
-    result_values = [math.exp(value) if value is not None else None for value in values]
+    # 指数関数適用
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    res_arr = np.exp(values_arr)
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -329,21 +339,34 @@ def log(
             result_column = f"log{base}({column})"
 
     # 対数関数適用
-    result_values = []
-    for value in values:
-        if value is None:
-            result_values.append(None)
+    # 対数関数適用
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    
+    # 0以下はNoneにする (元の挙動に合わせる)
+    # np.logは0で-inf, 負でnanになるが、ここでは明示的にnanにしておく
+    # Warning抑制
+    with np.errstate(divide='ignore', invalid='ignore'):
+        # まずは計算
+        if base == math.e:
+            res_arr = np.log(values_arr)
+        elif base == 10:
+            res_arr = np.log10(values_arr)
         else:
-            try:
-                if value <= 0:
-                    result_values.append(None)
-                else:
-                    if base == math.e:
-                        result_values.append(math.log(value))
-                    else:
-                        result_values.append(math.log(value, base))
-            except (ValueError, TypeError):
-                result_values.append(None)
+            res_arr = np.log(values_arr) / np.log(base)
+            
+    # 元の値が0以下だった場所をNaNにする (結果が-infやnanになっている場所)
+    # 正確には values <= 0 の場所をNaNにする
+    # NaNとの比較はFalseになるので注意
+    mask_le_zero = (values_arr <= 0)
+    # mask_le_zeroの中でTrueの場所をNaNにする
+    # ただしvalues_arr自体にNaNが含まれている場合、比較でWarningが出る可能性があるが上で抑制済み
+    
+    res_arr[mask_le_zero] = np.nan
+    
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -403,18 +426,17 @@ def sqrt(
         result_column = f"sqrt({column})"
 
     # 平方根計算
-    result_values = []
-    for value in values:
-        if value is None:
-            result_values.append(None)
-        else:
-            try:
-                if value < 0:
-                    result_values.append(None)  # 負の値の平方根は実数では定義されない
-                else:
-                    result_values.append(math.sqrt(value))
-            except (ValueError, TypeError):
-                result_values.append(None)
+    # 平方根計算
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    
+    # 負の値はNaNになる (Warning抑制)
+    with np.errstate(invalid='ignore'):
+         res_arr = np.sqrt(values_arr)
+         
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -475,15 +497,16 @@ def pow(
         result_column = f"{column}^{exponent}"
 
     # べき乗計算
-    result_values = []
-    for value in values:
-        if value is None:
-            result_values.append(None)
-        else:
-            try:
-                result_values.append(math.pow(value, exponent))
-            except (ValueError, TypeError):
-                result_values.append(None)
+    # べき乗計算
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    
+    with np.errstate(invalid='ignore'):
+        res_arr = np.power(values_arr, exponent)
+        
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -543,11 +566,13 @@ def abs_values(
         result_column = f"abs({column})"
 
     # 絶対値計算
-    result_values = [
-        # Pythonの組み込みabs関数を明示的に呼び出す
-        __builtins__["abs"](value) if value is not None else None
-        for value in values
-    ]
+    # 絶対値計算
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    res_arr = np.abs(values_arr)
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -613,9 +638,13 @@ def round_values(
         result_column = f"round({column}, {decimals})"
 
     # 丸め処理
-    result_values = [
-        round(value, decimals) if value is not None else None for value in values
-    ]
+    # 丸め処理
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        values_arr = values.astype(float)
+    else:
+        values_arr = np.array([v if v is not None else np.nan for v in values], dtype=float)
+    res_arr = np.round(values_arr, decimals)
+    result_values = [None if np.isnan(v) else v for v in res_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:
@@ -701,48 +730,53 @@ def normalize(
         return result
 
     # 正規化処理
-    if method == "minmax":
-        min_val = min(values)
-        max_val = max(values)
+    # values (list without Nones) -> convert to array
+    if not values: # Original check: if not values:
+         pass # Already handled above
+         
+    # 全データ（Noneを含む）を配列化
+    # 全データ（Noneを含む）を配列化
+    all_values = collection[column].values
+    if isinstance(all_values, np.ndarray) and np.issubdtype(all_values.dtype, np.number):
+        all_arr = all_values.astype(float)
+    else:
+        all_arr = np.array([v if v is not None else np.nan for v in all_values], dtype=float)
 
-        # 最大値と最小値が等しい場合（定数値）
+    # 統計量計算にはNaNを除外したデータを使用
+    # values変数は既にNone除外済みだが、リストなので配列にする
+    valid_arr = np.array(values, dtype=float)
+    
+    result_arr = np.full(len(all_arr), np.nan)
+
+    if method == "minmax":
+        min_val = np.min(valid_arr)
+        max_val = np.max(valid_arr)
+
         if max_val == min_val:
-            # すべて0.5に設定
-            result_values = [
-                0.5 if v is not None else None for v in collection[column].values
-            ]
+            # すべて0.5に設定 (NaN以外)
+            result_arr[~np.isnan(all_arr)] = 0.5
         else:
-            # Min-Max正規化
-            result_values = [
-                (v - min_val) / (max_val - min_val) if v is not None else None
-                for v in collection[column].values
-            ]
+            result_arr = (all_arr - min_val) / (max_val - min_val)
 
         # 結果列名
         if result_column is None:
             result_column = f"norm_minmax({column})"
 
     elif method == "zscore":
-        # 平均と標準偏差を計算
-        mean = sum(values) / len(values)
-        variance = sum((x - mean) ** 2 for x in values) / len(values)
-
-        # 分散がほぼ0の場合（ほとんど定数）
+        mean = np.mean(valid_arr)
+        variance = np.var(valid_arr) # デフォルトはddof=0 (母分散) -> match original logic (sum((x-mean)**2)/len)
+        
         if variance < 1e-10:
-            result_values = [
-                0.0 if v is not None else None for v in collection[column].values
-            ]
+             result_arr[~np.isnan(all_arr)] = 0.0
         else:
-            std_dev = math.sqrt(variance)
-            # Z-score正規化
-            result_values = [
-                (v - mean) / std_dev if v is not None else None
-                for v in collection[column].values
-            ]
+             std_dev = np.sqrt(variance)
+             result_arr = (all_arr - mean) / std_dev
 
         # 結果列名
         if result_column is None:
             result_column = f"norm_zscore({column})"
+            
+    result_values = [None if np.isnan(v) else v for v in result_arr]
 
     # 結果を新しい列として追加（既存の列名の場合は上書き）
     if result_column in result.columns:

@@ -31,23 +31,23 @@ class TestColumnCollection:
         assert isinstance(basic_collection, ColumnCollection)
         assert len(basic_collection) == 5
         assert len(basic_collection.columns) == 2
-        assert basic_collection.step.values == [1, 2, 3, 4, 5]
+        np.testing.assert_array_equal(basic_collection.step.values, [1, 2, 3, 4, 5])
         assert basic_collection.metadata["description"] == "Test collection"
 
         a_col = basic_collection["A"]
         assert isinstance(a_col, Column)
-        assert a_col.values == [1, 2, 3, 4, 5]
+        np.testing.assert_array_equal(a_col.values, [1, 2, 3, 4, 5])
 
     def test_getitem(self, basic_collection):
         """getitemメソッドのテスト"""
-        assert basic_collection["A"].values == [1, 2, 3, 4, 5]
+        np.testing.assert_array_equal(basic_collection["A"].values, [1, 2, 3, 4, 5])
         assert basic_collection[0].step == 1
         assert basic_collection[0].values == {"A": 1, "B": 5}
         assert isinstance(basic_collection[0], Row)
         assert isinstance(basic_collection[1:3], ColumnCollection)
         assert len(basic_collection[1:3]) == 2
-        assert basic_collection[1:3].step.values == [2, 3]
-        assert basic_collection[1:3]["A"].values == [2, 3]
+        np.testing.assert_array_equal(basic_collection[1:3].step.values, [2, 3])
+        np.testing.assert_array_equal(basic_collection[1:3]["A"].values, [2, 3])
 
     def test_clone(self, basic_collection):
         """cloneメソッドのテスト"""
@@ -56,14 +56,14 @@ class TestColumnCollection:
         assert cloned.step is not basic_collection.step
         assert cloned.columns["A"] is not basic_collection.columns["A"]
         assert cloned.metadata == basic_collection.metadata
-        assert cloned["A"].values == basic_collection["A"].values
+        np.testing.assert_array_equal(cloned["A"].values, basic_collection["A"].values)
 
     def test_add_remove_column(self, basic_collection):
         """add_columnとremove_columnメソッドのテスト"""
         new_col = Column("3", "C", "N", [10, 20, 30, 40, 50])
         basic_collection.add_column("C", new_col)
         assert "C" in basic_collection.columns
-        assert basic_collection["C"].values == [10, 20, 30, 40, 50]
+        np.testing.assert_array_equal(basic_collection["C"].values, [10, 20, 30, 40, 50])
 
         basic_collection.remove_column("C")
         assert "C" not in basic_collection.columns
@@ -107,8 +107,8 @@ class TestOperations:
 
         assert isinstance(result, ColumnCollection)
         assert len(result) == 1
-        assert result["A"].values == [3]
-        assert result["B"].values == [3]
+        np.testing.assert_array_equal(result["A"].values, [3])
+        np.testing.assert_array_equal(result["B"].values, [3])
 
     def test_chain_methods(self, basic_collection):
         """メソッドチェーンのテスト"""
@@ -116,8 +116,8 @@ class TestOperations:
 
         assert isinstance(result, ColumnCollection)
         assert len(result) == 1
-        assert result["A"].values == [3]
-        assert result["B"].values == [3]
+        np.testing.assert_array_equal(result["A"].values, [3])
+        np.testing.assert_array_equal(result["B"].values, [3])
 
 
 class TestDomainConversion:
@@ -182,11 +182,11 @@ class TestDomainConversion:
         assert len(converted) == 5
         assert converted.metadata["frequency"] == "1H"
         assert converted.metadata["description"] == "Test time series collection"
-        assert converted.step.values == basic_collection_for_domain.step.values
-        assert (
-            converted["values"].values == basic_collection_for_domain["values"].values
+        np.testing.assert_array_equal(converted.step.values, basic_collection_for_domain.step.values)
+        np.testing.assert_array_equal(
+            converted["values"].values, basic_collection_for_domain["values"].values
         )
-        assert converted["flag"].values == basic_collection_for_domain["flag"].values
+        np.testing.assert_array_equal(converted["flag"].values, basic_collection_for_domain["flag"].values)
 
     def test_as_domain_method(self, timeseries_domain, basic_collection_for_domain):
         """as_domainメソッドのテスト"""
@@ -274,5 +274,5 @@ def test_full_pipeline():
     assert len(result) == 2  # group="A"のデータのみ
     assert "sum" in result.columns
     assert "sum_ma3" in result.columns
-    assert result.columns["sum"].values == [2.0, 6.0]  # x+y の結果
+    np.testing.assert_array_equal(result.columns["sum"].values, [2.0, 6.0])  # x+y の結果
     assert isinstance(result.step.values[0], datetime)

@@ -300,4 +300,59 @@ def visualize_outliers(
         plt.show()
 
     # 異常値検出結果を含むコレクションを返す
+
     return result
+
+
+@operation(domain="core")
+def plot_const_x(
+    collection: ColumnCollection,
+    x_values: List[float],
+    y_columns: List[str],
+    ax: Optional[plt.Axes] = None,
+    **kwargs,
+) -> ColumnCollection:
+    """指定されたX値（定数リスト）に対して、複数の列の値をYとしてプロットします
+    注: 単一行のコレクションに対して使用することを想定しています
+    
+    Args:
+        collection: ColumnCollection オブジェクト（通常は1行）
+        x_values: X軸の値のリスト
+        y_columns: Y軸として使用する列名のリスト
+        ax: Axesオブジェクト
+        **kwargs: plotの引数
+
+    Returns:
+        ColumnCollection: 元のコレクション
+    """
+    if len(x_values) != len(y_columns):
+        raise ValueError(f"x_valuesの長さ({len(x_values)})とy_columnsの長さ({len(y_columns)})が一致しません")
+
+    # 値を取得
+    y_values = []
+    for col_name in y_columns:
+        if col_name not in collection.columns:
+             # 見つからない場合はNoneかNaNを入れるか、エラーにする
+             print(f"Warning: Column {col_name} not found")
+             y_values.append(float('nan'))
+             continue
+             
+        col = collection[col_name]
+        # dataプロパティまたはvaluesを使用
+        # 1行であることを想定して最初の値を取得
+        val = col.values[0] if len(col.values) > 0 else float('nan')
+        y_values.append(val)
+
+    # プロット
+    if ax is None:
+        fig, ax = plt.subplots()
+        created = True
+    else:
+        created = False
+        
+    ax.plot(x_values, y_values, **kwargs)
+    
+    if created:
+        plt.show()
+        
+    return collection

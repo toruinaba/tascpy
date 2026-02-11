@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Callable, TypeVar, Union, Generic
+from copy import deepcopy
 from ..core.collection import ColumnCollection
 from .proxy import CollectionOperations
 
@@ -100,42 +101,98 @@ class CollectionListOperations(Generic[T]):
             連結されたデータを持つCollectionOperations
         """
         from itertools import chain
+        import numpy as np
 
         # コレクションが空の場合はエラー
         if not self._collections:
             raise ValueError("連結するコレクションがありません")
 
-        # 最初のコレクションをベースにする
-        result = self._collections[0].clone()
+        # ステップとカラムの値をリストに収集
+        all_steps = [c.step.values for c in self._collections]
+        merged_steps = np.concatenate(all_steps)
 
-        # 2番目以降のコレクションを連結
-        for collection in self._collections[1:]:
-            # ステップ値を連結
-            result.step.values.extend(collection.step.values)
+        # 全てのカラム名を収集
+        all_columns = set()
+        for c in self._collections:
+            all_columns.update(c.columns.keys())
 
-            # 各カラムのデータを連結
-            for name, column in collection.columns.items():
-                if name in result.columns:
-                    # 既存のカラムにデータを追加
-                    result.columns[name].values.extend(column.values)
+        # 結果の辞書を作成
+        merged_columns = {}
+        
+        # 各カラムについてデータを結合
+        for name in all_columns:
+            column_values_list = []
+            
+            # 各コレクションから値を取得（なければNone埋め）
+            # ただし、元のカラムの型や属性をどう保持するか？
+            # 最初の出現するカラムの属性を採用する
+            base_column = None
+            
+            for c in self._collections:
+                length = len(c.step.values)
+                if name in c.columns:
+                    col = c.columns[name]
+                    if base_column is None:
+                        base_column = col
+                    column_values_list.append(col.values)
                 else:
-                    # 新しいカラムを追加（前のコレクションではNoneで埋める）
-                    new_column = column.clone()
-                    # 前のコレクションの分をNoneで埋める
-                    previous_length = sum(
-                        len(c.step.values) for c in self._collections[:1]
-                    )
-                    new_column.values = [None] * previous_length + column.values
-                    result.columns[name] = new_column
+                    # 存在しない場合はNaN (数値) または None (オブジェクト) で埋める
+                    # ここでは一旦None (np.nan) で埋めるが、型合わせが必要
+                    # base_columnがまだない場合は後で解決... 難しい
+                    # 簡易的に: base_columnが決まっていればそれに合わせる
+                    # 決まっていなければ一旦Noneのリストとする
+                    column_values_list.append(np.full(length, np.nan)) # Default to NaN
 
-            # 他のコレクションにあってこのコレクションにないカラムをNoneで埋める
-            for existing_name in result.columns:
-                if existing_name not in collection.columns:
-                    result.columns[existing_name].values.extend(
-                        [None] * len(collection.step.values)
-                    )
+            # 結合
+            # base_columnを使って型を適切に処理する必要がある
+            # 簡易実装：np.concatenate。型不一致ならオブジェクト配列になるかも
+            
+            # 改善: NaN埋めではなく、適切な型で埋める
+            # しかし、まだbase_columnが不明な場合がある（最初のコレクションにない場合）
+            # 再度ループするか、より賢くやる
+            
+        # よりシンプルな実装: ステップごとにループせず、コレクションごとに処理
+        # しかしNumPyならarray結合が速い
+        
+        # リライト:
+        # 1. ベースとなるコレクション（結果の入れ物）を作るのは難しい（カラムが異なる）
+        # 2. 新しいDataHolder/ColumnCollectionを作る
+        
+        # 各カラムごとにデータを集める
+        final_columns = {}
+        total_length = sum(len(c) for c in self._collections)
+        
+        for name in all_columns:
+            # この名を持つ最初のカラムを探してメタデータをコピー
+            base_col = next(c.columns[name] for c in self._collections if name in c.columns)
+            
+            # 全コレクションの値を収集
+            arrays_to_concat = []
+            for c in self._collections:
+                if name in c.columns:
+                    arrays_to_concat.append(c.columns[name].values)
+                else:
+                    # 欠損部分を埋める
+                    # base_colの型に合わせてNaNまたはNoneで埋める
+                    fill_val = np.nan if np.issubdtype(base_col.values.dtype, np.number) else None
+                    arrays_to_concat.append(np.full(len(c), fill_val))
+            
+            merged_values = np.concatenate(arrays_to_concat)
+            new_col = base_col.clone()
+            new_col.values = merged_values
+            final_columns[name] = new_col
 
-        return CollectionOperations(result, self._domain)
+        # 新しいColumnCollectionを作成
+        # 注意: ColumnCollectionのコンストラクタはstepとcolumnsを受け取る
+        # 既存のクラスメソッド等を使わずに直接構築
+        
+        result_collection = self._collections[0].__class__(
+            merged_steps,
+            final_columns,
+            deepcopy(self._collections[0].metadata) # メタデータは最初のものを継承
+        )
+
+        return CollectionOperations(result_collection, self._domain)
 
     def end_all(self) -> List[T]:
         """操作を終了し、ColumnCollectionのリストを返します"""

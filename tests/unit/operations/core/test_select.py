@@ -3,6 +3,7 @@ select 操作のテスト
 """
 
 import pytest
+import numpy as np
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.column import Column
 from src.tascpy.operations.proxy import CollectionOperations
@@ -136,7 +137,7 @@ class TestSelect:
 
         # 結果の検証 - 一致するステップが見つからないので空のコレクション
         assert len(result) == 0
-        assert result.step.values == []
+        assert len(result.step.values) == 0
         assert "missing_steps" in result.metadata
         assert sorted(result.metadata["missing_steps"]) == [6.5, 7.5]
 
@@ -146,7 +147,7 @@ class TestSelect:
 
         # 結果の検証 - 範囲外のインデックスは無視される（エラーにならない）
         assert len(result) == 0
-        assert result.step.values == []
+        assert len(result.step.values) == 0
         assert "missing_steps" in result.metadata
         assert sorted(result.metadata["missing_steps"]) == [-1, 10]
 
@@ -164,8 +165,8 @@ class TestSelect:
         expected = select(sample_collection, steps=[2, 4], columns=["A", "C"])
 
         assert list(result.columns.keys()) == list(expected.columns.keys())
-        assert result.step.values == expected.step.values
+        np.testing.assert_array_equal(result.step.values, expected.step.values)
         # オブジェクト自体ではなく、値を比較する
-        assert list(result["A"].values) == list(expected["A"].values)
-        assert list(result["C"].values) == list(expected["C"].values)
+        np.testing.assert_array_equal(result["A"].values, expected["A"].values)
+        np.testing.assert_array_equal(result["C"].values, expected["C"].values)
         assert result.metadata["operation"] == expected.metadata["operation"]

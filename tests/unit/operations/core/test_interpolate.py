@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from src.tascpy.core.collection import ColumnCollection
 from src.tascpy.core.column import NumberColumn, StringColumn, Column
 from src.tascpy.operations.core.interpolate import (
@@ -86,9 +87,9 @@ class TestInterpolateBasic:
 
         # 結果の検証
         assert len(result) == 5
-        assert result.step.values == [1.0, 2.0, 3.0, 4.0, 5.0]
-        assert result["temp"].values == [20.0, 30.0, 40.0, 50.0, 60.0]
-        assert result["pressure"].values == [1.0, 1.5, 2.0, 2.5, 3.0]
+        np.testing.assert_allclose(result.step.values, [1.0, 2.0, 3.0, 4.0, 5.0])
+        np.testing.assert_allclose(result["temp"].values, [20.0, 30.0, 40.0, 50.0, 60.0])
+        np.testing.assert_allclose(result["pressure"].values, [1.0, 1.5, 2.0, 2.5, 3.0])
 
         # 実装結果に合わせて検証
         assert result["status"].values == ["low", "low", "medium", "medium", "high"]
@@ -99,9 +100,9 @@ class TestInterpolateBasic:
 
         # 結果の検証
         assert len(result) == 4
-        assert result.step.values == [1.0, 2.0, 4.0, 5.0]
-        assert result["temp"].values == [20.0, 30.0, 50.0, 60.0]
-        assert result["pressure"].values == [1.0, 1.5, 2.5, 3.0]
+        np.testing.assert_allclose(result.step.values, [1.0, 2.0, 4.0, 5.0])
+        np.testing.assert_allclose(result["temp"].values, [20.0, 30.0, 50.0, 60.0])
+        np.testing.assert_allclose(result["pressure"].values, [1.0, 1.5, 2.5, 3.0])
 
     def test_exclusive_parameters(self, simple_collection):
         """排他的パラメータのテスト"""
@@ -138,7 +139,7 @@ class TestInterpolateColumnBased:
 
         # 結果の検証
         assert len(result) == 4
-        assert result["position"].values == [5.0, 15.0, 25.0, 35.0]
+        np.testing.assert_allclose(result["position"].values, [5.0, 15.0, 25.0, 35.0])
         # 他の列も正しく内挿されていることを確認
         assert result["time"].values[0] == pytest.approx(0.25)  # 0.0と0.5の間
         assert result["time"].values[1] == pytest.approx(0.75)  # 0.5と1.0の間
@@ -156,7 +157,7 @@ class TestInterpolateColumnBased:
         ).end()
 
         # velocityは数値的に内挿される
-        assert result["velocity"].values == [10.0, 20.0, 20.0, 20.0]
+        np.testing.assert_allclose(result["velocity"].values, [10.0, 20.0, 20.0, 20.0])
         
         # 実装結果に合わせて検証
         assert result["status"].values[0] == "start"
@@ -200,8 +201,8 @@ class TestInterpolateEdgeCases:
         # 単一のステップ値でpoint_countが1の場合
         result = single_point.ops.interpolate(point_count=1).end()
         assert len(result) == 1
-        assert result.step.values == [1.0]
-        assert result["value"].values == [10.0]
+        np.testing.assert_allclose(result.step.values, [1.0])
+        np.testing.assert_allclose(result["value"].values, [10.0])
         
         # point_countが2以上でもエラーにならない場合は、テストを調整
         # 現在の実装では、単一点でもpoint_count>1の場合はエラーは発生せず
@@ -227,16 +228,16 @@ class TestInterpolateEdgeCases:
         # 6.0は範囲外: 3.0と5.0の点から勾配を計算し外挿
         
         # ステップ値も線形外挿される
-        assert result.step.values == [0.0, 6.0]
+        np.testing.assert_allclose(result.step.values, [0.0, 6.0])
         
         # 数値列は線形外挿される
         # temp: 1.0→20.0, 3.0→40.0 の勾配は 10℃/1step なので、0.0→10.0
         # temp: 3.0→40.0, 5.0→60.0 の勾配は 10℃/1step なので、6.0→70.0
-        assert result["temp"].values == [10.0, 70.0]
+        np.testing.assert_allclose(result["temp"].values, [10.0, 70.0])
         
         # pressure: 1.0→1.0, 3.0→2.0 の勾配は 0.5MPa/1step なので、0.0→0.5
         # pressure: 3.0→2.0, 5.0→3.0 の勾配は 0.5MPa/1step なので、6.0→3.5
-        assert result["pressure"].values == [0.5, 3.5]
+        np.testing.assert_allclose(result["pressure"].values, [0.5, 3.5])
         
         # 文字列は最近傍法で処理される（外挿の対象外）
         assert result["status"].values[0] == "low"

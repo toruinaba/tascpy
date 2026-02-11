@@ -1,9 +1,22 @@
+import numpy as np
+
 class DataHolder:
     """データ値とメタデータを保持する基本クラス"""
 
     def __init__(self, name, values=None, metadata=None):
         self.name = name
-        self.values = values if values is not None else []
+        # NumPy配列として保持 (デフォルトは空の配列)
+        if values is None:
+            self.values = np.array([])
+        elif isinstance(values, np.ndarray):
+            self.values = values
+        else:
+            try:
+                self.values = np.array(values)
+            except ValueError:
+                # 形状が不揃いな配列（シーケンスを含む）や型が混在する場合
+                self.values = np.array(values, dtype=object)
+            
         self.metadata = metadata if metadata is not None else {}
 
     def __len__(self):

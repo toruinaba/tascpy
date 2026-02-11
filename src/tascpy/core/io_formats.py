@@ -77,6 +77,7 @@ FILE_FORMATS: Dict[str, Dict[str, Any]] = {
     "csv": CSV_FORMAT,
     "tasc_txt": TASC_TXT_FORMAT,
     "tasc_csv": TASC_CSV_FORMAT,
+    "tasc": TASC_TXT_FORMAT,
 }
 
 
