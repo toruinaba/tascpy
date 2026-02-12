@@ -1339,7 +1339,9 @@ Raises:
         column1: str,
         column2_or_value: Union[str, int, float],
         result_column: Optional[str] = None,
-        in_place: bool = False
+        in_place: bool = False,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None
     ) -> "LoadDisplacementCollectionOperations":
         """列または定数を加算します
 
@@ -1351,6 +1353,8 @@ Args:
     column2_or_value: 加算する列名または定数値
     result_column: 結果を格納する列名（デフォルトは None、自動生成）
     in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    unit: 新しい列の単位（指定しない場合は元の列から継承）
+    ch: 新しい列のチャンネル（指定しない場合はNone）
 
 Returns:
     ColumnCollection: 演算結果の列を含む ColumnCollection
@@ -1378,6 +1382,8 @@ Args:
     column2_or_value: 減算する列名または定数値
     result_column: 結果を格納する列名（デフォルトは None、自動生成）
     in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    unit: 新しい列の単位（指定しない場合は元の列から継承）
+    ch: 新しい列のチャンネル（指定しない場合はNone）
 
 Returns:
     ColumnCollection: 演算結果の列を含む ColumnCollection
@@ -1393,7 +1399,9 @@ Raises:
         column1: str,
         column2_or_value: Union[str, int, float],
         result_column: Optional[str] = None,
-        in_place: bool = False
+        in_place: bool = False,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None
     ) -> "LoadDisplacementCollectionOperations":
         """列または定数を乗算します
 
@@ -1405,6 +1413,8 @@ Args:
     column2_or_value: 乗算する列名または定数値
     result_column: 結果を格納する列名（デフォルトは None、自動生成）
     in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    unit: 新しい列の単位（指定しない場合は元の列から継承）
+    ch: 新しい列のチャンネル（指定しない場合はNone）
 
 Returns:
     ColumnCollection: 演算結果の列を含む ColumnCollection
@@ -1421,7 +1431,9 @@ Raises:
         column2_or_value: Union[str, int, float],
         result_column: Optional[str] = None,
         in_place: bool = False,
-        handle_zero_division: str = 'error'
+        handle_zero_division: str = 'error',
+        unit: Optional[str] = None,
+        ch: Optional[str] = None
     ) -> "LoadDisplacementCollectionOperations":
         """列または定数で除算します
 
@@ -1438,6 +1450,8 @@ Args:
         "error": ゼロ除算エラーを発生させる
         "none": 結果を None として扱う
         "inf": 結果を無限大（float('inf')）として扱う
+    unit: 新しい列の単位（指定しない場合は元の列から継承）
+    ch: 新しい列のチャンネル（指定しない場合はNone）
 
 Returns:
     ColumnCollection: 演算結果の列を含む ColumnCollection
@@ -1452,7 +1466,9 @@ Raises:
         self,
         expression: str,
         result_column: Optional[str] = None,
-        in_place: bool = False
+        in_place: bool = False,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None
     ) -> "LoadDisplacementCollectionOperations":
         """数式文字列を評価し、結果を新しい列に格納します
 
@@ -1464,6 +1480,8 @@ Args:
     expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
     result_column: 結果を格納する列名（デフォルトは None、自動生成）
     in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    unit: 新しい列の単位（指定しない場合は数式で使用された最初の列から継承）
+    ch: 新しい列のチャンネル（指定しない場合はNone）
 
 Returns:
     ColumnCollection: 演算結果の列を含む ColumnCollection
@@ -1481,7 +1499,9 @@ Raises:
         x_column: str,
         result_column: Optional[str] = None,
         method: str = 'central',
-        in_place: bool = False
+        in_place: bool = False,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None
     ) -> "LoadDisplacementCollectionOperations":
         """指定された 2 つの列間の微分を計算します（dy/dx）
 
@@ -1495,6 +1515,8 @@ Args:
     result_column: 結果を格納する列名（None の場合は自動生成）
     method: 微分方法（"central", "forward", "backward"）
     in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    unit: 新しい列の単位（指定しない場合は自動生成）
+    ch: 新しい列のチャンネル（指定しない場合はNone）
 
 Returns:
     ColumnCollection: 微分結果を含む ColumnCollection
@@ -1512,7 +1534,9 @@ Raises:
         result_column: Optional[str] = None,
         method: str = 'trapezoid',
         initial_value: float = 0.0,
-        in_place: bool = False
+        in_place: bool = False,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None
     ) -> "LoadDisplacementCollectionOperations":
         """指定された 2 つの列間の積分を計算します（∫y dx）
 
@@ -1527,6 +1551,8 @@ Args:
     method: 積分方法（現在は "trapezoid" のみサポート）
     initial_value: 積分の初期値
     in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
+    unit: 新しい列の単位（指定しない場合は自動生成）
+    ch: 新しい列のチャンネル（指定しない場合はNone）
 
 Returns:
     ColumnCollection: 積分結果を含む ColumnCollection
