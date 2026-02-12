@@ -11,8 +11,8 @@ from ...core.column import Column
 from ...operations.validation import requires_domain, requires_coordinates
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def interpolate_at_point(
 
@@ -128,8 +128,8 @@ def interpolate_at_point(
     return result
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def interpolate_grid(
     collection: CoordinateCollection,
@@ -259,8 +259,8 @@ def interpolate_grid(
     return result
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def spatial_interpolation_to_points(
     collection: CoordinateCollection,
@@ -489,8 +489,8 @@ def _linear_interpolation(
     return _inverse_distance_weighting(point_data, x, y, z, 1.0)  # power=1.0 が線形的
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def interp_point(
     collection: CoordinateCollection,
@@ -515,8 +515,8 @@ def interp_point(
     )
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def interp_grid(
     collection: CoordinateCollection,

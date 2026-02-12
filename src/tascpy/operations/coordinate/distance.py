@@ -11,8 +11,8 @@ from ...core.column import Column
 from ...operations.validation import requires_domain, requires_coordinates
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 def calculate_distance(
 
     collection: CoordinateCollection, column1: str, column2: str
@@ -36,8 +36,8 @@ def calculate_distance(
     return collection.calculate_distance(column1, column2)
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def find_nearest_neighbors(
     collection: CoordinateCollection,
@@ -133,8 +133,8 @@ def find_nearest_neighbors(
     return result
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def spatial_clustering(
     collection: CoordinateCollection,
@@ -298,8 +298,8 @@ def _simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nd
     return labels
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 def distance(
     collection: CoordinateCollection, column1: str, column2: str
 ) -> float:
@@ -307,8 +307,8 @@ def distance(
     return calculate_distance(collection, column1, column2)
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def nearest_neighbors(
     collection: CoordinateCollection,
@@ -322,8 +322,8 @@ def nearest_neighbors(
     )
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def cluster(
     collection: CoordinateCollection,

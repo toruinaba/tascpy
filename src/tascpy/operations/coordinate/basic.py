@@ -10,8 +10,8 @@ from ...domains.coordinate import CoordinateCollection
 from ...operations.validation import requires_domain, requires_coordinates
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 def get_column_coordinates(
 
     collection: CoordinateCollection, column: str
@@ -31,8 +31,8 @@ def get_column_coordinates(
     return {"x": x, "y": y, "z": z}
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 def set_column_coordinates(
     collection: CoordinateCollection,
     column: str,
@@ -61,8 +61,8 @@ def set_column_coordinates(
     return result
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 def get_columns_with_coordinates(collection: CoordinateCollection) -> List[str]:
 
     """座標情報が設定されている列のリストを取得します
@@ -78,8 +78,8 @@ def get_columns_with_coordinates(collection: CoordinateCollection) -> List[str]:
     return collection.get_columns_with_coordinates()
 
 
-@operation(domain="coordinate")
-@requires_domain("coordinate")
+@operation(domain="coordinate", shared_with=["strain"])
+@requires_domain(["coordinate", "strain"])
 @requires_coordinates()
 def extract_coordinates(
     collection: CoordinateCollection, result_prefix: str = "coord_"

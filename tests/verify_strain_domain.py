@@ -90,6 +90,31 @@ def test_strain_domain():
     except Exception as e:
         print(f"FAIL: Visualization raised error: {e}")
         sys.exit(1)
+
+    # 4. Test Shared Operations (from coordinate domain)
+    print(" Testing shared operations (calculate_distance)...")
+    try:
+        # sg1 and sg2 should have distance
+        # But we only set coordinate for sg1 in create_strain_collection above!
+        # Let's add coordinates for other gauges first
+        res.set_column_coordinates("sg2", x=30.0, y=20.0, z=0.0)
+        
+        # calculate_distance is imported from ops proxy typically
+        # Here we import it directly or use ops proxy if we implemented it
+        # Actually verify_strain_domain.py imports specific functions. 
+        # Let's import calculate_distance from coordinate domain
+        from tascpy.operations.coordinate.distance import calculate_distance
+        
+        dist = calculate_distance(res, "sg1", "sg2")
+        print(f" Distance sg1-sg2: {dist}")
+        
+        if abs(dist - 20.0) > 1e-5:
+            print(f"FAIL: Distance expected 20.0, got {dist}")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"FAIL: Shared operation error: {e}")
+        sys.exit(1)
     
     print("ALL TESTS PASSED")
 

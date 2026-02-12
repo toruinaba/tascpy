@@ -48,11 +48,11 @@ def requires_metadata(key: str):
         return wrapper
     return decorator
 
-def requires_domain(domain: str):
+def requires_domain(domain: Union[str, List[str]]):
     """コレクションが指定されたドメインであることを検証するデコレーター
     
     Args:
-        domain: 必須のドメイン名
+        domain: 必須のドメイン名（単一文字列または文字列のリスト）
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -63,8 +63,10 @@ def requires_domain(domain: str):
             if not current_domain:
                 current_domain = collection.metadata.get("domain")
             
-            if current_domain != domain:
-                raise ValueError(f"この操作はドメイン '{domain}' 専用です (現在のドメイン: {current_domain})")
+            allowed_domains = [domain] if isinstance(domain, str) else domain
+            
+            if current_domain not in allowed_domains:
+                raise ValueError(f"この操作はドメイン {allowed_domains} 専用です (現在のドメイン: {current_domain})")
             return func(collection, *args, **kwargs)
         return wrapper
     return decorator
