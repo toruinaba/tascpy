@@ -1,593 +1,45 @@
-# 自動生成されたload_displacementドメインのスタブファイル - 編集しないでください
+# 自動生成されたstrainドメインのスタブファイル - 編集しないでください
 from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Generic, overload, Literal
 from ..core.collection import ColumnCollection
-from ..domains.load_displacement import LoadDisplacementCollection
 from .proxy_base import CollectionOperationsBase
 from .list_proxy import CollectionListOperations
 from .core import CoreCollectionOperations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from .strain import StrainCollectionOperations
+    from .load_displacement import LoadDisplacementCollectionOperations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .coordinate import CoordinateCollectionOperations
 
-class LoadDisplacementCollectionOperations(CollectionOperationsBase[LoadDisplacementCollection]):
-    """load_displacementドメインの操作メソッドスタブ定義
+class StrainCollectionOperations(CollectionOperationsBase[ColumnCollection]):
+    """strainドメインの操作メソッドスタブ定義
     
     このクラスはPylanceの型チェックとオートコンプリートのためのスタブです。
     実際の実行には使用されません。
     """
 
-    def end(self) -> LoadDisplacementCollection:
+    def end(self) -> ColumnCollection:
         """操作チェーンを終了し、最終的なColumnCollectionを取得"""
         ...
 
-    def debug(self, message: Optional[str] = None) -> "LoadDisplacementCollectionOperations":
+    def debug(self, message: Optional[str] = None) -> "StrainCollectionOperations":
         """デバッグメッセージを表示
         
         Args:
             message: デバッグメッセージ
         
         Returns:
-            LoadDisplacementCollectionOperations: 自身を返す
+            StrainCollectionOperations: 自身を返す
         """
         ...
 
-
-    def get_load_column(
-        self,
-        
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重データのカラム名を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    str: 荷重データのカラム名"""
-        ...
-    
-
-    def get_displacement_column(
-        self,
-        
-    ) -> "LoadDisplacementCollectionOperations":
-        """変位データのカラム名を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    str: 変位データのカラム名"""
-        ...
-    
-
-    def get_load_data(
-        self,
-        
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重データを取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    np.ndarray: 荷重データの配列"""
-        ...
-    
-
-    def get_displacement_data(
-        self,
-        
-    ) -> "LoadDisplacementCollectionOperations":
-        """変位データを取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    np.ndarray: 変位データの配列"""
-        ...
-    
-
-    def get_valid_data_mask(
-        self,
-        
-    ) -> "LoadDisplacementCollectionOperations":
-        """有効なデータポイントのマスクを取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    np.ndarray: 有効なデータのブールマスク"""
-        ...
-    
-
-    def get_valid_data(
-        self,
-        
-    ) -> "LoadDisplacementCollectionOperations":
-        """有効な荷重と変位のデータ組を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    Tuple[np.ndarray, np.ndarray]: 有効な(変位, 荷重)データの組"""
-        ...
-    
-
-    def calculate_slopes(
-        self,
-        result_column: Optional[str] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """変位と荷重の間の傾きを計算
-
-変位と荷重の間の点ごとの傾きを計算します。
-デフォルトでは変位列を独立変数（X軸）、荷重列を従属変数（Y軸）として使用します。
-
-Args:
-    collection: 荷重-変位コレクション
-    result_column: 結果を格納する列名
-    x_column: X軸データの列名（指定がない場合は変位列を使用）
-    y_column: Y軸データの列名（指定がない場合は荷重列を使用）
-
-Returns:
-    LoadDisplacementCollection: 傾きデータを含むコレクション"""
-        ...
-    
-
-    def calculate_stiffness(
-        self,
-        range_start: float = 0.2,
-        range_end: float = 0.8,
-        method: str = 'linear_regression'
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重-変位曲線から剛性を計算
-
-指定された範囲内のデータを使用して荷重-変位間の剛性（傾き）を計算します。
-
-Args:
-    collection: 荷重-変位コレクション
-    range_start: 最大荷重に対する計算開始点の割合
-    range_end: 最大荷重に対する計算終了点の割合
-    method: 剛性計算方法 ("linear_regression" または "secant")
-
-Returns:
-    float: 剛性値"""
-        ...
-    
-
-    def find_yield_point(
-        self,
-        method: str = 'offset',
-        offset_value: float = 0.002,
-        range_start: float = 0.1,
-        range_end: float = 0.3,
-        factor: float = 0.33,
-        result_prefix: Optional[str] = 'yield',
-        debug_mode: bool = False,
-        fail_silently: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """降伏点を計算
-
-荷重-変位データから降伏点を計算します。
-オフセット法または一般降伏法から選択できます。
-
-Args:
-    collection: 荷重-変位コレクション
-    method: 計算方法 ('offset', 'general')
-    offset_value: オフセット降伏法でのオフセット量
-    range_start: 初期勾配計算の範囲開始（最大荷重に対する比率）
-    range_end: 初期勾配計算の範囲終了（最大荷重に対する比率）
-    factor: 一般降伏法での勾配比率
-    result_prefix: 結果列の接頭辞
-    debug_mode: 詳細な計算過程情報を出力するかどうか
-    fail_silently: 降伏点が見つからない場合に例外を発生させずに情報を返すかどうか
-
-Returns:
-    LoadDisplacementCollection: 降伏点情報または計算過程情報を含むコレクション
-
-Raises:
-    ValueError: 降伏点が見つかりず、fail_silently=False の場合"""
-        ...
-    
-
-    def stiffness(
-        self,
-        range_start: float = 0.2,
-        range_end: float = 0.8,
-        method: str = 'linear_regression'
-    ) -> "LoadDisplacementCollectionOperations":
-        """calculate_stiffness のエイリアス"""
-        ...
-    
-
-    def yield_point(
-        self,
-        method: str = 'offset',
-        offset_value: float = 0.002,
-        range_start: float = 0.1,
-        range_end: float = 0.3,
-        factor: float = 0.33,
-        result_prefix: Optional[str] = 'yield',
-        debug_mode: bool = False,
-        fail_silently: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """find_yield_point のエイリアス"""
-        ...
-    
-
-    def cycle_count(
-        self,
-        column: Optional[str] = None,
-        step: float = 0.5,
-        result_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """データの荷重符号反転からサイクル数をカウント
-
-荷重の符号変化（正負の反転）からサイクル数をカウントし、
-新しい列として追加します。
-
-Args:
-    collection: 荷重-変位コレクション
-    column: サイクルをカウントする列（指定がない場合は荷重列を使用）
-    step: サイクルカウントの増分
-    result_column: 結果を格納する列名
-
-Returns:
-    LoadDisplacementCollection: サイクル数を含むコレクション"""
-        ...
-    
-
-    def split_by_cycles(
-        self,
-        cycle_column: Optional[str] = None
-    ) -> "CollectionListOperations[LoadDisplacementCollectionOperations]":
-        """サイクル番号ごとにデータを分割
-
-データをサイクル番号ごとに分割し、各サイクルの
-荷重-変位コレクションのリストを返します。
-
-Args:
-    collection: 荷重-変位コレクション
-    cycle_column: サイクル番号を含む列名（指定がない場合は自動検出/生成）
-
-Returns:
-    List[LoadDisplacementCollection]: サイクルごとに分割されたコレクションのリスト"""
-        ...
-    
-
-    def get_curve_data(
-        self,
-        curve_name: str
-    ) -> "LoadDisplacementCollectionOperations":
-        """メタデータに格納された曲線データを取得
-
-Args:
-    collection: 荷重-変位コレクション
-    curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
-
-Returns:
-    Dict[str, Any]: 曲線データ（x, y, metadataを含む辞書）
-
-Raises:
-    ValueError: 指定した曲線が存在しない場合"""
-        ...
-    
-
-    def get_curve_columns(
-        self,
-        curve_name: str
-    ) -> "LoadDisplacementCollectionOperations":
-        """メタデータに格納された曲線データをColumnオブジェクトとして取得
-
-Args:
-    collection: 荷重-変位コレクション
-    curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
-
-Returns:
-    Tuple[Optional[Column], Optional[Column]]:
-        (x軸のColumn, y軸のColumn)のタプル。曲線が存在しない場合は(None, None)
-
-Raises:
-    ValueError: 指定した曲線データにColumnが含まれていない場合
-    ValueError: 指定した曲線が存在しない場合"""
-        ...
-    
-
-    def list_available_curves(
-        self,
-        
-    ) -> "LoadDisplacementCollectionOperations":
-        """利用可能な曲線の一覧を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    List[str]: 利用可能な曲線名のリスト"""
-        ...
-    
-
-    def create_skeleton_curve(
-        self,
-        has_decrease: bool = False,
-        decrease_type: str = 'envelope',
-        cycle_column: Optional[str] = None,
-        result_load_column: Optional[str] = None,
-        result_disp_column: Optional[str] = None,
-        store_as_columns: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重-変位データからスケルトン曲線を作成
-
-複数サイクルの荷重-変位データから、包絡線（スケルトン曲線）を作成します。
-スケルトン曲線は、各サイクルの最大応答値を結んだ曲線です。
-
-デフォルトでは、スケルトン曲線はメタデータの "curves" セクションに格納されます。
-これにより、列の長さが異なるデータを格納できます。
-また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
-
-Args:
-    collection: 荷重-変位コレクション
-    has_decrease: 減少部分も含めるか
-    decrease_type: 減少部分の処理方法 ('envelope', 'continuous_only', 'both')
-    cycle_column: サイクル列名（指定なしの場合は自動生成）
-    result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
-    result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
-    store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
-
-Returns:
-    LoadDisplacementCollection: スケルトン曲線データを含むコレクション"""
-        ...
-    
-
-    def create_cumulative_curve(
-        self,
-        cycle_column: Optional[str] = None,
-        result_load_column: Optional[str] = None,
-        result_disp_column: Optional[str] = None,
-        store_as_columns: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重-変位データから累積曲線を作成
-
-複数サイクルの荷重-変位データから、累積変形曲線を作成します。
-累積曲線は、各サイクルの変形を累積的に加算した曲線です。
-
-デフォルトでは、累積曲線はメタデータの "curves" セクションに格納されます。
-これにより、列の長さが異なるデータを格納できます。
-また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
-
-Args:
-    collection: 荷重-変位コレクション
-    cycle_column: サイクル列名（指定なしの場合は自動生成）
-    result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
-    result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
-    store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
-
-Returns:
-    LoadDisplacementCollection: 累積曲線データを含むコレクション"""
-        ...
-    
-
-    def export_curve_to_csv(
-        self,
-        curve_name: str,
-        file_path: str,
-        columns: tuple[str, str] = ('x', 'y'),
-        encoding: str = 'utf-8',
-        include_header: bool = True
-    ) -> "LoadDisplacementCollectionOperations":
-        """メタデータに格納された曲線データを CSV ファイルにエクスポートします。
-
-Args:
-    collection: LoadDisplacementCollection オブジェクト
-    curve_name: エクスポートする曲線名（"skeleton_curve" や "cumulative_curve" など）
-    file_path: 出力先の CSV ファイルパス
-    columns: エクスポートするカラム名タプル（デフォルトは ("x", "y")）
-    encoding: ファイルエンコーディング（デフォルトは "utf-8"）
-    include_header: ヘッダー行を含めるかどうか
-
-Raises:
-    ValueError: 指定した曲線が存在しない場合、またはデータが不正な場合
-    IOError: ファイル書き込みに失敗した場合"""
-        ...
-    
-
-    def plot_load_displacement(
-        self,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重-変位曲線をプロットします
-
-荷重-変位データを二次元グラフとしてプロットします。
-既存の軸オブジェクトを指定することも、新しく作成することもできます。
-
-Args:
-    collection: 荷重-変位コレクション
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: matplotlib の plot 関数に渡す追加引数
-
-Returns:
-    LoadDisplacementCollection: 元の荷重-変位コレクション"""
-        ...
-    
-
-    def plot_skeleton_curve(
-        self,
-        plot_original: bool = True,
-        skeleton_load_column: Optional[str] = None,
-        skeleton_disp_column: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        original_kwargs: Optional[dict[str, Any]] = None,
-        skeleton_kwargs: Optional[dict[str, Any]] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """スケルトン曲線をプロットします
-
-create_skeleton_curve 関数で作成したスケルトン曲線をプロットします。
-元の荷重-変位データと比較して表示することも可能です。
-
-スケルトン曲線データは、列または metadata["curves"]["skeleton_curve"] から取得します。
-メタデータに格納されている場合はそちらが優先されます。
-
-Args:
-    collection: スケルトン曲線を含む荷重-変位コレクション
-    plot_original: 元の荷重-変位データもプロットするかどうか
-    skeleton_load_column: スケルトン曲線の荷重列名（None の場合は自動検出）
-    skeleton_disp_column: スケルトン曲線の変位列名（None の場合は自動検出）
-    ax: プロット先の軸（None の場合は新規作成）
-    original_kwargs: 元データプロット用の追加引数
-    skeleton_kwargs: スケルトン曲線プロット用の追加引数
-
-Returns:
-    LoadDisplacementCollection: 元の荷重-変位コレクション
-
-Raises:
-    ValueError: スケルトン曲線データが列にもメタデータにも見つからない場合"""
-        ...
-    
-
-    def plot_cumulative_curve(
-        self,
-        plot_original: bool = True,
-        cumulative_load_column: Optional[str] = None,
-        cumulative_disp_column: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        original_kwargs: Optional[dict[str, Any]] = None,
-        cumulative_kwargs: Optional[dict[str, Any]] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """累積曲線をプロットします
-
-create_cumulative_curve 関数で作成した累積曲線をプロットします。
-元の荷重-変位データと比較して表示することも可能です。
-
-累積曲線データは、列または metadata["curves"]["cumulative_curve"] から取得します。
-メタデータに格納されている場合はそちらが優先されます。
-
-Args:
-    collection: 累積曲線を含む荷重-変位コレクション
-    plot_original: 元の荷重-変位データもプロットするかどうか
-    cumulative_load_column: 累積曲線の荷重列名（None の場合は自動検出）
-    cumulative_disp_column: 累積曲線の変位列名（None の場合は自動検出）
-    ax: プロット先の軸（None の場合は新規作成）
-    original_kwargs: 元データプロット用の追加引数
-    cumulative_kwargs: 累積曲線プロット用の追加引数
-
-Returns:
-    LoadDisplacementCollection: 元の荷重-変位コレクション
-
-Raises:
-    ValueError: 累積曲線データが列にもメタデータにも見つからない場合"""
-        ...
-    
-
-    def plot_yield_point(
-        self,
-        ax: Optional[Axes] = None,
-        plot_original_data: bool = True,
-        plot_initial_slope: bool = True,
-        plot_offset_line: bool = True,
-        result_prefix: str = 'yield',
-        **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
-        """降伏点解析結果をプロットします
-
-find_yield_point 関数で解析した降伏点情報をビジュアル化します。
-元データ、初期勾配線、オフセット線などを表示できます。
-
-Args:
-    collection: 降伏点情報を含む荷重-変位コレクション
-    ax: プロット先の軸（None の場合は新規作成）
-    plot_original_data: 元の荷重-変位データもプロットするかどうか
-    plot_initial_slope: 初期勾配線をプロットするかどうか
-    plot_offset_line: オフセット線をプロットするかどうか（オフセット法の場合）
-    result_prefix: 降伏点データの接頭辞
-    **kwargs: matplotlib の plot 関数に渡す追加引数
-
-Returns:
-    LoadDisplacementCollection: 元の荷重-変位コレクション"""
-        ...
-    
-
-    def plot_yield_analysis_details(
-        self,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
-        """降伏点解析の詳細情報をプロットします
-
-find_yield_point 関数で解析した降伏点情報の詳細をビジュアル化します。
-初期勾配の計算範囲などの追加情報も表示します。
-
-Args:
-    collection: 降伏点情報を含む荷重-変位コレクション
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: matplotlib の plot 関数に渡す追加引数
-
-Returns:
-    LoadDisplacementCollection: 元の荷重-変位コレクション"""
-        ...
-    
-
-    def compare_yield_methods(
-        self,
-        methods: list[dict[str, Any]] = None,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
-        """複数の降伏点計算方法を比較してプロットします
-
-異なるパラメータや手法で計算した複数の降伏点を
-一つのグラフ上に表示して比較できます。
-
-Args:
-    collection: 荷重-変位コレクション
-    methods: 計算方法とパラメータのリスト。例:
-             [{"method": "offset", "offset_value": 0.002},
-              {"method": "general", "factor": 0.33}]
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: プロット関数に渡す追加引数
-
-Returns:
-    LoadDisplacementCollection: 元の荷重-変位コレクション"""
-        ...
-    
-
-    def plot_multiple_curves(
-        self,
-        curves: list[dict[str, Any]],
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
-        """複数の曲線を指定してプロットします
-
-Args:
-    collection: 荷重-変位コレクション
-    curves: プロットする曲線の設定リスト
-            [
-                {"type": "original", "kwargs": {...}},
-                {"type": "skeleton", "kwargs": {...}},
-                {"type": "cumulative", "kwargs": {...}}
-            ]
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: その他のオプション
-
-Returns:
-    LoadDisplacementCollection: 元のコレクション"""
-        ...
-    
 
     def filter_by_value(
         self,
         column_name: str,
         value: Any,
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定された列の値が指定された値と等しい行をフィルタリングします
 
 指定された列の値が特定の値と一致する行だけを含む新しいコレクションを返します。
@@ -612,7 +64,7 @@ Raises:
         self,
         columns: Optional[list[str]] = None,
         mode: str = 'any'
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """None値およびNaN値を含む行をフィルタリングして除外します
 
 指定された列にNone値またはNaN値を含む行を除外した新しいコレクションを返します。
@@ -637,7 +89,7 @@ Raises:
         self,
         columns: list[str],
         dup_type: str = 'all'
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します
 
 すべての指定された列で、連続するデータポイントが同じ値を持つ場合にのみ、
@@ -676,7 +128,7 @@ Examples:
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """異常値を検出して除去した新しいコレクションを返します
 
 移動平均との差分比率を用いた異常値検出を行い、異常値とみなされた行を除外します。
@@ -704,7 +156,7 @@ Raises:
         self,
         column_name: str,
         condition: <built-in function callable>
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定された列の値が条件を満たす行をフィルタリングします
 
 Args:
@@ -721,7 +173,7 @@ Returns:
         self,
         steps: list[Any],
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定されたステップ値を持つ行を削除します
 
 Args:
@@ -739,7 +191,7 @@ Returns:
         column_name: str,
         value: Any,
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """filter_by_value のエイリアス"""
         ...
     
@@ -748,7 +200,7 @@ Returns:
         self,
         column_name: str,
         condition: <built-in function callable>
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """filter_by_condition のエイリアス"""
         ...
     
@@ -761,7 +213,7 @@ Returns:
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """remove_outliers のエイリアス"""
         ...
     
@@ -771,7 +223,7 @@ Returns:
         column_name: str,
         op_str: str,
         value: Any
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """値による検索を行います
 
 指定された列の値に対して比較演算子を適用し、条件に一致する行を抽出します。
@@ -797,7 +249,7 @@ Raises:
         min_value: Any,
         max_value: Any,
         inclusive: bool = True
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """範囲による検索を行います
 
 指定された列の値が特定の範囲内にある行を抽出します。
@@ -825,7 +277,7 @@ Raises:
         inclusive: bool = True,
         by_step_value: bool = True,
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """ステップ範囲による検索を行います
 
 指定されたステップ範囲またはインデックス範囲に該当する行を抽出します。
@@ -847,7 +299,7 @@ Returns:
     def search_by_condition(
         self,
         condition_func: Callable[[Dict[str, Any]], bool]
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """条件関数による検索を行います
 
 各行のデータを辞書形式で条件関数に渡し、結果が True となる行だけを抽出します。
@@ -865,7 +317,7 @@ Returns:
     def search_missing_values(
         self,
         columns: Optional[list[str]] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """欠損値がある行を検索します
 
 指定された列に欠損値（None）を含む行だけを抽出します。
@@ -888,7 +340,7 @@ Raises:
         column_name: str,
         n: int,
         descending: bool = True
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の上位 N 件を検索します
 
 指定した列の値に基づいて、上位（または下位）N 件のデータを抽出します。
@@ -915,7 +367,7 @@ Raises:
         plot_type: str = 'scatter',
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """グラフを描画します
 
 コレクション内のデータを散布図または線グラフとして可視化します。
@@ -971,7 +423,7 @@ Examples:
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0,
         **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """異常値を可視化します
 
 指定された列の異常値を検出し、視覚的に強調表示します。
@@ -1039,7 +491,7 @@ Examples:
         y_columns: list[str],
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定されたX値（定数リスト）に対して、複数の列の値をYとしてプロットします
 注: 単一行のコレクションに対して使用することを想定しています
 
@@ -1062,7 +514,7 @@ Returns:
         steps: Optional[list[Union[int, float]]] = None,
         by_step_value: bool = True,
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出します
 
 複数の方法でデータ抽出を行うことができる汎用的な選択操作です。
@@ -1094,7 +546,7 @@ Raises:
         columns: Optional[list[str]] = None,
         by_step_value: bool = True,
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列名とステップ番号に基づいてデータを抽出します
 
 注: この関数は後方互換性のために残されています。
@@ -1120,7 +572,7 @@ Raises:
         self,
         column_name: str,
         value: float
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定された値に最も近い行を取得します
 
 Args:
@@ -1143,7 +595,7 @@ Returns:
         result_column: Optional[str] = None,
         in_place: bool = False,
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """ステップ値を基準に2つのColumnを切り替える
 
 指定されたステップ値またはインデックスを境界として、それより前はcolumn1、
@@ -1184,7 +636,7 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False,
         tolerance: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """ステップ値の範囲内で2つのColumnをブレンドする
 
 指定された開始点から終了点までの間で、column1からcolumn2へ徐々に
@@ -1228,7 +680,7 @@ Raises:
         compare: str = '>',
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """条件に基づいて2つのColumnから選択的に値を取得
 
 指定された条件列の値と閾値を比較し、条件を満たす場合はcolumn1、
@@ -1261,7 +713,7 @@ Raises:
         result_column: Optional[str] = None,
         func_name: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """カスタム関数を使用して2つのColumnを合成
 
 指定されたカスタム関数を使用して、2つの列の値を要素ごとに合成した
@@ -1290,7 +742,7 @@ Raises:
         columns: Optional[list[str]] = None,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """複数の列を合計して新しい列を作成します。
 
 指定した複数の列の値を要素ごとに合計し、新しい列として追加します。
@@ -1316,7 +768,7 @@ Raises:
         columns: Optional[list[str]] = None,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """複数の列の平均値を計算して新しい列を作成します。
 
 指定した複数の列の値を要素ごとに平均し、新しい列として追加します。
@@ -1345,7 +797,7 @@ Raises:
         in_place: bool = False,
         unit: Optional[str] = None,
         ch: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """列または定数を加算します
 
 指定された列に対して、別の列または定数値を加算し、結果を新しい列として格納します。
@@ -1374,7 +826,7 @@ Raises:
         column2_or_value: Union[str, int, float],
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """列または定数を減算します
 
 指定された列から別の列または定数値を減算し、結果を新しい列として格納します。
@@ -1405,7 +857,7 @@ Raises:
         in_place: bool = False,
         unit: Optional[str] = None,
         ch: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """列または定数を乗算します
 
 指定された列に対して、別の列または定数値を乗算し、結果を新しい列として格納します。
@@ -1437,7 +889,7 @@ Raises:
         handle_zero_division: str = 'error',
         unit: Optional[str] = None,
         ch: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """列または定数で除算します
 
 指定された列を別の列または定数値で除算し、結果を新しい列として格納します。
@@ -1472,7 +924,7 @@ Raises:
         in_place: bool = False,
         unit: Optional[str] = None,
         ch: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """数式文字列を評価し、結果を新しい列に格納します
 
 指定された数式を評価し、その結果を新しい列として追加します。
@@ -1505,7 +957,7 @@ Raises:
         in_place: bool = False,
         unit: Optional[str] = None,
         ch: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定された 2 つの列間の微分を計算します（dy/dx）
 
 指定された独立変数 x と従属変数 y に対して微分係数を計算します。
@@ -1540,7 +992,7 @@ Raises:
         in_place: bool = False,
         unit: Optional[str] = None,
         ch: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定された 2 つの列間の積分を計算します（∫y dx）
 
 指定された独立変数 x と従属変数 y に対して定積分を計算します。
@@ -1573,7 +1025,7 @@ Raises:
         result_column: Optional[str] = None,
         edge_handling: str = 'asymmetric',
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列に対して移動平均を計算します
 
 指定された列の各値に対して、周辺値を使用した平均値を算出します。
@@ -1605,7 +1057,7 @@ Raises:
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0,
         result_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """移動平均との差分比率を用いた異常値検出を行います
 
 データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
@@ -1637,7 +1089,7 @@ Raises:
         window_size: Optional[int] = None,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列に対してガウシアンフィルタを適用します
 
 ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
@@ -1665,7 +1117,7 @@ Returns:
         result_column: Optional[str] = None,
         in_place: bool = False,
         **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列のデータを平滑化します
 
 移動平均またはガウシアンフィルタを使用して、データのノイズを低減します。
@@ -1692,7 +1144,7 @@ Returns:
         result_column: Optional[str] = None,
         edge_handling: str = 'asymmetric',
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """moving_average のエイリアス"""
         ...
     
@@ -1706,7 +1158,7 @@ Returns:
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0,
         result_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """detect_outliers のエイリアス"""
         ...
     
@@ -1717,7 +1169,7 @@ Returns:
         result_column: Optional[str] = None,
         in_place: bool = False,
         degrees: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値に sin 関数を適用します
 
 指定された列の値に対して三角関数の sin を計算し、新しい列に結果を格納します。
@@ -1744,7 +1196,7 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False,
         degrees: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値に cos 関数を適用します
 
 指定された列の値に対して三角関数の cos を計算し、新しい列に結果を格納します。
@@ -1771,7 +1223,7 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False,
         degrees: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値に tan 関数を適用します
 
 指定された列の値に対して三角関数の tan を計算し、新しい列に結果を格納します。
@@ -1797,7 +1249,7 @@ Raises:
         column: str,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値に指数関数(e^x)を適用します
 
 指定された列の各値に対して自然指数関数 e^x を計算し、結果を新しい列に格納します。
@@ -1823,7 +1275,7 @@ Raises:
         base: float = 2.718281828459045,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値に対数関数を適用します
 
 指定された列の各値に対して対数関数を計算し、結果を新しい列に格納します。
@@ -1850,7 +1302,7 @@ Raises:
         column: str,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値の平方根を計算します
 
 指定された列の各値の平方根を計算し、結果を新しい列に格納します。
@@ -1877,7 +1329,7 @@ Raises:
         exponent: float,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値を指定した指数でべき乗します
 
 指定された列の各値を指定された指数でべき乗し、結果を新しい列に格納します。
@@ -1903,7 +1355,7 @@ Raises:
         column: str,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値の絶対値を計算します
 
 指定された列の各値の絶対値を計算し、結果を新しい列に格納します。
@@ -1929,7 +1381,7 @@ Raises:
         decimals: int = 0,
         result_column: Optional[str] = None,
         in_place: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の各値を指定した小数点以下の桁数に丸めます
 
 指定された列の各値を指定された小数点以下の桁数で四捨五入し、結果を新しい列に格納します。
@@ -1956,7 +1408,7 @@ Raises:
         result_column: Optional[str] = None,
         in_place: bool = False,
         method: str = 'minmax'
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の値を正規化します
 
 指定された列の値を指定された方法で正規化します。
@@ -1987,7 +1439,7 @@ Raises:
         point_count: Optional[int] = None,
         method: str = 'linear',
         columns: Optional[list[str]] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> "StrainCollectionOperations":
         """指定した列の値に基づいてデータを内挿します
 
 基準となる列の値に基づいて、他の列のデータを線形内挿します。
@@ -2026,7 +1478,7 @@ Examples:
     def split_by_integers(
         self,
         markers: list[int]
-    ) -> "CollectionListOperations[LoadDisplacementCollectionOperations]":
+    ) -> "CollectionListOperations[StrainCollectionOperations]":
         """整数リストの値でデータを分割します
 
 同じマーカー値を持つデータは同じグループに集約されます。
@@ -2055,7 +1507,7 @@ Examples:
     def split_at_indices(
         self,
         indices: Union[int, list[int]]
-    ) -> "CollectionListOperations[LoadDisplacementCollectionOperations]":
+    ) -> "CollectionListOperations[StrainCollectionOperations]":
         """指定されたインデックスでコレクションを分割します
 
 Args:
@@ -2072,7 +1524,7 @@ Returns:
         ...
 
     @overload
-    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> StrainCollectionOperations:
+    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:
         ...
 
     @overload

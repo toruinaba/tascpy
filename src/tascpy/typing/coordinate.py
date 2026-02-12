@@ -7,6 +7,9 @@ from .list_proxy import CollectionListOperations
 from .core import CoreCollectionOperations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
+    from .strain import StrainCollectionOperations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
     from .load_displacement import LoadDisplacementCollectionOperations
 
 class CoordinateCollectionOperations(CollectionOperationsBase[CoordinateCollection]):
@@ -1822,6 +1825,10 @@ Returns:
 
     @overload
     def as_domain(self, domain: Literal['core'], **kwargs: Any) -> CoreCollectionOperations:
+        ...
+
+    @overload
+    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> StrainCollectionOperations:
         ...
 
     @overload

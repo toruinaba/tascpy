@@ -5,6 +5,7 @@ from typing import cast, TypeVar, Union, overload, Any, Dict, List, Optional, Ca
 from ..core.collection import ColumnCollection
 
 from .core import CoreCollectionOperations
+from .strain import StrainCollectionOperations
 from .load_displacement import LoadDisplacementCollectionOperations
 from .coordinate import CoordinateCollectionOperations
 from .list_proxy import CollectionListOperations
@@ -15,6 +16,7 @@ T = TypeVar('T', bound='CollectionOperationsBase')
 # ドメインごとのスタブ型をエクスポート
 __all__ = [
     'CoreCollectionOperations',
+    'StrainCollectionOperations',
     'LoadDisplacementCollectionOperations',
     'CoordinateCollectionOperations',
     'CollectionListOperations',

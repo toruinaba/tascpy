@@ -4,6 +4,7 @@ from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 from .list_proxy import CollectionListOperations
 
+from .strain import StrainCollectionOperations
 from .load_displacement import LoadDisplacementCollectionOperations
 from .coordinate import CoordinateCollectionOperations
 
@@ -1514,6 +1515,10 @@ Returns:
     List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト"""
         ...
     
+
+    @overload
+    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> StrainCollectionOperations:
+        ...
 
     @overload
     def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> LoadDisplacementCollectionOperations:

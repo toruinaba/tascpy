@@ -89,6 +89,10 @@ class CollectionListOperations(Generic[C]):
         ...
 
     @overload
+    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> "CollectionListOperations[ColumnCollection]":
+        ...
+
+    @overload
     def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> "CollectionListOperations[LoadDisplacementCollection]":
         ...
 
