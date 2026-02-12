@@ -11,6 +11,7 @@ from typing import (
 )
 
 from ..core.collection import ColumnCollection
+import numpy as np
 
 if TYPE_CHECKING:
     from ..typing.proxy_base import CollectionOperationsBase
@@ -61,6 +62,48 @@ class CollectionOperations(Generic[T]):
             for name, func in domain_ops.items():
                 setattr(self, name, self._create_operation_method(func))
 
+    def _wrap_result(self, result: Any, func_name: str) -> Any:
+        """結果を適切にラップして返すヘルパーメソッド"""
+        # 結果がColumnCollectionのリストであれば、CollectionListOperationsを作成
+        if (
+            isinstance(result, list)
+            and result
+            and all(isinstance(item, ColumnCollection) for item in result)
+        ):
+            from .list_proxy import CollectionListOperations
+
+            return CollectionListOperations(result, self._domain)
+
+        # 結果がColumnCollectionであれば、新しいプロキシを作成
+        elif isinstance(result, ColumnCollection):
+            return CollectionOperations(result, self._domain)
+
+        # 辞書型（集計結果など）の場合
+        # 値がすべてスカラー（数値、文字列、None）であることを確認
+        elif isinstance(result, dict) and result and all(isinstance(v, (int, float, str, bool, type(None), np.number)) for v in result.values()):
+            from ..core.step import Step
+            # ColumnCollection is already imported at module level
+            
+            # キーを列名、値をデータ（リスト）に変換
+            data = {k: [v] for k, v in result.items()}
+            # Step名は操作名とする
+            step = Step([func_name]) 
+            
+            new_col = ColumnCollection(step, data)
+            return CollectionOperations(new_col, self._domain)
+
+        # スカラー値の場合
+        elif isinstance(result, (int, float, str, bool, np.number)):
+             from ..core.step import Step
+             # ColumnCollection is already imported at module level
+             
+             step = Step([func_name])
+             data = {"result": [result]}
+             new_col = ColumnCollection(step, data)
+             return CollectionOperations(new_col, self._domain)
+
+        return result
+
     def _create_operation_method(self, func: Callable) -> Callable:
         """操作メソッドからメソッドを作成
         Args:
@@ -72,22 +115,7 @@ class CollectionOperations(Generic[T]):
         def method(*args: Any, **kwargs: Any) -> Any:
             # 関数を実行し値を取得
             result = func(self._collection, *args, **kwargs)
-
-            # 結果がColumnCollectionのリストであれば、CollectionListOperationsを作成
-            if (
-                isinstance(result, list)
-                and result
-                and all(isinstance(item, ColumnCollection) for item in result)
-            ):
-                from .list_proxy import CollectionListOperations
-
-                return CollectionListOperations(result, self._domain)
-
-            # 結果がColumnCollectionであれば、新しいプロキシを作成
-            elif isinstance(result, ColumnCollection):
-                return CollectionOperations(result, self._domain)
-
-            return result
+            return self._wrap_result(result, func.__name__)
 
         # メソッドのドキュメントと名前を設定
         method.__name__ = func.__name__
@@ -176,5 +204,16 @@ class CollectionOperations(Generic[T]):
 
     def __getattr__(self, name: str) -> Any:
         """その他の属性やメソッドをCollectionに委譲"""
-        return getattr(self._collection, name)
+        attr = getattr(self._collection, name)
+        
+        if callable(attr):
+            def method(*args: Any, **kwargs: Any) -> Any:
+                result = attr(*args, **kwargs)
+                return self._wrap_result(result, name)
+            
+            method.__name__ = name
+            method.__doc__ = attr.__doc__
+            return method
+            
+        return attr
 
