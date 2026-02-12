@@ -5,6 +5,7 @@ import numpy as np
 from ...operations.registry import operation
 from ...domains.load_displacement import LoadDisplacementCollection
 from ...core.column import Column
+from ...core.result import PointResult
 from .utils import (
     get_load_column,
     get_displacement_column,
@@ -586,6 +587,28 @@ def find_yield_point(
             "status": "success",
             "debug_info": debug_info,
         }
+
+        # PointResultオブジェクトの作成と追加
+        yield_result = PointResult(
+            name=f"{result_prefix}_point",
+            x=float(yield_disp),
+            y=float(yield_load),
+            x_unit=collection[disp_column].unit if hasattr(collection[disp_column], "unit") else None,
+            y_unit=collection[load_column].unit if hasattr(collection[load_column], "unit") else None,
+            metadata={
+                "method": method,
+                "initial_slope": float(initial_slope),
+                "parameters": {
+                    "offset_value": offset_value,
+                    "range_start": range_start,
+                    "range_end": range_end,
+                    "factor": factor,
+                },
+                "description": f"Yield point calculated using {method} method",
+                "debug_info": debug_info
+            }
+        )
+        result.add_result(yield_result)
 
         # 単一値の結果カラムを作成
         result.columns[f"{result_prefix}_displacement"] = Column(

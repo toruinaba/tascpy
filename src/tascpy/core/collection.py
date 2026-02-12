@@ -20,6 +20,7 @@ from .column import (
     detect_column_type,
 )
 from ..core.io_formats import get_format, FILE_FORMATS
+from .result import AnalysisResult
 
 if TYPE_CHECKING:
     from ..typing.core import CoreCollectionOperations
@@ -67,6 +68,12 @@ class ColumnCollection:
                     else:
                         self.columns[name] = Column(None, name, None, column)
         self.metadata = metadata if metadata is not None else {}
+        self._results: Dict[str, AnalysisResult] = {}
+        
+        # メタデータから結果を復元（もしあれば）
+        # 注: 現状の実装ではメタデータ内の辞書構造からAnalysisResultを復元するロジックは
+        # 各ドメインのサブクラスやファクトリに委ねられる可能性があります。
+        # ここではプレースホルダーとして空の辞書を初期化します。
 
     def __len__(self) -> int:
         return len(self.step)
@@ -96,8 +103,13 @@ class ColumnCollection:
                 for col_name, column in self.columns.items():
                     if hasattr(column, "ch") and column.ch == key:
                         return column
+                        
+                # 結果オブジェクトを検索
+                if key in self._results:
+                    return self._results[key]
+                    
                 # 見つからなかった場合
-                raise KeyError(f"列またはチャンネル '{key}' が存在しません")
+                raise KeyError(f"列、チャンネル、または結果 '{key}' が存在しません")
         elif isinstance(key, (int, slice)):
             # インデックスによるアクセス
             if isinstance(key, int):
@@ -127,11 +139,18 @@ class ColumnCollection:
 
     def clone(self):
         """コレクションのクローンを作成"""
-        return ColumnCollection(
+        new_collection = ColumnCollection(
             step=self.step.clone(),
             columns={name: column.clone() for name, column in self.columns.items()},
             metadata=deepcopy(self.metadata),
         )
+        # 結果オブジェクトの参照をコピー（必要ならばディープコピーを検討すべきだが、
+        # AnalysisResultの実装に依存するため一旦参照コピーとする）
+        # 単純な参照コピーだと副作用が怖いため、to_dict()などで再構築するか、
+        # AnalysisResultにcloneメソッドを要求するのが理想的。
+        # ここでは簡易的に参照コピーを行うが、本来は各Resultのcloneが必要。
+        new_collection._results = self._results.copy() 
+        return new_collection
 
     def add_column(
         self, name: str, column: Union[Column, List[Any]]
@@ -176,6 +195,39 @@ class ColumnCollection:
         # step, columnsの長さを揃える（ロジック実装次第追加予定）
 
     @property
+    def results(self) -> Dict[str, AnalysisResult]:
+        """計算結果オブジェクトの辞書を返す"""
+        return self._results
+
+    def add_result(self, result: AnalysisResult) -> "ColumnCollection":
+        """計算結果を追加
+        
+        Args:
+            result: 追加するAnalysisResultオブジェクト
+            
+        Returns:
+            self (メソッドチェーン用)
+        """
+        self._results[result.name] = result
+        return self
+    
+    def get_result(self, name: str) -> AnalysisResult:
+        """計算結果を取得
+        
+        Args:
+            name: 結果名
+            
+        Returns:
+            AnalysisResult: 結果オブジェクト
+            
+        Raises:
+            KeyError: 指定された名前の結果が存在しない場合
+        """
+        if name not in self._results:
+            raise KeyError(f"結果 '{name}' は存在しません")
+        return self._results[name]
+
+    @property
     def ops(self):
         """操作プロキシクラスを返す"""
         from ..operations.proxy import CollectionOperations
@@ -187,6 +239,12 @@ class ColumnCollection:
             return CoreCollectionOperations(self, domain="core")  # type: ignore
         else:
             return CollectionOperations(self, domain=self.domain)
+
+    def keys(self) -> List[str]:
+        """利用可能なキーのリストを返す"""
+        keys = list(self.columns.keys())
+        keys.extend(self._results.keys())
+        return sorted(keys)
 
     def __repr__(self) -> str:
         """文字列表現"""

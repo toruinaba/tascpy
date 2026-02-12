@@ -243,8 +243,8 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             list[str]: カラム名とアクセス可能なメタデータキーのリスト
         """
-        # 基本のキーセット
-        key_set = set(self.columns.keys())
+        # 基本のキーセット（カラム + 結果）
+        key_set = set(super().keys())
 
         # 特殊キーを追加
         key_set.add("step")

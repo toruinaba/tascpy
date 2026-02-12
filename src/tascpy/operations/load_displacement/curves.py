@@ -5,6 +5,7 @@ import numpy as np
 from ...operations.registry import operation
 from ...domains.load_displacement import LoadDisplacementCollection
 from ...core.column import Column, NumberColumn
+from ...core.result import XYSeriesResult
 from ...utils.split import split_list_by_integers
 from .utils import (
     get_load_column,
@@ -379,7 +380,7 @@ def create_skeleton_curve(
         else None
     )
 
-    # メタデータにカーブデータを格納
+    # メタデータにカーブデータを格納 (後方互換性のため)
     if result.metadata is None:
         result.metadata = {}
 
@@ -387,6 +388,7 @@ def create_skeleton_curve(
         result.metadata["curves"] = {}
 
     # 荷重と変位のColumnオブジェクトを作成
+    # 単位は継承する
     load_column_obj = NumberColumn(
         ch=collection[load_column].ch,
         name=f"skeleton_curve_load",
@@ -408,8 +410,23 @@ def create_skeleton_curve(
             "source_column": disp_column,
         },
     )
+    # XYSeriesResultオブジェクトの作成と追加
+    curve = XYSeriesResult(
+        name="skeleton_curve",
+        x=disp_column_obj,
+        y=load_column_obj,
+        metadata={
+            "source_columns": {"load": load_column, "displacement": disp_column},
+            "description": "Skeleton curve derived from load-displacement data",
+            "parameters": {
+                "has_decrease": has_decrease,
+                "decrease_type": decrease_type,
+            },
+        }
+    )
+    result.add_result(curve)
 
-    # スケルトン曲線データをメタデータに格納
+    # スケルトン曲線データをメタデータに格納（後方互換性）
     result.metadata["curves"]["skeleton_curve"] = {
         "x": d_ske,
         "y": p_ske,
@@ -417,15 +434,7 @@ def create_skeleton_curve(
             "x": disp_column_obj,
             "y": load_column_obj,
         },
-        "metadata": {
-            "source_columns": {"load": load_column, "displacement": disp_column},
-            "description": "Skeleton curve derived from load-displacement data",
-            "units": {"x": disp_unit, "y": load_unit},
-            "parameters": {
-                "has_decrease": has_decrease,
-                "decrease_type": decrease_type,
-            },
-        },
+        "metadata": curve.metadata
     }
 
     # 互換性のために列も追加する（オプション）
@@ -564,7 +573,7 @@ def create_cumulative_curve(
         else None
     )
 
-    # メタデータにカーブデータを格納
+    # メタデータにカーブデータを格納 (後方互換性)
     if result.metadata is None:
         result.metadata = {}
 
@@ -593,8 +602,19 @@ def create_cumulative_curve(
             "source_column": disp_column,
         },
     )
+    # XYSeriesResultオブジェクトの作成と追加
+    curve = XYSeriesResult(
+        name="cumulative_curve",
+        x=disp_column_obj,
+        y=load_column_obj,
+        metadata={
+            "source_columns": {"load": load_column, "displacement": disp_column},
+            "description": "Cumulative curve derived from load-displacement data",
+        }
+    )
+    result.add_result(curve)
 
-    # 累積曲線データをメタデータに格納
+    # 累積曲線データをメタデータに格納（後方互換性）
     result.metadata["curves"]["cumulative_curve"] = {
         "x": d_cum,
         "y": p_cum,
@@ -602,11 +622,7 @@ def create_cumulative_curve(
             "x": disp_column_obj,
             "y": load_column_obj,
         },
-        "metadata": {
-            "source_columns": {"load": load_column, "displacement": disp_column},
-            "description": "Cumulative curve derived from load-displacement data",
-            "units": {"x": disp_unit, "y": load_unit},
-        },
+        "metadata": curve.metadata
     }
 
     # 互換性のために列も追加する（オプション）
