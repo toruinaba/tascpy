@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING, Union
 import numpy as np
 from ..core.collection import ColumnCollection
 from ..core.step import Step
@@ -22,7 +22,7 @@ class CoordinateCollection(ColumnCollection):
         columns: Optional[Dict[str, Column]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         coordinate_metadata_key: str = "coordinates",
-        coordinates: Optional[Dict[str, Dict[str, Optional[float]]]] = None,
+        coordinates: Optional[Union[Dict[str, Dict[str, Optional[float]]], str]] = None,
         **kwargs: Any,
     ):
         """初期化
@@ -32,7 +32,8 @@ class CoordinateCollection(ColumnCollection):
             columns: カラムデータ
             metadata: メタデータ
             coordinate_metadata_key: 座標データが格納されるメタデータのキー
-            coordinates: カラム名をキーとし、座標情報 {'x': float, 'y': float, 'z': float} を値とする辞書
+            coordinates: カラム名をキーとし、座標情報 {'x': float, 'y': float, 'z': float} を値とする辞書、
+                        またはJSON/CSVファイルのパス
                 例: {'column1': {'x': 1.0, 'y': 2.0, 'z': 3.0}, 'column2': {'x': 4.0, 'y': 5.0}}
         """
         super().__init__(step=step, columns=columns, metadata=metadata)
@@ -55,9 +56,18 @@ class CoordinateCollection(ColumnCollection):
                         "z": None,
                     }
 
-        # 初期化時に座標情報を設定
+        # 座標情報のロード
+        coords_dict = {}
         if coordinates:
-            for column_name, coords in coordinates.items():
+            from pathlib import Path
+            if isinstance(coordinates, (str, Path)):
+                coords_dict = self._load_coordinates_from_file(coordinates)
+            else:
+                coords_dict = coordinates
+
+        # 初期化時に座標情報を設定
+        if coords_dict:
+            for column_name, coords in coords_dict.items():
                 if column_name in self.columns:
                     self.set_column_coordinates(
                         column_name,
@@ -65,6 +75,67 @@ class CoordinateCollection(ColumnCollection):
                         y=coords.get("y"),
                         z=coords.get("z"),
                     )
+
+    def _load_coordinates_from_file(self, file_path: str) -> Dict[str, Dict[str, Optional[float]]]:
+        """ファイルから座標情報をロードする helper method"""
+        from pathlib import Path
+        import json
+        import csv
+        
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"座標ファイルが見つかりません: {file_path}")
+            
+        suffix = path.suffix.lower()
+        result = {}
+        
+        if suffix == ".json":
+            with open(path, "r", encoding="utf-8") as f:
+                result = json.load(f)
+                
+        elif suffix == ".csv":
+            with open(path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # ヘッダーチェック（大文字小文字を区別しない）
+                    # 期待するカラム: column, x, y, z
+                    # 実際のキーを探す
+                    row_lower = {k.lower(): v for k, v in row.items() if k}
+                    
+                    if "column" not in row_lower:
+                        continue
+                        
+                    col_name = row.get("column") or row_lower.get("column")
+                    # rowから元のケースで値を取得するのは難しいので、row_lowerを使う
+                    # ただしcol_nameは元の値が欲しい（辞書の値として入っているはず）
+                    # csv.DictReaderのrowは {Header: Value}
+                    
+                    # 再度実装: ヘッダーのマッピングを作成
+                    if reader.fieldnames:
+                        header_map = {h.lower(): h for h in reader.fieldnames}
+                    else:
+                        continue
+
+                    col_key = header_map.get("column")
+                    if not col_key: continue
+                    
+                    col_name = row[col_key]
+                    
+                    coords = {}
+                    for axis in ["x", "y", "z"]:
+                        axis_key = header_map.get(axis)
+                        if axis_key and row[axis_key]:
+                            try:
+                                coords[axis] = float(row[axis_key])
+                            except ValueError:
+                                coords[axis] = None
+                    
+                    result[col_name] = coords
+        
+        else:
+            raise ValueError(f"サポートされていないファイル形式です: {suffix}")
+            
+        return result
 
     @property
     def domain(self) -> str:

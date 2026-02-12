@@ -379,7 +379,30 @@ def generate_collection_list_operations_stub(stub_dir: Path) -> None:
         f.write("# 自動生成されたCollectionListOperationsスタブ - 編集しないでください\n")
         f.write("from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload\n")
         f.write("from ..core.collection import ColumnCollection\n")
-        f.write("from .proxy_base import CollectionOperationsBase\n\n")
+        f.write("from .proxy_base import CollectionOperationsBase\n")
+        f.write("from typing import Literal\n")
+
+        # ドメインごとのコレクションクラスをインポート
+        domains = OperationRegistry.discover_domains()
+        for domain in domains:
+            collection_cls = DomainCollectionFactory.get_collection_class(domain)
+            if collection_cls:
+                if hasattr(collection_cls, "__module__") and hasattr(collection_cls, "__name__"):
+                    module_path = collection_cls.__module__
+                    class_name = collection_cls.__name__
+                    
+                    # src.tascpy.domains.xxx -> ..domains.xxx に変換
+                    if "tascpy.domains" in module_path:
+                        parts = module_path.split("tascpy.domains.")
+                        if len(parts) > 1:
+                            relative_path = f"..domains.{parts[1]}"
+                            f.write(f"from {relative_path} import {class_name}\n")
+                        else:
+                             f.write(f"from ..domains.{domain} import {class_name}\n")
+                    else:
+                        f.write(f"from ..domains.{domain} import {class_name}\n")
+        
+        f.write("\n")
         
         f.write("# コレクション型のTypeVar\n")
         f.write("C = TypeVar('C', bound=ColumnCollection)\n\n")
@@ -464,6 +487,29 @@ def generate_collection_list_operations_stub(stub_dir: Path) -> None:
         f.write("        ...\n\n")
         
         # as_domain メソッド
+        # ドメインごとのオーバーロードを追加
+        domains = OperationRegistry.discover_domains()
+        for domain in domains:
+            collection_cls = DomainCollectionFactory.get_collection_class(domain)
+            if collection_cls and hasattr(collection_cls, "__name__"):
+                 class_name = collection_cls.__name__
+            else:
+                 class_name = "ColumnCollection"
+            
+            # Literalのインポートが必要（冒頭で追加済み）
+            # クラス名のインポートも必要だが、ここでは文字列定義で簡略化するか、適切にimport文を追加する必要がある
+            # list_proxy.pyの冒頭で必要なimportを追加するロジックがないため、
+            # Generic[C] の C が解決されることを期待するか、クラス名を文字列として扱う
+            # ただし、Genericなので C が変わるわけではない。
+            # CollectionListOperations[NewDomainCollection] を返す
+            
+            # クラスのインポートを追加する必要がある
+            # ここでは簡易的に文字列で指定
+            
+            f.write("    @overload\n")
+            f.write(f"    def as_domain(self, domain: Literal['{domain}'], **kwargs: Any) -> \"CollectionListOperations[{class_name}]\":\n")
+            f.write("        ...\n\n")
+
         f.write("    def as_domain(self, domain: str, **kwargs: Any) -> \"CollectionListOperations\":\n")
         f.write('        """全てのコレクションを指定されたドメインに変換します\n')
         f.write("        \n")

@@ -2,6 +2,10 @@
 from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload
 from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
+from typing import Literal
+from ..domains.core import ColumnCollection
+from ..domains.load_displacement import LoadDisplacementCollection
+from ..domains.coordinate import CoordinateCollection
 
 # コレクション型のTypeVar
 C = TypeVar('C', bound=ColumnCollection)
@@ -78,6 +82,18 @@ class CollectionListOperations(Generic[C]):
 
     def end_all(self) -> List[C]:
         """操作を終了し、ColumnCollectionのリストを返します"""
+        ...
+
+    @overload
+    def as_domain(self, domain: Literal['core'], **kwargs: Any) -> "CollectionListOperations[ColumnCollection]":
+        ...
+
+    @overload
+    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> "CollectionListOperations[LoadDisplacementCollection]":
+        ...
+
+    @overload
+    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> "CollectionListOperations[CoordinateCollection]":
         ...
 
     def as_domain(self, domain: str, **kwargs: Any) -> "CollectionListOperations":
