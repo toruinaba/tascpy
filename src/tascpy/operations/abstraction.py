@@ -446,3 +446,113 @@ def aggregate_column(
             return func(collection, *args, **kwargs)
         return wrapper
     return decorator
+
+
+def select_columns(
+    arg_name: str = "columns"
+):
+    """
+    Decorator to filter columns of the collection before operation.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(collection: ColumnCollection, *args, **kwargs):
+            target_columns = kwargs.get(arg_name)
+            
+            # If positional?
+            # `select` signature: (collection, columns=None, indices=None, ...)
+            # columns is 2nd arg (index 0 in *args).
+            if target_columns is None and len(args) > 0:
+                 # Heuristic: if first arg is list of strings or None?
+                 if args[0] is None or (isinstance(args[0], list) and (len(args[0])==0 or isinstance(args[0][0], str))):
+                     target_columns = args[0]
+
+            if target_columns is not None:
+                # Validation
+                for col_name in target_columns:
+                    if col_name not in collection.columns:
+                        raise KeyError(f"列 '{col_name}' が存在しません")
+                
+                # Clone with subset
+                filtered_columns = {
+                    name: collection.columns[name].clone() 
+                    for name in target_columns
+                }
+                
+                working_collection = collection.clone()
+                working_collection.columns = filtered_columns
+            else:
+                working_collection = collection # Pass through, let inner handle cloning if needed.
+                
+            return func(working_collection, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def filter_rows(func):
+    """
+    Decorator that expects the function to return indices (list/array) or boolean mask.
+    It takes those indices and returns a filtered ColumnCollection.
+    """
+    @functools.wraps(func)
+    def wrapper(collection: ColumnCollection, *args, **kwargs):
+        # Run the function to get indices
+        result = func(collection, *args, **kwargs)
+        
+        # Result might be just indices, or tuple (indices, metadata_update)
+        metadata_update = {}
+        if isinstance(result, tuple):
+            indices, metadata_update = result
+        else:
+            indices = result
+            
+        if indices is None:
+             res_collection = collection.clone()
+        else:
+             import numpy as np
+             if len(indices) == 0:
+                 # Empty result
+                 res_collection = collection.clone()
+                 res_collection.step.values = []
+                 for col in res_collection.columns.values():
+                     col.values = []
+             else:
+                 # Filter step
+                 # collection.step.values might be list or array
+                 current_steps = np.array(collection.step.values) if not isinstance(collection.step.values, np.ndarray) else np.array(collection.step.values)
+                 
+                 # Handle indices type
+                 if isinstance(indices, list):
+                     indices = np.array(indices)
+                     
+                 try:
+                     filtered_steps = current_steps[indices]
+                 except IndexError:
+                     raise IndexError("指定されたインデックスが範囲外です")
+                     
+                 if isinstance(collection.step.values, list):
+                     filtered_steps = filtered_steps.tolist()
+                     
+                 # Filter columns
+                 filtered_cols = {}
+                 for name, col in collection.columns.items():
+                     cur_vals = np.array(col.values) if not isinstance(col.values, np.ndarray) else np.array(col.values)
+                     
+                     new_vals = cur_vals[indices]
+                         
+                     if isinstance(col.values, list):
+                         new_vals = new_vals.tolist()
+                         
+                     new_col = col.__class__(col.ch, col.name, col.unit, new_vals)
+                     filtered_cols[name] = new_col
+                 
+                 res_collection = collection.clone()
+                 res_collection.step.values = filtered_steps
+                 res_collection.columns = filtered_cols
+
+        # Update metadata
+        if metadata_update:
+            res_collection.metadata.update(metadata_update)
+            
+        return res_collection
+    return wrapper

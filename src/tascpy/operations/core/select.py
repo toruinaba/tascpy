@@ -5,13 +5,17 @@
 select は列名、行インデックス、ステップ値などを指定してデータを抽出する操作です。
 """
 
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Tuple
 
 from ...core.collection import ColumnCollection
 from ..registry import operation
+from ..abstraction import filter_rows, select_columns
+import numpy as np
 
 
 @operation(domain="core")
+@select_columns(arg_name="columns")
+@filter_rows
 def select(
     collection: ColumnCollection,
     columns: Optional[List[str]] = None,
@@ -19,15 +23,15 @@ def select(
     steps: Optional[List[Union[int, float]]] = None,
     by_step_value: bool = True,
     tolerance: Optional[float] = None,
-) -> ColumnCollection:
+) -> Union[List[int], Tuple[List[int], Dict[str, Any]]]:
     """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出します
-
+    
     複数の方法でデータ抽出を行うことができる汎用的な選択操作です。
     列の選択、インデックスによる行の選択、ステップ値による行の選択を組み合わせて使用できます。
 
     Args:
         collection: 元の ColumnCollection
-        columns: 抽出する列名のリスト。None の場合は全列が対象
+        columns: (デコレータで処理) 抽出する列名のリスト。None の場合は全列が対象
         indices: 抽出する行インデックスのリスト。None の場合は全行が対象
         steps: 抽出するステップのリスト。None の場合は全行が対象
             by_step_value=True の場合：ステップ値として解釈
@@ -36,41 +40,26 @@ def select(
         tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
 
     Returns:
-        ColumnCollection: 選択されたデータを含む新しい ColumnCollection
-
-    Raises:
-        KeyError: 指定された列名が存在しない場合
-        IndexError: 明示的に指定された indices が範囲外の場合（steps の場合は無視される）
-        ValueError: indices と steps の両方が指定された場合
+        Union[List[int], Tuple[List[int], Dict[str, Any]]]: 
+            抽出する行インデックスのリスト、および更新するメタデータのタプル
     """
     # indicesとstepsの両方が指定された場合はエラー
     if indices is not None and steps is not None:
         raise ValueError("indicesとstepsは同時に指定できません")
-
-    # 列の選択
-    selected_columns = {}
-    if columns is not None:
-        # 列名の存在チェック
-        for col_name in columns:
-            if col_name not in collection.columns:
-                raise KeyError(f"列 '{col_name}' が存在しません")
-
-        # 選択された列のみを抽出
-        selected_columns = {name: collection.columns[name].clone() for name in columns}
-    else:
-        # 全列をクローン
-        selected_columns = {
-            name: column.clone() for name, column in collection.columns.items()
-        }
 
     # ステップ値からインデックスへの変換処理
     final_indices = indices
     found_steps = []
     missing_steps = []
     operation_type = "select"
+    metadata_update = {
+        "operation": "select",
+        "source_columns": list(collection.columns.keys()),
+    }
 
     if steps is not None:
         operation_type = "select_step"
+        metadata_update["operation"] = operation_type
         final_indices = []  # stepsから変換されるインデックス
 
         if by_step_value:
@@ -92,84 +81,23 @@ def select(
                     found_steps.append(collection.step.values[idx])
                 else:
                     missing_steps.append(idx)
+                    
+        metadata_update.update({
+            "selected_steps": found_steps,
+            "missing_steps": missing_steps,
+            "by_step_value": by_step_value,
+        })
+    
+    # バリデーション (indicesが直接指定された場合)
+    if indices is not None:
+         # インデックスの範囲チェック
+         max_idx = len(collection) - 1
+         min_idx = 0
+         if indices:
+            if max(indices) > max_idx or min(indices) < min_idx:
+                 raise IndexError("指定されたインデックスが範囲外です")
 
-    # 新しいCollectionを作成
-    metadata = collection.metadata.copy()
-    metadata.update(
-        {
-            "operation": operation_type,
-            "source_columns": list(collection.columns.keys()),
-        }
-    )
-
-    # select_step用のメタデータを追加
-    if operation_type == "select_step":
-        metadata.update(
-            {
-                "selected_steps": found_steps,
-                "missing_steps": missing_steps,
-                "by_step_value": by_step_value,
-            }
-        )
-
-    # 選択するステップがない場合は空のコレクションを作成（stepsが指定された場合のみ）
-    if steps is not None and not final_indices:
-        # 列の選択
-        empty_columns = {}
-        if columns is not None:
-            # 選択された列のみから空のコレクションを作成
-            empty_columns = {
-                name: collection.columns[name].__class__(
-                    collection.columns[name].ch,
-                    collection.columns[name].name,
-                    collection.columns[name].unit,
-                    [],
-                )
-                for name in columns
-            }
-        else:
-            # 全列から空のコレクションを作成
-            empty_columns = {
-                name: column.__class__(column.ch, column.name, column.unit, [])
-                for name, column in collection.columns.items()
-            }
-
-        result = collection.clone()
-        result.step = result.step.__class__(values=[])
-        result.columns = empty_columns
-        result.metadata = metadata
-        return result
-
-
-    # 行の選択
-    if final_indices is not None:
-        # インデックスの範囲チェック (select操作のときのみエラーを発生させる）
-        if indices is not None and (
-            max(final_indices) >= len(collection) or min(final_indices) < 0
-        ):
-            raise IndexError("指定されたインデックスが範囲外です")
-
-        # 選択された行のみを抽出
-        selected_steps = [collection.step.values[i] for i in final_indices]
-
-        # 各列の値も選択
-        for name, column in selected_columns.items():
-            column.values = [collection.columns[name].values[i] for i in final_indices]
-    else:
-        # インデックスが指定されていない場合は全行を選択
-        selected_steps = collection.step.values
-
-    # 結果用のオブジェクトを作成
-    result = collection.clone()
-
-    # クローン済みの列と選択されたステップを設定
-    result.columns = selected_columns
-    result.step = result.step.__class__(values=selected_steps)
-
-    # メタデータを更新
-    result.metadata = metadata
-
-    return result
+    return final_indices, metadata_update
 
 
 @operation(domain="core")
@@ -181,23 +109,9 @@ def select_step(
     tolerance: Optional[float] = None,
 ) -> ColumnCollection:
     """指定した列名とステップ番号に基づいてデータを抽出します
-
+    
     注: この関数は後方互換性のために残されています。
     新しいコードでは select() 関数を使用することが推奨されます。
-
-    Args:
-        collection: 元の ColumnCollection
-        steps: 抽出するステップ番号のリスト（by_step_value=True の場合）または
-               インデックスのリスト（by_step_value=False の場合）
-        columns: 抽出する列名のリスト。None の場合は全列が対象
-        by_step_value: True の場合はステップ値として解釈、False の場合はインデックスとして解釈
-        tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
-
-    Returns:
-        ColumnCollection: 選択されたデータを含む新しい ColumnCollection
-
-    Raises:
-        KeyError: 指定された列名が存在しない場合
     """
     # 統合された select 関数を呼び出す
     return select(
@@ -210,9 +124,10 @@ def select_step(
 
 
 @operation(domain="core")
+@filter_rows
 def fetch_near_step(
     collection: ColumnCollection, column_name: str, value: float
-) -> ColumnCollection:
+) -> List[int]:
     """指定された値に最も近い行を取得します
 
     Args:
@@ -221,35 +136,26 @@ def fetch_near_step(
         value: 検索する値
 
     Returns:
-        ColumnCollection: 最も近い値を持つ1行だけのコレクション
+        List[int]: 最も近い値を持つ行のインデックス（1つ）
     """
-    import numpy as np
-
     if column_name not in collection.columns:
         raise KeyError(f"列'{column_name}'が存在しません")
 
     column = collection[column_name]
     vals = column.values
 
-    # None/NaNを除外して計算するか、そのまま計算するか
-    # NumPyならabs計算でNaNが混じると結果がNaNになるので注意
-    
     # 数値型のみ対象とする
     is_numeric = False
     if isinstance(vals, np.ndarray):
         if np.issubdtype(vals.dtype, np.number):
             is_numeric = True
     elif isinstance(vals, list):
-        # リストの場合は、要素が数値かチェック（簡易的）
-        # 空リストはOK?
         if len(vals) > 0:
             valid_vals = [v for v in vals if v is not None]
             if valid_vals and all(isinstance(v, (int, float, np.number)) for v in valid_vals):
                 is_numeric = True
-                # NumPy配列に変換して処理しやすくする
                 vals = np.array(vals, dtype=float)
             elif not valid_vals:
-                 # 全てNoneの場合は数値型とみなさないか、エラーにする
                  pass
 
     if not is_numeric:
@@ -258,25 +164,10 @@ def fetch_near_step(
     # 絶対差分
     diff = np.abs(vals - value)
     
-    # 最小値のインデックスを取得（NaNがある場合はnanargminを使用）
+    # 最小値のインデックスを取得
     try:
         idx = np.nanargmin(diff)
     except ValueError:
-        # 全てNaNの場合など
         raise ValueError("有効なデータが見つかりません")
 
-    # そのインデックスの行を取得
-    indices = [idx]
-    
-    selected_steps = [collection.step.values[i] for i in indices]
-    selected_columns = {}
-    for name, col in collection.columns.items():
-        new_col = col.clone()
-        new_col.values = [col.values[i] for i in indices]
-        selected_columns[name] = new_col
-
-    result = collection.clone()
-    result.step.values = selected_steps
-    result.columns = selected_columns
-    
-    return result
+    return [int(idx)]
