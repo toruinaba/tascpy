@@ -1434,22 +1434,22 @@ Raises:
         in_place: bool = False,
         unit: Optional[str] = None,
         ch: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """数式文字列を評価し、結果を新しい列に格納します
+    ) -> Union[list[Optional[float]], ndarray]:
+        """数式文字列を評価し、結果を返します
 
-指定された数式を評価し、その結果を新しい列として追加します。
+指定された数式を評価し、その結果の値を返します。
 数式内では各列の値を変数として参照でき、基本的な数学関数も使用できます。
 
 Args:
     collection: ColumnCollection オブジェクト
     expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は数式で使用された最初の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
+    result_column: 結果を格納する列名（この引数はデコレータで使用されます）
+    in_place: (デコレータで使用)
+    unit: (デコレータで使用)
+    ch: (デコレータで使用)
 
 Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
+     Union[List[Optional[float]], np.ndarray]: 計算結果の値リストまたは配列
 
 Raises:
     KeyError: 指定された列名が存在しない場合

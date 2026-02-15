@@ -2,7 +2,13 @@ from typing import Union, Optional, List, Dict, Any, Set
 from ...core.collection import ColumnCollection
 from ...core.column import Column, NumberColumn, detect_column_type
 from ..registry import operation
-from ..abstraction import transform_column, handle_zero_division
+from ..abstraction import (
+    transform_column, 
+    handle_zero_division,
+    store_result,
+    handle_missing_values,
+    inject_columns
+)
 import re
 import ast
 import math
@@ -73,8 +79,122 @@ def divide(
     """列または定数で除算します"""
     return v1 / v2
 
+# 微分と積分の関数を定義
+
+def _diff_naming(func_name, y_col, x_col, **kwargs):
+    return f"d({y_col})/d({x_col})"
+
+def _diff_unit_inference(collection, y_col, x_col, **kwargs):
+    y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
+    x_obj = collection[x_col] if isinstance(x_col, str) and x_col in collection.columns else None
+    
+    y_unit = getattr(y_obj, "unit", "") or ""
+    x_unit = getattr(x_obj, "unit", "") or ""
+    return f"{y_unit}/{x_unit}" if y_unit or x_unit else None
+
+def _integrate_naming(func_name, y_col, x_col, **kwargs):
+    return f"∫{y_col}·d{x_col}"
+
+def _integrate_unit_inference(collection, y_col, x_col, **kwargs):
+    y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
+    x_obj = collection[x_col] if isinstance(x_col, str) and x_col in collection.columns else None
+    
+    y_unit = getattr(y_obj, "unit", "") or ""
+    x_unit = getattr(x_obj, "unit", "") or ""
+    return f"{y_unit}·{x_unit}" if y_unit or x_unit else None
+
 
 @operation(domain="core")
+@store_result(result_naming=_diff_naming, unit_inference=_diff_unit_inference)
+@inject_columns(num_inputs=2)
+@handle_missing_values(strategy="strict")
+def diff(
+    y_values: np.ndarray,
+    x_values: np.ndarray,
+    method: str = "central",
+    **kwargs
+) -> np.ndarray:
+    """指定された 2 つの列間の微分を計算します（dy/dx）"""
+    
+    # Check data points
+    if len(x_values) < 2:
+        raise ValueError(
+            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
+        )
+
+    from ...utils.data import diff_xy
+    # diff_xy returns list, we convert to array
+    # diff_xy expects x, y as lists or arrays.
+    res_list = diff_xy(x_values, y_values, method=method)
+    return np.array(res_list)
+
+
+@operation(domain="core")
+@store_result(result_naming=_integrate_naming, unit_inference=_integrate_unit_inference)
+@inject_columns(num_inputs=2)
+@handle_missing_values(strategy="strict")
+def integrate(
+    y_values: np.ndarray,
+    x_values: np.ndarray,
+    method: str = "trapezoid",
+    initial_value: float = 0.0,
+    **kwargs
+) -> np.ndarray:
+    """指定された 2 つの列間の積分を計算します（∫y dx）"""
+    
+    # メソッドの検証
+    if method != "trapezoid":
+        raise ValueError("現在は trapezoid 積分のみサポートしています")
+
+    if len(x_values) < 2:
+         raise ValueError(
+            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
+        )
+
+    # We must sort here.
+    sorted_indices = np.argsort(x_values)
+    sorted_x = x_values[sorted_indices]
+    sorted_y = y_values[sorted_indices]
+    
+    from ...utils.data import integrate_xy
+    integral_values = integrate_xy(sorted_x, sorted_y, initial_value=initial_value)
+    integral_arr = np.array(integral_values)
+    
+    # Map back to original order
+    # We need to unsort.
+    # The result `integral_arr` corresponds to `sorted_x`.
+    # We want result corresponding to `x_values`.
+    # result[sorted_indices] = integral_arr
+    
+    result = np.empty_like(integral_arr)
+    result[sorted_indices] = integral_arr
+    
+    return result
+
+
+def _evaluate_naming(func_name, expression, **kwargs):
+    return f"expression_result"
+
+def _evaluate_unit_inference(collection, expression, **kwargs):
+    try:
+        # AST parsing to find variable names (simplified version of what's in evaluate)
+        parsed_ast = ast.parse(expression, mode="eval")
+        for node in ast.walk(parsed_ast):
+            if isinstance(node, ast.Name) and node.id not in {
+                "sin", "cos", "tan", "exp", "log", "sqrt", "abs", 
+                "max", "min", "pow", "round", "pi", "e"
+            }:
+                if node.id in collection.columns:
+                    return getattr(collection[node.id], "unit", None)
+    except:
+        pass
+    return None
+
+@operation(domain="core")
+@store_result(
+    result_naming=_evaluate_naming,
+    unit_inference=_evaluate_unit_inference
+)
 def evaluate(
     collection: ColumnCollection,
     expression: str,
@@ -82,34 +202,28 @@ def evaluate(
     in_place: bool = False,
     unit: Optional[str] = None,
     ch: Optional[str] = None,
-) -> ColumnCollection:
-    """数式文字列を評価し、結果を新しい列に格納します
-
-    指定された数式を評価し、その結果を新しい列として追加します。
+) -> Union[List[Optional[float]], np.ndarray]:
+    """数式文字列を評価し、結果を返します
+    
+    指定された数式を評価し、その結果の値を返します。
     数式内では各列の値を変数として参照でき、基本的な数学関数も使用できます。
 
     Args:
         collection: ColumnCollection オブジェクト
         expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
-        result_column: 結果を格納する列名（デフォルトは None、自動生成）
-        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-        unit: 新しい列の単位（指定しない場合は数式で使用された最初の列から継承）
-        ch: 新しい列のチャンネル（指定しない場合はNone）
+        result_column: 結果を格納する列名（この引数はデコレータで使用されます）
+        in_place: (デコレータで使用)
+        unit: (デコレータで使用)
+        ch: (デコレータで使用)
 
     Returns:
-        ColumnCollection: 演算結果の列を含む ColumnCollection
+         Union[List[Optional[float]], np.ndarray]: 計算結果の値リストまたは配列
 
     Raises:
         KeyError: 指定された列名が存在しない場合
         ValueError: 式の評価中にエラーが発生した場合
         SyntaxError: 式の構文に問題がある場合
     """
-    if result_column is None:
-        result_column = f"expression_result_{len(collection.columns)}"
-
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
     # ASTを使用して式の構文検証
     try:
         parsed_ast = ast.parse(expression, mode="eval")
@@ -265,6 +379,7 @@ def evaluate(
              
         # 結果をリストに変換 (NaN -> None)
         result_values = [None if np.isnan(v) else v for v in res.tolist()]
+        return result_values
         
     except Exception:
         # ベクトル評価に失敗した場合は、従来の行ごとの評価にフォールバック
@@ -315,160 +430,8 @@ def evaluate(
                      result_values.append(row_result)
                 except (ValueError, TypeError, ZeroDivisionError):
                      result_values.append(None)
+            
+            return result_values
 
         except Exception as e:
              raise ValueError(f"式の評価中にエラーが発生しました: {str(e)}")
-
-    # 結果を新しい列として追加（既存の列名の場合は上書き）
-    if result_column in result.columns:
-        result.columns[result_column].values = result_values
-        if unit is not None:
-             result.columns[result_column].unit = unit
-        if ch is not None:
-             result.columns[result_column].ch = ch
-    else:
-        # 元の列の単位を継承（指定がない場合）
-        if unit is None:
-            unit = None
-            for col in used_cols:
-                original_column = collection[col]
-                if getattr(original_column, "unit", None):
-                    unit = original_column.unit
-                    break
-
-        # 新しい列を追加
-        column = detect_column_type(ch, result_column, unit, result_values)
-        result.add_column(result_column, column)
-
-    return result
-
-
-# 微分と積分の関数を定義
-
-def _diff_naming(func_name, y_col, x_col, **kwargs):
-    return f"d({y_col})/d({x_col})"
-
-def _diff_unit_inference(collection, y_col, x_col, **kwargs):
-    y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
-    x_obj = collection[x_col] if isinstance(x_col, str) and x_col in collection.columns else None
-    
-    y_unit = getattr(y_obj, "unit", "") or ""
-    x_unit = getattr(x_obj, "unit", "") or ""
-    return f"{y_unit}/{x_unit}" if y_unit or x_unit else None
-
-def _integrate_naming(func_name, y_col, x_col, **kwargs):
-    return f"∫{y_col}·d{x_col}"
-
-def _integrate_unit_inference(collection, y_col, x_col, **kwargs):
-    y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
-    x_obj = collection[x_col] if isinstance(x_col, str) and x_col in collection.columns else None
-    
-    y_unit = getattr(y_obj, "unit", "") or ""
-    x_unit = getattr(x_obj, "unit", "") or ""
-    return f"{y_unit}·{x_unit}" if y_unit or x_unit else None
-
-
-@operation(domain="core")
-@transform_column(
-    num_inputs=2, 
-    result_naming=_diff_naming, 
-    unit_inference=_diff_unit_inference
-)
-def diff(
-    y_values: np.ndarray,
-    x_values: np.ndarray,
-    method: str = "central",
-    **kwargs
-) -> np.ndarray:
-    """指定された 2 つの列間の微分を計算します（dy/dx）"""
-    
-    # Check for NaNs/None in inputs
-    # transform_column converts None to NaN.
-    # Logic: if ANY input has NaN, return ALL NaNs (based on original strict logic)
-    # Original logic: `if None in y_values or None in x_values: return all None`
-    # Here, inputs are float arrays with NaNs.
-    
-    if np.isnan(y_values).any() or np.isnan(x_values).any():
-        return np.full_like(y_values, np.nan)
-        
-    # Check data points
-    if len(x_values) < 2:
-        raise ValueError(
-            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
-        )
-
-    from ...utils.data import diff_xy
-    # diff_xy returns list, we convert to array
-    # diff_xy expects x, y as lists or arrays.
-    res_list = diff_xy(x_values, y_values, method=method)
-    return np.array(res_list)
-
-
-@operation(domain="core")
-@transform_column(
-    num_inputs=2, 
-    result_naming=_integrate_naming, 
-    unit_inference=_integrate_unit_inference
-)
-def integrate(
-    y_values: np.ndarray,
-    x_values: np.ndarray,
-    method: str = "trapezoid",
-    initial_value: float = 0.0,
-    **kwargs
-) -> np.ndarray:
-    """指定された 2 つの列間の積分を計算します（∫y dx）"""
-    
-    # メソッドの検証
-    if method != "trapezoid":
-        raise ValueError("現在は trapezoid 積分のみサポートしています")
-
-    # None logic from original:
-    # "None値を含む場合、最初の値だけ計算し、残りはNoneとする仕様を再現"
-    has_nan = np.isnan(y_values).any() or np.isnan(x_values).any()
-    
-    if has_nan:
-        # Check first point validity
-        result = np.full_like(x_values, np.nan)
-        if not np.isnan(y_values[0]) and not np.isnan(x_values[0]):
-             # Original logic: result[0] = initial_value + x[0]*y[0]
-             # Note: integrate_xy original implementation logic check
-             # lines 333-336 in data.py
-             dx = x_values[0]
-             first_step = dx * y_values[0]
-             result[0] = initial_value + first_step
-        return result
-
-    if len(x_values) < 2:
-         raise ValueError(
-            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
-        )
-
-    # Sort logic (Integrate depends on order)
-    # integrate_xy inside utils/data.py DOES SORTING internally?
-    # No, integrate_xy in data.py DOES NOT sort. 
-    # Wait, checking data.py viewed earlier.
-    # data.py:310 integration_xy
-    # It does NOT sort.
-    # math.py:518 sorted_pairs = sorted(zip(valid_x, valid_y))
-    # So math.py was doing the sorting.
-    
-    # We must sort here.
-    sorted_indices = np.argsort(x_values)
-    sorted_x = x_values[sorted_indices]
-    sorted_y = y_values[sorted_indices]
-    
-    from ...utils.data import integrate_xy
-    integral_values = integrate_xy(sorted_x, sorted_y, initial_value=initial_value)
-    integral_arr = np.array(integral_values)
-    
-    # Map back to original order
-    # We need to unsort.
-    # The result `integral_arr` corresponds to `sorted_x`.
-    # We want result corresponding to `x_values`.
-    # result[sorted_indices] = integral_arr
-    
-    result = np.empty_like(integral_arr)
-    result[sorted_indices] = integral_arr
-    
-    return result
