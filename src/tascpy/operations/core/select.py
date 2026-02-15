@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any, Union, Tuple
 
 from ...core.collection import ColumnCollection
 from ..registry import operation
-from ..abstraction import filter_rows, select_columns
+from ..abstraction import filter_rows, select_columns, inject_columns
 import numpy as np
 
 
@@ -88,15 +88,6 @@ def select(
             "by_step_value": by_step_value,
         })
     
-    # バリデーション (indicesが直接指定された場合)
-    if indices is not None:
-         # インデックスの範囲チェック
-         max_idx = len(collection) - 1
-         min_idx = 0
-         if indices:
-            if max(indices) > max_idx or min(indices) < min_idx:
-                 raise IndexError("指定されたインデックスが範囲外です")
-
     return final_indices, metadata_update
 
 
@@ -125,41 +116,29 @@ def select_step(
 
 @operation(domain="core")
 @filter_rows
+@inject_columns(num_inputs=1)
 def fetch_near_step(
-    collection: ColumnCollection, column_name: str, value: float
+    vals: Union[np.ndarray, List[float]], value: float
 ) -> List[int]:
     """指定された値に最も近い行を取得します
 
     Args:
-        collection: ColumnCollection オブジェクト
-        column_name: 値を検索する列名
+        vals: 検索対象の列の値（@inject_columnsにより注入）
         value: 検索する値
 
     Returns:
         List[int]: 最も近い値を持つ行のインデックス（1つ）
     """
-    if column_name not in collection.columns:
-        raise KeyError(f"列'{column_name}'が存在しません")
-
-    column = collection[column_name]
-    vals = column.values
-
-    # 数値型のみ対象とする
-    is_numeric = False
-    if isinstance(vals, np.ndarray):
-        if np.issubdtype(vals.dtype, np.number):
-            is_numeric = True
-    elif isinstance(vals, list):
-        if len(vals) > 0:
-            valid_vals = [v for v in vals if v is not None]
-            if valid_vals and all(isinstance(v, (int, float, np.number)) for v in valid_vals):
-                is_numeric = True
-                vals = np.array(vals, dtype=float)
-            elif not valid_vals:
-                 pass
-
-    if not is_numeric:
-        raise TypeError(f"列'{column_name}'は数値型ではありません")
+    # 数値型変換とチェック
+    if isinstance(vals, list):
+         vals = np.array(vals)
+    
+    if not np.issubdtype(vals.dtype, np.number):
+         # Try converting to float, usually raises ValueError if strings
+         try:
+             vals = vals.astype(float)
+         except ValueError:
+             raise TypeError(f"指定された列は数値型ではありません")
 
     # 絶対差分
     diff = np.abs(vals - value)

@@ -3,15 +3,18 @@ from ...core.collection import ColumnCollection
 from ...core.column import Column
 from ...core.step import Step
 from ..registry import operation
+from ..abstraction import inject_columns, filter_rows
+import numpy as np
 
 
 @operation(domain="core")
+@filter_rows
+@inject_columns(num_inputs=1)
 def filter_by_value(
-    collection: ColumnCollection,
-    column_name: str,
+    vals: Union[np.ndarray, List[Any]],
     value: Any,
     tolerance: Optional[float] = None,
-) -> ColumnCollection:
+) -> List[bool]:
     """指定された列の値が指定された値と等しい行をフィルタリングします
 
     指定された列の値が特定の値と一致する行だけを含む新しいコレクションを返します。
@@ -30,39 +33,23 @@ def filter_by_value(
         KeyError: 指定された列名が存在しない場合
         TypeError: 指定された列が Column オブジェクトでない場合
     """
-    if column_name not in collection.columns:
-        raise KeyError(f"列'{column_name}'が存在しません")
-
-    column = collection[column_name]
-    if not isinstance(column, Column):
-        raise TypeError(f"'{column_name}'はColumnオブジェクトではありません")
-
+    vals = np.array(vals) if isinstance(vals, list) else vals
+    
     # 値のフィルタリング
     if tolerance is not None:
-        mask = [
+        return [
             (val >= value - tolerance) and (val <= value + tolerance)
-            for val in column.values
+            for val in vals
         ]
     else:
-        mask = [val == value for val in column.values]
-
-    # 結果を格納するオブジェクトを準備
-    result = collection.clone()
-
-    # フィルタリングされたデータを格納
-    for name, col in result.columns.items():
-        col.values = [col.values[i] for i, m in enumerate(mask) if m]
-
-    # ステップ値も更新
-    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
-
-    return result
+        return [val == value for val in vals]
 
 
 @operation(domain="core")
+@filter_rows
 def filter_out_none(
     collection: ColumnCollection, columns: Optional[List[str]] = None, mode: str = "any"
-) -> ColumnCollection:
+) -> List[bool]:
     """None値およびNaN値を含む行をフィルタリングして除外します
 
     指定された列にNone値またはNaN値を含む行を除外した新しいコレクションを返します。
@@ -82,10 +69,8 @@ def filter_out_none(
         KeyError: 指定された列名が存在しない場合
     """
     import math
-
     try:
         import numpy as np
-
         HAS_NUMPY = True
     except ImportError:
         HAS_NUMPY = False
@@ -127,34 +112,23 @@ def filter_out_none(
     # NoneとNaN値をフィルタリングするマスクを作成
     if mode == "any":
         # いずれかの列が欠損値の行を除外
-        mask = [
+        return [
             all(is_valid_value(collection[col_name][i]) for col_name in target_columns)
             for i in range(len(collection.step))
         ]
     else:  # mode == "all"
         # すべての列が欠損値の行を除外
-        mask = [
+        return [
             any(is_valid_value(collection[col_name][i]) for col_name in target_columns)
             for i in range(len(collection.step))
         ]
 
-    # 結果を格納するオブジェクトを準備
-    result = collection.clone()
-
-    # フィルタリングされたデータを格納
-    for name, col in result.columns.items():
-        col.values = [col.values[i] for i, m in enumerate(mask) if m]
-
-    # ステップ値も更新
-    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
-
-    return result
-
 
 @operation(domain="core")
+@filter_rows
 def remove_consecutive_duplicates_across(
     collection: ColumnCollection, columns: List[str], dup_type: str = "all"
-) -> ColumnCollection:
+) -> List[int]:
     """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します
 
     すべての指定された列で、連続するデータポイントが同じ値を持つ場合にのみ、
@@ -194,7 +168,7 @@ def remove_consecutive_duplicates_across(
 
     # データの長さが0の場合は空のコレクションを返す
     if len(collection) == 0:
-        return collection.clone()
+        return []
 
     # 保持するインデックスを特定
     indices_to_keep = []
@@ -230,20 +204,11 @@ def remove_consecutive_duplicates_across(
             if should_keep:
                 indices_to_keep.append(i)
 
-    # 結果を格納するオブジェクトを準備
-    result = collection.clone()
-
-    # 選択したインデックスの値だけを残す
-    for name, column in result.columns.items():
-        column.values = [collection[name].values[i] for i in indices_to_keep]
-
-    # ステップ値も更新
-    result.step.values = [collection.step.values[i] for i in indices_to_keep]
-
-    return result
+    return indices_to_keep
 
 
 @operation(domain="core")
+@filter_rows
 def remove_outliers(
     collection: ColumnCollection,
     column: str,
@@ -252,7 +217,7 @@ def remove_outliers(
     edge_handling: str = "asymmetric",
     min_abs_value: float = 1e-10,
     scale_factor: float = 1.0,
-) -> ColumnCollection:
+) -> List[bool]:
     """異常値を検出して除去した新しいコレクションを返します
 
     移動平均との差分比率を用いた異常値検出を行い、異常値とみなされた行を除外します。
@@ -290,31 +255,16 @@ def remove_outliers(
     )
 
     # 異常値フラグが1（異常値）のデータポイントを除外するマスクを作成
-    mask = [flag == 0 for flag in result[outlier_column].values]
-
-    # 新しいコレクションを準備
-    filtered_result = result.clone()
-
-    # 一時的な異常値フラグ列を削除
-    if outlier_column in filtered_result.columns:
-        del filtered_result.columns[outlier_column]
-
-    # フィルタリング処理
-    for name, col in filtered_result.columns.items():
-        col.values = [result[name].values[i] for i, m in enumerate(mask) if m]
-
-    # ステップ値も更新
-    filtered_result.step.values = [
-        result.step.values[i] for i, m in enumerate(mask) if m
-    ]
-
-    return filtered_result
+    # flag == 0 -> 正常値 -> True (Keep)
+    return [flag == 0 for flag in result[outlier_column].values]
 
 
 @operation(domain="core")
+@filter_rows
+@inject_columns(num_inputs=1)
 def filter_by_condition(
-    collection: ColumnCollection, column_name: str, condition: callable
-) -> ColumnCollection:
+    vals: Any, condition: callable
+) -> List[bool]:
     """指定された列の値が条件を満たす行をフィルタリングします
 
     Args:
@@ -325,29 +275,15 @@ def filter_by_condition(
     Returns:
         ColumnCollection: 条件を満たす行のみを含む新しいコレクション
     """
-    if column_name not in collection.columns:
-        raise KeyError(f"列'{column_name}'が存在しません")
-
-    column = collection[column_name]
-    mask = [condition(val) for val in column.values]
-
-    # 結果を格納するオブジェクトを準備
-    result = collection.clone()
-
-    # フィルタリングされたデータを格納
-    for name, col in result.columns.items():
-        col.values = [col.values[i] for i, m in enumerate(mask) if m]
-
-    # ステップ値も更新
-    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
-
-    return result
+    vals = np.array(vals) if isinstance(vals, list) else vals
+    return [condition(val) for val in vals]
 
 
 @operation(domain="core")
+@filter_rows
 def remove_steps(
     collection: ColumnCollection, steps: List[Any], tolerance: Optional[float] = None
-) -> ColumnCollection:
+) -> List[bool]:
     """指定されたステップ値を持つ行を削除します
 
     Args:
@@ -374,17 +310,7 @@ def remove_steps(
             is_close = np.any(np.abs(steps_arr - s) <= tolerance)
             mask.append(not is_close)
 
-    # 結果を格納するオブジェクトを準備
-    result = collection.clone()
-
-    # フィルタリングされたデータを格納
-    for name, col in result.columns.items():
-        col.values = [col.values[i] for i, m in enumerate(mask) if m]
-
-    # ステップ値も更新
-    result.step.values = [result.step.values[i] for i, m in enumerate(mask) if m]
-
-    return result
+    return mask
 
 
 @operation(domain="core")

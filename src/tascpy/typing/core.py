@@ -33,10 +33,9 @@ class CoreCollectionOperations(CollectionOperationsBase[ColumnCollection]):
 
     def filter_by_value(
         self,
-        column_name: str,
         value: Any,
         tolerance: Optional[float] = None
-    ) -> "CoreCollectionOperations":
+    ) -> "CollectionListOperations[CoreCollectionOperations]":
         """指定された列の値が指定された値と等しい行をフィルタリングします
 
 指定された列の値が特定の値と一致する行だけを含む新しいコレクションを返します。
@@ -61,7 +60,7 @@ Raises:
         self,
         columns: Optional[list[str]] = None,
         mode: str = 'any'
-    ) -> "CoreCollectionOperations":
+    ) -> list[bool]:
         """None値およびNaN値を含む行をフィルタリングして除外します
 
 指定された列にNone値またはNaN値を含む行を除外した新しいコレクションを返します。
@@ -86,7 +85,7 @@ Raises:
         self,
         columns: list[str],
         dup_type: str = 'all'
-    ) -> "CoreCollectionOperations":
+    ) -> list[int]:
         """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します
 
 すべての指定された列で、連続するデータポイントが同じ値を持つ場合にのみ、
@@ -125,7 +124,7 @@ Examples:
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
-    ) -> "CoreCollectionOperations":
+    ) -> "CollectionListOperations[CoreCollectionOperations]":
         """異常値を検出して除去した新しいコレクションを返します
 
 移動平均との差分比率を用いた異常値検出を行い、異常値とみなされた行を除外します。
@@ -151,9 +150,8 @@ Raises:
 
     def filter_by_condition(
         self,
-        column_name: str,
         condition: <built-in function callable>
-    ) -> "CoreCollectionOperations":
+    ) -> "CollectionListOperations[CoreCollectionOperations]":
         """指定された列の値が条件を満たす行をフィルタリングします
 
 Args:
@@ -170,7 +168,7 @@ Returns:
         self,
         steps: list[Any],
         tolerance: Optional[float] = None
-    ) -> "CoreCollectionOperations":
+    ) -> list[bool]:
         """指定されたステップ値を持つ行を削除します
 
 Args:
@@ -541,14 +539,12 @@ Returns:
 
     def fetch_near_step(
         self,
-        column_name: str,
         value: float
     ) -> "CollectionListOperations[CoreCollectionOperations]":
         """指定された値に最も近い行を取得します
 
 Args:
-    collection: ColumnCollection オブジェクト
-    column_name: 値を検索する列名
+    vals: 検索対象の列の値（@inject_columnsにより注入）
     value: 検索する値
 
 Returns:
@@ -850,12 +846,9 @@ Raises:
 
     def moving_average(
         self,
-        column: str,
         window_size: int = 3,
-        result_column: Optional[str] = None,
-        edge_handling: str = 'asymmetric',
-        in_place: bool = False
-    ) -> "CoreCollectionOperations":
+        edge_handling: str = 'asymmetric'
+    ) -> Any:
         """指定した列に対して移動平均を計算します
 
 指定された列の各値に対して、周辺値を使用した平均値を算出します。
@@ -880,14 +873,12 @@ Raises:
 
     def detect_outliers(
         self,
-        column: str,
         window_size: int = 3,
         threshold: float = 0.5,
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0,
-        result_column: Optional[str] = None
-    ) -> "CoreCollectionOperations":
+        scale_factor: float = 1.0
+    ) -> list[int]:
         """移動平均との差分比率を用いた異常値検出を行います
 
 データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
@@ -914,12 +905,9 @@ Raises:
 
     def gaussian_filter(
         self,
-        column: str,
         sigma: float = 1.0,
-        window_size: Optional[int] = None,
-        result_column: Optional[str] = None,
-        in_place: bool = False
-    ) -> "CoreCollectionOperations":
+        window_size: Optional[int] = None
+    ) -> Any:
         """指定した列に対してガウシアンフィルタを適用します
 
 ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
@@ -997,14 +985,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """列の最大値を取得します
-
-Args:
-    collection: 対象のコレクション
-    column: 列名
-    
-Returns:
-    float: 最大値"""
+        """列の最大値を取得します"""
         ...
     
 
@@ -1012,14 +993,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """列の最小値を取得します
-
-Args:
-    collection: 対象のコレクション
-    column: 列名
-    
-Returns:
-    float: 最小値"""
+        """列の最小値を取得します"""
         ...
     
 
@@ -1027,14 +1001,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """列の平均値を取得します
-
-Args:
-    collection: 対象のコレクション
-    column: 列名
-    
-Returns:
-    float: 平均値"""
+        """列の平均値を取得します"""
         ...
     
 
@@ -1042,14 +1009,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """列の標準偏差を取得します
-
-Args:
-    collection: 対象のコレクション
-    column: 列名
-    
-Returns:
-    float: 標準偏差"""
+        """列の標準偏差を取得します"""
         ...
     
 
@@ -1057,14 +1017,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """列の合計値を取得します
-
-Args:
-    collection: 対象のコレクション
-    column: 列名
-    
-Returns:
-    float: 合計値"""
+        """列の合計値を取得します"""
         ...
     
 

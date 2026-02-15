@@ -8,19 +8,22 @@ import numpy as np
 from ...utils.data import moving_average as utils_moving_average
 from ...core.collection import ColumnCollection
 from ...core.column import Column, detect_column_type
-
 from ..registry import operation
+from ..abstraction import transform_column, aggregate_column
 
+# --- Transformation Operations ---
+
+def _ma_naming(func_name, col_name, **kwargs):
+    window_size = kwargs.get("window_size", 3)
+    return f"ma{window_size}({col_name})"
 
 @operation(domain="core")
+@transform_column(num_inputs=1, result_naming=_ma_naming)
 def moving_average(
-    collection: ColumnCollection,
-    column: str,
+    vals: Any,
     window_size: int = 3,
-    result_column: Optional[str] = None,
     edge_handling: str = "asymmetric",
-    in_place: bool = False,
-) -> ColumnCollection:
+) -> Any:
     """指定した列に対して移動平均を計算します
 
     指定された列の各値に対して、周辺値を使用した平均値を算出します。
@@ -41,62 +44,35 @@ def moving_average(
         KeyError: 指定された列が存在しない場合
         ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合
     """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
-
     if edge_handling not in ["symmetric", "asymmetric"]:
         raise ValueError(f"無効なエッジ処理方法です: {edge_handling}")
 
     if window_size < 1:
         raise ValueError("ウィンドウサイズは1以上である必要があります")
 
-    if window_size > len(collection):
-        raise ValueError("ウィンドウサイズがデータ長より大きくなっています")
+    # データ長チェックはutils_moving_average内でエラーになるか、配列長で確認
+    # valsはnumpy array (by transform_column)
+    if len(vals) < window_size:
+         raise ValueError("ウィンドウサイズがデータ長より大きくなっています")
 
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    data = collection[column].values
-
-    # 移動平均を計算
-    moving_avg = utils_moving_average(
-        data, window_size=window_size, edge_handling=edge_handling
+    return utils_moving_average(
+        vals, window_size=window_size, edge_handling=edge_handling
     )
 
-    # 結果列名が指定されていない場合は自動生成
-    if result_column is None:
-        result_column = f"ma{window_size}({column})"
 
-    # 結果を新しい列として追加（または既存の列を上書き）
-    if result_column in result.columns:
-        result.columns[result_column].values = moving_avg
-    else:
-        # 新しい列を追加
-        # 元の列から単位などの情報を継承
-        source_column = collection[column]
-        column_type = detect_column_type(
-            getattr(source_column, "ch", None),
-            result_column,
-            getattr(source_column, "unit", None),
-            moving_avg,
-        )
-        result.add_column(result_column, column_type)
-
-    return result
-
+def _outlier_naming(func_name, col_name, **kwargs):
+    return f"outlier({col_name})"
 
 @operation(domain="core")
+@transform_column(num_inputs=1, result_naming=_outlier_naming)
 def detect_outliers(
-    collection: ColumnCollection,
-    column: str,
+    vals: Any,
     window_size: int = 3,
     threshold: float = 0.5,
     edge_handling: str = "asymmetric",
     min_abs_value: float = 1e-10,
     scale_factor: float = 1.0,
-    result_column: Optional[str] = None,
-) -> ColumnCollection:
+) -> List[int]:
     """移動平均との差分比率を用いた異常値検出を行います
 
     データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
@@ -119,64 +95,47 @@ def detect_outliers(
         KeyError: 指定された列が存在しない場合
         ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合
     """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
-
     if edge_handling not in ["symmetric", "asymmetric"]:
         raise ValueError(f"無効なエッジ処理方法です: {edge_handling}")
 
     if window_size < 1:
         raise ValueError("ウィンドウサイズは1以上である必要があります")
 
-    if len(collection) < window_size:
+    if len(vals) < window_size:
         raise ValueError("データ長がウィンドウサイズより小さいです")
-
-    # 結果を格納するオブジェクトを準備
-    result = collection.clone()
-
-    # 列の値を取得
-    data = collection[column].values
 
     # None値を除去した有効なデータのみでデータ特性を把握
     # NumPyを使用して高速化
+    data = vals # transform_column ensures numpy array or list
     if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
         valid_arr = data[~np.isnan(data)]
     else:
-        valid_arr = np.array([x for x in data if x is not None], dtype=float)
+        # If object array or list, handle None/NaN manually if transform_column passed them
+        # transform_column with handle_none="nan" converts None to NaN in float array usually.
+        # But let's be safe.
+        valid_arr = np.array([x for x in data if x is not None and (not isinstance(x, float) or not np.isnan(x))], dtype=float)
 
     if len(valid_arr) == 0:
-        raise ValueError(f"列 '{column}' に有効なデータがありません")
+        raise ValueError(f"有効なデータがありません")
 
     # データの特性を把握
-    data_mean = np.mean(valid_arr)
     data_std = np.std(valid_arr)
-    reference_value = max(data_std * scale_factor, min_abs_value)
+    # built-in max is shadowed by module level max function
+    import builtins
+    reference_value = builtins.max(data_std * scale_factor, min_abs_value)
 
-    # 移動平均を計算
-    # 内部で移動平均を再計算せずに、既存の操作を使用
-    ma_col = f"_ma_temp_{column}"
-    result = moving_average(
-        result,
-        column=column,
-        window_size=window_size,
-        edge_handling=edge_handling,
-        result_column=ma_col,
+    # 移動平均を計算 (utilsを使用)
+    ma_values = utils_moving_average(
+        data, window_size=window_size, edge_handling=edge_handling
     )
-
-    moving_avg = result[ma_col].values
-
-    # NumPy配列に変換 (None対応)
+    
+    # 統一的にNaNを含むfloat配列として扱う
     if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
         data_arr = data.astype(float)
     else:
-        # data contains None, ensure correct float conversion
+        # Convert list/obj array to float array with NaN
         data_arr = np.array([x if x is not None else np.nan for x in data], dtype=float)
-    
-    # reference_valueは既に計算済み (lines 165-168)
-    # data_mean, data_std are calculated from valid_data
-
-    # 移動平均列を取得 (Noneが含まれる可能性がある)
-    ma_values = result[ma_col].values
+        
     if isinstance(ma_values, np.ndarray) and np.issubdtype(ma_values.dtype, np.number):
         ma_arr = ma_values.astype(float)
     else:
@@ -192,39 +151,25 @@ def detect_outliers(
         
     # 条件判定
     # ratio > threshold AND diff > min_abs_value
-    # NaNはFalse扱い
     is_outlier = (ratio > threshold) & (diff > min_abs_value)
     
     # int型のフラグ配列 (0 or 1)
-    # np.whereでNaNはFalseになるので0になる
     outlier_flags = np.where(is_outlier, 1, 0).tolist()
 
-    # 結果列名が指定されていない場合は自動生成
-    if result_column is None:
-        result_column = f"outlier({column})"
+    return outlier_flags
 
-    # 結果を新しい列として追加
-    if result_column in result.columns:
-        result.columns[result_column].values = outlier_flags
-    else:
-        column_type = detect_column_type(None, result_column, "", outlier_flags)
-        result.add_column(result_column, column_type)
 
-    # 一時的に作成した移動平均列を削除
-    result.remove_column(ma_col)
-
-    return result
-
+def _gaussian_naming(func_name, col_name, **kwargs):
+    sigma = kwargs.get("sigma", 1.0)
+    return f"gaussian(col={col_name},sigma={sigma})"
 
 @operation(domain="core")
+@transform_column(num_inputs=1, result_naming=_gaussian_naming)
 def gaussian_filter(
-    collection: ColumnCollection,
-    column: str,
+    vals: Any,
     sigma: float = 1.0,
     window_size: Optional[int] = None,
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-) -> ColumnCollection:
+) -> Any:
     """指定した列に対してガウシアンフィルタを適用します
 
     ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
@@ -241,9 +186,6 @@ def gaussian_filter(
     Returns:
         ColumnCollection: 平滑化された列を含むコレクション
     """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
-
     # ウィンドウサイズの自動設定 (scipy.ndimage.gaussian_filter1d の truncate=4.0 相当を考慮)
     if window_size is None:
         # 4*sigma 程度をカバーするサイズ
@@ -253,12 +195,7 @@ def gaussian_filter(
     if window_size < 1:
         raise ValueError("ウィンドウサイズは1以上である必要があります")
 
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    data = collection[column].values
-    
+    data = vals
     # NumPy配列に変換 (None対応)
     if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
         data_arr = data.astype(float)
@@ -290,27 +227,7 @@ def gaussian_filter(
     # 完全にデータがない場所はNaN
     smoothed[denominator == 0] = np.nan
     
-    # 結果リストへの変換 (NaN -> None)
-    result_values = [None if np.isnan(v) else v for v in smoothed]
-
-    # 結果列名が指定されていない場合は自動生成
-    if result_column is None:
-        result_column = f"gaussian(col={column},sigma={sigma})"
-
-    # 結果を格納
-    if result_column in result.columns:
-        result.columns[result_column].values = result_values
-    else:
-        source_column = collection[column]
-        column_type = detect_column_type(
-            getattr(source_column, "ch", None),
-            result_column,
-            getattr(source_column, "unit", None),
-            result_values,
-        )
-        result.add_column(result_column, column_type)
-
-    return result
+    return smoothed
 
 
 @operation(domain="core")
@@ -408,19 +325,12 @@ def outliers(
 
 
 
+# --- Aggregation Operations ---
+
 @operation(domain="core")
+@aggregate_column(column_arg_index=0)
 def max(collection: ColumnCollection, column: str) -> float:
-    """列の最大値を取得します
-    
-    Args:
-        collection: 対象のコレクション
-        column: 列名
-        
-    Returns:
-        float: 最大値
-    """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
+    """列の最大値を取得します"""
     values = collection[column].values
     
     # None/NaN処理
@@ -434,18 +344,9 @@ def max(collection: ColumnCollection, column: str) -> float:
     return float(np.max(valid_values))
 
 @operation(domain="core")
+@aggregate_column(column_arg_index=0)
 def min(collection: ColumnCollection, column: str) -> float:
-    """列の最小値を取得します
-    
-    Args:
-        collection: 対象のコレクション
-        column: 列名
-        
-    Returns:
-        float: 最小値
-    """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
+    """列の最小値を取得します"""
     values = collection[column].values
     
     if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
@@ -458,18 +359,9 @@ def min(collection: ColumnCollection, column: str) -> float:
     return float(np.min(valid_values))
 
 @operation(domain="core")
+@aggregate_column(column_arg_index=0)
 def mean(collection: ColumnCollection, column: str) -> float:
-    """列の平均値を取得します
-    
-    Args:
-        collection: 対象のコレクション
-        column: 列名
-        
-    Returns:
-        float: 平均値
-    """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
+    """列の平均値を取得します"""
     values = collection[column].values
     
     if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
@@ -482,18 +374,9 @@ def mean(collection: ColumnCollection, column: str) -> float:
     return float(np.mean(valid_values))
 
 @operation(domain="core")
+@aggregate_column(column_arg_index=0)
 def std(collection: ColumnCollection, column: str) -> float:
-    """列の標準偏差を取得します
-    
-    Args:
-        collection: 対象のコレクション
-        column: 列名
-        
-    Returns:
-        float: 標準偏差
-    """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
+    """列の標準偏差を取得します"""
     values = collection[column].values
     
     if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
@@ -506,18 +389,9 @@ def std(collection: ColumnCollection, column: str) -> float:
     return float(np.std(valid_values))
 
 @operation(domain="core")
+@aggregate_column(column_arg_index=0)
 def sum(collection: ColumnCollection, column: str) -> float:
-    """列の合計値を取得します
-    
-    Args:
-        collection: 対象のコレクション
-        column: 列名
-        
-    Returns:
-        float: 合計値
-    """
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' が存在しません")
+    """列の合計値を取得します"""
     values = collection[column].values
     
     if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
