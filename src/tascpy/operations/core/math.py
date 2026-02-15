@@ -2,449 +2,76 @@ from typing import Union, Optional, List, Dict, Any, Set
 from ...core.collection import ColumnCollection
 from ...core.column import Column, NumberColumn, detect_column_type
 from ..registry import operation
+from ..abstraction import transform_column, handle_zero_division
 import re
 import ast
 import math
 import numpy as np
 
 
+def _safe_add_naming(func_name, col1, col2, **kwargs):
+    return f"{col1}+{col2}"
+
+def _safe_sub_naming(func_name, col1, col2, **kwargs):
+    return f"{col1}-{col2}"
+
+def _safe_mul_naming(func_name, col1, col2, **kwargs):
+    # Add parentheses if needed for precedence
+    c1_str = str(col1)
+    if any(op in c1_str for op in ["+", "-"]):
+        c1_str = f"({c1_str})"
+    return f"{c1_str}*{col2}"
+
+def _safe_div_naming(func_name, col1, col2, **kwargs):
+    c1_str = str(col1)
+    if any(op in c1_str for op in ["+", "-"]):
+        c1_str = f"({c1_str})"
+    return f"{c1_str}/{col2}"
+
+
 @operation(domain="core")
+@transform_column(num_inputs=2, result_naming=_safe_add_naming)
 def add(
-    collection: ColumnCollection,
-    column1: str,
-    column2_or_value: Union[str, int, float],
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-    unit: Optional[str] = None,
-    ch: Optional[str] = None,
-) -> ColumnCollection:
-    """列または定数を加算します
-
-    指定された列に対して、別の列または定数値を加算し、結果を新しい列として格納します。
-
-    Args:
-        collection: ColumnCollection オブジェクト
-        column1: 加算元の列名
-        column2_or_value: 加算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトは None、自動生成）
-        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-        unit: 新しい列の単位（指定しない場合は元の列から継承）
-        ch: 新しい列のチャンネル（指定しない場合はNone）
-
-    Returns:
-        ColumnCollection: 演算結果の列を含む ColumnCollection
-
-    Raises:
-        KeyError: 指定された列名が存在しない場合
-        ValueError: 列の長さが一致しない場合、または無効な値が指定された場合
-    """
-    # 列の存在チェック
-    if column1 not in collection.columns:
-        raise KeyError(f"列 '{column1}' が存在しません")
-
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    values1 = collection[column1].values
-
-    # 結果の列名を決定
-    if result_column is None:
-        if isinstance(column2_or_value, str):
-            result_column = f"{column1}+{column2_or_value}"
-        else:
-            result_column = f"{column1}+{column2_or_value}"
-
-    # NumPyを使用して高速化
-    # Noneはnp.nanとして扱う
-    
-    # データをNumPy配列に変換
-    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
-        v1_arr = values1.astype(float)
-    else:
-        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
-
-    if isinstance(column2_or_value, str):
-        # 列同士の演算
-        if column2_or_value not in collection.columns:
-            raise KeyError(f"列 '{column2_or_value}' が存在しません")
-
-        values2 = collection[column2_or_value].values
-        
-        # サイズチェック
-        if len(values1) != len(values2):
-            raise ValueError(
-                f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
-            )
-
-        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
-            v2_arr = values2.astype(float)
-        else:
-            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
-        
-        # ベクトル加算 (NaNを含む演算はNaNになる)
-        res_arr = v1_arr + v2_arr
-        
-    else:
-        # 定数との演算
-        try:
-            value = float(column2_or_value)
-            res_arr = v1_arr + value
-        except (ValueError, TypeError):
-            raise ValueError(f"無効な値が指定されました: {column2_or_value}")
-
-    # 結果をリストに戻す (NaN -> None)
-    result_values = [None if np.isnan(v) else v for v in res_arr]
-
-    # 結果を新しい列として追加（既存の列名の場合は上書き）
-    if result_column in result.columns:
-        result.columns[result_column].values = result_values
-        if unit is not None:
-             result.columns[result_column].unit = unit
-        if ch is not None:
-             result.columns[result_column].ch = ch
-    else:
-        # 新しい列を追加
-        from ...core.column import Column
-
-        # 元の列の単位を継承（指定がない場合）
-        if unit is None:
-            original_column = collection[column1]
-            unit = original_column.unit if hasattr(original_column, "unit") else None
-            
-        # detect_column_typeを正しく呼び出す
-        column = detect_column_type(ch, result_column, unit, result_values)
-        result.add_column(result_column, column)
-
-    return result
+    v1: Union[np.ndarray, float], 
+    v2: Union[np.ndarray, float], 
+    **kwargs
+) -> np.ndarray:
+    """列または定数を加算します"""
+    return v1 + v2
 
 
 @operation(domain="core")
+@transform_column(num_inputs=2, result_naming=_safe_sub_naming)
 def subtract(
-    collection: ColumnCollection,
-    column1: str,
-    column2_or_value: Union[str, int, float],
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-) -> ColumnCollection:
-    """列または定数を減算します
-
-    指定された列から別の列または定数値を減算し、結果を新しい列として格納します。
-
-    Args:
-        collection: ColumnCollection オブジェクト
-        column1: 減算元の列名
-        column2_or_value: 減算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトは None、自動生成）
-        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-        unit: 新しい列の単位（指定しない場合は元の列から継承）
-        ch: 新しい列のチャンネル（指定しない場合はNone）
-
-    Returns:
-        ColumnCollection: 演算結果の列を含む ColumnCollection
-
-    Raises:
-        KeyError: 指定された列名が存在しない場合
-        ValueError: 列の長さが一致しない場合、または無効な値が指定された場合
-    """
-    # 列の存在チェック
-    if column1 not in collection.columns:
-        raise KeyError(f"列 '{column1}' が存在しません")
-
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    values1 = collection[column1].values
-
-    # 結果の列名を決定
-    if result_column is None:
-        if isinstance(column2_or_value, str):
-            result_column = f"{column1}-{column2_or_value}"
-        else:
-            result_column = f"{column1}-{column2_or_value}"
-
-    # NumPyを使用して高速化
-    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
-        v1_arr = values1.astype(float)
-    else:
-        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
-
-    if isinstance(column2_or_value, str):
-        # 列同士の演算
-        if column2_or_value not in collection.columns:
-            raise KeyError(f"列 '{column2_or_value}' が存在しません")
-
-        values2 = collection[column2_or_value].values
-        
-        if len(values1) != len(values2):
-            raise ValueError(
-                f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
-            )
-
-        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
-            v2_arr = values2.astype(float)
-        else:
-            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
-        res_arr = v1_arr - v2_arr
-        
-    else:
-        # 定数との演算
-        try:
-            value = float(column2_or_value)
-            res_arr = v1_arr - value
-        except (ValueError, TypeError):
-            raise ValueError(f"無効な値が指定されました: {column2_or_value}")
-
-    result_values = [None if np.isnan(v) else v for v in res_arr]
-
-    # 結果を新しい列として追加（既存の列名の場合は上書き）
-    if result_column in result.columns:
-        result.columns[result_column].values = result_values
-    else:
-        # 新しい列を追加
-        # 元の列の単位を継承
-        original_column = collection[column1]
-        unit = original_column.unit if hasattr(original_column, "unit") else None
-        # detect_column_typeを正しく呼び出す
-        column = detect_column_type(None, result_column, unit, result_values)
-        result.add_column(result_column, column)
-
-    return result
+    v1: Union[np.ndarray, float], 
+    v2: Union[np.ndarray, float], 
+    **kwargs
+) -> np.ndarray:
+    """列または定数を減算します"""
+    return v1 - v2
 
 
 @operation(domain="core")
+@transform_column(num_inputs=2, result_naming=_safe_mul_naming)
 def multiply(
-    collection: ColumnCollection,
-    column1: str,
-    column2_or_value: Union[str, int, float],
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-    unit: Optional[str] = None,
-    ch: Optional[str] = None,
-) -> ColumnCollection:
-    """列または定数を乗算します
-
-    指定された列に対して、別の列または定数値を乗算し、結果を新しい列として格納します。
-
-    Args:
-        collection: ColumnCollection オブジェクト
-        column1: 乗算元の列名
-        column2_or_value: 乗算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトは None、自動生成）
-        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-        unit: 新しい列の単位（指定しない場合は元の列から継承）
-        ch: 新しい列のチャンネル（指定しない場合はNone）
-
-    Returns:
-        ColumnCollection: 演算結果の列を含む ColumnCollection
-
-    Raises:
-        KeyError: 指定された列名が存在しない場合
-        ValueError: 列の長さが一致しない場合、または無効な値が指定された場合
-    """
-    # 列の存在チェック
-    if column1 not in collection.columns:
-        raise KeyError(f"列 '{column1}' が存在しません")
-
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    values1 = collection[column1].values
-
-    # 結果の列名を決定
-    if result_column is None:
-        if isinstance(column2_or_value, str):
-            result_column = f"{column1}*{column2_or_value}"
-        else:
-            # カラム名に+や-などが含まれている場合は括弧で囲む
-            if any(op in column1 for op in ["+", "-", "*", "/"]):
-                result_column = f"({column1})*{column2_or_value}"
-            else:
-                result_column = f"{column1}*{column2_or_value}"
-
-    # NumPyを使用して高速化
-    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
-        v1_arr = values1.astype(float)
-    else:
-        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
-
-    if isinstance(column2_or_value, str):
-        # 列同士の演算
-        if column2_or_value not in collection.columns:
-            raise KeyError(f"列 '{column2_or_value}' が存在しません")
-
-        values2 = collection[column2_or_value].values
-        
-        if len(values1) != len(values2):
-            raise ValueError(
-                f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
-            )
-
-        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
-            v2_arr = values2.astype(float)
-        else:
-            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
-        res_arr = v1_arr * v2_arr
-        
-    else:
-        # 定数との演算
-        try:
-            value = float(column2_or_value)
-            res_arr = v1_arr * value
-        except (ValueError, TypeError):
-            raise ValueError(f"無効な値が指定されました: {column2_or_value}")
-
-    result_values = [None if np.isnan(v) else v for v in res_arr]
-
-    # 結果を新しい列として追加（既存の列名の場合は上書き）
-    if result_column in result.columns:
-        result.columns[result_column].values = result_values
-        if unit is not None:
-             result.columns[result_column].unit = unit
-        if ch is not None:
-             result.columns[result_column].ch = ch
-    else:
-        # 新しい列を追加
-        # 元の列の単位を継承（指定がない場合）
-        if unit is None:
-            original_column = collection[column1]
-            unit = original_column.unit if hasattr(original_column, "unit") else None
-            
-        # detect_column_typeを正しく呼び出す
-        column = detect_column_type(ch, result_column, unit, result_values)
-        result.add_column(result_column, column)
-
-    return result
+    v1: Union[np.ndarray, float], 
+    v2: Union[np.ndarray, float], 
+    **kwargs
+) -> np.ndarray:
+    """列または定数を乗算します"""
+    return v1 * v2
 
 
 @operation(domain="core")
+@transform_column(num_inputs=2, result_naming=_safe_div_naming)
+@handle_zero_division(numerator_idx=0, denominator_idx=1)
 def divide(
-    collection: ColumnCollection,
-    column1: str,
-    column2_or_value: Union[str, int, float],
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-    handle_zero_division: str = "error",
-    unit: Optional[str] = None,
-    ch: Optional[str] = None,
-) -> ColumnCollection:
-    """列または定数で除算します
-
-    指定された列を別の列または定数値で除算し、結果を新しい列として格納します。
-    ゼロ除算の処理方法を指定することもできます。
-
-    Args:
-        collection: ColumnCollection オブジェクト
-        column1: 除算元の列名
-        column2_or_value: 除算する列名または定数値
-        result_column: 結果を格納する列名（デフォルトは None、自動生成）
-        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-        handle_zero_division: ゼロ除算の処理方法
-            "error": ゼロ除算エラーを発生させる
-            "none": 結果を None として扱う
-            "inf": 結果を無限大（float('inf')）として扱う
-        unit: 新しい列の単位（指定しない場合は元の列から継承）
-        ch: 新しい列のチャンネル（指定しない場合はNone）
-
-    Returns:
-        ColumnCollection: 演算結果の列を含む ColumnCollection
-
-    Raises:
-        KeyError: 指定された列名が存在しない場合
-        ValueError: 列の長さが一致しない場合、無効な値が指定された場合、またはゼロ除算が発生した場合
-    """
-    # ゼロ除算処理方法のバリデーション
-    valid_zero_division_handlers = ["error", "none", "inf"]
-    if handle_zero_division not in valid_zero_division_handlers:
-        raise ValueError(
-            f"handle_zero_divisionは{valid_zero_division_handlers}のいずれかを指定してください"
-        )
-
-    # 列の存在チェック
-    if column1 not in collection.columns:
-        raise KeyError(f"列 '{column1}' が存在しません")
-
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    values1 = collection[column1].values
-
-    # 結果の列名を決定
-    if result_column is None:
-        if isinstance(column2_or_value, str):
-            result_column = f"{column1}/{column2_or_value}"
-        else:
-            result_column = f"{column1}/{column2_or_value}"
-
-    # NumPyを使用して高速化
-    if isinstance(values1, np.ndarray) and np.issubdtype(values1.dtype, np.number):
-        v1_arr = values1.astype(float)
-    else:
-        v1_arr = np.array([v if v is not None else np.nan for v in values1], dtype=float)
-    
-    # 分母を用意
-    if isinstance(column2_or_value, str):
-        if column2_or_value not in collection.columns:
-            raise KeyError(f"列 '{column2_or_value}' が存在しません")
-        values2 = collection[column2_or_value].values
-        if len(values1) != len(values2):
-             raise ValueError(
-                f"列のサイズが一致しません: {column1}({len(values1)}) != {column2_or_value}({len(values2)})"
-            )
-        if isinstance(values2, np.ndarray) and np.issubdtype(values2.dtype, np.number):
-            v2_arr = values2.astype(float)
-        else:
-            v2_arr = np.array([v if v is not None else np.nan for v in values2], dtype=float)
-    else:
-        try:
-             value = float(column2_or_value)
-             v2_arr = np.full(len(values1), value, dtype=float)
-        except (ValueError, TypeError):
-             raise ValueError(f"無効な値が指定されました: {column2_or_value}")
-
-    # ゼロ除算のチェック
-    # handle_zero_division = "error" の場合、事前にチェック
-    if handle_zero_division == "error":
-        # 分母が0 かつ 分子が有効(NaNでない) な場所を探す
-        # v2 is 0 AND v1 is not NaN
-        zero_div_indices = (v2_arr == 0) & (~np.isnan(v1_arr))
-        if np.any(zero_div_indices):
-            raise ValueError("ゼロによる除算が発生しました")
-
-    # 除算実行
-    with np.errstate(divide='ignore', invalid='ignore'):
-        res_arr = v1_arr / v2_arr
-
-    # ゼロ除算処理
-    # inf / -inf / nan が結果に含まれる可能性がある
-    # "error"の場合は既にチェック済みなので、残りは "none" と "inf"
-    
-    if handle_zero_division == "none":
-        # inf, -inf を nan に変換 (nanは後でNoneになる)
-        is_inf = np.isinf(res_arr)
-        res_arr[is_inf] = np.nan
-        
-    # "inf" の場合はそのままでOK (np.inf, -np.inf, np.nan)
-    # ただし、0/0 は nan になる。元の実装では nan 扱い (float("nan")) なのでOK。
-
-    result_values = [None if np.isnan(v) else v for v in res_arr]
-
-    # 結果を新しい列として追加（既存の列名の場合は上書き）
-    if result_column in result.columns:
-        result.columns[result_column].values = result_values
-    else:
-        # 新しい列を追加
-        # 元の列の単位を継承
-        original_column = collection[column1]
-        unit = original_column.unit if hasattr(original_column, "unit") else None
-        # detect_column_typeを正しく呼び出す
-        column = detect_column_type(None, result_column, unit, result_values)
-        result.add_column(result_column, column)
-
-    return result
+    v1: Union[np.ndarray, float], 
+    v2: Union[np.ndarray, float], 
+    **kwargs
+) -> np.ndarray:
+    """列または定数で除算します"""
+    return v1 / v2
 
 
 @operation(domain="core")
@@ -717,225 +344,131 @@ def evaluate(
 
 
 # 微分と積分の関数を定義
+
+def _diff_naming(func_name, y_col, x_col, **kwargs):
+    return f"d({y_col})/d({x_col})"
+
+def _diff_unit_inference(collection, y_col, x_col, **kwargs):
+    y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
+    x_obj = collection[x_col] if isinstance(x_col, str) and x_col in collection.columns else None
+    
+    y_unit = getattr(y_obj, "unit", "") or ""
+    x_unit = getattr(x_obj, "unit", "") or ""
+    return f"{y_unit}/{x_unit}" if y_unit or x_unit else None
+
+def _integrate_naming(func_name, y_col, x_col, **kwargs):
+    return f"∫{y_col}·d{x_col}"
+
+def _integrate_unit_inference(collection, y_col, x_col, **kwargs):
+    y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
+    x_obj = collection[x_col] if isinstance(x_col, str) and x_col in collection.columns else None
+    
+    y_unit = getattr(y_obj, "unit", "") or ""
+    x_unit = getattr(x_obj, "unit", "") or ""
+    return f"{y_unit}·{x_unit}" if y_unit or x_unit else None
+
+
 @operation(domain="core")
+@transform_column(
+    num_inputs=2, 
+    result_naming=_diff_naming, 
+    unit_inference=_diff_unit_inference
+)
 def diff(
-    collection: ColumnCollection,
-    y_column: str,
-    x_column: str,
-    result_column: Optional[str] = None,
+    y_values: np.ndarray,
+    x_values: np.ndarray,
     method: str = "central",
-    in_place: bool = False,
-    unit: Optional[str] = None,
-    ch: Optional[str] = None,
-) -> ColumnCollection:
-    """指定された 2 つの列間の微分を計算します（dy/dx）
+    **kwargs
+) -> np.ndarray:
+    """指定された 2 つの列間の微分を計算します（dy/dx）"""
+    
+    # Check for NaNs/None in inputs
+    # transform_column converts None to NaN.
+    # Logic: if ANY input has NaN, return ALL NaNs (based on original strict logic)
+    # Original logic: `if None in y_values or None in x_values: return all None`
+    # Here, inputs are float arrays with NaNs.
+    
+    if np.isnan(y_values).any() or np.isnan(x_values).any():
+        return np.full_like(y_values, np.nan)
+        
+    # Check data points
+    if len(x_values) < 2:
+        raise ValueError(
+            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
+        )
 
-    指定された独立変数 x と従属変数 y に対して微分係数を計算します。
-    数値微分には中心差分、前方差分、後方差分の 3 つの方法が利用できます。
-
-    Args:
-        collection: 操作対象の ColumnCollection
-        y_column: 微分の分子となる列（従属変数）
-        x_column: 微分の分母となる列（独立変数）
-        result_column: 結果を格納する列名（None の場合は自動生成）
-        method: 微分方法（"central", "forward", "backward"）
-        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-        unit: 新しい列の単位（指定しない場合は自動生成）
-        ch: 新しい列のチャンネル（指定しない場合はNone）
-
-    Returns:
-        ColumnCollection: 微分結果を含む ColumnCollection
-
-    Raises:
-        KeyError: 列が存在しない場合
-        ValueError: 有効なデータが不足している場合
-    """
-    # 列の存在チェック
-    if y_column not in collection.columns:
-        raise KeyError(f"列 '{y_column}' が存在しません")
-    if x_column not in collection.columns:
-        raise KeyError(f"列 '{x_column}' が存在しません")
-
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    y_values = collection[y_column].values
-    x_values = collection[x_column].values
-
-    # None値をフィルタリング
-    valid_indices = [
-        i
-        for i, (x, y) in enumerate(zip(x_values, y_values))
-        if x is not None and y is not None
-    ]
-
-    # 連続するNone値でない値が必要な計算のため、None値がある場合は全体をNoneとする
-    if None in y_values or None in x_values:
-        # None値を含む場合、結果はすべてNone (np.nanとして扱う)
-        full_diff_values = [np.nan] * len(x_values)
-    else:
-        # None値が無い場合のみ計算を実行
-        valid_x = [x_values[i] for i in valid_indices]
-        valid_y = [y_values[i] for i in valid_indices]
-
-        if len(valid_x) < 2:
-            raise ValueError(
-                f"有効なデータポイントが不足しています: {len(valid_x)} (最低2点必要)"
-            )
-
-        # 微分を計算
-        from ...utils.data import diff_xy
-
-        diff_values = diff_xy(valid_x, valid_y, method=method)
-
-        # 元のデータ長に合わせて結果を再構築
-        full_diff_values = [np.nan] * len(x_values)
-        for idx, val in zip(valid_indices, diff_values):
-            full_diff_values[idx] = val
-
-    # 結果の列名を決定
-    if result_column is None:
-        result_column = f"d({y_column})/d({x_column})"
-
-    # 結果を新しい列として追加
-    if result_column in result.columns:
-        result.columns[result_column].values = full_diff_values
-        if unit is not None:
-             result.columns[result_column].unit = unit
-        if ch is not None:
-             result.columns[result_column].ch = ch
-    else:
-        if unit is None:
-             # 元の列の単位情報を取得
-             y_unit = collection[y_column].unit if hasattr(collection[y_column], "unit") else ""
-             x_unit = collection[x_column].unit if hasattr(collection[x_column], "unit") else ""
-             unit = f"{y_unit}/{x_unit}" if y_unit or x_unit else ""
-
-        column = detect_column_type(ch, result_column, unit, full_diff_values)
-        result.add_column(result_column, column)
-
-    return result
+    from ...utils.data import diff_xy
+    # diff_xy returns list, we convert to array
+    # diff_xy expects x, y as lists or arrays.
+    res_list = diff_xy(x_values, y_values, method=method)
+    return np.array(res_list)
 
 
 @operation(domain="core")
+@transform_column(
+    num_inputs=2, 
+    result_naming=_integrate_naming, 
+    unit_inference=_integrate_unit_inference
+)
 def integrate(
-    collection: ColumnCollection,
-    y_column: str,
-    x_column: str,
-    result_column: Optional[str] = None,
+    y_values: np.ndarray,
+    x_values: np.ndarray,
     method: str = "trapezoid",
     initial_value: float = 0.0,
-    in_place: bool = False,
-    unit: Optional[str] = None,
-    ch: Optional[str] = None,
-) -> ColumnCollection:
-    """指定された 2 つの列間の積分を計算します（∫y dx）
-
-    指定された独立変数 x と従属変数 y に対して定積分を計算します。
-    現在は台形法による積分のみをサポートしています。
-
-    Args:
-        collection: 操作対象の ColumnCollection
-        y_column: 積分対象の列（被積分関数）
-        x_column: 積分の基準となる列（積分変数）
-        result_column: 結果を格納する列名（None の場合は自動生成）
-        method: 積分方法（現在は "trapezoid" のみサポート）
-        initial_value: 積分の初期値
-        in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-        unit: 新しい列の単位（指定しない場合は自動生成）
-        ch: 新しい列のチャンネル（指定しない場合はNone）
-
-    Returns:
-        ColumnCollection: 積分結果を含む ColumnCollection
-
-    Raises:
-        KeyError: 列が存在しない場合
-        ValueError: 有効なデータが不足している場合、または非サポートの積分方法が指定された場合
-    """
+    **kwargs
+) -> np.ndarray:
+    """指定された 2 つの列間の積分を計算します（∫y dx）"""
+    
     # メソッドの検証
     if method != "trapezoid":
         raise ValueError("現在は trapezoid 積分のみサポートしています")
 
-    # 列の存在チェック
-    if y_column not in collection.columns:
-        raise KeyError(f"列 '{y_column}' が存在しません")
-    if x_column not in collection.columns:
-        raise KeyError(f"列 '{x_column}' が存在しません")
+    # None logic from original:
+    # "None値を含む場合、最初の値だけ計算し、残りはNoneとする仕様を再現"
+    has_nan = np.isnan(y_values).any() or np.isnan(x_values).any()
+    
+    if has_nan:
+        # Check first point validity
+        result = np.full_like(x_values, np.nan)
+        if not np.isnan(y_values[0]) and not np.isnan(x_values[0]):
+             # Original logic: result[0] = initial_value + x[0]*y[0]
+             # Note: integrate_xy original implementation logic check
+             # lines 333-336 in data.py
+             dx = x_values[0]
+             first_step = dx * y_values[0]
+             result[0] = initial_value + first_step
+        return result
 
-    # 結果を格納するオブジェクトを準備
-    result = collection if in_place else collection.clone()
-
-    # 列の値を取得
-    y_values = collection[y_column].values
-    x_values = collection[x_column].values
-
-    # None値をチェック - この値がIntegrateOperationのテストケースで使われる
-    has_none = any(val is None for val in y_values)
-
-    # None値をフィルタリング
-    valid_indices = [
-        i
-        for i, (x, y) in enumerate(zip(x_values, y_values))
-        if x is not None and y is not None
-    ]
-    valid_x = [x_values[i] for i in valid_indices]
-    valid_y = [y_values[i] for i in valid_indices]
-
-    if len(valid_x) < 2:
-        raise ValueError(
-            f"有効なデータポイントが不足しています: {len(valid_x)} (最低2点必要)"
+    if len(x_values) < 2:
+         raise ValueError(
+            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
         )
 
-    # xでソート（積分は順序に依存するため）
-    sorted_pairs = sorted(zip(valid_x, valid_y))
-    sorted_x, sorted_y = zip(*sorted_pairs)
-
-    # 積分を計算
+    # Sort logic (Integrate depends on order)
+    # integrate_xy inside utils/data.py DOES SORTING internally?
+    # No, integrate_xy in data.py DOES NOT sort. 
+    # Wait, checking data.py viewed earlier.
+    # data.py:310 integration_xy
+    # It does NOT sort.
+    # math.py:518 sorted_pairs = sorted(zip(valid_x, valid_y))
+    # So math.py was doing the sorting.
+    
+    # We must sort here.
+    sorted_indices = np.argsort(x_values)
+    sorted_x = x_values[sorted_indices]
+    sorted_y = y_values[sorted_indices]
+    
     from ...utils.data import integrate_xy
-
     integral_values = integrate_xy(sorted_x, sorted_y, initial_value=initial_value)
-
-    # 結果の列名を決定
-    if result_column is None:
-        result_column = f"∫{y_column}·d{x_column}"
-
-    # 元のデータ順序を保持しながら結果を再構築
-    index_map = {x: i for i, x in enumerate(sorted_x)}
-    full_integral_values = [None] * len(x_values)
-
-    # None値を含む場合の特別処理
-    if has_none:
-        # インデックス0がvalid_indicesに含まれている場合のみ、インデックス0に値を設定
-        if 0 in valid_indices:
-            # 最初の点の値を計算（積分の初期値 + 最初のステップでの積分）
-            x0 = x_values[0]
-            y0 = y_values[0]
-            full_integral_values[0] = initial_value + (x0 * y0)
-        # 残りはNoneのまま
-    else:
-        # 通常の積分値を設定（None値がない場合）
-        for idx in valid_indices:
-            x = x_values[idx]
-            sort_idx = index_map.get(x)
-            if sort_idx is not None:
-                full_integral_values[idx] = integral_values[sort_idx]
-
-    # 結果を新しい列として追加
-    if result_column in result.columns:
-        result.columns[result_column].values = full_integral_values
-        if unit is not None:
-             result.columns[result_column].unit = unit
-        if ch is not None:
-             result.columns[result_column].ch = ch
-    else:
-        if unit is None:
-             # 元の列の単位情報を取得
-             y_unit = collection[y_column].unit if hasattr(collection[y_column], "unit") else ""
-             x_unit = collection[x_column].unit if hasattr(collection[x_column], "unit") else ""
-             unit = f"{y_unit}·{x_unit}" if y_unit or x_unit else ""
-             
-        column = detect_column_type(ch, result_column, unit, full_integral_values)
-        result.add_column(result_column, column)
-
+    integral_arr = np.array(integral_values)
+    
+    # Map back to original order
+    # We need to unsort.
+    # The result `integral_arr` corresponds to `sorted_x`.
+    # We want result corresponding to `x_values`.
+    # result[sorted_indices] = integral_arr
+    
+    result = np.empty_like(integral_arr)
+    result[sorted_indices] = integral_arr
+    
     return result

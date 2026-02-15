@@ -23,12 +23,13 @@ from ...operations.registry import operation
 from ...operations.core.plot import plot as core_plot
 from .utils import get_load_column, get_displacement_column, get_valid_data
 from .curves import get_curve_data, list_available_curves
+from ...visualization import backend_mpl as mpl_backend
 
 
 @operation(domain="load_displacement")
 def plot_load_displacement(
     collection: LoadDisplacementCollection, ax: Optional[Axes] = None, **kwargs
-) -> LoadDisplacementCollection:
+) -> Axes:
     """荷重-変位曲線をプロットします
 
     荷重-変位データを二次元グラフとしてプロットします。
@@ -65,7 +66,7 @@ def plot_skeleton_curve(
     ax: Optional[Axes] = None,
     original_kwargs: Optional[Dict[str, Any]] = None,
     skeleton_kwargs: Optional[Dict[str, Any]] = None,
-) -> LoadDisplacementCollection:
+) -> Axes:
     """スケルトン曲線をプロットします
 
     create_skeleton_curve 関数で作成したスケルトン曲線をプロットします。
@@ -136,7 +137,7 @@ def plot_skeleton_curve(
     if created_new_figure:
         plt.show()
 
-    return collection
+    return ax
 
 
 @operation(domain="load_displacement")
@@ -148,7 +149,7 @@ def plot_cumulative_curve(
     ax: Optional[Axes] = None,
     original_kwargs: Optional[Dict[str, Any]] = None,
     cumulative_kwargs: Optional[Dict[str, Any]] = None,
-) -> LoadDisplacementCollection:
+) -> Axes:
     """累積曲線をプロットします
 
     create_cumulative_curve 関数で作成した累積曲線をプロットします。
@@ -225,7 +226,7 @@ def plot_cumulative_curve(
     if created_new_figure:
         plt.show()
 
-    return collection
+    return ax
 
 
 @operation(domain="load_displacement")
@@ -237,7 +238,7 @@ def plot_yield_point(
     plot_offset_line: bool = True,
     result_prefix: str = "yield",
     **kwargs,
-) -> LoadDisplacementCollection:
+) -> Axes:
     """降伏点解析結果をプロットします
 
     find_yield_point 関数で解析した降伏点情報をビジュアル化します。
@@ -267,12 +268,12 @@ def plot_yield_point(
     initial_slope = yield_data["initial_slope"]
 
     # 軸が指定されていない場合は新規作成
+    created_new_figure = False
     if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        ax = mpl_backend.create_figure(figsize=(8, 6))
         created_new_figure = True
     else:
         fig = ax.figure
-        created_new_figure = False
 
     # 元の荷重変位データをプロットし、コレクションとaxを取得
     if plot_original_data:
@@ -291,9 +292,10 @@ def plot_yield_point(
     yield_disp = yield_data["displacement"]
     yield_load = yield_data["load"]
 
-    ax.scatter(
+    mpl_backend.scatter_points(
         [yield_disp],
         [yield_load],
+        ax=ax,
         color="red",
         s=80,
         marker="o",
@@ -303,7 +305,8 @@ def plot_yield_point(
 
     # 初期勾配線のプロット
     if plot_initial_slope:
-        ax.axline(
+        mpl_backend.draw_axline(
+            ax=ax,
             xy1=(0, 0),
             slope=initial_slope,
             color="orange",
@@ -314,7 +317,8 @@ def plot_yield_point(
     # オフセット法の場合はオフセット線も表示
     if method == "offset" and plot_offset_line:
         offset_value = yield_data["parameters"]["offset_value"]
-        ax.axline(
+        mpl_backend.draw_axline(
+            ax=ax,
             xy1=(offset_value, 0), slope=initial_slope, color="blue", linestyle="--"
         )
 
@@ -326,24 +330,25 @@ def plot_yield_point(
         x_vals = np.array([yield_disp - tangent_length, yield_disp + tangent_length])
         tangent_slope = initial_slope * factor
         y_vals = tangent_slope * (x_vals - yield_disp) + yield_load
-        ax.plot(
-            x_vals, y_vals, "m--", label=f"Tangent ({factor:.2f}×Initial)", zorder=4
+        mpl_backend.draw_line(
+            x_vals, y_vals, ax=ax, color="m", linestyle="--", label=f"Tangent ({factor:.2f}×Initial)", zorder=4
         )
 
-    ax.legend()
-    ax.grid(True, linestyle="--", alpha=0.7)
+    mpl_backend.add_legend(ax)
+    mpl_backend.add_grid(ax, linestyle="--", alpha=0.7)
 
     # 新しい図を作成した場合のみグラフを表示
     if created_new_figure:
-        plt.show()
+        mpl_backend.show_plot()
 
-    return collection
+    return ax
+
 
 
 @operation(domain="load_displacement")
 def plot_yield_analysis_details(
     collection: LoadDisplacementCollection, ax: Optional[Axes] = None, **kwargs
-) -> LoadDisplacementCollection:
+) -> Axes:
     """降伏点解析の詳細情報をプロットします
 
     find_yield_point 関数で解析した降伏点情報の詳細をビジュアル化します。
@@ -371,11 +376,20 @@ def plot_yield_analysis_details(
     collection = plot_yield_point(collection, ax=ax, **kwargs)
 
     # 使用されたaxオブジェクトを取得
+    created_new_figure = False
     if ax is None:
         # 新しくplot_yield_pointが作成したaxを見つける必要がある
-        fig = plt.gcf()  # 現在のfigureを取得
-        ax = fig.axes[0]  # 最初のaxesを取得
-        created_new_figure = True
+        # しかし plot_yield_point は ax を返さないので、Figureから取得するしかない (既存ロジック維持)
+        if plt.get_fignums():
+             fig = plt.gcf()  # 現在のfigureを取得
+             if fig.axes:
+                 ax = fig.axes[0]  # 最初のaxesを取得
+                 created_new_figure = True
+             else:
+                 # fallback
+                 ax = mpl_backend.create_figure()
+        else:
+             ax = mpl_backend.create_figure()
     else:
         fig = ax.figure
         created_new_figure = False
@@ -394,9 +408,10 @@ def plot_yield_analysis_details(
     range_disps = disp_data[range_mask]
     range_loads = load_data[range_mask]
 
-    ax.scatter(
+    mpl_backend.scatter_points(
         range_disps,
         range_loads,
+        ax=ax,
         color="cyan",
         s=40,
         alpha=0.7,
@@ -406,7 +421,7 @@ def plot_yield_analysis_details(
 
     # 方法に応じた追加情報の表示
     title_text = f"Yield Point Analysis ({method.capitalize()} Method)"
-    ax.set_title(title_text)
+    mpl_backend.set_labels(ax, title=title_text)
 
     # 降伏点情報のテキスト表示
     info_text = (
@@ -418,7 +433,8 @@ def plot_yield_analysis_details(
 
     # テキストボックスで情報表示
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
-    ax.text(
+    mpl_backend.add_text(
+        ax,
         0.05,
         0.95,
         info_text,
@@ -430,9 +446,10 @@ def plot_yield_analysis_details(
 
     # 新しい図を作成した場合のみグラフを表示
     if created_new_figure:
-        plt.show()
+        mpl_backend.show_plot()
 
-    return collection
+    return ax
+
 
 
 @operation(domain="load_displacement")
@@ -441,7 +458,7 @@ def compare_yield_methods(
     methods: List[Dict[str, Any]] = None,
     ax: Optional[Axes] = None,
     **kwargs,
-) -> LoadDisplacementCollection:
+) -> Axes:
     """複数の降伏点計算方法を比較してプロットします
 
     異なるパラメータや手法で計算した複数の降伏点を
@@ -471,12 +488,12 @@ def compare_yield_methods(
         ]
 
     # 軸が指定されていない場合は新規作成
+    created_new_figure = False
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 8))
+        ax = mpl_backend.create_figure(figsize=(10, 8))
         created_new_figure = True
     else:
         fig = ax.figure
-        created_new_figure = False
 
     # 元データプロット
     plot_load_displacement(
@@ -509,9 +526,10 @@ def compare_yield_methods(
         else:
             method_label = f"{method_name} (factor={params.get('factor', 0.33)})"
 
-        ax.scatter(
+        mpl_backend.scatter_points(
             [yield_disp],
             [yield_load],
+            ax=ax,
             color=color,
             s=80,
             marker="o",
@@ -528,25 +546,26 @@ def compare_yield_methods(
             # オフセット線も表示
             offset_value = params.get("offset_value", 0.002)
             y_vals = initial_slope * x_vals - initial_slope * offset_value
-            ax.plot(
+            mpl_backend.draw_line(
                 x_vals,
                 y_vals,
-                "--",
+                ax=ax,
+                linestyle="--",
                 color=color,
                 alpha=0.6,
                 label=f"Offset Line ({offset_value})",
                 zorder=2 + i,
             )
 
-    ax.legend()
-    ax.grid(True, linestyle="--", alpha=0.7)
-    ax.set_title("Comparison of Yield Point Methods")
+    mpl_backend.add_legend(ax)
+    mpl_backend.add_grid(ax, linestyle="--", alpha=0.7)
+    mpl_backend.set_labels(ax, title="Comparison of Yield Point Methods")
 
     # 新しい図を作成した場合のみグラフを表示
     if created_new_figure:
-        plt.show()
+        mpl_backend.show_plot()
 
-    return collection
+    return ax
 
 
 @operation(domain="load_displacement")
@@ -555,7 +574,7 @@ def plot_multiple_curves(
     curves: List[Dict[str, Any]],
     ax: Optional[Axes] = None,
     **kwargs,
-) -> Tuple[Figure, Axes]:
+) -> Axes:
     """複数の曲線を指定してプロットします
 
     Args:
@@ -573,12 +592,12 @@ def plot_multiple_curves(
         LoadDisplacementCollection: 元のコレクション
     """
     # 軸が指定されていない場合は新規作成
+    created_new_figure = False
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 8))
+        ax = mpl_backend.create_figure(figsize=(10, 8))
         created_new_figure = True
     else:
         fig = ax.figure
-        created_new_figure = False
 
     # 各曲線をプロット
     for curve_config in curves:
@@ -602,7 +621,7 @@ def plot_multiple_curves(
             # スケルトン曲線のプロット
             try:
                 curve_data = get_curve_data(collection, "skeleton_curve")
-                ax.plot(curve_data["x"], curve_data["y"], **plot_kwargs)
+                mpl_backend.draw_line(curve_data["x"], curve_data["y"], ax=ax, **plot_kwargs)
             except ValueError:
                 print("Warning: Skeleton curve data not found.")
 
@@ -610,15 +629,17 @@ def plot_multiple_curves(
             # 累積曲線のプロット
             try:
                 curve_data = get_curve_data(collection, "cumulative_curve")
-                ax.plot(curve_data["x"], curve_data["y"], **plot_kwargs)
+                mpl_backend.draw_line(curve_data["x"], curve_data["y"], ax=ax, **plot_kwargs)
             except ValueError:
                 print("Warning: Cumulative curve data not found.")
 
-    ax.legend()
-    ax.grid(True, linestyle="--", alpha=0.7)
+    mpl_backend.add_legend(ax)
+    mpl_backend.add_grid(ax, linestyle="--", alpha=0.7)
 
     # 新しい図を作成した場合のみグラフを表示
     if created_new_figure:
-        plt.show()
+        mpl_backend.show_plot()
 
-    return collection
+    return ax
+
+

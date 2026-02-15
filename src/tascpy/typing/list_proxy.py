@@ -4,6 +4,7 @@ from ..core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
 from typing import Literal
 from ..domains.core import ColumnCollection
+from ..domains.strain import StrainCollection
 from ..domains.load_displacement import LoadDisplacementCollection
 from ..domains.coordinate import CoordinateCollection
 
@@ -89,7 +90,7 @@ class CollectionListOperations(Generic[C]):
         ...
 
     @overload
-    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> "CollectionListOperations[ColumnCollection]":
+    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> "CollectionListOperations[StrainCollection]":
         ...
 
     @overload
@@ -445,41 +446,10 @@ Raises:
         plot_type: str = 'scatter',
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """グラフを描画します
 
-コレクション内のデータを散布図または線グラフとして可視化します。
-x軸またはy軸にstepを使用することもできます。
-
-Args:
-    collection: 対象コレクション
-    x_column: x軸の列名（None の場合は step を使用）
-    y_column: y軸の列名（None の場合は step を使用）
-    plot_type: プロットの種類（'scatter' または 'line'）
-    ax: 既存の Axes オブジェクト（None の場合は新しい図を作成し、表示します）
-    **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
-
-Returns:
-    ColumnCollection: 元のコレクション
-
-Examples:
-    >>> # 散布図の描画
-    >>> collection.plot('x_col', 'y_col')
-    >>>
-    >>> # step を x軸として使用
-    >>> collection.plot(None, 'y_col')
-    >>>
-    >>> # step を y軸として使用
-    >>> collection.plot('x_col', None)
-    >>>
-    >>> # 線グラフの描画
-    >>> collection.plot('x_col', 'y_col', plot_type='line', color='red')
-    >>>
-    >>> # 既存の axes に追加
-    >>> fig, ax = plt.subplots()
-    >>> collection.plot('x_col', 'y_col', ax=ax)
-    >>> collection.plot('x_col2', 'y_col2', ax=ax)  # 2つ目のプロットを追加
-    >>> plt.show()  # 最後にまとめて表示"""
+(backend_mpl.plot を使用)"""
         ...
     
 
@@ -569,7 +539,7 @@ Examples:
         y_columns: list[str],
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """指定されたX値（定数リスト）に対して、複数の列の値をYとしてプロットします
 注: 単一行のコレクションに対して使用することを想定しています
 
@@ -582,6 +552,29 @@ Args:
 
 Returns:
     ColumnCollection: 元のコレクション"""
+        ...
+    
+
+    def iplot(
+        self,
+        x_column: Optional[str] = None,
+        y_column: Optional[str] = None,
+        plot_type: str = 'scatter',
+        fig: Optional[Any] = None,
+        **kwargs
+    ) -> List[Any]:
+        """インタラクティブなグラフを描画します (Plotly使用)
+
+Args:
+    collection: 対象コレクション
+    x_column: x軸の列名（None の場合は step を使用）
+    y_column: y軸の列名（None の場合は step を使用）
+    plot_type: プロットの種類（'scatter' または 'line'）
+    fig: 既存の Plotly Figure オブジェクト
+    **kwargs: Plotly backend に渡す追加引数
+
+Returns:
+    Any: Plotly Figure オブジェクト (ノートブック環境では自動的に表示される)"""
         ...
     
 
@@ -869,129 +862,37 @@ Raises:
 
     def add(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CollectionListOperations[C]":
-        """列または定数を加算します
-
-指定された列に対して、別の列または定数値を加算し、結果を新しい列として格納します。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 加算元の列名
-    column2_or_value: 加算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、または無効な値が指定された場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> List[ndarray]:
+        """列または定数を加算します"""
         ...
     
 
     def subtract(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False
-    ) -> "CollectionListOperations[C]":
-        """列または定数を減算します
-
-指定された列から別の列または定数値を減算し、結果を新しい列として格納します。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 減算元の列名
-    column2_or_value: 減算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、または無効な値が指定された場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> List[ndarray]:
+        """列または定数を減算します"""
         ...
     
 
     def multiply(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CollectionListOperations[C]":
-        """列または定数を乗算します
-
-指定された列に対して、別の列または定数値を乗算し、結果を新しい列として格納します。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 乗算元の列名
-    column2_or_value: 乗算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、または無効な値が指定された場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> List[ndarray]:
+        """列または定数を乗算します"""
         ...
     
 
     def divide(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        handle_zero_division: str = 'error',
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CollectionListOperations[C]":
-        """列または定数で除算します
-
-指定された列を別の列または定数値で除算し、結果を新しい列として格納します。
-ゼロ除算の処理方法を指定することもできます。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 除算元の列名
-    column2_or_value: 除算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    handle_zero_division: ゼロ除算の処理方法
-        "error": ゼロ除算エラーを発生させる
-        "none": 結果を None として扱う
-        "inf": 結果を無限大（float('inf')）として扱う
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、無効な値が指定された場合、またはゼロ除算が発生した場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> List[ndarray]:
+        """列または定数で除算します"""
         ...
     
 
@@ -1028,71 +929,22 @@ Raises:
 
     def diff(
         self,
-        y_column: str,
-        x_column: str,
-        result_column: Optional[str] = None,
+        x_values: ndarray,
         method: str = 'central',
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CollectionListOperations[C]":
-        """指定された 2 つの列間の微分を計算します（dy/dx）
-
-指定された独立変数 x と従属変数 y に対して微分係数を計算します。
-数値微分には中心差分、前方差分、後方差分の 3 つの方法が利用できます。
-
-Args:
-    collection: 操作対象の ColumnCollection
-    y_column: 微分の分子となる列（従属変数）
-    x_column: 微分の分母となる列（独立変数）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    method: 微分方法（"central", "forward", "backward"）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は自動生成）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 微分結果を含む ColumnCollection
-
-Raises:
-    KeyError: 列が存在しない場合
-    ValueError: 有効なデータが不足している場合"""
+        **kwargs
+    ) -> List[ndarray]:
+        """指定された 2 つの列間の微分を計算します（dy/dx）"""
         ...
     
 
     def integrate(
         self,
-        y_column: str,
-        x_column: str,
-        result_column: Optional[str] = None,
+        x_values: ndarray,
         method: str = 'trapezoid',
         initial_value: float = 0.0,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CollectionListOperations[C]":
-        """指定された 2 つの列間の積分を計算します（∫y dx）
-
-指定された独立変数 x と従属変数 y に対して定積分を計算します。
-現在は台形法による積分のみをサポートしています。
-
-Args:
-    collection: 操作対象の ColumnCollection
-    y_column: 積分対象の列（被積分関数）
-    x_column: 積分の基準となる列（積分変数）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    method: 積分方法（現在は "trapezoid" のみサポート）
-    initial_value: 積分の初期値
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は自動生成）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 積分結果を含む ColumnCollection
-
-Raises:
-    KeyError: 列が存在しない場合
-    ValueError: 有効なデータが不足している場合、または非サポートの積分方法が指定された場合"""
+        **kwargs
+    ) -> List[ndarray]:
+        """指定された 2 つの列間の積分を計算します（∫y dx）"""
         ...
     
 
@@ -1975,6 +1827,118 @@ Raises:
         ...
     
 
+    def calculate_rosette_strains(
+        self,
+        rosette_name: Optional[str] = None,
+        columns: Optional[list[str]] = None,
+        rosette_type: str = 'rectangular',
+        orientation: float = 0.0,
+        prefix: Optional[str] = None
+    ) -> "CollectionListOperations[C]":
+        """ロゼットひずみ計算 (主ひずみ・主応力方向)
+
+3軸ひずみゲージの値から、最大・最小主ひずみ、最大せん断ひずみ、主ひずみ方向を計算します。
+
+Args:
+    collection: ひずみコレクション
+    rosette_name: 定義済みのロゼット名（metadataから情報を取得）
+    columns: ゲージのカラム名リスト [e1, e2, e3]。
+             rosette_name指定時は無視されます。
+             直交の場合: 0, 45, 90度
+             デルタの場合: 0, 60, 120度
+    rosette_type: ロゼットタイプ ('rectangular' or 'delta')
+                  rosette_name指定時はmetadataが優先されます。
+    orientation: 第1ゲージの設置角度（X軸基準、反時計回り、度単位）
+                 rosette_name指定時はmetadataが優先されます。
+    prefix: 結果カラム名の接頭辞。デフォルトは rosette_name または "rosette"
+
+Returns:
+    StrainCollection: 計算結果（e_max, e_min, gamma_max, theta）が追加されたコレクション"""
+        ...
+    
+
+    def plot_rosette_vectors(
+        self,
+        rosette_name: str,
+        step_index: int = 0,
+        scale: float = 1.0,
+        ax: Optional[Any] = None
+    ) -> List[Any]:
+        """ロゼットの主ひずみベクトルをプロットする
+
+指定したステップにおける主ひずみ（最大・最小）の大きさと方向を、
+ロゼットの設置位置にベクトルとして描画します。
+(事前に calculate_rosette_strains を実行しておく必要があります)
+
+Args:
+    collection: ひずみコレクション
+    rosette_name: ロゼット名
+    step_index: プロットするステップのインデックス
+    scale: ベクトルの長さのスケール
+    ax: MatplotlibのAxesオブジェクト（指定がない場合は新規作成）
+
+Returns:
+    Axes: プロットされたAxesオブジェクト"""
+        ...
+    
+
+    def iplot_rosette_vectors(
+        self,
+        rosette_name: str,
+        step_index: int = 0,
+        scale: float = 1.0,
+        fig: Optional[Any] = None
+    ) -> List[Any]:
+        """ロゼットの主ひずみベクトルをインタラクティブにプロットする (Plotly)"""
+        ...
+    
+
+    def calculate_stress(
+        self,
+        load_column: str,
+        area: float,
+        result_column: str = 'stress',
+        unit: str = 'MPa'
+    ) -> "CollectionListOperations[C]":
+        """応力を計算する (Stress = Load / Area)
+
+Args:
+    collection: ひずみコレクション
+    load_column: 荷重データのカラム名
+    area: 断面積
+    result_column: 結果を格納するカラム名
+    unit: 結果の単位
+
+Returns:
+    StrainCollection: 応力カラムが追加されたコレクション"""
+        ...
+    
+
+    def analyze_material_properties(
+        self,
+        stress_column: str,
+        strain_column: str,
+        lateral_strain_column: Optional[str] = None,
+        elastic_range: tuple[float, float] = (0.0005, 0.0025),
+        offset: float = 0.002,
+        result_prefix: str = 'material'
+    ) -> "CollectionListOperations[C]":
+        """材料特性（ヤング率、降伏点、ポアソン比）を解析する
+
+Args:
+    collection: ひずみコレクション
+    stress_column: 応力カラム名
+    strain_column: ひずみ（縦）カラム名
+    lateral_strain_column: 横ひずみカラム名（ポアソン比計算用、任意）
+    elastic_range: ヤング率計算に使用するひずみ範囲 (start, end)
+    offset: 耐力計算用のオフセットひずみ量 (デフォルト 0.002 = 0.2%)
+    result_prefix: 結果名の接頭辞
+
+Returns:
+    StrainCollection: 計算結果（ScalarResult, PointResult）が追加されたコレクション"""
+        ...
+    
+
     def get_load_column(
         self,
         
@@ -2404,7 +2368,7 @@ Raises:
         self,
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """荷重-変位曲線をプロットします
 
 荷重-変位データを二次元グラフとしてプロットします。
@@ -2428,7 +2392,7 @@ Returns:
         ax: Optional[Axes] = None,
         original_kwargs: Optional[dict[str, Any]] = None,
         skeleton_kwargs: Optional[dict[str, Any]] = None
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """スケルトン曲線をプロットします
 
 create_skeleton_curve 関数で作成したスケルトン曲線をプロットします。
@@ -2462,7 +2426,7 @@ Raises:
         ax: Optional[Axes] = None,
         original_kwargs: Optional[dict[str, Any]] = None,
         cumulative_kwargs: Optional[dict[str, Any]] = None
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """累積曲線をプロットします
 
 create_cumulative_curve 関数で作成した累積曲線をプロットします。
@@ -2496,7 +2460,7 @@ Raises:
         plot_offset_line: bool = True,
         result_prefix: str = 'yield',
         **kwargs
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """降伏点解析結果をプロットします
 
 find_yield_point 関数で解析した降伏点情報をビジュアル化します。
@@ -2520,7 +2484,7 @@ Returns:
         self,
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """降伏点解析の詳細情報をプロットします
 
 find_yield_point 関数で解析した降伏点情報の詳細をビジュアル化します。
@@ -2541,7 +2505,7 @@ Returns:
         methods: list[dict[str, Any]] = None,
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "CollectionListOperations[C]":
+    ) -> List[Axes]:
         """複数の降伏点計算方法を比較してプロットします
 
 異なるパラメータや手法で計算した複数の降伏点を
@@ -2565,7 +2529,7 @@ Returns:
         curves: list[dict[str, Any]],
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> List[tuple[Figure, Axes]]:
+    ) -> List[Axes]:
         """複数の曲線を指定してプロットします
 
 Args:

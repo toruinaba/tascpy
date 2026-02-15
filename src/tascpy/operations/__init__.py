@@ -12,6 +12,7 @@ from .core import stats  # 統計処理機能を追加
 # ドメイン特化モジュールのインポート
 from . import coordinate  # 座標ドメインの操作
 from . import load_displacement  # 荷重変位ドメインの操作
+from . import strain  # ひずみドメインの操作
 
 # スタブファイルの自動生成
 import os

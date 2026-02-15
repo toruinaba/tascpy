@@ -364,41 +364,10 @@ Raises:
         plot_type: str = 'scatter',
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "CoreCollectionOperations":
+    ) -> Axes:
         """グラフを描画します
 
-コレクション内のデータを散布図または線グラフとして可視化します。
-x軸またはy軸にstepを使用することもできます。
-
-Args:
-    collection: 対象コレクション
-    x_column: x軸の列名（None の場合は step を使用）
-    y_column: y軸の列名（None の場合は step を使用）
-    plot_type: プロットの種類（'scatter' または 'line'）
-    ax: 既存の Axes オブジェクト（None の場合は新しい図を作成し、表示します）
-    **kwargs: Matplotlib のプロット関数に渡す追加のキーワード引数
-
-Returns:
-    ColumnCollection: 元のコレクション
-
-Examples:
-    >>> # 散布図の描画
-    >>> collection.plot('x_col', 'y_col')
-    >>>
-    >>> # step を x軸として使用
-    >>> collection.plot(None, 'y_col')
-    >>>
-    >>> # step を y軸として使用
-    >>> collection.plot('x_col', None)
-    >>>
-    >>> # 線グラフの描画
-    >>> collection.plot('x_col', 'y_col', plot_type='line', color='red')
-    >>>
-    >>> # 既存の axes に追加
-    >>> fig, ax = plt.subplots()
-    >>> collection.plot('x_col', 'y_col', ax=ax)
-    >>> collection.plot('x_col2', 'y_col2', ax=ax)  # 2つ目のプロットを追加
-    >>> plt.show()  # 最後にまとめて表示"""
+(backend_mpl.plot を使用)"""
         ...
     
 
@@ -488,7 +457,7 @@ Examples:
         y_columns: list[str],
         ax: Optional[Axes] = None,
         **kwargs
-    ) -> "CoreCollectionOperations":
+    ) -> Axes:
         """指定されたX値（定数リスト）に対して、複数の列の値をYとしてプロットします
 注: 単一行のコレクションに対して使用することを想定しています
 
@@ -501,6 +470,29 @@ Args:
 
 Returns:
     ColumnCollection: 元のコレクション"""
+        ...
+    
+
+    def iplot(
+        self,
+        x_column: Optional[str] = None,
+        y_column: Optional[str] = None,
+        plot_type: str = 'scatter',
+        fig: Optional[Any] = None,
+        **kwargs
+    ) -> Any:
+        """インタラクティブなグラフを描画します (Plotly使用)
+
+Args:
+    collection: 対象コレクション
+    x_column: x軸の列名（None の場合は step を使用）
+    y_column: y軸の列名（None の場合は step を使用）
+    plot_type: プロットの種類（'scatter' または 'line'）
+    fig: 既存の Plotly Figure オブジェクト
+    **kwargs: Plotly backend に渡す追加引数
+
+Returns:
+    Any: Plotly Figure オブジェクト (ノートブック環境では自動的に表示される)"""
         ...
     
 
@@ -788,129 +780,37 @@ Raises:
 
     def add(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CoreCollectionOperations":
-        """列または定数を加算します
-
-指定された列に対して、別の列または定数値を加算し、結果を新しい列として格納します。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 加算元の列名
-    column2_or_value: 加算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、または無効な値が指定された場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> ndarray:
+        """列または定数を加算します"""
         ...
     
 
     def subtract(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False
-    ) -> "CoreCollectionOperations":
-        """列または定数を減算します
-
-指定された列から別の列または定数値を減算し、結果を新しい列として格納します。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 減算元の列名
-    column2_or_value: 減算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、または無効な値が指定された場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> ndarray:
+        """列または定数を減算します"""
         ...
     
 
     def multiply(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CoreCollectionOperations":
-        """列または定数を乗算します
-
-指定された列に対して、別の列または定数値を乗算し、結果を新しい列として格納します。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 乗算元の列名
-    column2_or_value: 乗算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、または無効な値が指定された場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> ndarray:
+        """列または定数を乗算します"""
         ...
     
 
     def divide(
         self,
-        column1: str,
-        column2_or_value: Union[str, int, float],
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        handle_zero_division: str = 'error',
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CoreCollectionOperations":
-        """列または定数で除算します
-
-指定された列を別の列または定数値で除算し、結果を新しい列として格納します。
-ゼロ除算の処理方法を指定することもできます。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    column1: 除算元の列名
-    column2_or_value: 除算する列名または定数値
-    result_column: 結果を格納する列名（デフォルトは None、自動生成）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    handle_zero_division: ゼロ除算の処理方法
-        "error": ゼロ除算エラーを発生させる
-        "none": 結果を None として扱う
-        "inf": 結果を無限大（float('inf')）として扱う
-    unit: 新しい列の単位（指定しない場合は元の列から継承）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 演算結果の列を含む ColumnCollection
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 列の長さが一致しない場合、無効な値が指定された場合、またはゼロ除算が発生した場合"""
+        v2: Union[ndarray, float],
+        **kwargs
+    ) -> ndarray:
+        """列または定数で除算します"""
         ...
     
 
@@ -947,71 +847,22 @@ Raises:
 
     def diff(
         self,
-        y_column: str,
-        x_column: str,
-        result_column: Optional[str] = None,
+        x_values: ndarray,
         method: str = 'central',
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CoreCollectionOperations":
-        """指定された 2 つの列間の微分を計算します（dy/dx）
-
-指定された独立変数 x と従属変数 y に対して微分係数を計算します。
-数値微分には中心差分、前方差分、後方差分の 3 つの方法が利用できます。
-
-Args:
-    collection: 操作対象の ColumnCollection
-    y_column: 微分の分子となる列（従属変数）
-    x_column: 微分の分母となる列（独立変数）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    method: 微分方法（"central", "forward", "backward"）
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は自動生成）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 微分結果を含む ColumnCollection
-
-Raises:
-    KeyError: 列が存在しない場合
-    ValueError: 有効なデータが不足している場合"""
+        **kwargs
+    ) -> ndarray:
+        """指定された 2 つの列間の微分を計算します（dy/dx）"""
         ...
     
 
     def integrate(
         self,
-        y_column: str,
-        x_column: str,
-        result_column: Optional[str] = None,
+        x_values: ndarray,
         method: str = 'trapezoid',
         initial_value: float = 0.0,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
-    ) -> "CoreCollectionOperations":
-        """指定された 2 つの列間の積分を計算します（∫y dx）
-
-指定された独立変数 x と従属変数 y に対して定積分を計算します。
-現在は台形法による積分のみをサポートしています。
-
-Args:
-    collection: 操作対象の ColumnCollection
-    y_column: 積分対象の列（被積分関数）
-    x_column: 積分の基準となる列（積分変数）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    method: 積分方法（現在は "trapezoid" のみサポート）
-    initial_value: 積分の初期値
-    in_place: True の場合は元のオブジェクトを変更、False の場合は新しいオブジェクトを作成
-    unit: 新しい列の単位（指定しない場合は自動生成）
-    ch: 新しい列のチャンネル（指定しない場合はNone）
-
-Returns:
-    ColumnCollection: 積分結果を含む ColumnCollection
-
-Raises:
-    KeyError: 列が存在しない場合
-    ValueError: 有効なデータが不足している場合、または非サポートの積分方法が指定された場合"""
+        **kwargs
+    ) -> ndarray:
+        """指定された 2 つの列間の積分を計算します（∫y dx）"""
         ...
     
 
