@@ -5,110 +5,198 @@ from ..core.collection import ColumnCollection
 from ..core.column import detect_column_type
 
 
-def inject_columns(num_inputs: int = 1):
+def inject_columns(
+    num_inputs: int = 1, 
+    cast_to_numpy: bool = True,
+    columns_arg: str = None,
+    include_step: bool = False
+):
     """
     Decorator to parse arguments and inject column data.
     
     Args:
         num_inputs: Number of positional arguments to treat as columns/values.
+        cast_to_numpy: If True, converts injected values to numpy arrays (if they are lists).
+        columns_arg: If specified, looks for this argument (list of column names) and replaces it 
+                     with a dictionary {col_name: values}. If the argument is None, it may default 
+                     to all columns if the inner function supports it.
+        include_step: If True, injects the collection's step values as the first argument.
     """
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(collection: ColumnCollection, *args, **kwargs):
-            # Extract column names/values from args
-            if len(args) < num_inputs:
-                pass # Rely on python arg unpacking or kwargs
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            # Check if operating on a ColumnCollection or raw data
+            if not isinstance(collection, ColumnCollection):
+                # Raw data mode: Assume arguments are already values
+                all_args = (collection,) + args
+                
+                # Apply cast_to_numpy if needed for raw inputs?
+                # Usually raw inputs are passed as is, but if we want to reduce boilerplate
+                # we should cast them here too.
+                if cast_to_numpy:
+                    new_args = []
+                    for arg in all_args:
+                        if isinstance(arg, list):
+                            new_args.append(np.array(arg))
+                        else:
+                            new_args.append(arg)
+                    return func(*new_args, **kwargs)
+                
+                return func(*all_args, **kwargs)
+
+            # --- ColumnCollection Mode ---
             
-            input_args = args[:num_inputs]
-            other_args = args[num_inputs:]
-            
-            input_values = []
-            source_columns = []
-            
-            # Identify columns vs constants
-            for arg in input_args:
-                if isinstance(arg, str) and arg in collection.columns:
-                    source_columns.append(collection[arg])
-                    input_values.append(collection[arg].values)
+            # Prepare Step Injection
+            step_values = None
+            if include_step:
+                step_val = collection.step.values
+                if cast_to_numpy and isinstance(step_val, list):
+                    step_values = np.array(step_val)
                 else:
-                    if isinstance(arg, str):
-                         # If it looks like a column name but isn't found, raise Error
-                         # This assumption is consistent with previous transform_column logic
-                         raise KeyError(f"列 '{arg}' が存在しません")
-                    input_values.append(arg)
+                    step_values = step_val
+
+            # 1. Handle Multi-Column Injection (if columns_arg is set)
+            if columns_arg:
+                # Find the target columns list
+                target_cols = kwargs.get(columns_arg)
+                
+                # If not in kwargs, check positional args? 
+                # Ideally mixed usage is tricky. Let's assume kwargs for clarity or 
+                # specific position if num_inputs used differently.
+                # For `filter_out_none(col, columns=...)`, it's clear.
+                
+                # If target_cols is None, input might be explicit None to mean "all".
+                # We need to resolve this.
+                if target_cols is None:
+                    # Check if it was passed positionally?
+                    # This is getting complex. Let's simplify:
+                    # If columns_arg is specified, we expect the function signature to have it.
+                    pass
+
+                # Extract dict
+                cols_to_extract = target_cols if target_cols is not None else collection.columns.keys()
+                
+                extracted_data = {}
+                for name in cols_to_extract:
+                    if name not in collection.columns:
+                        raise KeyError(f"列 '{name}' が存在しません")
+                    val = collection[name].values
+                    if cast_to_numpy and isinstance(val, list):
+                        extracted_data[name] = np.array(val)
+                    else:
+                        extracted_data[name] = val
+                
+                # We inject this dict. But where? 
+                # If the pure function signature is `func(data_dict, mode)`, 
+                # then we replace `collection` with `extracted_data`?
+                # And we drop `columns` arg since data is already filtered?
+                
+                # Pure func: filter_out_none(data_dict: Dict, mode: str)
+                # Call: filter_out_none(collection, columns=['A'])
+                
+                # So we pass `extracted_data` as the first argument (replacing collection).
+                # And we ensure `columns_arg` is NOT passed to the inner function, 
+                # OR the inner function expects it.
+                
+                # Let's assume the pure function signature becomes:
+                # def filter_out_none(data: Dict[str, Any], columns: Optional[List[str]] = None, ...)
+                # But if we inject data, `columns` arg becomes redundant for data access, 
+                # though maybe needed for metadata?
+                
+                # Simplest for now: Inject as first arg.
+                # If columns_arg was in kwargs, remove it?
+                new_kwargs = kwargs.copy()
+                if columns_arg in new_kwargs:
+                    del new_kwargs[columns_arg]
+                    
+                # NOTE: We ignore `num_inputs` if `columns_arg` is used? 
+                # Or do we support both? E.g. search(col, "A", val) -> num_inputs=1 ('A'->val)
+                # filter_out_none(col, columns=["A"]) -> columns_arg="columns".
+                
+                final_args = list(args)
+                if include_step:
+                     # func(steps, extracted_data, ...)
+                     return func(step_values, extracted_data, *final_args, **new_kwargs)
+                else:
+                     return func(extracted_data, *final_args, **new_kwargs)
+
+
+            # Resolve input arguments
+            args_list = list(args)
+            input_values = []
             
-            # Inject:
-            # 1. extracted values (as a list or rewritten args)
-            # 2. original collection (needed for store_result potentially?) 
-            #    No, store_result wraps this, so store_result sees the return value.
-            #    But we need to pass 'source_columns' to downstream or store it?
-            #    Decorators stack: @outer @inner def func.
-            #    exec: outer(inner(func)).
-            #    inner(func) calls func.
-            #    We want:
-            #    @store_result
-            #    @handle_missing
-            #    @inject_cols
-            #    def add(v1, v2): ...
-            #
-            #    inject_cols calls add(v1, v2). Returns result.
-            #    handle_missing sees result? No, handle_missing needs to process INPUTS before add.
-            #    So handle_missing wraps inject_cols?
-            #    Order:
-            #    @store_result (Last to run, wraps everything)
-            #      @handle_missing (Modifies inputs from inject_cols? Or modifies args BEFORE inject_cols?)
-            #        @inject_cols (Extracts data from collection)
-            #          def func(v1, v2)
-            #
-            #    Flow:
-            #    collection.ops.add("A", "B")
-            #    -> store_result wrapper("A", "B")
-            #       -> handle_missing wrapper("A", "B") ?? No, handle_missing needs VALUES.
-            #       -> inject_cols wrapper("A", "B")
-            #          -> extracts v1, v2.
-            #          -> calls func(v1, v2).
-            #
-            #    Wait, if `handle_missing` needs to convert None->NaN, it must run AFTER data extraction (inject_cols) but BEFORE func.
-            #    So `inject_columns` should run FIRST (outermost of the inner stack).
-            #    
-            #    Correct Stacking for `transform_column` facade:
-            #    def transform_column(...):
-            #       return composite of:
-            #          @store_result
-            #          @inject_columns  <-- Extracts data
-            #          @handle_missing  <-- shape of func is now (v1, v2), checks v1, v2
-            #          def func(v1, v2)
-            #
-            #    Let's trace:
-            #    call add(coll, "A", "B")
-            #    1. store_result.wrapper(coll, "A", "B")
-            #       calls inner(coll, "A", "B")
-            #       gets result (np.array)
-            #       stores result to coll
-            #       returns coll
-            #
-            #    2. inject_columns.wrapper(coll, "A", "B")
-            #       extracts vA, vB
-            #       calls inner(vA, vB, *others)
-            #
-            #    3. handle_missing.wrapper(vA, vB, *others)
-            #       converts vA, vB (None->NaN or check strict)
-            #       calls func(vA, vB)
-            #
-            #    4. func(vA, vB) returns result
-            #
-            #    This looks correct.
-            #    However, `store_result` needs access to `source_columns` for unit inference inheritance if no unit provided.
-            #    `inject_columns` finds source_columns. How to pass to `store_result`?
-            #    `store_result` runs "around" `inject_columns`.
-            #    Maybe `inject_columns` can attach metadata to the function object or context?
-            #    Or `store_result` re-resolves columns? Re-resolving is safer/easier than shared state magic.
+            # Prepend step if requested
+            if include_step:
+                input_values.append(step_values)
+
+            for i in range(num_inputs):
+                val_source = None
+                
+                # 1. Try positional
+                if len(args_list) > 0:
+                     val_source = args_list.pop(0)
+                
+                # 2. Start fallback strategies for specific standard args
+                # We assume the first input maps to "column" if not provided positionally
+                elif i == 0 and "column" in kwargs:
+                     val_source = kwargs.pop("column")
+                     
+                if val_source is None:
+                     # Wait, if we haven't found it, do we prefer to send nothing?
+                     # The inner function likely expects a value.
+                     # If we send nothing, func() raises TypeError.
+                     # Proceeding allows catching it later or optional args.
+                     pass 
+                
+                if val_source is not None:
+                    if isinstance(val_source, str) and val_source in collection.columns:
+                        val = collection[val_source].values
+                        if cast_to_numpy and isinstance(val, list):
+                            input_values.append(np.array(val))
+                        else:
+                            input_values.append(val)
+                    elif isinstance(val_source, str):
+                        raise KeyError(f"列 '{val_source}' が存在しません")
+                    else:
+                        input_values.append(val_source)
             
-            # Pass to inner
-            return func(*input_values, *other_args, **kwargs)
+            return func(*input_values, *args_list, **kwargs)
             
         return wrapper
     return decorator
+
+
+def inject_step_values(func=None, *, cast_to_numpy: bool = True):
+    """
+    Decorator to inject the collection's step values as the first argument.
+    Used for operations that depend on the step (like time or index), e.g., select.
+    
+    Can be used as @inject_step_values or @inject_step_values(cast_to_numpy=False).
+    """
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            # Check raw input
+            if not isinstance(collection, ColumnCollection):
+                # Assume collection IS the step_values
+                steps = collection
+                if cast_to_numpy and isinstance(steps, list):
+                    steps = np.array(steps)
+                return f(steps, *args, **kwargs)
+
+            # Apply filter_rows pattern: collection is first arg.
+            # We extract step.values
+            step_values = collection.step.values
+            if cast_to_numpy and isinstance(step_values, list):
+                step_values = np.array(step_values)
+            
+            return f(step_values, *args, **kwargs)
+        return wrapper
+
+    if func is None:
+        return decorator
+    else:
+        return decorator(func)
 
 
 def handle_missing_values(strategy: str = "nan"):
@@ -133,17 +221,6 @@ def handle_missing_values(strategy: str = "nan"):
                 # Check for None or NaN in any arg
                 for arg in args:
                     if arg is None: 
-                        # If strict, what to return? 
-                        # We need to return an array of NaNs usually, matching the shape of the data.
-                        # But we don't know the shape easily if all are None.
-                        # Assuming at least one array if it's a column op.
-                        # But wait, `diff` implementation previously checked inputs and returned full_nan.
-                        # If we return None here, `store_result` handles it?
-                        # Let's say we return None, and store_result interprets it?
-                        # Or return a special flag?
-                        # Or better: `strict` mode logic usually implies "If any input has ANY NaN, the result is ALL NaN".
-                        # But `diff` logic was: "If any input contains None, return all None".
-                        # Let's check args for arrays.
                         pass
                         
                     if isinstance(arg, np.ndarray):
@@ -161,10 +238,7 @@ def handle_missing_values(strategy: str = "nan"):
                         processed_args.append(arg.astype(float)) # Ensure float for NaN
                     elif isinstance(arg, list) or (isinstance(arg, np.ndarray) and arg.dtype == object):
                          # Convert list with None to float array with NaN
-                         # Helper:
                          try:
-                             # Efficient handling for mixed types?
-                             # Tascpy Columns are usually lists or object arrays if they have None.
                              vals = [v if v is not None else np.nan for v in arg] if isinstance(arg, (list, np.ndarray)) else arg
                              processed_args.append(np.array(vals, dtype=float))
                          except:
@@ -178,11 +252,6 @@ def handle_missing_values(strategy: str = "nan"):
                 except Exception as e:
                     raise e
                     
-                # Convert NaNs back to None is done in store_result?
-                # transform_column previous logic: "Post-process result ... if handle_none=='nan' ... convert"
-                # So handle_missing should ideally inverse this? 
-                # Or should store_result handle normalization?
-                # Let's let store_result handle final cleanup.
                 return res
 
             elif strategy == "strict":
@@ -235,32 +304,38 @@ def store_result(
     """
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(collection: ColumnCollection, *args, **kwargs):
-            # Parse args to find inputs (for metadata logic)
-            # Note: func here is likely `inject_columns` wrapper, so it takes (collection, *args)
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            # Pass through if not collection
+            if not isinstance(collection, ColumnCollection):
+                 all_args = (collection,) + args
+                 return func(*all_args, **kwargs)
+
+            # Extract and consume metadata arguments
+            # We copy kwargs to avoid side effects if func modifies it, 
+            # and to pass cleaned kwargs to func.
+            func_kwargs = kwargs.copy()
+            result_column = func_kwargs.pop("result_column", None)
+            in_place = func_kwargs.pop("in_place", False)
+            unit = func_kwargs.pop("unit", None)
+            ch = func_kwargs.pop("ch", None)
+
+            # Calls the chain with cleaned kwargs
+            res_data = func(collection, *args, **func_kwargs)
             
-            # Calls the chain
-            res_data = func(collection, *args, **kwargs)
-            
-            # Prepare basics
-            result_column = kwargs.get("result_column")
-            in_place = kwargs.get("in_place", False)
-            unit = kwargs.get("unit")
-            ch = kwargs.get("ch")
+            # Check for (values, metadata) tuple
+            metadata_update = {}
+            if isinstance(res_data, tuple) and len(res_data) == 2:
+                 # Heuristic: Check if second element is dict
+                 if isinstance(res_data[1], dict):
+                      res_data, metadata_update = res_data
             
             result_collection = collection if in_place else collection.clone()
+            
+            # Apply metadata update
+            if metadata_update:
+                 result_collection.metadata.update(metadata_update)
 
             # Post-process (NaN -> None for list compatibility)
-            # Ideally standardizing on NaN for float columns is better, but Tascpy might assume None.
-            # verify_abstraction_edge_cases expects None for "none" handling.
-            # Let's standardize: If output is float array with NaNs, convert to list with Nones?
-            # Or depend on what `detect_column_type` expects?
-            # `detect_column_type` handles numpy arrays fine.
-            # Previous `transform_column` did: `if handle_none == "nan": ... convert to list with None`
-            # We should probably preserve this behavior to pass tests.
-            # But `handle_missing` strategy is inside inner loop. `store_result` doesn't know strategy.
-            # Let's assume if it's an array and has NaNs, we convert to None for consistency?
-            
             result_values = res_data
             if isinstance(res_data, np.ndarray) and np.issubdtype(res_data.dtype, np.number):
                  if np.isnan(res_data).any():
@@ -270,7 +345,7 @@ def store_result(
             if result_column is None:
                 if isinstance(result_naming, str):
                     try:
-                        result_column = result_naming.format(*args)
+                        result_column = result_naming.format(*args, **kwargs)
                     except:
                         result_column = f"result_{len(collection.columns)}"
                 elif callable(result_naming):
@@ -294,7 +369,6 @@ def store_result(
                         unit = unit_inference(collection, *args, **kwargs)
                     else:
                         # Try inherit from first arg column
-                        # Need to resolve arg to column again... slightly inefficient but loose coupling.
                         for arg in args:
                             if isinstance(arg, str) and arg in collection.columns:
                                 unit = getattr(collection[arg], "unit", None)
@@ -348,11 +422,6 @@ def handle_zero_division(
     """
     Decorator to handle zero division checks and post-processing.
     Intended to be used inside @transform_column.
-    
-    Args:
-        numerator_idx: Index of numerator argument in args.
-        denominator_idx: Index of denominator argument in args.
-        default_behavior: Default handling mode ('error', 'none', 'inf').
     """
     def decorator(func):
         @functools.wraps(func)
@@ -371,22 +440,11 @@ def handle_zero_division(
                     if v2 == 0:
                         raise ValueError("ゼロによる除算が発生しました")
                 else:
-                    # Check for 0 in denominator where numerator is valid
-                    # Assuming v1, v2 are numpy arrays (guaranteed by transform_column if inputs present)
-                    
                     # Convert to array if not already (safeguard)
                     v2_arr = np.array(v2) if not isinstance(v2, np.ndarray) else v2
                     v1_arr = np.array(v1) if not isinstance(v1, np.ndarray) else v1
                     
                     if np.issubdtype(v2_arr.dtype, np.number):
-                        # Use a mask for efficiency
-                        # Zero div is only an error if denominator is 0.
-                        # Usually we care if 0/0 or X/0.
-                        # Strict mode: any 0 in denominator is error? 
-                        # Or only if numerator is valid?
-                        # Original logic: `(v2_arr == 0) & (~np.isnan(v1_arr))`
-                        # But wait, v1 might be scalar.
-                        
                         is_zero = (v2_arr == 0)
                         if np.any(is_zero):
                             # Check numerator validity at those positions
@@ -408,8 +466,6 @@ def handle_zero_division(
                     if np.isinf(result):
                         return np.nan
                 else:
-                    # result might be read-only if it's a view? 
-                    # transform_column usually creates new arrays or simple logic returns new array.
                     if isinstance(result, np.ndarray):
                         # Ensure writable
                         if not result.flags.writeable:
@@ -430,12 +486,16 @@ def aggregate_column(
     """
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(collection: ColumnCollection, *args, **kwargs):
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            # Pass through if not collection
+            if not isinstance(collection, ColumnCollection):
+                 all_args = (collection,) + args
+                 return func(*all_args, **kwargs)
+        
             # Identify the column name arg
             if len(args) > column_arg_index:
                 col_name = args[column_arg_index]
             else:
-                # Start kwargs check? simpler to assume positional for now
                 pass
                 
             if isinstance(col_name, str) and col_name in collection.columns:
@@ -456,14 +516,15 @@ def select_columns(
     """
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(collection: ColumnCollection, *args, **kwargs):
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            # Pass through if not collection
+            if not isinstance(collection, ColumnCollection):
+                 all_args = (collection,) + args
+                 return func(*all_args, **kwargs)
+
             target_columns = kwargs.get(arg_name)
             
-            # If positional?
-            # `select` signature: (collection, columns=None, indices=None, ...)
-            # columns is 2nd arg (index 0 in *args).
             if target_columns is None and len(args) > 0:
-                 # Heuristic: if first arg is list of strings or None?
                  if args[0] is None or (isinstance(args[0], list) and (len(args[0])==0 or isinstance(args[0][0], str))):
                      target_columns = args[0]
 
@@ -482,7 +543,7 @@ def select_columns(
                 working_collection = collection.clone()
                 working_collection.columns = filtered_columns
             else:
-                working_collection = collection # Pass through, let inner handle cloning if needed.
+                working_collection = collection 
                 
             return func(working_collection, *args, **kwargs)
         return wrapper
@@ -495,7 +556,12 @@ def filter_rows(func):
     It takes those indices and returns a filtered ColumnCollection.
     """
     @functools.wraps(func)
-    def wrapper(collection: ColumnCollection, *args, **kwargs):
+    def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+        # Pass through if not collection
+        if not isinstance(collection, ColumnCollection):
+             all_args = (collection,) + args
+             return func(*all_args, **kwargs)
+
         # Run the function to get indices
         result = func(collection, *args, **kwargs)
         
@@ -518,7 +584,6 @@ def filter_rows(func):
                      col.values = []
              else:
                  # Filter step
-                 # collection.step.values might be list or array
                  current_steps = np.array(collection.step.values) if not isinstance(collection.step.values, np.ndarray) else np.array(collection.step.values)
                  
                  # Handle indices type
@@ -555,4 +620,194 @@ def filter_rows(func):
             res_collection.metadata.update(metadata_update)
             
         return res_collection
+
+    return wrapper
+
+
+
+def inject_plot_data(
+    x_arg: str = "x_column",
+    y_arg: str = "y_column",
+):
+    """
+    Decorator to extract plot data from ColumnCollection and inject into function.
+    Injects: x_values, y_values, x_label, y_label, title
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(collection: Union[ColumnCollection, Any] = None, *args, **kwargs):
+            # 1. If x_values and y_values are provided in kwargs, bypass extraction
+            # This allows calling plot(x_values=..., y_values=...) directly
+            if "x_values" in kwargs and "y_values" in kwargs:
+                # If collection was passed (e.g. None or some object), do we pass it? 
+                # If plot() does not take collection, we should NOT pass it.
+                # But if we are in pass-through mode...
+                # Actually, check if func accepts 'collection'? No, we know plot() is pure.
+                # If x_values/y_values are passed, we assume we are calling the pure function directly.
+                return func(*args, **kwargs)
+
+            # 2. Pass through if not collection (and data not fully provided)
+            # This handles plot(arr1, arr2) case where collection=arr1
+            if not isinstance(collection, ColumnCollection):
+                 # If collection is None (default), and we didn't satisfy condition 1,
+                 # it implies missing arguments. But let's pass it through and let func fail or handle.
+                 # However, if func is plot(x_values, ...), func(None, ...) maps None to x_values.
+                 # If valid usage, this is fine.
+                 return func(collection, *args, **kwargs)
+
+            # Extract Column Names (pop to remove from kwargs)
+            x_column = kwargs.pop(x_arg, None)
+            y_column = kwargs.pop(y_arg, None)
+            
+            # Extract Data & Metadata
+            # X Axis
+            if x_column is None:
+                x_values = collection.step.values
+                x_name = "Step"
+                x_unit = ""
+            else:
+                if x_column not in collection.columns:
+                    raise KeyError(f"列 '{x_column}' は存在しません")
+                col = collection.columns[x_column]
+                x_values = col.values
+                x_name = col.name
+                x_unit = col.unit
+
+            # Y Axis
+            if y_column is None:
+                y_values = collection.step.values
+                y_name = "Step"
+                y_unit = ""
+            else:
+                if y_column not in collection.columns:
+                    raise KeyError(f"列 '{y_column}' は存在しません")
+                col = collection.columns[y_column]
+                y_values = col.values
+                y_name = col.name
+                y_unit = col.unit
+            
+            # Construct Labels
+            x_label = f"{x_name} [{x_unit}]" if x_unit else x_name
+            y_label = f"{y_name} [{y_unit}]" if y_unit else y_name
+            
+            # Construct Default Title (can be overridden by kwargs if needed, but usually passed as arg)
+            # We construct it here to standardize
+            plot_type = kwargs.get("plot_type", "scatter")
+            default_title = f"{plot_type.capitalize()} plot of {y_name} vs {x_name}"
+            
+            # Inject
+            return func(
+                x_values=x_values,
+                y_values=y_values,
+                x_label=x_label,
+                y_label=y_label,
+                title=default_title,
+                *args,
+                **kwargs
+            )
+        return wrapper
+    return decorator
+
+
+def inject_length(func):
+    """
+    Decorator to inject the collection length as the first argument.
+    Usage:
+        @split_result
+        @inject_length
+        def my_split(length: int, ...):
+            ...
+    </details>
+    """
+    @functools.wraps(func)
+    def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+        # If collection is ColumnCollection, extract length
+        if isinstance(collection, ColumnCollection):
+             length = len(collection)
+             return func(length, *args, **kwargs)
+        
+        # If collection is already int (testing or manual usage)
+        if isinstance(collection, int):
+             return func(collection, *args, **kwargs)
+             
+        # If collection is list/array? (maybe just len() it?)
+        try:
+             length = len(collection)
+             return func(length, *args, **kwargs)
+        except TypeError:
+             # Fallback or raise?
+             # If we can't determine length, pass as is? 
+             # No, the function expects int.
+             raise TypeError(f"Expected ColumnCollection or length(int), got {type(collection)}")
+
+    return wrapper
+def split_result(func):
+    """
+    Decorator for functions returning List[Union[slice, np.ndarray, list]].
+    Converts them into List[ColumnCollection].
+    """
+    @functools.wraps(func)
+    def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+        # Pass through if not collection
+        if not isinstance(collection, ColumnCollection):
+             return func(collection, *args, **kwargs)
+
+        # Call inner function
+        # Expecting it to return List of Indices/Slices
+        split_defs = func(collection, *args, **kwargs)
+        
+        # Check if tuple (defs, metadata)
+        metadata_update = {}
+        if isinstance(split_defs, tuple) and len(split_defs) == 2 and isinstance(split_defs[1], dict):
+             split_defs, metadata_update = split_defs
+
+        results = []
+        
+        # Optimization: Pre-convert to numpy if needed? 
+        # But we don't want to mutate original collection here.
+        
+        # Reuse filter logic? 
+        # We can reuse the core logic of filter_rows but applied manually.
+        import numpy as np
+        
+        # Prepare arrays once
+        step_arr = np.array(collection.step.values)
+        col_arrays = {name: np.array(col.values) for name, col in collection.columns.items()}
+        
+        # Determine list vs numpy output based on input
+        # Heuristic: if step is list, return list.
+        return_list = isinstance(collection.step.values, list)
+
+        for subset_idx in split_defs:
+            # Create new collection structure (cloning metadata)
+            # clone() copies everything, which is slow if we overwrite immediately.
+            # clone_empty() would be better but if it doesn't exist...
+            # We can create instance manually or use clone and clearer.
+            
+            # subset_idx can be slice or array/list
+            
+            # Step
+            new_step_vals = step_arr[subset_idx]
+            if return_list: new_step_vals = new_step_vals.tolist()
+            
+            # Columns
+            new_columns = {}
+            for name, col in collection.columns.items():
+                orig_vals = col_arrays[name]
+                new_vals = orig_vals[subset_idx]
+                if return_list: new_vals = new_vals.tolist()
+                
+                new_col = col.__class__(col.ch, col.name, col.unit, new_vals)
+                new_columns[name] = new_col
+                
+            new_coll = collection.clone() # To keep class type and metadata
+            new_coll.step.values = new_step_vals
+            new_coll.columns = new_columns
+            
+            if metadata_update:
+                new_coll.metadata.update(metadata_update)
+            
+            results.append(new_coll)
+            
+        return results
     return wrapper

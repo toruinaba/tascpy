@@ -1,30 +1,27 @@
 from typing import Any, List, Dict, Optional, Union, Callable
 import operator
+import numpy as np
 from ...core.collection import ColumnCollection
-from ...core.column import Column
 from ..registry import operation
+from ..abstraction import filter_rows, inject_columns, inject_step_values
 
 
 @operation(domain="core")
+@inject_columns(num_inputs=1, cast_to_numpy=True)
 def search_by_value(
-    collection: ColumnCollection, column_name: str, op_str: str, value: Any
-) -> ColumnCollection:
+    vals: Any, op_str: str, value: Any
+) -> List[int]:
     """値による検索を行います
-
-    指定された列の値に対して比較演算子を適用し、条件に一致する行を抽出します。
+    
+    指定された列の値に対して比較演算子を適用し、条件に一致する行のインデックスを返します。
 
     Args:
-        collection: 対象コレクション
-        column_name: 列名
+        vals: 列の値 (inject_columnsにより注入)
         op_str: 演算子文字列 (">", "<", ">=", "<=", "==", "!=")
         value: 比較する値
 
     Returns:
-        ColumnCollection: フィルタリングされたコレクション
-
-    Raises:
-        ValueError: 無効な演算子が指定された場合
-        KeyError: 指定された列が存在しない場合
+        List[int]: 条件に一致するインデックスのリスト
     """
     # 演算子マッピング
     ops = {
@@ -42,287 +39,247 @@ def search_by_value(
             f"演算子 '{op_str}' は無効です。有効な演算子: {list(ops.keys())}"
         )
 
-    # 指定された列が存在するか確認
-    if column_name not in collection.columns:
-        raise KeyError(f"列 '{column_name}' は存在しません")
-
-    # フィルタリング処理
-    column = collection.columns[column_name]
     op_func = ops[op_str]
-
-    indices = []
-    for i, val in enumerate(column.values):
-        if val is not None and op_func(val, value):
-            indices.append(i)
-
-    # 新しいコレクションの作成
-    result = collection.clone()
-
-    # 指定のインデックスでフィルタリング
-    result.step = result.step.__class__(values=[result.step.values[i] for i in indices])
-
-    for col_name, col in result.columns.items():
-        col.values = [col.values[i] for i in indices]
-
-    return result
+    
+    # vals は @inject_columns(cast_to_numpy=True) により NumPy 配列であることが保証される
+    # None は NaN に変換されているはずだが、念のため errstate を使用
+    
+    with np.errstate(invalid='ignore'):
+        # 比較実行
+        mask = op_func(vals, value)
+        
+        # NaNを除外 (演算子に関わらず、NaNはFalseあるいは不定とする)
+        # NaNは比較において常にFalseになるのがNumPyの仕様だが、!= の場合は True になる
+        if op_str == "!=":
+             mask = mask & ~np.isnan(vals)
+        else:
+             mask = mask & ~np.isnan(vals)
+             
+    return np.where(mask)[0].tolist()
 
 
 @operation(domain="core")
+@inject_columns(num_inputs=1, cast_to_numpy=True)
 def search_by_range(
-    collection: ColumnCollection,
-    column_name: str,
+    vals: Any,
     min_value: Any,
     max_value: Any,
     inclusive: bool = True,
-) -> ColumnCollection:
+) -> List[int]:
     """範囲による検索を行います
 
-    指定された列の値が特定の範囲内にある行を抽出します。
-    境界値を含めるかどうかを選択できます。
+    指定された列の値が特定の範囲内にある行のインデックスを返します。
 
     Args:
-        collection: 対象コレクション
-        column_name: 列名
+        vals: 列の値
         min_value: 最小値
         max_value: 最大値
-        inclusive: 境界値を含むかどうか（True の場合は境界値を含む）
+        inclusive: 境界値を含めるかどうか
 
     Returns:
-        ColumnCollection: フィルタリングされたコレクション
-
-    Raises:
-        KeyError: 指定された列が存在しない場合
+        List[int]: 条件に一致するインデックスのリスト
     """
-    # 指定された列が存在するか確認
-    if column_name not in collection.columns:
-        raise KeyError(f"列 '{column_name}' は存在しません")
-
     # 演算子の選択
     if inclusive:
         min_op, max_op = operator.ge, operator.le
     else:
         min_op, max_op = operator.gt, operator.lt
 
-    # フィルタリング処理
-    column = collection.columns[column_name]
-
-    indices = []
-    for i, val in enumerate(column.values):
-        if val is not None and min_op(val, min_value) and max_op(val, max_value):
-            indices.append(i)
-
-    # 新しいコレクションの作成
-    result = collection.clone()
-
-    # 指定のインデックスでフィルタリング
-    result.step = result.step.__class__(values=[result.step.values[i] for i in indices])
-
-    for col_name, col in result.columns.items():
-        col.values = [col.values[i] for i in indices]
-
-    return result
+    with np.errstate(invalid='ignore'):
+         mask = min_op(vals, min_value) & max_op(vals, max_value) & ~np.isnan(vals)
+         
+    return np.where(mask)[0].tolist()
 
 
 @operation(domain="core")
+@operation(domain="core")
+@inject_step_values(cast_to_numpy=True)
 def search_by_step_range(
-    collection: ColumnCollection,
+    step_values: Union[List[Union[int, float]], np.ndarray],
     min: Union[int, float],
     max: Union[int, float],
     inclusive: bool = True,
     by_step_value: bool = True,
     tolerance: Optional[float] = None,
-) -> ColumnCollection:
-    """ステップ範囲による検索を行います
-
-    指定されたステップ範囲またはインデックス範囲に該当する行を抽出します。
-    ステップ値での検索とインデックスでの検索を選択できます。
-
-    Args:
-        collection: 対象コレクション
-        min: 最小ステップ値（by_step_value=True の場合）または最小インデックス（by_step_value=False の場合）
-        max: 最大ステップ値（by_step_value=True の場合）または最大インデックス（by_step_value=False の場合）
-        inclusive: 境界値を含むかどうか（True の場合は境界値を含む）
-        by_step_value: True の場合はステップ値として解釈、False の場合はインデックスとして解釈
-        tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
-
-    Returns:
-        ColumnCollection: フィルタリングされたコレクション
-    """
+) -> Union[List[int], tuple]:
+    """ステップ範囲による検索を行います"""
     # 演算子の選択
     if inclusive:
         min_op, max_op = operator.ge, operator.le
     else:
         min_op, max_op = operator.gt, operator.lt
 
-    # インデックスのリストを初期化
-    indices = []
+    steps = step_values # cast_to_numpy guarantees array if possible
 
     if by_step_value:
         # ステップ値に基づくフィルタリング
-        for i, val in enumerate(collection.step.values):
-            if val is not None and min_op(val, min) and max_op(val, max):
-                indices.append(i)
+         if tolerance is not None:
+             if inclusive:
+                 mask = (steps >= min - tolerance) & (steps <= max + tolerance)
+             else:
+                 mask = (steps > min + tolerance) & (steps < max - tolerance)
+         else:
+             mask = min_op(steps, min) & max_op(steps, max)
+         
+         mask = mask & ~np.isnan(steps)
+         indices = np.where(mask)[0].tolist()
     else:
         # インデックスに基づくフィルタリング
-        indices = [
-            i for i in range(len(collection)) if min_op(i, min) and max_op(i, max)
-        ]
+        # Use length of steps
+        length = len(steps)
+        # Vectorized range check
+        idx_arr = np.arange(length)
+        mask = min_op(idx_arr, min) & max_op(idx_arr, max)
+        indices = np.where(mask)[0].tolist()
 
-    # 新しいコレクションの作成
-    result = collection.clone()
-
-    # 指定のインデックスでフィルタリング
-    result.step = result.step.__class__(values=[result.step.values[i] for i in indices])
-
-    for col_name, col in result.columns.items():
-        col.values = [col.values[i] for i in indices]
-
-    # メタデータを更新
-    result.metadata.update(
-        {
-            "operation": "search_by_step_range",
-            "by_step_value": by_step_value,
-            "min": min,
-            "max": max,
-            "inclusive": inclusive,
-        }
-    )
-
-    return result
+    # メタデータを更新するためにタプルを返す
+    metadata_update = {
+        "operation": "search_by_step_range",
+        "by_step_value": by_step_value,
+        "min": min,
+        "max": max,
+        "inclusive": inclusive,
+    }
+    return indices, metadata_update
 
 
 @operation(domain="core")
+@inject_columns(columns_arg="columns", cast_to_numpy=True)
 def search_by_condition(
-    collection: ColumnCollection, condition_func: Callable[[Dict[str, Any]], bool]
-) -> ColumnCollection:
+    data: Dict[str, Any], 
+    condition_func: Callable[[Dict[str, Any]], bool],
+    columns: Optional[List[str]] = None
+) -> List[int]:
     """条件関数による検索を行います
-
-    各行のデータを辞書形式で条件関数に渡し、結果が True となる行だけを抽出します。
-    任意の複雑な条件を柔軟に適用することができます。
+    
+    行ごとのデータを辞書として受け取り、条件関数が True を返す行のインデックスを返します。
+    columns引数を指定すると、その列のみがデータ辞書に含まれます（パフォーマンス最適化）。
 
     Args:
-        collection: 対象コレクション
-        condition_func: 各行データを受け取り、真偽値を返す関数。引数は {列名: 値} の辞書形式
-
-    Returns:
-        ColumnCollection: フィルタリングされたコレクション
+        data: 列データの辞書 (inject_columnsにより注入)
+        condition_func: 行データ辞書を受け取り、boolを返す関数
+        columns: 使用する列名のリスト (Noneの場合は全列)
     """
-    # 各行のデータを辞書に変換
+    if not data:
+        return []
+
     indices = []
-    for i in range(len(collection)):
+    
+    # Check length from first column
+    length = 0
+    for arr in data.values():
+        length = len(arr)
+        break
+    
+    # 事前に data は Dict[name, array] になっている
+    # 行ごとのループ
+    # Note: data access data[name][i] might be slow in pure python loop. 
+    # But it's generic constraint.
+    
+    # Optimization: Extract arrays to local var
+    cols_data = data
+    col_names = list(data.keys())
+    
+    # Iterate
+    for i in range(length):
         row_data = {}
-        for col_name, col in collection.columns.items():
-            row_data[col_name] = col.values[i] if i < len(col.values) else None
+        for name in col_names:
+            vals = cols_data[name]
+            # Boundary check logic was: val = vals[i] if i < len(vals) else None
+            # With inject_columns/ColumnCollection, lengths should be aligned mostly, 
+            # but let's keep safety if arrays differ (though rare in validated collection)
+            if i < len(vals):
+                 val = vals[i]
+            else:
+                 val = None
+            row_data[name] = val
 
         # 条件関数を適用
         if condition_func(row_data):
             indices.append(i)
 
-    # 新しいコレクションの作成
-    result = collection.clone()
-
-    # 指定のインデックスでフィルタリング
-    result.step = result.step.__class__(values=[result.step.values[i] for i in indices])
-
-    for col_name, col in result.columns.items():
-        col.values = [col.values[i] for i in indices]
-
-    return result
+    return indices
 
 
 @operation(domain="core")
+@inject_columns(columns_arg="columns", cast_to_numpy=True)
 def search_missing_values(
-    collection: ColumnCollection, columns: Optional[List[str]] = None
-) -> ColumnCollection:
+    data: Dict[str, Any], columns: Optional[List[str]] = None
+) -> List[int]:
     """欠損値がある行を検索します
 
-    指定された列に欠損値（None）を含む行だけを抽出します。
-    データのクリーニングや欠損値の分析に役立ちます。
-
-    Args:
-        collection: 対象コレクション
-        columns: 検査対象の列名リスト（None の場合は全列）
-
-    Returns:
-        ColumnCollection: 欠損値を持つ行だけのコレクション
-
-    Raises:
-        KeyError: 指定された列が存在しない場合
+    指定された列に欠損値（None または NaN）を含む行のインデックスを返します。
     """
-    # 検査対象の列を決定
-    target_columns = columns if columns is not None else list(collection.columns.keys())
+    if not data:
+        # No columns to check?
+        return []
+    
+    # data is Dict[col_name, numpy_array]
+    # We need to check length. Assume all same length?
+    length = 0
+    for arr in data.values():
+        length = len(arr)
+        break
+        
+    missing_mask = np.zeros(length, dtype=bool)
+    
+    for col_name, arr in data.items():
+        if isinstance(arr, np.ndarray) and np.issubdtype(arr.dtype, np.number):
+             is_missing = np.isnan(arr)
+        else:
+             # Object array or list (if not cast properly, but cast_to_numpy=True implies array)
+             # If object array with None
+             # But cast_to_numpy with mix types creates object array
+             # Let's handle generic
+             if isinstance(arr, np.ndarray):
+                 if arr.dtype == object:
+                     # Check None or NaN
+                     is_missing = np.array([x is None or (isinstance(x, float) and np.isnan(x)) for x in arr])
+                 else:
+                     is_missing = np.zeros(len(arr), dtype=bool) # Int array etc
+             else:
+                 is_missing = np.array([x is None or (isinstance(x, float) and np.isnan(x)) for x in arr])
+        
+        # Broadcasting check
+        if len(is_missing) < length:
+             pady = np.zeros(length, dtype=bool)
+             pady[:len(is_missing)] = is_missing
+             is_missing = pady
+             
+        missing_mask |= is_missing[:length]
 
-    # 列の存在確認
-    for col_name in target_columns:
-        if col_name not in collection.columns:
-            raise KeyError(f"列 '{col_name}' は存在しません")
-
-    # 欠損値を持つ行のインデックスを収集
-    indices = []
-    for i in range(len(collection)):
-        has_missing = False
-        for col_name in target_columns:
-            col = collection.columns[col_name]
-            if i >= len(col.values) or col.values[i] is None:
-                has_missing = True
-                break
-
-        if has_missing:
-            indices.append(i)
-
-    # 新しいコレクションの作成
-    result = collection.clone()
-
-    # 指定のインデックスでフィルタリング
-    result.step = result.step.__class__(values=[result.step.values[i] for i in indices])
-
-    for col_name, col in result.columns.items():
-        col.values = [col.values[i] for i in indices]
-
-    return result
+    return np.where(missing_mask)[0].tolist()
 
 
 @operation(domain="core")
+@inject_columns(num_inputs=1, cast_to_numpy=True)
 def search_top_n(
-    collection: ColumnCollection, column_name: str, n: int, descending: bool = True
-) -> ColumnCollection:
-    """指定した列の上位 N 件を検索します
-
-    指定した列の値に基づいて、上位（または下位）N 件のデータを抽出します。
-    ソート順序を指定することで、最大値または最小値の上位を取得できます。
-
-    Args:
-        collection: 対象コレクション
-        column_name: 値の基準となる列名
-        n: 抽出する件数
-        descending: True の場合は降順ソート（大きい順）、False の場合は昇順ソート（小さい順）
-
-    Returns:
-        ColumnCollection: フィルタリングされたコレクション
-
-    Raises:
-        KeyError: 指定された列が存在しない場合
-    """
-    # 列が存在するか確認
-    if column_name not in collection.columns:
-        raise KeyError(f"列 '{column_name}' は存在しません")
-
-    # インデックスと値のペアを作成し、ソート
-    column = collection.columns[column_name]
-    pairs = [(i, val) for i, val in enumerate(column.values) if val is not None]
-    pairs.sort(key=lambda x: x[1], reverse=descending)
-
-    # 上位N件のインデックスを取得
-    indices = [pair[0] for pair in pairs[:n]]
-    indices.sort()  # 元の順序でインデックスをソート
-
-    # 新しいコレクションの作成
-    result = collection.clone()
-
-    # 指定のインデックスでフィルタリング
-    result.step = result.step.__class__(values=[result.step.values[i] for i in indices])
-
-    for col_name, col in result.columns.items():
-        col.values = [col.values[i] for i in indices]
-
-    return result
+    vals: Any, n: int, descending: bool = True
+) -> List[int]:
+    """指定した列の上位 N 件を検索します"""
+    
+    # NumPy最適化
+    # vals guaranteed to be array (cast_to_numpy=True)
+    
+    valid_mask = ~np.isnan(vals)
+    valid_indices = np.where(valid_mask)[0]
+    valid_vals = vals[valid_mask]
+    
+    if len(valid_vals) == 0:
+        return []
+        
+    sorted_valid_indices_local = np.argsort(valid_vals)
+    
+    if descending:
+        # Largest first -> reverse
+        sorted_valid_indices_local = sorted_valid_indices_local[::-1]
+        
+    # Map back to original indices
+    sorted_original_indices = valid_indices[sorted_valid_indices_local]
+    
+    # Take top n
+    top_n_indices = sorted_original_indices[:n]
+    
+    # 元の順序でソートして返す (仕様維持)
+    top_n_indices.sort()
+    return top_n_indices.tolist()

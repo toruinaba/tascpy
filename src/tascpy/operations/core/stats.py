@@ -9,7 +9,7 @@ from ...utils.data import moving_average as utils_moving_average
 from ...core.collection import ColumnCollection
 from ...core.column import Column, detect_column_type
 from ..registry import operation
-from ..abstraction import transform_column, aggregate_column
+from ..abstraction import transform_column, inject_columns, handle_missing_values
 
 # --- Transformation Operations ---
 
@@ -230,175 +230,44 @@ def gaussian_filter(
     return smoothed
 
 
-@operation(domain="core")
-def smooth(
-    collection: ColumnCollection,
-    column: str,
-    method: str = "moving_average",
-    window_size: int = 3,
-    sigma: float = 1.0,  # for gaussian
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-    **kwargs
-) -> ColumnCollection:
-    """指定した列のデータを平滑化します
 
-    移動平均またはガウシアンフィルタを使用して、データのノイズを低減します。
-
-    Args:
-        collection: 処理対象の ColumnCollection
-        column: 処理対象の列名
-        method: 平滑化手法 ("moving_average" または "gaussian")
-        window_size: ウィンドウサイズ（移動平均用、ガウシアンの場合はフィルタサイズに影響）
-        sigma: ガウシアンフィルタの標準偏差
-        result_column: 結果を格納する列名
-        in_place: True の場合、結果を元の列に上書き
-        **kwargs: その他の引数（moving_averageのedge_handlingなど）
-
-    Returns:
-        ColumnCollection: 平滑化された列を含むコレクション
-    """
-    if method == "moving_average" or method == "ma":
-        return moving_average(
-            collection,
-            column,
-            window_size=window_size,
-            result_column=result_column,
-            in_place=in_place,
-            **kwargs
-        )
-    elif method == "gaussian":
-        return gaussian_filter(
-            collection,
-            column,
-            sigma=sigma,
-            window_size=kwargs.get("kernel_size", None), # window_size引数があればそれも考慮可能だが、gaussianはsigmaベースが一般的
-            result_column=result_column,
-            in_place=in_place,
-        )
-    else:
-        raise ValueError(f"不明な平滑化手法です: {method}. 'moving_average' または 'gaussian' を指定してください。")
-
-
-@operation(domain="core")
-def ma(
-    collection: ColumnCollection,
-    column: str,
-    window_size: int = 3,
-    result_column: Optional[str] = None,
-    edge_handling: str = "asymmetric",
-    in_place: bool = False,
-) -> ColumnCollection:
-    """moving_average のエイリアス"""
-    return moving_average(
-        collection,
-        column,
-        window_size=window_size,
-        result_column=result_column,
-        edge_handling=edge_handling,
-        in_place=in_place,
-    )
-
-
-@operation(domain="core")
-def outliers(
-    collection: ColumnCollection,
-    column: str,
-    window_size: int = 3,
-    threshold: float = 0.5,
-    edge_handling: str = "asymmetric",
-    min_abs_value: float = 1e-10,
-    scale_factor: float = 1.0,
-    result_column: Optional[str] = None,
-) -> ColumnCollection:
-    """detect_outliers のエイリアス"""
-    return detect_outliers(
-        collection,
-        column,
-        window_size=window_size,
-        threshold=threshold,
-        edge_handling=edge_handling,
-        min_abs_value=min_abs_value,
-        scale_factor=scale_factor,
-        result_column=result_column,
-    )
 
 
 
 # --- Aggregation Operations ---
 
 @operation(domain="core")
-@aggregate_column(column_arg_index=0)
-def max(collection: ColumnCollection, column: str) -> float:
+@inject_columns(num_inputs=1)
+@handle_missing_values(strategy="nan")
+def max(vals: Any) -> float:
     """列の最大値を取得します"""
-    values = collection[column].values
-    
-    # None/NaN処理
-    if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
-        return float(np.nanmax(values))
-    
-    valid_values = [v for v in values if v is not None and (not isinstance(v, float) or not np.isnan(v))]
-    if not valid_values:
-        return float("nan")
-        
-    return float(np.max(valid_values))
+    # vals is guaranteed to be a float array with NaN for None
+    return float(np.nanmax(vals))
 
 @operation(domain="core")
-@aggregate_column(column_arg_index=0)
-def min(collection: ColumnCollection, column: str) -> float:
+@inject_columns(num_inputs=1)
+@handle_missing_values(strategy="nan")
+def min(vals: Any) -> float:
     """列の最小値を取得します"""
-    values = collection[column].values
-    
-    if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
-        return float(np.nanmin(values))
-    
-    valid_values = [v for v in values if v is not None and (not isinstance(v, float) or not np.isnan(v))]
-    if not valid_values:
-        return float("nan")
-        
-    return float(np.min(valid_values))
+    return float(np.nanmin(vals))
 
 @operation(domain="core")
-@aggregate_column(column_arg_index=0)
-def mean(collection: ColumnCollection, column: str) -> float:
+@inject_columns(num_inputs=1)
+@handle_missing_values(strategy="nan")
+def mean(vals: Any) -> float:
     """列の平均値を取得します"""
-    values = collection[column].values
-    
-    if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
-        return float(np.nanmean(values))
-    
-    valid_values = [v for v in values if v is not None and (not isinstance(v, float) or not np.isnan(v))]
-    if not valid_values:
-        return float("nan")
-        
-    return float(np.mean(valid_values))
+    return float(np.nanmean(vals))
 
 @operation(domain="core")
-@aggregate_column(column_arg_index=0)
-def std(collection: ColumnCollection, column: str) -> float:
+@inject_columns(num_inputs=1)
+@handle_missing_values(strategy="nan")
+def std(vals: Any) -> float:
     """列の標準偏差を取得します"""
-    values = collection[column].values
-    
-    if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
-        return float(np.nanstd(values))
-    
-    valid_values = [v for v in values if v is not None and (not isinstance(v, float) or not np.isnan(v))]
-    if not valid_values:
-        return float("nan")
-        
-    return float(np.std(valid_values))
+    return float(np.nanstd(vals))
 
 @operation(domain="core")
-@aggregate_column(column_arg_index=0)
-def sum(collection: ColumnCollection, column: str) -> float:
+@inject_columns(num_inputs=1)
+@handle_missing_values(strategy="nan")
+def sum(vals: Any) -> float:
     """列の合計値を取得します"""
-    values = collection[column].values
-    
-    if hasattr(values, "dtype") and np.issubdtype(values.dtype, np.number):
-        return float(np.nansum(values))
-    
-    valid_values = [v for v in values if v is not None and (not isinstance(v, float) or not np.isnan(v))]
-    if not valid_values:
-        return float("nan")
-        
-    return float(np.sum(valid_values))
+    return float(np.nansum(vals))

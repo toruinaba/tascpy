@@ -6,18 +6,18 @@ select は列名、行インデックス、ステップ値などを指定して�
 """
 
 from typing import List, Optional, Dict, Any, Union, Tuple
-
+import numpy as np
 from ...core.collection import ColumnCollection
 from ..registry import operation
-from ..abstraction import filter_rows, select_columns, inject_columns
-import numpy as np
+from ..abstraction import filter_rows, select_columns, inject_columns, inject_step_values
 
 
 @operation(domain="core")
 @select_columns(arg_name="columns")
 @filter_rows
+@inject_step_values
 def select(
-    collection: ColumnCollection,
+    step_values: Union[List[Union[int, float]], np.ndarray],
     columns: Optional[List[str]] = None,
     indices: Optional[List[int]] = None,
     steps: Optional[List[Union[int, float]]] = None,
@@ -30,7 +30,7 @@ def select(
     列の選択、インデックスによる行の選択、ステップ値による行の選択を組み合わせて使用できます。
 
     Args:
-        collection: 元の ColumnCollection
+        step_values: ステップ値のリストまたは配列 (@inject_step_valuesにより注入)
         columns: (デコレータで処理) 抽出する列名のリスト。None の場合は全列が対象
         indices: 抽出する行インデックスのリスト。None の場合は全行が対象
         steps: 抽出するステップのリスト。None の場合は全行が対象
@@ -47,6 +47,9 @@ def select(
     if indices is not None and steps is not None:
         raise ValueError("indicesとstepsは同時に指定できません")
 
+    # データ長
+    length = len(step_values)
+
     # ステップ値からインデックスへの変換処理
     final_indices = indices
     found_steps = []
@@ -54,7 +57,8 @@ def select(
     operation_type = "select"
     metadata_update = {
         "operation": "select",
-        "source_columns": list(collection.columns.keys()),
+        # source_columns info was here, but now implementation is decoupled.
+        # select_columns decorator handles column filtering, so resultant collection reflects it.
     }
 
     if steps is not None:
@@ -64,21 +68,69 @@ def select(
 
         if by_step_value:
             # ステップ値からインデックスに変換
-            for step in steps:
-                idx = collection.step.find_step_index(
-                    step, tolerance=tolerance, default=None
-                )
+            # step_values might be list or array
+            is_array = isinstance(step_values, np.ndarray)
+            
+            for target_step in steps:
+                # Find index logic (previously collection.step.find_step_index)
+                # Re-implementing logic here using raw data to be pure
+                
+                idx = None
+                if is_array:
+                    # NumPy optimized search
+                    if tolerance is None:
+                         # Exact match (float comparison issues possible, use small epsilon?)
+                         # Replicate logic: np.where(step_values == target_step)
+                         # But Step implementation used tolerance=None -> Strict equality? 
+                         # Or np.isclose?
+                         # Let's assume strict if tolerance is explicitly None, unless it's float.
+                         # Better to mimic `find_step_index`:
+                         # if tolerance: abs(vals - val) <= tolerance
+                         # else: vals == val
+                         # But for float, == is risky.
+                         
+                         indices_found = np.where(step_values == target_step)[0]
+                         if len(indices_found) > 0:
+                             idx = int(indices_found[0])
+                    else:
+                         # With tolerance
+                         diff = np.abs(step_values - target_step)
+                         nearest_idx = np.argmin(diff)
+                         if diff[nearest_idx] <= tolerance:
+                             idx = int(nearest_idx)
+                else:
+                    # List search
+                    # find_step_index logic: 
+                    # closest match within tolerance? Or exact match?
+                    # "find_step_index ... default=None" implies exact search if tolerance is None.
+                    
+                    found = False
+                    if tolerance is None:
+                        try:
+                             # list.index handles exact match
+                             idx = step_values.index(target_step)
+                             found = True
+                        except ValueError:
+                             pass
+                    else:
+                         # Scan
+                         for i, v in enumerate(step_values):
+                             if abs(v - target_step) <= tolerance:
+                                 idx = i
+                                 found = True
+                                 break
+                
                 if idx is not None:
                     final_indices.append(idx)
-                    found_steps.append(collection.step.values[idx])
+                    found_steps.append(step_values[idx])
                 else:
-                    missing_steps.append(step)
+                    missing_steps.append(target_step)
         else:
             # 直接インデックスとして使用
             for idx in steps:
-                if 0 <= idx < len(collection):
+                if 0 <= idx < length:
                     final_indices.append(idx)
-                    found_steps.append(collection.step.values[idx])
+                    found_steps.append(step_values[idx])
                 else:
                     missing_steps.append(idx)
                     
@@ -99,11 +151,7 @@ def select_step(
     by_step_value: bool = True,
     tolerance: Optional[float] = None,
 ) -> ColumnCollection:
-    """指定した列名とステップ番号に基づいてデータを抽出します
-    
-    注: この関数は後方互換性のために残されています。
-    新しいコードでは select() 関数を使用することが推奨されます。
-    """
+    """指定した列名とステップ番号に基づいてデータを抽出します (後方互換性)"""
     # 統合された select 関数を呼び出す
     return select(
         collection=collection,
@@ -116,34 +164,33 @@ def select_step(
 
 @operation(domain="core")
 @filter_rows
-@inject_columns(num_inputs=1)
+@inject_step_values
 def fetch_near_step(
-    vals: Union[np.ndarray, List[float]], value: float
+    step_values: Union[np.ndarray, List[float]], value: float
 ) -> List[int]:
     """指定された値に最も近い行を取得します
 
     Args:
-        vals: 検索対象の列の値（@inject_columnsにより注入）
+        step_values: 検索対象のステップ値（@inject_step_valuesにより注入）
         value: 検索する値
 
     Returns:
         List[int]: 最も近い値を持つ行のインデックス（1つ）
     """
     # 数値型変換とチェック
-    if isinstance(vals, list):
-         vals = np.array(vals)
+    if isinstance(step_values, list):
+         step_values = np.array(step_values)
     
-    if not np.issubdtype(vals.dtype, np.number):
-         # Try converting to float, usually raises ValueError if strings
+    if not np.issubdtype(step_values.dtype, np.number):
          try:
-             vals = vals.astype(float)
+             step_values = step_values.astype(float)
          except ValueError:
-             raise TypeError(f"指定された列は数値型ではありません")
+             raise TypeError(f"ステップ列は数値型ではありません")
 
     # 絶対差分
-    diff = np.abs(vals - value)
+    diff = np.abs(step_values - value)
     
-    # 最小値のインデックスを取得
+    # NaNが含まれる場合は無視
     try:
         idx = np.nanargmin(diff)
     except ValueError:

@@ -3,6 +3,7 @@
 from typing import Optional, Union, List, Dict, Any
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import numpy as np # Added numpy
 
 # 日本語フォントサポート
 try:
@@ -17,52 +18,27 @@ except ImportError:
 
 from ...core.collection import ColumnCollection
 from ...operations.registry import operation
+from ..abstraction import inject_plot_data
 
 
 @operation(domain="core")
+@inject_plot_data(x_arg="x_column", y_arg="y_column")
 def plot(
-    collection: ColumnCollection,
-    x_column: Optional[str] = None,
-    y_column: Optional[str] = None,
-    plot_type: str = "scatter",
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    x_label: str,
+    y_label: str,
+    title: str,
     ax: Optional[plt.Axes] = None,
     **kwargs,
 ) -> plt.Axes:
     """グラフを描画します
     
     (backend_mpl.plot を使用)
+    Args:
+        x_values, y_values, x_label, y_label, title: @inject_plot_data により注入されます
     """
     from ...visualization import backend_mpl
-    
-    # x軸とy軸のデータを取得
-    if x_column is None:
-        x_values = collection.step.values
-        x_name = "Step"
-        x_unit = ""
-    else:
-        if x_column not in collection.columns:
-            raise KeyError(f"列 '{x_column}' は存在しません")
-        x_col = collection.columns[x_column]
-        x_values = x_col.values
-        x_name = x_col.name
-        x_unit = x_col.unit
-
-    if y_column is None:
-        y_values = collection.step.values
-        y_name = "Step"
-        y_unit = ""
-    else:
-        if y_column not in collection.columns:
-            raise KeyError(f"列 '{y_column}' は存在しません")
-        y_col = collection.columns[y_column]
-        y_values = y_col.values
-        y_name = y_col.name
-        y_unit = y_col.unit
-
-    # ラベル作成
-    x_label = f"{x_name} [{x_unit}]" if x_unit else x_name
-    y_label = f"{y_name} [{y_unit}]" if y_unit else y_name
-    title = f"{plot_type.capitalize()} plot of {y_name} vs {x_name}"
     
     return backend_mpl.plot(
         x_values=x_values,
@@ -70,7 +46,6 @@ def plot(
         x_label=x_label,
         y_label=y_label,
         title=title,
-        plot_type=plot_type,
         ax=ax,
         **kwargs
     )
@@ -159,8 +134,7 @@ def visualize_outliers(
     from ..core.filters import filter_by_value
 
     # 指定された列が存在するか確認
-    if column not in collection.columns:
-        raise KeyError(f"列 '{column}' は存在しません")
+
 
     # 異常値検出の実行
     outlier_column = f"_outlier_flags_{column}"
@@ -193,7 +167,34 @@ def visualize_outliers(
         plot_kwargs["color"] = normal_color
         plot_kwargs["alpha"] = normal_alpha
         plot_kwargs["plot_type"] = plot_type
-        plot(result, x_column=x_column, y_column=column, ax=ax, **plot_kwargs)
+        
+        # plotは純粋関数になったのでデータを抽出して渡す
+        if x_column is None:
+            x_vals = result.step.values
+            x_name = "Step"
+            x_unit = ""
+        else:
+            x_vals = result[x_column].values
+            x_name = result.columns[x_column].name
+            x_unit = result.columns[x_column].unit
+            
+        y_vals = result[column].values
+        y_name = result.columns[column].name
+        y_unit = result.columns[column].unit
+        
+        x_lbl = f"{x_name} [{x_unit}]" if x_unit else x_name
+        y_lbl = f"{y_name} [{y_unit}]" if y_unit else y_name
+        title = f"{plot_type.capitalize()} plot of {y_name} vs {x_name}"
+
+        plot(
+            x_values=np.array(x_vals), 
+            y_values=np.array(y_vals), 
+            x_label=x_lbl, 
+            y_label=y_lbl, 
+            title=title, 
+            ax=ax, 
+            **plot_kwargs
+        )
 
     # 異常値のプロット
     if outlier_count > 0:
@@ -203,7 +204,6 @@ def visualize_outliers(
         outlier_kwargs = {
             "color": highlight_color,
             "plot_type": "scatter",  # 異常値は常に散布図で表示
-            "ax": ax,  # axを明示的に渡す
             "s": outlier_size,
             "marker": outlier_marker,
             "label": "異常値",
@@ -226,7 +226,42 @@ def visualize_outliers(
             )
 
         # 異常値データをプロット
-        plot(outlier_data, x_column=x_column, y_column=column, **outlier_kwargs)
+        # 異常値データをプロット
+        # outlier_data から値を抽出
+        if x_column is None:
+            out_x_vals = outlier_data.step.values
+        else:
+            out_x_vals = outlier_data[x_column].values
+            
+        out_y_vals = outlier_data[column].values
+        
+        # ラベル類は↑で計算したもの (normal plotting logic pass or not executed?)
+        # If show_normal is False, we might not have calculated labels. 
+        # Calculate labels if not done.
+        if 'x_lbl' not in locals():
+            if x_column is None:
+                x_name = "Step"
+                x_unit = ""
+            else:
+                x_name = getattr(collection.columns.get(x_column), "name", x_column)
+                x_unit = getattr(collection.columns.get(x_column), "unit", "")
+                
+            y_name = getattr(collection.columns.get(column), "name", column)
+            y_unit = getattr(collection.columns.get(column), "unit", "")
+            
+            x_lbl = f"{x_name} [{x_unit}]" if x_unit else x_name
+            y_lbl = f"{y_name} [{y_unit}]" if y_unit else y_name
+            title = f"Outlier detection of {y_name}"
+
+        plot(
+            x_values=np.array(out_x_vals), 
+            y_values=np.array(out_y_vals), 
+            x_label=x_lbl, 
+            y_label=y_lbl, 
+            title=title, 
+            ax=ax, 
+            **outlier_kwargs
+        )
     else:
         print("visualize_outliers: 異常値がありません")
 
@@ -277,53 +312,64 @@ def plot_const_x(
     if len(x_values) != len(y_columns):
         raise ValueError(f"x_valuesの長さ({len(x_values)})とy_columnsの長さ({len(y_columns)})が一致しません")
 
-    # 値を取得
-    y_values = []
+    # 値を取得 (単一行を想定)
+    y_vals_list = []
+    
+    # 欠損値を含む可能性があるため、すべてfloatとして扱い、NoneはNaNにする
     for col_name in y_columns:
         if col_name not in collection.columns:
-             # 見つからない場合はNoneかNaNを入れるか、エラーにする
              print(f"Warning: Column {col_name} not found")
-             y_values.append(float('nan'))
+             y_vals_list.append(float('nan'))
              continue
              
-        col = collection[col_name]
-        # dataプロパティまたはvaluesを使用
-        # 1行であることを想定して最初の値を取得
-        val = col.values[0] if len(col.values) > 0 else float('nan')
-        y_values.append(val)
+        col = collection.columns[col_name]
+        vals = col.values
+        if len(vals) > 0:
+            val = vals[0]
+            if val is None:
+                y_vals_list.append(float('nan'))
+            else:
+                y_vals_list.append(float(val))
+        else:
+            y_vals_list.append(float('nan'))
 
-    # プロット
-    if ax is None:
-        fig, ax = plt.subplots()
-        created = True
-    else:
-        created = False
-        
-    ax.plot(x_values, y_values, **kwargs)
+    # NumPy配列に変換
+    x_arr = np.array(x_values)
+    y_arr = np.array(y_vals_list)
     
+    # ラベル等の構築
+    # plot_const_x は通常 titleなどをkwargsで受けるか、デフォルトを設定
+    x_label = kwargs.pop("x_label", "X Parameters")
+    y_label = kwargs.pop("y_label", "Y Values")
+    title = kwargs.pop("title", f"Plot of {len(y_columns)} columns vs X")
     
-    if created:
-        plt.show()
-        
-    return ax
+    # 純粋関数 plot を呼び出し
+    return plot(
+        x_values=x_arr,
+        y_values=y_arr,
+        x_label=x_label,
+        y_label=y_label,
+        title=title,
+        ax=ax,
+        **kwargs
+    )
 
 
 @operation(domain="core")
+@inject_plot_data(x_arg="x_column", y_arg="y_column")
 def iplot(
-    collection: ColumnCollection,
-    x_column: Optional[str] = None,
-    y_column: Optional[str] = None,
-    plot_type: str = "scatter",
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    x_label: str,
+    y_label: str,
+    title: str,
     fig: Optional[Any] = None,
     **kwargs,
 ) -> Any:
     """インタラクティブなグラフを描画します (Plotly使用)
 
     Args:
-        collection: 対象コレクション
-        x_column: x軸の列名（None の場合は step を使用）
-        y_column: y軸の列名（None の場合は step を使用）
-        plot_type: プロットの種類（'scatter' または 'line'）
+        x_values, y_values, x_label, y_label, title: @inject_plot_data により注入されます
         fig: 既存の Plotly Figure オブジェクト
         **kwargs: Plotly backend に渡す追加引数
 
@@ -332,38 +378,10 @@ def iplot(
     """
     from ...visualization import backend_plotly
     
-    # x軸とy軸のデータを取得 (plot関数と共通ロジックだが、再実装)
-    if x_column is None:
-        x_values = collection.step.values
-        x_name = "Step"
-        x_unit = ""
-    else:
-        if x_column not in collection.columns:
-            raise KeyError(f"列 '{x_column}' は存在しません")
-        x_col = collection.columns[x_column]
-        x_values = x_col.values
-        x_name = x_col.name
-        x_unit = x_col.unit
-
-    if y_column is None:
-        y_values = collection.step.values
-        y_name = "Step"
-        y_unit = ""
-    else:
-        if y_column not in collection.columns:
-            raise KeyError(f"列 '{y_column}' は存在しません")
-        y_col = collection.columns[y_column]
-        y_values = y_col.values
-        y_name = y_col.name
-        y_unit = y_col.unit
-
-    # ラベル作成
-    x_label = f"{x_name} [{x_unit}]" if x_unit else x_name
-    y_label = f"{y_name} [{y_unit}]" if y_unit else y_name
-    title = f"{plot_type.capitalize()} plot of {y_name} vs {x_name}"
-    
-    # kwargsからnameを取り出す (優先)
-    plot_name = kwargs.pop("name", y_name)
+    # kwargsからnameを取り出す (優先) -> inject_plot_data has no knoweldge of 'y_name' anymore. 
+    # Use title or y_label as generic name or extract from y_label?
+    # y_label format is "Name [Unit]" or "Name".
+    plot_name = kwargs.pop("name", y_label.split(" [")[0])
 
     return backend_plotly.plot(
         x_values=x_values,
@@ -371,7 +389,7 @@ def iplot(
         x_label=x_label,
         y_label=y_label,
         title=title,
-        plot_type=plot_type,
+        plot_type=kwargs.pop("plot_type", "scatter"), # Default handled in backend?
         fig=fig,
         name=plot_name,
         **kwargs
