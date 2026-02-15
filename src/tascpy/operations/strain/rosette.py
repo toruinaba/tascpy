@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Union
 import numpy as np
 from ...operations.registry import operation
 from ...domains.strain import StrainCollection
@@ -7,142 +7,145 @@ from ...core.column import Column
 @operation(domain="strain")
 def calculate_rosette_strains(
     collection: StrainCollection,
-    rosette_name: str,
-    result_prefix: Optional[str] = None
+    rosette_name: Optional[str] = None,
+    columns: Optional[List[str]] = None,
+    rosette_type: str = "rectangular",
+    orientation: float = 0.0,
+    prefix: Optional[str] = None
 ) -> StrainCollection:
-    """3軸ロゼットひずみゲージから主ひずみなどを計算する
-    
-    以下の値を計算し、新しいカラムとして追加します：
-    - 最大主ひずみ (epsilon_1)
-    - 最小主ひずみ (epsilon_2)
-    - 最大せん断ひずみ (gamma_max)
-    - 主ひずみ方向 (epsilon_angle): 第1ゲージ軸からの角度 (deg)
-    
+    """ロゼットひずみ計算 (主ひずみ・主応力方向)
+
+    3軸ひずみゲージの値から、最大・最小主ひずみ、最大せん断ひずみ、主ひずみ方向を計算します。
+
     Args:
         collection: ひずみコレクション
-        rosette_name: 定義済みのロゼット名
-        result_prefix: 結果カラム名の接頭辞 (デフォルトはrosette_name)
-        
+        rosette_name: 定義済みのロゼット名（metadataから情報を取得）
+        columns: ゲージのカラム名リスト [e1, e2, e3]。
+                 rosette_name指定時は無視されます。
+                 直交の場合: 0, 45, 90度
+                 デルタの場合: 0, 60, 120度
+        rosette_type: ロゼットタイプ ('rectangular' or 'delta')
+                      rosette_name指定時はmetadataが優先されます。
+        orientation: 第1ゲージの設置角度（X軸基準、反時計回り、度単位）
+                     rosette_name指定時はmetadataが優先されます。
+        prefix: 結果カラム名の接頭辞。デフォルトは rosette_name または "rosette"
+
     Returns:
-        StrainCollection: 計算結果を含む新しいコレクション
+        StrainCollection: 計算結果（e_max, e_min, gamma_max, theta）が追加されたコレクション
     """
     
-    # ロゼット情報を取得
-    rosette_info = collection.get_rosette_info(rosette_name)
-    gauge_cols = rosette_info["columns"]
-    rosette_type = rosette_info.get("type", "rectangular")
-    orientation = rosette_info.get("orientation", 0.0)
+    # ロゼット情報の取得
+    target_columns = columns
+    r_type = rosette_type
+    angle_offset = orientation
     
-    # 接頭辞の決定
-    prefix = result_prefix if result_prefix else rosette_name
+    if rosette_name:
+        rosette_info = collection.get_rosette(rosette_name)
+        if rosette_info:
+            target_columns = rosette_info.get("columns")
+            r_type = rosette_info.get("type", rosette_type)
+            angle_offset = rosette_info.get("orientation", orientation)
+            if prefix is None:
+                prefix = rosette_name
     
+    if prefix is None:
+        prefix = "rosette"
+        
+    if not target_columns or len(target_columns) != 3:
+        raise ValueError("3つのひずみカラムを指定する必要があります")
+        
+    for col in target_columns:
+        if col not in collection.columns:
+            raise ValueError(f"カラム '{col}' が見つかりません")
+
     # データの取得
-    e1 = collection[gauge_cols[0]].values
-    e2 = collection[gauge_cols[1]].values
-    e3 = collection[gauge_cols[2]].values
+    e1 = np.array(collection[target_columns[0]].values, dtype=float)
+    e2 = np.array(collection[target_columns[1]].values, dtype=float)
+    e3 = np.array(collection[target_columns[2]].values, dtype=float)
     
-    # None対策: 全てfloatに変換し、NoneはNaNにする
-    def to_array(data):
-        return np.array([float(x) if x is not None else np.nan for x in data])
+    # 計算 (Reference: Dally & Riley or standard mechanics of materials)
+    # Unit assumption: Strain is dimensionless (microstrain handling is up to user, but usually raw strain)
+    
+    # e_x, e_y, gamma_xy の計算
+    if r_type.lower() == "rectangular":
+        # 0, 45, 90 degree arrangement
+        # e1 = ex
+        # e3 = ey
+        # e2 = (ex + ey + gamma_xy) / 2  => gamma_xy = 2*e2 - (ex + ey)
         
-    e_a = to_array(e1)
-    e_b = to_array(e2)
-    e_c = to_array(e3)
-    
-    # 計算用バッファ
-    n = len(e_a)
-    ep1 = np.full(n, np.nan)
-    ep2 = np.full(n, np.nan)
-    gamma_max = np.full(n, np.nan)
-    theta = np.full(n, np.nan)
-    
-    valid_mask = ~np.isnan(e_a) & ~np.isnan(e_b) & ~np.isnan(e_c)
-    
-    if np.any(valid_mask):
-        ea_v = e_a[valid_mask]
-        eb_v = e_b[valid_mask]
-        ec_v = e_c[valid_mask]
+        ex = e1
+        ey = e3
+        gamma_xy = 2 * e2 - (e1 + e3)
         
-        if rosette_type == "rectangular":
-            # 0/45/90 rectangular rosette
-            # center = (ea + ec) / 2
-            # radius = sqrt(2)/2 * sqrt((ea - eb)^2 + (eb - ec)^2)
-            center = (ea_v + ec_v) / 2.0
-            radius = (np.sqrt(2.0) / 2.0) * np.sqrt((ea_v - eb_v)**2 + (eb_v - ec_v)**2)
-            
-            ep1[valid_mask] = center + radius
-            ep2[valid_mask] = center - radius
-            gamma_max[valid_mask] = 2.0 * radius
-            
-            # Angle calculation
-            # tan(2*theta) = (2*eb - ea - ec) / (ea - ec)
-            numerator = 2.0 * eb_v - ea_v - ec_v
-            denominator = ea_v - ec_v
-            
-            # atan2 returns angle in radians between -pi and pi
-            theta_rad = 0.5 * np.arctan2(numerator, denominator)
-            theta_deg = np.degrees(theta_rad)
-            theta[valid_mask] = theta_deg
+    elif r_type.lower() == "delta":
+        # 0, 60, 120 degree arrangement
+        # e1 = ex
+        # e2 = (ex + 3*ey + sqrt(3)*gamma_xy) / 4 ... check formula
+        # Standard formulas:
+        # ex = e1
+        # ey = (2*e2 + 2*e3 - e1) / 3
+        # gamma_xy = 2/sqrt(3) * (e2 - e3)
+        
+        ex = e1
+        ey = (2 * e2 + 2 * e3 - e1) / 3.0
+        gamma_xy = (2.0 / np.sqrt(3.0)) * (e2 - e3)
+        
+    else:
+        raise ValueError(f"Unknown rosette type: {r_type}. Supported: 'rectangular', 'delta'")
 
-        elif rosette_type == "delta":
-            # 0/60/120 delta rosette
-            # center = (ea + eb + ec) / 3
-            # radius = sqrt(2)/3 * sqrt((ea - eb)^2 + (eb - ec)^2 + (ec - ea)^2)
-            center = (ea_v + eb_v + ec_v) / 3.0
-            term = (ea_v - eb_v)**2 + (eb_v - ec_v)**2 + (ec_v - ea_v)**2
-            radius = (np.sqrt(2.0) / 3.0) * np.sqrt(term)
-            
-            ep1[valid_mask] = center + radius
-            ep2[valid_mask] = center - radius
-            gamma_max[valid_mask] = 2.0 * radius
-            
-            # Angle: tan(2*theta) = sqrt(3)*(ec - eb) / (2*ea - eb - ec)
-            numerator = np.sqrt(3.0) * (ec_v - eb_v)
-            denominator = 2.0 * ea_v - eb_v - ec_v
-            
-            theta_rad = 0.5 * np.arctan2(numerator, denominator)
-            theta_deg = np.degrees(theta_rad)
-            theta[valid_mask] = theta_deg
-            
-        else:
-            raise ValueError(f"Unknown rosette type: {rosette_type}")
-
-    # 結果コレクションの作成
+    # 主ひずみの計算
+    # e_max, e_min = (ex + ey)/2 +/- sqrt( ((ex-ey)/2)^2 + (gamma_xy/2)^2 )
+    center = (ex + ey) / 2.0
+    radius = np.sqrt(((ex - ey) / 2.0) ** 2 + (gamma_xy / 2.0) ** 2)
+    
+    e_max = center + radius
+    e_min = center - radius
+    
+    # 最大せん断ひずみ
+    # gamma_max = 2 * radius
+    gamma_max = 2 * radius
+    
+    # 主ひずみ方向 (theta_p)
+    # tan(2*theta) = gamma_xy / (ex - ey)
+    # theta is angle from x-axis to principal axis
+    theta_rad = 0.5 * np.arctan2(gamma_xy, ex - ey)
+    theta_deg = np.degrees(theta_rad)
+    
+    # orientation (ゲージ自体の設置角度) の補正
+    # 計算されたthetaは「第1ゲージ(e1)」の方向(=x軸と仮定)からの角度
+    # e1自体の角度がangle_offsetの場合、全体を回転させる必要があるか？
+    # 通常、結果の角度を絶対座標系(X軸)に対する角度として返すなら、offsetを加算する
+    final_theta = theta_deg + angle_offset
+    
+    # 結果の格納
     result = collection.clone()
     
-    # 結果の単位 (入力と同じと仮定、ただし角度はdeg)
-    unit = collection[gauge_cols[0]].unit if hasattr(collection[gauge_cols[0]], "unit") else ""
+    # 単位の継承 (e1の単位を使う)
+    unit = collection[target_columns[0]].unit
     
-    # カラムの追加
-    result.add_column(
-        f"{prefix}_epsilon1", 
-        Column(None, f"{prefix}_epsilon1", unit, ep1.tolist(), 
-               metadata={"description": "Maximum principal strain"})
-    )
-    result.add_column(
-        f"{prefix}_epsilon2", 
-        Column(None, f"{prefix}_epsilon2", unit, ep2.tolist(),
-               metadata={"description": "Minimum principal strain"})
-    )
-    result.add_column(
-        f"{prefix}_gamma_max", 
-        Column(None, f"{prefix}_gamma_max", unit, gamma_max.tolist(),
-               metadata={"description": "Maximum shear strain"})
-    )
-    result.add_column(
-        f"{prefix}_angle", 
-        Column(None, f"{prefix}_angle", "deg", theta.tolist(),
-               metadata={"description": "Principal strain direction (angle from gauge 1)"})
-    )
+    new_cols = {
+        f"{prefix}_e1": (e_max, "Max Principal Strain"),
+        f"{prefix}_e2": (e_min, "Min Principal Strain"),
+        f"{prefix}_gamma": (gamma_max, "Max Shear Strain"),
+        f"{prefix}_theta": (final_theta, "Principal Direction Angle (deg)")
+    }
     
-    # 座標情報のコピー（重心として扱うか、第1ゲージの位置とするか。ここでは第1ゲージの位置を採用）
-    if hasattr(collection, "get_column_coordinates"):
-        # ベースとなる座標（第1ゲージ）
-        x, y, z = collection.get_column_coordinates(gauge_cols[0])
+    for name, (vals, desc) in new_cols.items():
+        col_unit = unit
+        if "theta" in name:
+            col_unit = "deg"
+            
+        result.columns[name] = Column(
+            ch=None,
+            name=name,
+            unit=col_unit,
+            values=vals,
+            metadata={"description": desc, "source_rosette": rosette_name or "manual"}
+        )
         
-        # 追加した全てのカラムに同じ座標を設定
-        for col_name in [f"{prefix}_epsilon1", f"{prefix}_epsilon2", f"{prefix}_gamma_max", f"{prefix}_angle"]:
-             result.set_column_coordinates(col_name, x, y, z)
-             
-    return result
+        # 座標情報をコピー（代表として第1ゲージの座標を使う、あるいはロゼット中心があればそれを使う）
+        # 这里では第1ゲージの座標をコピーする
+        x, y, z = collection.get_column_coordinates(target_columns[0])
+        result.set_column_coordinates(name, x, y, z)
 
+    return result

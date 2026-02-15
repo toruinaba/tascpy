@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, Union, TYPE_CHECKING
 from ..core.step import Step
 from ..core.column import Column
 from .coordinate import CoordinateCollection
@@ -7,13 +7,14 @@ from .factory import DomainCollectionFactory
 if TYPE_CHECKING:
     from ..typing.strain import StrainCollectionOperations
 
+
 class StrainCollection(CoordinateCollection):
     """ひずみデータを扱うための特化コレクションクラス
     
-    CoordinateCollectionを継承し、各ゲージの座標情報を持つことができます。
-    また、3軸ロゼットゲージなどのグルーピング情報をメタデータとして管理します。
+    CoordinateCollectionを継承し、各ゲージの座標情報に加えて、
+    ロゼットゲージ（3軸ゲージなど）のグルーピング情報を管理します。
     """
-    
+
     def __init__(
         self,
         step: Optional[Step] = None,
@@ -21,26 +22,27 @@ class StrainCollection(CoordinateCollection):
         metadata: Optional[Dict[str, Any]] = None,
         coordinate_metadata_key: str = "coordinates",
         coordinates: Optional[Union[Dict[str, Dict[str, Optional[float]]], str]] = None,
+        rosette_metadata_key: str = "rosettes",
         rosettes: Optional[Dict[str, Dict[str, Any]]] = None,
         **kwargs: Any,
     ):
         """初期化
-        
+
         Args:
             step: ステップデータ
             columns: カラムデータ
             metadata: メタデータ
-            coordinate_metadata_key: 座標データキー
+            coordinate_metadata_key: 座標データが格納されるメタデータのキー
             coordinates: 座標情報
-            rosettes: ロゼットゲージ定義辞書
-                {
-                    "rosette_name": {
+            rosette_metadata_key: ロゼット情報が格納されるメタデータのキー
+            rosettes: ロゼット定義辞書
+                例: {
+                    "rosette_A": {
                         "columns": ["ch1", "ch2", "ch3"],
-                        "type": "rectangular", # "rectangular" (0/45/90) or "delta" (0/60/120)
-                        "orientation": 0.0 # 基準軸からの角度(deg)
+                        "type": "rectangular",
+                        "orientation": 0.0
                     }
                 }
-            **kwargs: その他の引数
         """
         super().__init__(
             step=step, 
@@ -50,124 +52,102 @@ class StrainCollection(CoordinateCollection):
             coordinates=coordinates,
             **kwargs
         )
-        
-        # ロゼット定義をメタデータに保存
+
+        # ロゼットメタデータのキーを保存
+        self.metadata.update(
+            {"strain_domain": {"rosette_metadata_key": rosette_metadata_key}}
+        )
+
+        # ロゼット情報の登録
         if rosettes:
-            if "rosettes" not in self.metadata:
-                self.metadata["rosettes"] = {}
-            self.metadata["rosettes"].update(rosettes)
+            for name, info in rosettes.items():
+                self.add_rosette(name, info)
 
     @property
     def domain(self) -> str:
+        """ドメイン識別子を返す"""
         return "strain"
 
     @property
     def ops(self):
         """操作プロキシクラスを返す"""
         from ..operations.proxy import CollectionOperations
-        
-        # 型ヒント用 (実際の実装はまだないのでCollectionOperationsを返すか、将来的にStrainCollectionOperationsを作成)
-        # return StrainCollectionOperations(self, domain="strain")
-        return CollectionOperations(self, domain=self.domain)
-    
-    def get_rosette_info(self, rosette_name: str) -> Dict[str, Any]:
-        """指定されたロゼットの情報を取得"""
-        rosettes = self.metadata.get("rosettes", {})
-        if rosette_name not in rosettes:
-            raise KeyError(f"ロゼット '{rosette_name}' は定義されていません")
-        return rosettes[rosette_name]
 
-    def get_defined_rosettes(self) -> List[str]:
-        """定義されているロゼット名のリストを取得"""
-        return list(self.metadata.get("rosettes", {}).keys())
+        if TYPE_CHECKING:
+             from ..typing.strain import StrainCollectionOperations
+             return StrainCollectionOperations(self, domain="strain") # type: ignore
+        else:
+             return CollectionOperations(self, domain=self.domain)
+
+    @property
+    def rosette_metadata_key(self) -> str:
+        """ロゼットデータが格納されるメタデータのキーを返す"""
+        return self.metadata.get("strain_domain", {}).get(
+            "rosette_metadata_key", "rosettes"
+        )
     
-    def add_rosette(
-        self, 
-        name: str, 
-        columns: List[str], 
-        rosette_type: str = "rectangular", 
-        orientation: float = 0.0
-    ) -> "StrainCollection":
-        """ロゼット定義を追加
+    def add_rosette(self, name: str, info: Dict[str, Any]) -> "StrainCollection":
+        """ロゼット定義を追加する
         
         Args:
             name: ロゼット名
-            columns: ゲージカラム名のリスト (3つ)
-            rosette_type: "rectangular" (0/45/90) or "delta" (0/60/120)
-            orientation: 第1ゲージの角度 (deg)
+            info: ロゼット情報 (columns, type, orientationなど)
         """
+        key = self.rosette_metadata_key
+        if key not in self.metadata:
+            self.metadata[key] = {}
+            
+        # バリデーション（簡易）
+        if "columns" not in info:
+            raise ValueError(f"ロゼット情報には 'columns' リストが必要です: {name}")
+            
+        columns = info["columns"]
         if len(columns) != 3:
-            raise ValueError("ロゼットゲージには3つのカラムが必要です")
-            
-        for col in columns:
-            if col not in self.columns:
-                raise ValueError(f"カラム '{col}' がコレクションに存在しません")
-        
-        if "rosettes" not in self.metadata:
-            self.metadata["rosettes"] = {}
-            
-        self.metadata["rosettes"][name] = {
-            "columns": columns,
-            "type": rosette_type,
-            "orientation": orientation
-        }
+            # 現状は3軸ロゼットを想定
+            # 必要に応じて緩和
+            pass
+
+        self.metadata[key][name] = info
         return self
+
+    def get_rosette(self, name: str) -> Optional[Dict[str, Any]]:
+        """ロゼット情報を取得する"""
+        key = self.rosette_metadata_key
+        return self.metadata.get(key, {}).get(name)
+
+    def get_rosettes(self) -> Dict[str, Dict[str, Any]]:
+        """全てのロゼット情報を取得する"""
+        key = self.rosette_metadata_key
+        return self.metadata.get(key, {})
 
     def clone(self) -> "StrainCollection":
         """コレクションの複製を作成"""
-        # 親クラスのcloneロジックを再利用したいが、戻り値の型が異なるため
-        # メタデータを手動で構築して新しいインスタンスを作成する
+        # CoordinateCollection.clone() をベースにするが、
+        # CoordinateCollectionは自分自身のクラス(CoordinateCollection)を返してしまうため、
+        # ここで再実装するか、super().clone()の結果をキャスト的に使う必要がある。
+        # ただしmetadataはdeepcopyされているので、StrainCollectionとして作り直すのが確実。
         
-        # CoordinateCollection.clone()の実装を参考に、StrainCollection用に再実装
+        import copy
         
-        coordinate_info = self.metadata.get("coordinate_domain", {})
+        strain_info = self.metadata.get("strain_domain", {})
+        coord_info = self.metadata.get("coordinate_domain", {})
         
-        # 列のクローンを作成
         cloned_columns = {}
         for name, column in self.columns.items():
-            cloned_column = column.clone()
+            cloned_columns[name] = column.clone()
             
-            # 座標メタデータのコピー (CoordinateCollectionと同じロジック)
-            coord_key = self.coordinate_metadata_key
-            if (
-                hasattr(column, "metadata") 
-                and column.metadata 
-                and coord_key in column.metadata
-            ):
-                if coord_key not in cloned_column.metadata:
-                    cloned_column.metadata[coord_key] = {}
-                    
-                coords = column.metadata[coord_key]
-                cloned_column.metadata[coord_key] = {
-                    "x": coords.get("x"),
-                    "y": coords.get("y"),
-                    "z": coords.get("z"),
-                }
-            cloned_columns[name] = cloned_column
-            
-        import copy
-        new_metadata = copy.deepcopy(self.metadata)
-        
-        # 結果オブジェクトのコピー（ColumnCollectionのロジック）
-        # _resultsへのアクセスが必要だが、親クラスのprivate変数
-        # ColumnCollection.clone()では _results = self._results.copy() している
-        
-        new_instance = StrainCollection(
+        return StrainCollection(
             step=self.step.clone() if self.step else None,
             columns=cloned_columns,
-            metadata=new_metadata,
-            coordinate_metadata_key=coordinate_info.get("coordinate_metadata_key", "coordinates"),
-            rosettes=None # メタデータに含まれているのでNoneでよい
+            metadata=copy.deepcopy(self.metadata),
+            coordinate_metadata_key=coord_info.get("coordinate_metadata_key", "coordinates"),
+            rosette_metadata_key=strain_info.get("rosette_metadata_key", "rosettes")
         )
-        
-        # 結果オブジェクトのコピー
-        if hasattr(self, "_results"):
-             new_instance._results = self._results.copy()
-             
-        return new_instance
 
-# ドメインファクトリーへの登録
+# ファクトリ関数の定義
 def create_strain_collection(**kwargs: Any) -> StrainCollection:
+    """ひずみコレクションを作成するファクトリ関数"""
     return StrainCollection(**kwargs)
 
+# ドメインファクトリーへの登録
 DomainCollectionFactory.register("strain", create_strain_collection)

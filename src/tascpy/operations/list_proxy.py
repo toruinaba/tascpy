@@ -70,13 +70,28 @@ class CollectionListOperations(Generic[T]):
                 raise AttributeError(f"操作 '{operation}' は存在しません")
 
             # メソッドを呼び出し、結果を取得
+            # CollectionOperations側で既にラップ制御がなされているため、
+            # ここではそのまま受け取る
             result = method(*args, **kwargs)
 
-            # 結果がCollectionOperationsの場合は元のオブジェクトを取得
+            # 結果がCollectionOperationsの場合は元のオブジェクトを取得してリストに格納する？
+            # いや、CollectionListOperationsとしては、
+            # 1. 全てがCollectionOperationsなら -> CollectionListOperationsを返す (チェーン継続)
+            # 2. それ以外なら -> 値のリストを返す (チェーン終了)
+            
+            # ただし、CollectionOperationsのメソッドは常にラップ済み（または生値）を返す
+            # ラップ済みの場合、それはCollectionOperations型である
+            
             if isinstance(result, CollectionOperations):
-                result = result.end()
+                # チェーン継続のため、内部のCollectionを取り出す
+                 result = result.end()
+            
+            # CollectionListOperationsが返ってくるケース（splitなど）
             elif isinstance(result, CollectionListOperations):
-                result = result.end_all()
+                 # これもチェーン継続だが、構造がネストする可能性がある
+                 # List[CollectionListOperations] になる
+                 # ここは複雑だが、一旦end_allでリストに戻す
+                 result = result.end_all()
 
             results.append(result)
 
@@ -84,7 +99,16 @@ class CollectionListOperations(Generic[T]):
         if all(isinstance(r, ColumnCollection) for r in results):
             return CollectionListOperations(results, self._domain)
 
-        # それ以外の場合は結果のリストをそのまま返す
+        # ネストしたリストのケース (splitなど)
+        # List[List[ColumnCollection]] -> フラット化してCollectionListOperationsにするか？
+        # splitの場合は通常、[clo1, clo2, ...] のようなリストになるべきか、
+        # あるいは1つの大きなCollectionListOperationsになるべきか。
+        # splitの戻り値はCollectionListOperationsなので、
+        # map(split) は [CollectionListOperations, CollectionListOperations, ...] を返す
+        # これはチェーン継続とは扱いづらい。
+        # ユーザーは `clo.map("split", ...)` とすると、リストのリストが返ることを期待するはず。
+        
+        # 結論: 全てがColumnCollectionならラップしてチェーン継続。それ以外はリストを返す。
         return results
 
     def filter(
@@ -207,6 +231,10 @@ class CollectionListOperations(Generic[T]):
         """操作を終了し、ColumnCollectionのリストを返します"""
         return self._collections
 
+    def end(self) -> List[T]:
+        """end_all のエイリアス。操作を終了し、リストを返します"""
+        return self.end_all()
+
     def as_domain(self, domain: str, **kwargs) -> "CollectionListOperations":
         """
         全てのコレクションを指定されたドメインに変換します
@@ -225,3 +253,8 @@ class CollectionListOperations(Generic[T]):
             converted.append(converted_ops.end())
 
         return CollectionListOperations(converted, domain)
+
+    # 集計系メソッドは map 経由で動的に処理されるため、個別の実装は削除
+    # proxy.py の変更により、ops.max() が数値を返すようになったため、
+    # list_ops.max() -> map("max") -> [ops1.max(), ops2.max()] -> [val1, val2]
+    # となり、期待通りの動作となる。

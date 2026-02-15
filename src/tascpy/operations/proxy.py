@@ -74,34 +74,12 @@ class CollectionOperations(Generic[T]):
 
             return CollectionListOperations(result, self._domain)
 
-        # 結果がColumnCollectionであれば、新しいプロキシを作成
+        # 結果がColumnCollectionであれば、新しいプロキシを作成 (チェーン継続)
         elif isinstance(result, ColumnCollection):
             return CollectionOperations(result, self._domain)
 
-        # 辞書型（集計結果など）の場合
-        # 値がすべてスカラー（数値、文字列、None）であることを確認
-        elif isinstance(result, dict) and result and all(isinstance(v, (int, float, str, bool, type(None), np.number)) for v in result.values()):
-            from ..core.step import Step
-            # ColumnCollection is already imported at module level
-            
-            # キーを列名、値をデータ（リスト）に変換
-            data = {k: [v] for k, v in result.items()}
-            # Step名は操作名とする
-            step = Step([func_name]) 
-            
-            new_col = ColumnCollection(step, data)
-            return CollectionOperations(new_col, self._domain)
-
-        # スカラー値の場合
-        elif isinstance(result, (int, float, str, bool, np.number)):
-             from ..core.step import Step
-             # ColumnCollection is already imported at module level
-             
-             step = Step([func_name])
-             data = {"result": [result]}
-             new_col = ColumnCollection(step, data)
-             return CollectionOperations(new_col, self._domain)
-
+        # それ以外（スカラ値、辞書、Noneなど）はラップせずにそのまま返す (チェーン終了)
+        # 集計操作(max, minなど)や副作用(plot, to_csvなど)はこちらに該当する
         return result
 
     def _create_operation_method(self, func: Callable) -> Callable:

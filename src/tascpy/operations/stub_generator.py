@@ -250,8 +250,41 @@ def generate_operation_stub(
         # CollectionListOperations を返すスタブを生成
         return_type = f'"CollectionListOperations[{class_name}]"'
     else:
-        # 通常の操作関数は自身のクラスを返す
-        return_type = f'"{class_name}"'
+        # 通常の操作関数の戻り値を取得
+        # get_type_hintsの結果から、ColumnCollectionを返すかどうか判定
+        original_return = "Any"
+        is_collection = False
+        
+        if "return" in type_hints:
+            ret_type = type_hints["return"]
+            
+            # クラス型で判定
+            try:
+                if isinstance(ret_type, type) and issubclass(ret_type, ColumnCollection):
+                    is_collection = True
+            except TypeError:
+                pass
+                
+            # 文字列等で判定（前方参照など）
+            if not is_collection:
+                ret_str = str(ret_type)
+                if ret_str.endswith("ColumnCollection") or ret_str == class_name:
+                    is_collection = True
+
+        if is_collection:
+            # CollectionOperations (連鎖) を返す
+            return_type = f'"{class_name}"'
+        else:
+            # 元の戻り値を返す（連鎖終了）
+            # Anyの場合はAnyとするが、元の型ヒントがあればそれを使う
+            if "return" in type_hints:
+                return_annotation = format_annotation(type_hints["return"])
+                return_type = return_annotation
+            else:
+                 # 型ヒントがない場合はデフォルトで連鎖継続とみなしていたが、
+                 # 安全側に倒してAnyにするか？
+                 # 既存コードとの互換性を考えると、明示的な型がないものはAnyが無難
+                 return_type = "Any"
 
     # メソッド定義を生成
     joined_params = ",\n        ".join(params)

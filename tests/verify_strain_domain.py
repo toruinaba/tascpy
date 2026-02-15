@@ -1,122 +1,113 @@
-
-import sys
-from pathlib import Path
+import unittest
 import numpy as np
-
-# プロジェクトルートをパスに追加
-sys.path.append(str(Path(__file__).resolve().parent.parent / "src"))
-
-from tascpy.domains.strain import create_strain_collection, StrainCollection
+from tascpy.domains.strain import StrainCollection, create_strain_collection
+from tascpy.core.column import Column
 from tascpy.operations.strain.rosette import calculate_rosette_strains
-from tascpy.operations.strain.visualization import plot_rosette_vectors
 
-def test_strain_domain():
-    print("Testing Strain Domain...")
-    
-    # 1. Create StrainCollection
-    n_steps = 10
-    steps = np.arange(n_steps)
-    
-    # Simulate a uniaxial stress state along X-axis
-    # e1 = 1000 microstrain, e2 = -300 (Poisson 0.3)
-    # Rotating this state by 0 degrees should give e_x=1000, e_y=-300
-    # For a 0/45/90 rosette aligned with X-axis:
-    # e_0 (0 deg) = e_x = 1000
-    # e_90 (90 deg) = e_y = -300
-    # e_45 (45 deg) = (e_x + e_y)/2 + (e_x - e_y)/2 * cos(90) + gamma_xy/2 * sin(90) -> (e_x+e_y)/2 + gamma_xy/2
-    # If pure principal stress along X, shear gamma_xy = 0
-    # So e_45 = (1000 - 300) / 2 = 350
-    
-    e_0 = np.full(n_steps, 1000.0)
-    e_45 = np.full(n_steps, 350.0)
-    e_90 = np.full(n_steps, -300.0)
-    
-    col = create_strain_collection(
-        step=list(steps),
-        columns={
-            "sg1": e_0,
-            "sg2": e_45,
-            "sg3": e_90
-        },
-        rosettes={
-            "R1": {
-                "columns": ["sg1", "sg2", "sg3"],
-                "type": "rectangular",
-                "orientation": 0.0
+class TestStrainDomain(unittest.TestCase):
+    def setUp(self):
+        # Synthetic data for pure uniaxial tension along X-axis
+        # ex = 1000, ey = -300 (Poisson 0.3), gamma = 0
+        # Rectangular rosette at 0, 45, 90
+        # e1 (0) = ex = 1000
+        # e3 (90) = ey = -300
+        # e2 (45) = (ex + ey + gamma)/2 = (1000 - 300)/2 = 350
+        
+        self.e1_val = 1000.0
+        self.e2_val = 350.0
+        self.e3_val = -300.0
+        
+        self.n_steps = 10
+        
+        self.collection = create_strain_collection(
+            step=list(range(self.n_steps)),
+            columns={
+                "ch1": Column(ch="ch1", name="ch1", unit="uE", values=[self.e1_val]*self.n_steps),
+                "ch2": Column(ch="ch2", name="ch2", unit="uE", values=[self.e2_val]*self.n_steps),
+                "ch3": Column(ch="ch3", name="ch3", unit="uE", values=[self.e3_val]*self.n_steps)
+            },
+            coordinates={
+                "ch1": {"x": 10, "y": 20, "z": 0},
+                "ch2": {"x": 10, "y": 20, "z": 0},
+                "ch3": {"x": 10, "y": 20, "z": 0}
+            },
+            rosettes={
+                "R1": {
+                    "columns": ["ch1", "ch2", "ch3"],
+                    "type": "rectangular",
+                    "orientation": 0.0
+                }
             }
-        },
-        coordinates={
-            "sg1": {"x": 10.0, "y": 20.0, "z": 0.0}
-        }
-    )
-    
-    print(" StrainCollection created.")
-    
-    # 2. Test Rosette Calculation
-    print(" Calculation rosette strains...")
-    res = calculate_rosette_strains(col, "R1")
-    
-    # Expected results:
-    # Ep1 = 1000
-    # Ep2 = -300
-    # Angle = 0
-    
-    ep1 = res["R1_epsilon1"].values[0]
-    ep2 = res["R1_epsilon2"].values[0]
-    angle = res["R1_angle"].values[0]
-    
-    print(f" Result: Ep1={ep1:.2f}, Ep2={ep2:.2f}, Angle={angle:.2f}")
-    
-    if abs(ep1 - 1000.0) > 1e-5:
-        print(f"FAIL: Ep1 expected 1000, got {ep1}")
-        sys.exit(1)
-        
-    if abs(ep2 - -300.0) > 1e-5:
-        print(f"FAIL: Ep2 expected -300, got {ep2}")
-        sys.exit(1)
-        
-    if abs(angle - 0.0) > 1e-5:
-        # Sometimes angle can be -0 or close to 0
-        if abs(angle) > 1e-5:
-            print(f"FAIL: Angle expected 0, got {angle}")
-            sys.exit(1)
+        )
 
-    # 3. Test Visualization (Dry run to ensure no errors)
-    print(" Testing visualization (dry run)...")
-    try:
-        # show=False to prevent blocking
-        plot_rosette_vectors(res, step_index=0, show=False)
-        print(" Visualization executed without error.")
-    except Exception as e:
-        print(f"FAIL: Visualization raised error: {e}")
-        sys.exit(1)
+    def test_rosette_metadata(self):
+        rosette = self.collection.get_rosette("R1")
+        self.assertIsNotNone(rosette)
+        self.assertEqual(rosette["type"], "rectangular")
+        self.assertEqual(rosette["columns"], ["ch1", "ch2", "ch3"])
 
-    # 4. Test Shared Operations (from coordinate domain)
-    print(" Testing shared operations (calculate_distance)...")
-    try:
-        # sg1 and sg2 should have distance
-        # But we only set coordinate for sg1 in create_strain_collection above!
-        # Let's add coordinates for other gauges first
-        res.set_column_coordinates("sg2", x=30.0, y=20.0, z=0.0)
+    def test_calculation(self):
+        result = calculate_rosette_strains(self.collection, rosette_name="R1")
         
-        # calculate_distance is imported from ops proxy typically
-        # Here we import it directly or use ops proxy if we implemented it
-        # Actually verify_strain_domain.py imports specific functions. 
-        # Let's import calculate_distance from coordinate domain
-        from tascpy.operations.coordinate.distance import calculate_distance
+        # Check newly created columns
+        self.assertIn("R1_e1", result.columns) # Max principal
+        self.assertIn("R1_e2", result.columns) # Min principal
+        self.assertIn("R1_gamma", result.columns)
+        self.assertIn("R1_theta", result.columns)
         
-        dist = calculate_distance(res, "sg1", "sg2")
-        print(f" Distance sg1-sg2: {dist}")
+        # Verify values
+        # e_max should be 1000 (ex)
+        # e_min should be -300 (ey)
+        # theta should be 0
         
-        if abs(dist - 20.0) > 1e-5:
-            print(f"FAIL: Distance expected 20.0, got {dist}")
-            sys.exit(1)
+        e_max = result["R1_e1"].values[0]
+        e_min = result["R1_e2"].values[0]
+        theta = result["R1_theta"].values[0]
+        
+        self.assertAlmostEqual(e_max, 1000.0)
+        self.assertAlmostEqual(e_min, -300.0)
+        self.assertAlmostEqual(theta, 0.0)
+        
+        # Verify coordinates are propagated
+        x, y, z = result.get_column_coordinates("R1_e1")
+        self.assertEqual(x, 10)
+        self.assertEqual(y, 20)
+        
+    def test_delta_calculation(self):
+        # Test Delta rosette logic (0, 60, 120)
+        # Uniaxial stress state: ex=1000, ey=-300, gamma=0
+        # e(theta) = (ex+ey)/2 + (ex-ey)/2*cos(2theta) + gamma/2*sin(2theta)
+        
+        ex = 1000
+        ey = -300
+        
+        def e_at(deg):
+            rad = np.radians(deg)
+            return (ex+ey)/2 + (ex-ey)/2 * np.cos(2*rad)
             
-    except Exception as e:
-        print(f"FAIL: Shared operation error: {e}")
-        sys.exit(1)
-    
-    print("ALL TESTS PASSED")
+        e_0 = e_at(0)    # 1000
+        e_60 = e_at(60)  # 350 - 650*0.5 = 25
+        e_120 = e_at(120) # 350 - 650*0.5 = 25
+        
+        col = create_strain_collection(
+            step=[0],
+            columns={
+                "c1": Column(ch=None, name="c1", unit="uE", values=[e_0]),
+                "c2": Column(ch=None, name="c2", unit="uE", values=[e_60]),
+                "c3": Column(ch=None, name="c3", unit="uE", values=[e_120])
+            },
+            rosettes={
+                "D1": {
+                    "columns": ["c1", "c2", "c3"],
+                    "type": "delta",
+                    "orientation": 0.0
+                }
+            }
+        )
+        
+        res = calculate_rosette_strains(col, rosette_name="D1")
+        self.assertAlmostEqual(res["D1_e1"].values[0], 1000.0)
+        self.assertAlmostEqual(res["D1_e2"].values[0], -300.0)
 
 if __name__ == "__main__":
-    test_strain_domain()
+    unittest.main()

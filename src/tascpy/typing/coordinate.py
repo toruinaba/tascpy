@@ -38,7 +38,7 @@ class CoordinateCollectionOperations(CollectionOperationsBase[CoordinateCollecti
     def get_column_coordinates(
         self,
         column: str
-    ) -> "CoordinateCollectionOperations":
+    ) -> dict[str, Optional[float]]:
         """列の座標情報を取得します
 
 指定された列に設定されている座標情報（x, y, z）を取得します。
@@ -79,7 +79,7 @@ Returns:
     def get_columns_with_coordinates(
         self,
         
-    ) -> "CoordinateCollectionOperations":
+    ) -> list[str]:
         """座標情報が設定されている列のリストを取得します
 
 コレクション内で座標情報が設定されている全ての列名のリストを返します。
@@ -114,7 +114,7 @@ Returns:
         self,
         column1: str,
         column2: str
-    ) -> "CoordinateCollectionOperations":
+    ) -> float:
         """2つの列の座標間の距離を計算します
 
 指定された2つの列の座標位置間のユークリッド距離を計算します。
@@ -189,7 +189,7 @@ Raises:
         self,
         column1: str,
         column2: str
-    ) -> "CoordinateCollectionOperations":
+    ) -> float:
         """calculate_distance のエイリアス"""
         ...
     
@@ -1464,6 +1464,81 @@ Returns:
         result_column: Optional[str] = None
     ) -> "CoordinateCollectionOperations":
         """detect_outliers のエイリアス"""
+        ...
+    
+
+    def max(
+        self,
+        column: str
+    ) -> float:
+        """列の最大値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 最大値"""
+        ...
+    
+
+    def min(
+        self,
+        column: str
+    ) -> float:
+        """列の最小値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 最小値"""
+        ...
+    
+
+    def mean(
+        self,
+        column: str
+    ) -> float:
+        """列の平均値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 平均値"""
+        ...
+    
+
+    def std(
+        self,
+        column: str
+    ) -> float:
+        """列の標準偏差を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 標準偏差"""
+        ...
+    
+
+    def sum(
+        self,
+        column: str
+    ) -> float:
+        """列の合計値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 合計値"""
         ...
     
 

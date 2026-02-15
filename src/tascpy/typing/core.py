@@ -1160,6 +1160,81 @@ Returns:
         ...
     
 
+    def max(
+        self,
+        column: str
+    ) -> float:
+        """列の最大値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 最大値"""
+        ...
+    
+
+    def min(
+        self,
+        column: str
+    ) -> float:
+        """列の最小値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 最小値"""
+        ...
+    
+
+    def mean(
+        self,
+        column: str
+    ) -> float:
+        """列の平均値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 平均値"""
+        ...
+    
+
+    def std(
+        self,
+        column: str
+    ) -> float:
+        """列の標準偏差を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 標準偏差"""
+        ...
+    
+
+    def sum(
+        self,
+        column: str
+    ) -> float:
+        """列の合計値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 合計値"""
+        ...
+    
+
     def sin(
         self,
         column: str,

@@ -1241,6 +1241,81 @@ Returns:
         ...
     
 
+    def max(
+        self,
+        column: str
+    ) -> List[float]:
+        """列の最大値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 最大値"""
+        ...
+    
+
+    def min(
+        self,
+        column: str
+    ) -> List[float]:
+        """列の最小値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 最小値"""
+        ...
+    
+
+    def mean(
+        self,
+        column: str
+    ) -> List[float]:
+        """列の平均値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 平均値"""
+        ...
+    
+
+    def std(
+        self,
+        column: str
+    ) -> List[float]:
+        """列の標準偏差を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 標準偏差"""
+        ...
+    
+
+    def sum(
+        self,
+        column: str
+    ) -> List[float]:
+        """列の合計値を取得します
+
+Args:
+    collection: 対象のコレクション
+    column: 列名
+    
+Returns:
+    float: 合計値"""
+        ...
+    
+
     def sin(
         self,
         column: str,
@@ -2124,6 +2199,68 @@ Args:
 
 Returns:
     List[LoadDisplacementCollection]: サイクルごとに分割されたコレクションのリスト"""
+        ...
+    
+
+    def analyze_hysteresis(
+        self,
+        cycle_column: Optional[str] = None
+    ) -> "CollectionListOperations[C]":
+        """ヒステリシスループ解析（エネルギー散逸の計算）
+
+各サイクルのヒステリシスループ面積（エネルギー散逸）を計算し、
+サイクルごとの統計量を含む新しいコレクションを返します。
+
+Args:
+    collection: 荷重-変位コレクション
+    cycle_column: サイクル番号列（指定がない場合は自動検出）
+
+Returns:
+    LoadDisplacementCollection: サイクル番号、エネルギー、最大荷重などを列として持つコレクション"""
+        ...
+    
+
+    def analyze_stiffness_degradation(
+        self,
+        cycle_column: Optional[str] = None
+    ) -> "CollectionListOperations[C]":
+        """剛性低下解析（サイクルごとの割線剛性）
+
+各サイクルの最大荷重点と最小荷重点を結ぶ直線の傾き（割線剛性）を計算し、
+剛性の推移を示す新しいコレクションを返します。
+
+Args:
+    collection: 荷重-変位コレクション
+    cycle_column: サイクル番号列（指定がない場合は自動検出）
+
+Returns:
+    LoadDisplacementCollection: サイクル番号、剛性を含むコレクション"""
+        ...
+    
+
+    def find_peaks_and_valleys(
+        self,
+        column: Optional[str] = None,
+        result_column: str = 'peak_valley',
+        distance: int = 1,
+        threshold: Optional[float] = None,
+        prominence: Optional[float] = None
+    ) -> "CollectionListOperations[C]":
+        """ピーク（極大値）とバレー（極小値）を検出します
+
+指定された列の極大値と極小値を検出し、
+1（ピーク）、-1（バレー）、0（その他）のフラグを持つ新しい列を追加します。
+
+Args:
+    collection: 荷重-変位コレクション
+    column: 検出対象の列（指定がない場合は荷重列を使用）
+    result_column: 結果を格納する列名
+    distance: ピーク間の最小距離（インデックス数）
+    threshold: 隣接点との最小差
+    prominence: ピークの突出度（未実装: scipyが必要なため）
+
+Returns:
+    LoadDisplacementCollection: ピーク/バレーフラグを含むコレクション"""
         ...
     
 
