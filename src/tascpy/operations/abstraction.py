@@ -9,6 +9,7 @@ def inject_columns(
     num_inputs: int = 1, 
     cast_to_numpy: bool = True,
     columns_arg: str = None,
+    columns_arg_pos: int = None,
     include_step: bool = False
 ):
     """
@@ -69,9 +70,13 @@ def inject_columns(
                 # We need to resolve this.
                 if target_cols is None:
                     # Check if it was passed positionally?
-                    # This is getting complex. Let's simplify:
-                    # If columns_arg is specified, we expect the function signature to have it.
-                    pass
+                    if columns_arg_pos is not None:
+                        # Map positional arg to kwargs if present
+                        if len(args) > columns_arg_pos:
+                             # We need to extract it, but args is tuple.
+                             target_cols = args[columns_arg_pos]
+                             
+                             # We don't remove it from args yet. It will be ignored since we consumed it.
 
                 # Extract dict
                 cols_to_extract = target_cols if target_cols is not None else collection.columns.keys()
@@ -116,9 +121,20 @@ def inject_columns(
                 final_args = list(args)
                 if include_step:
                      # func(steps, extracted_data, ...)
-                     return func(step_values, extracted_data, *final_args, **new_kwargs)
+                     # If we found target_cols in args, we should probably REMOVE it from final_args
+                     # to avoid passing it to inner function (which expects injected data now)
+                     _final_args_list = list(final_args)
+                     if columns_arg_pos is not None and columns_arg not in kwargs and len(_final_args_list) > columns_arg_pos:
+                          # Assuming columns_arg_pos is index in *args (excluding collection)
+                          _final_args_list.pop(columns_arg_pos)
+                     
+                     return func(step_values, extracted_data, *_final_args_list, **new_kwargs)
                 else:
-                     return func(extracted_data, *final_args, **new_kwargs)
+                     _final_args_list = list(final_args)
+                     if columns_arg_pos is not None and columns_arg not in kwargs and len(_final_args_list) > columns_arg_pos:
+                          _final_args_list.pop(columns_arg_pos)
+                          
+                     return func(extracted_data, *_final_args_list, **new_kwargs)
 
 
             # Resolve input arguments
@@ -636,6 +652,7 @@ def filter_rows(func):
 def inject_plot_data(
     x_arg: str = "x_column",
     y_arg: str = "y_column",
+    positional_order: Optional[List[str]] = None,
 ):
     """
     Decorator to extract plot data from ColumnCollection and inject into function.
@@ -679,45 +696,34 @@ def inject_plot_data(
             # Check args if not found in kwargs using mutable list
             mutable_args = list(args)
             
-            # Attempt to pop x_column from args if not yet found
-            if x_column is None and len(mutable_args) > 0:
-                # We consume the first arg as x_column if it's potentially a column identifier
-                # (We assume positional args start with x_column, then y_column)
-                x_column = mutable_args.pop(0)
+            # Determine processing order for positional args
+            # Default: x then y
+            if positional_order is None:
+                order = [x_arg, y_arg]
+            else:
+                order = positional_order
                 
-            # Attempt to pop y_column from args if not yet found
-            if y_column is None and len(mutable_args) > 0:
-                 y_column = mutable_args.pop(0)
+            for arg_name in order:
+                if len(mutable_args) == 0:
+                     break
+                     
+                if arg_name == x_arg:
+                    if x_column is None:
+                        x_column = mutable_args.pop(0)
+                        
+                elif arg_name == y_arg:
+                    if y_column is None:
+                        y_column = mutable_args.pop(0)
 
             # Update args to passed-through args
             args = tuple(mutable_args)
             
             # Extract Data & Metadata
             # X Axis
-            if x_column is None:
-                x_values = collection.step.values
-                x_name = "Step"
-                x_unit = ""
-            else:
-                if x_column not in collection.columns:
-                    raise KeyError(f"列 '{x_column}' は存在しません")
-                col = collection.columns[x_column]
-                x_values = col.values
-                x_name = col.name
-                x_unit = col.unit
+            x_values, x_name, x_unit = extract_axis_data(collection, x_column, "Step")
 
             # Y Axis
-            if y_column is None:
-                y_values = collection.step.values
-                y_name = "Step"
-                y_unit = ""
-            else:
-                if y_column not in collection.columns:
-                    raise KeyError(f"列 '{y_column}' は存在しません")
-                col = collection.columns[y_column]
-                y_values = col.values
-                y_name = col.name
-                y_unit = col.unit
+            y_values, y_name, y_unit = extract_axis_data(collection, y_column, "Step")
             
             # Construct Labels
             x_label = f"{x_name} [{x_unit}]" if x_unit else x_name
@@ -798,49 +804,87 @@ def split_result(func):
         
         # Optimization: Pre-convert to numpy if needed? 
         # But we don't want to mutate original collection here.
+        # Let's trust pure func or handle it inside.
         
-        # Reuse filter logic? 
-        # We can reuse the core logic of filter_rows but applied manually.
-        import numpy as np
-        
-        # Prepare arrays once
-        step_arr = np.array(collection.step.values)
-        col_arrays = {name: np.array(col.values) for name, col in collection.columns.items()}
-        
-        # Determine list vs numpy output based on input
-        # Heuristic: if step is list, return list.
-        return_list = isinstance(collection.step.values, list)
+        # Post-process results
+        for item in split_defs:
+            if isinstance(item, slice):
+                # Apply slice
+                res = collection[item]
+                results.append(res)
+            elif isinstance(item, (list, np.ndarray)):
+                 # Apply indices
+                 # We need to use filter_rows logic here?
+                 # Or just delegate to collection slicing by index if supported?
+                 # Collection supports integer slicing but not list of integers (yet?)
+                 # Actually, filter_rows is what implements list-of-indices slicing logic.
+                 # We should expose that logic or reuse filter_rows wrapper logic?
+                 
+                 # Reusing logic from filter_rows wrapper:
+                 # But we can't call a decorated dummy.
+                 
+                 # Let's implement a helper method `_subset_by_indices` in collection?
+                 # Or do it here manually.
+                 
+                 # Simplified manual implementation for now:
+                 indices = np.array(item)
+                 
+                 # Step
+                 step_vals = np.array(collection.step.values)
+                 new_step = step_vals[indices].tolist()
+                 
+                 # Columns
+                 new_cols = {}
+                 for name, col in collection.columns.items():
+                     c_vals = np.array(col.values)
+                     new_vals = c_vals[indices].tolist()
+                     new_cols[name] = col.__class__(col.ch, col.name, col.unit, new_vals)
+                     
+                 res = collection.clone()
+                 res.step.values = new_step
+                 res.columns = new_cols
+                 results.append(res)
+            else:
+                 # Maybe already a Collection?
+                 if isinstance(item, ColumnCollection):
+                      results.append(item)
+                 else:
+                      raise TypeError(f"Unsupported split result type: {type(item)}")
 
-        for subset_idx in split_defs:
-            # Create new collection structure (cloning metadata)
-            # clone() copies everything, which is slow if we overwrite immediately.
-            # clone_empty() would be better but if it doesn't exist...
-            # We can create instance manually or use clone and clearer.
-            
-            # subset_idx can be slice or array/list
-            
-            # Step
-            new_step_vals = step_arr[subset_idx]
-            if return_list: new_step_vals = new_step_vals.tolist()
-            
-            # Columns
-            new_columns = {}
-            for name, col in collection.columns.items():
-                orig_vals = col_arrays[name]
-                new_vals = orig_vals[subset_idx]
-                if return_list: new_vals = new_vals.tolist()
-                
-                new_col = col.__class__(col.ch, col.name, col.unit, new_vals)
-                new_columns[name] = new_col
-                
-            new_coll = collection.clone() # To keep class type and metadata
-            new_coll.step.values = new_step_vals
-            new_coll.columns = new_columns
-            
-            if metadata_update:
-                new_coll.metadata.update(metadata_update)
-            
-            results.append(new_coll)
-            
+        # Update metadata if any
+        if metadata_update:
+             for res in results:
+                  res.metadata.update(metadata_update)
+
         return results
     return wrapper
+
+
+def extract_axis_data(
+    collection: ColumnCollection, 
+    column_name: Optional[str] = None, 
+    default_name: str = "Step"
+) -> tuple:
+    """
+    コレクションから軸データ（値、名前、単位）を抽出するヘルパー関数
+    
+    Args:
+        collection: 対象のColumnCollection
+        column_name: 列名（Noneの場合はStepを使用）
+        default_name: 列名がNoneの場合に使用する名前
+        
+    Returns:
+        (values, name, unit): 値の配列、名前、単位
+    """
+    if column_name is None:
+        values = collection.step.values
+        name = default_name
+        unit = ""
+    else:
+        if column_name not in collection.columns:
+            raise KeyError(f"列 '{column_name}' は存在しません")
+        col = collection.columns[column_name]
+        values = col.values
+        name = col.name
+        unit = col.unit
+    return values, name, unit

@@ -820,6 +820,128 @@ Args:
         ...
     
 
+    def moving_average(
+        self,
+        window_size: int = 3,
+        edge_handling: str = 'asymmetric'
+    ) -> Any:
+        """指定した列に対して移動平均を計算します
+
+指定された列の各値に対して、周辺値を使用した平均値を算出します。
+エッジ処理方法を選択することで、端部の計算方法を調整できます。
+
+Args:
+    collection: 処理対象の ColumnCollection
+    column: 処理対象の列名
+    window_size: 移動平均のウィンドウサイズ（奇数推奨）
+    result_column: 結果を格納する列名（None の場合は自動生成）
+    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
+    in_place: True の場合、結果を元の列に上書き
+
+Returns:
+    ColumnCollection: 移動平均が計算された列を含むコレクション
+
+Raises:
+    KeyError: 指定された列が存在しない場合
+    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合"""
+        ...
+    
+
+    def detect_outliers(
+        self,
+        window_size: int = 3,
+        threshold: float = 0.5,
+        edge_handling: str = 'asymmetric',
+        min_abs_value: float = 1e-10,
+        scale_factor: float = 1.0
+    ) -> list[int]:
+        """移動平均との差分比率を用いた異常値検出を行います
+
+データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
+検出結果は新しい列に 0（正常）または 1（異常）のフラグとして格納されます。
+
+Args:
+    collection: 処理対象の ColumnCollection
+    column: 処理対象の列名
+    window_size: 移動平均のウィンドウサイズ（奇数推奨）
+    threshold: 異常値とみなす移動平均との差分比率の閾値
+    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
+    min_abs_value: 比率計算時の最小絶対値
+    scale_factor: スケール調整係数
+    result_column: 結果を格納する列名（None の場合は自動生成）
+
+Returns:
+    ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）
+
+Raises:
+    KeyError: 指定された列が存在しない場合
+    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
+        ...
+    
+
+    def gaussian_filter(
+        self,
+        sigma: float = 1.0,
+        window_size: Optional[int] = None
+    ) -> Any:
+        """指定した列に対してガウシアンフィルタを適用します
+
+ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
+ノイズ除去特性が優れており、急激な変化を滑らかにします。
+
+Args:
+    collection: 処理対象の ColumnCollection
+    column: 処理対象の列名
+    sigma: ガウス分布の標準偏差（平滑化の強さ）
+    window_size: カーネルサイズ（デフォルトは 6*sigma + 1 の奇数）
+    result_column: 結果を格納する列名（None の場合は自動生成）
+    in_place: True の場合、結果を元の列に上書き
+
+Returns:
+    ColumnCollection: 平滑化された列を含むコレクション"""
+        ...
+    
+
+    def max(
+        self,
+        
+    ) -> float:
+        """列の最大値を取得します"""
+        ...
+    
+
+    def min(
+        self,
+        
+    ) -> float:
+        """列の最小値を取得します"""
+        ...
+    
+
+    def mean(
+        self,
+        
+    ) -> float:
+        """列の平均値を取得します"""
+        ...
+    
+
+    def std(
+        self,
+        
+    ) -> float:
+        """列の標準偏差を取得します"""
+        ...
+    
+
+    def sum(
+        self,
+        
+    ) -> float:
+        """列の合計値を取得します"""
+        ...
+    
+
     def plot(
         self,
         y_values: ndarray,
@@ -839,103 +961,62 @@ Args:
 
     def visualize_outliers(
         self,
-        column: str,
+        y_values: Any,
+        x_label: str,
+        y_label: str,
+        title: str,
         window_size: int = 3,
         threshold: float = 0.5,
-        x_column: Optional[str] = None,
         highlight_color: str = 'red',
         plot_type: str = 'scatter',
         show_normal: bool = True,
         normal_color: str = 'blue',
-        normal_alpha: float = 0.6,
+        normal_alpha: float = 0.5,
         outlier_marker: str = 'o',
-        outlier_size: int = 80,
+        outlier_size: int = 50,
         ax: Optional[Axes] = None,
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0,
         **kwargs
-    ) -> "LoadDisplacementCollectionOperations":
-        """異常値を可視化します
-
-指定された列の異常値を検出し、視覚的に強調表示します。
-元のデータをプロットし、その上に異常値のみマーカーで強調表示します。
-detect_outliers 関数を内部で使用して異常値を特定します。
+    ) -> Axes:
+        """異常値を可視化します（純粋関数版）
 
 Args:
-    collection: 対象コレクション
-    column: 異常値を検出する列の名前
-    window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    threshold: 異常値とみなす移動平均との差分比率の閾値
-    x_column: x軸の列名（None の場合は step を使用）
-    highlight_color: 異常値のマーカー色
-    plot_type: 通常データのプロットタイプ（'scatter' または 'line'）
-    show_normal: 通常のデータポイントも表示するかどうか
-    normal_color: 通常のデータポイントの色
-    normal_alpha: 通常のデータポイントの透明度
-    outlier_marker: 異常値のマーカースタイル
-    outlier_size: 異常値のマーカーサイズ
-    ax: 既存の Axes オブジェクト（None の場合は新しい図を作成）
-    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
-    min_abs_value: 比率計算時の最小絶対値
-    scale_factor: スケール調整係数
-    **kwargs: プロット関数に渡す追加のキーワード引数
+    x_values: X軸のデータ（@inject_plot_dataにより注入）
+    y_values: Y軸のデータ（@inject_plot_dataにより注入）
+    x_label: X軸ラベル
+    y_label: Y軸ラベル
+    title: グラフタイトル
+    window_size: 移動平均のウィンドウサイズ
+    threshold: 異常値判定の閾値
+    show_normal: 正常値を表示するかどうか
+    ax: 既存のAxes
+    ... (他パラメータ)
 
 Returns:
-    ColumnCollection: 異常値検出フラグを含む新しいコレクション
-
-Examples:
-    >>> # 基本的な異常値の可視化
-    >>> collection.ops.visualize_outliers('pressure_data').end()
-    >>>
-    >>> # 異常値検出パラメータのカスタマイズ
-    >>> collection.ops.visualize_outliers(
-    ...     'temperature',
-    ...     window_size=5,
-    ...     threshold=0.3
-    ... ).end()
-    >>>
-    >>> # 表示スタイルのカスタマイズ
-    >>> collection.ops.visualize_outliers(
-    ...     'sensor_value',
-    ...     highlight_color='magenta',
-    ...     outlier_marker='x',
-    ...     outlier_size=100,
-    ...     show_normal=False
-    ... ).end()
-    >>>
-    >>> # 複数の可視化を一つの図に表示
-    >>> fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
-    >>> collection.ops.visualize_outliers(
-    ...     'pressure', window_size=5, ax=ax1
-    ... ).end()
-    >>> collection.ops.visualize_outliers(
-    ...     'temperature', threshold=0.3, ax=ax2
-    ... ).end()
-    >>> plt.tight_layout()
-    >>> plt.show()  # 最後にまとめて表示"""
+    plt.Axes: プロットオブジェクト"""
         ...
     
 
     def plot_const_x(
         self,
         x_values: list[float],
-        y_columns: list[str],
+        show_legend: bool = True,
         ax: Optional[Axes] = None,
         **kwargs
     ) -> Axes:
-        """指定されたX値（定数リスト）に対して、複数の列の値をYとしてプロットします
-注: 単一行のコレクションに対して使用することを想定しています
+        """特定のx値に対して複数のy列の値をプロットします（純粋関数版）
 
 Args:
-    collection: ColumnCollection オブジェクト（通常は1行）
+    y_data: {列名: 値配列} の辞書 (@inject_columnsにより注入)
     x_values: X軸の値のリスト
-    y_columns: Y軸として使用する列名のリスト
-    ax: Axesオブジェクト
-    **kwargs: plotの引数
+    show_legend: 凡例を表示するかどうか
+    ax: 既存のAxes
+    **kwargs: プロット関数に渡すキーワード引数
 
 Returns:
-    ColumnCollection: 元のコレクション"""
+    plt.Axes: プロットオブジェクト"""
         ...
     
 
@@ -1193,128 +1274,6 @@ Raises:
     KeyError: 指定された列名が存在しない場合
     ValueError: 式の評価中にエラーが発生した場合
     SyntaxError: 式の構文に問題がある場合"""
-        ...
-    
-
-    def moving_average(
-        self,
-        window_size: int = 3,
-        edge_handling: str = 'asymmetric'
-    ) -> Any:
-        """指定した列に対して移動平均を計算します
-
-指定された列の各値に対して、周辺値を使用した平均値を算出します。
-エッジ処理方法を選択することで、端部の計算方法を調整できます。
-
-Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
-    in_place: True の場合、結果を元の列に上書き
-
-Returns:
-    ColumnCollection: 移動平均が計算された列を含むコレクション
-
-Raises:
-    KeyError: 指定された列が存在しない場合
-    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合"""
-        ...
-    
-
-    def detect_outliers(
-        self,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0
-    ) -> list[int]:
-        """移動平均との差分比率を用いた異常値検出を行います
-
-データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
-検出結果は新しい列に 0（正常）または 1（異常）のフラグとして格納されます。
-
-Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    threshold: 異常値とみなす移動平均との差分比率の閾値
-    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
-    min_abs_value: 比率計算時の最小絶対値
-    scale_factor: スケール調整係数
-    result_column: 結果を格納する列名（None の場合は自動生成）
-
-Returns:
-    ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）
-
-Raises:
-    KeyError: 指定された列が存在しない場合
-    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
-        ...
-    
-
-    def gaussian_filter(
-        self,
-        sigma: float = 1.0,
-        window_size: Optional[int] = None
-    ) -> Any:
-        """指定した列に対してガウシアンフィルタを適用します
-
-ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
-ノイズ除去特性が優れており、急激な変化を滑らかにします。
-
-Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    sigma: ガウス分布の標準偏差（平滑化の強さ）
-    window_size: カーネルサイズ（デフォルトは 6*sigma + 1 の奇数）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    in_place: True の場合、結果を元の列に上書き
-
-Returns:
-    ColumnCollection: 平滑化された列を含むコレクション"""
-        ...
-    
-
-    def max(
-        self,
-        
-    ) -> float:
-        """列の最大値を取得します"""
-        ...
-    
-
-    def min(
-        self,
-        
-    ) -> float:
-        """列の最小値を取得します"""
-        ...
-    
-
-    def mean(
-        self,
-        
-    ) -> float:
-        """列の平均値を取得します"""
-        ...
-    
-
-    def std(
-        self,
-        
-    ) -> float:
-        """列の標準偏差を取得します"""
-        ...
-    
-
-    def sum(
-        self,
-        
-    ) -> float:
-        """列の合計値を取得します"""
         ...
     
 
