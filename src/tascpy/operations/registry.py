@@ -3,7 +3,9 @@ import inspect
 import importlib
 import pkgutil
 from pathlib import Path
+import functools
 
+from .abstraction import inject_columns, transform_column, filter_rows, select_columns, inject_step_values, store_result
 
 class OperationRegistry:
     """操作を登録・管理するためのレジストリ"""
@@ -73,6 +75,119 @@ class OperationRegistry:
 
         # 引数なしで直接関数に適用する場合
         return decorator(func)
+    @classmethod
+    def register_functional(
+        cls,
+        func: Callable,
+        *,
+        domain: str = "core",
+        name: Optional[str] = None,
+        inject_columns: Optional[Dict[str, Any]] = None,
+        transform_column: Optional[Dict[str, Any]] = None,
+        filter_rows: bool = False,
+        select_columns: Optional[Dict[str, Any]] = None,
+        inject_step_values: Optional[Dict[str, Any]] = None,
+        store_result: Optional[Dict[str, Any]] = None,
+        shared_with: Optional[List[str]] = None,
+        signature_override: Optional[Dict[str, Any]] = None,
+        extra_decorators: Optional[List[Callable]] = None,
+    ) -> Callable:
+        """純粋関数をオペレーションとして登録するアダプターメソッド
+
+        純粋関数（ColumnCollectionに依存しない関数）をラップし、
+        適切なデコレータを適用してレジストリに登録します。
+
+        Args:
+            func: 登録する純粋関数
+            domain: 登録先ドメイン
+            name: オペレーション名（デフォルトは関数名）
+            inject_columns: @inject_columns への引数辞書
+            transform_column: @transform_column への引数辞書
+            filter_rows: @filter_rows を適用するかどうか
+            select_columns: @select_columns への引数辞書
+            inject_step_values: @inject_step_values への引数辞書
+            inject_step_values: @inject_step_values への引数辞書
+            store_result: @store_result への引数辞書
+            shared_with: 共有ドメインのリスト
+            signature_override: スタブ生成用のシグネチャ上書き情報
+                                {param_name: (type, default)} の形式
+            extra_decorators: 追加で適用するデコレータのリスト（transform_columnの内側に適用されます）
+        """
+        op_name = name or func.__name__
+        
+        # 1. Start with the pure function
+        wrapped_func = func
+        
+        # 1.5 Apply extra decorators (inner-most, before abstraction decorators)
+        if extra_decorators:
+            for decorator in extra_decorators:
+                wrapped_func = decorator(wrapped_func)
+        
+        # 2. Apply decorators in reverse order (inner to outer)
+        
+        # @inject_step_values (inner-most logic usually?)
+        # Actually logic depends. usually:
+        # transform_column handles inject_columns internally.
+        
+        if transform_column is not None:
+             # transform_column applies store_result, handle_missing, inject_columns
+             from .abstraction import transform_column as tc_decorator
+             wrapped_func = tc_decorator(**transform_column)(wrapped_func)
+        else:
+             # Manual composition
+             if inject_step_values is not None:
+                 from .abstraction import inject_step_values as isv_decorator
+                 wrapped_func = isv_decorator(**inject_step_values)(wrapped_func)
+                 
+             if inject_columns is not None:
+                 from .abstraction import inject_columns as ic_decorator
+                 wrapped_func = ic_decorator(**inject_columns)(wrapped_func)
+                 
+             if filter_rows:
+                 from .abstraction import filter_rows as fr_decorator
+                 wrapped_func = fr_decorator(wrapped_func)
+                 
+             if store_result is not None:
+                 from .abstraction import store_result as sr_decorator
+                 # Ensure wrapper name is set for result naming
+                 wrapped_func.__name__ = op_name
+                 wrapped_func = sr_decorator(**store_result)(wrapped_func)
+
+        # @select_columns (outermost usually)
+        if select_columns is not None:
+             from .abstraction import select_columns as sc_decorator
+             wrapped_func = sc_decorator(**select_columns)(wrapped_func)
+
+        # 3. Rename wrapper to match operation name
+        wrapped_func.__name__ = op_name
+        wrapped_func.__doc__ = func.__doc__
+        
+        # 4. Attach Signature Metadata for Stub Generator
+        # This is CRITICAL for correct stub generation
+        if signature_override or inject_columns or transform_column:
+             # Construct virtual signature params if not provided explicitly?
+             # For now, just attach what is passed or infer simplistic default
+             # Stub generator will look for __tascpy_stub_signature__
+             
+             # If inject_columns is used with num_inputs=1, 
+             # the first arg of pure func (values) becomes 'column' (or columns_arg) in operation.
+             
+             stub_sig = {}
+             if signature_override:
+                 stub_sig = signature_override
+             
+             # Auto-inference logic could go here, but explicit override is safer for now.
+             # Or we can mark it as "wrapped_functional"
+             
+             setattr(wrapped_func, "__tascpy_stub_signature__", stub_sig)
+             setattr(wrapped_func, "__tascpy_functional_origin__", func)
+
+
+        # 5. Register
+        cls.register(wrapped_func, domain=domain, shared_with=shared_with)
+        
+        return wrapped_func
+
 
     @classmethod
     def get_operations(cls, domain: str = "core") -> Dict[str, Callable]:
@@ -356,4 +471,6 @@ class OperationRegistry:
 
 
 # デコレーターのエイリアス（より簡潔な名前で使用可能）
+# デコレーターのエイリアス（より簡潔な名前で使用可能）
 operation = OperationRegistry.register
+register_functional = OperationRegistry.register_functional

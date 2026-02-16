@@ -55,7 +55,7 @@ def test_select_step_with_operations_chain(large_collection):
     ops = CollectionOperations(large_collection)
 
     # 特定のステップと列を選択
-    result = ops.select_step(
+    result = ops.select(
         steps=[10, 20, 30, 40, 50], columns=["Time", "Temperature"]
     )
 

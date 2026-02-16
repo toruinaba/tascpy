@@ -452,28 +452,50 @@ Returns:
 
     def filter_by_value(
         self,
+        values: column = <class 'str'>,
+        value: Any,
+        tolerance: Optional[float] = None,
+        column: column = <class 'str'>,
         value: Any,
         tolerance: Optional[float] = None
-    ) -> list[bool]:
-        """指定された列の値が指定された値と等しい行をフィルタリングします"""
+    ) -> ndarray:
+        """Check if values are equal to target value.
+Supports tolerance for float comparisons."""
         ...
     
 
     def filter_out_none(
         self,
-        columns: Optional[list[str]] = None,
+        data: columns = typing.Optional[typing.List[str]],
+        mode: str = 'any',
+        column: columns = typing.Optional[typing.List[str]],
         mode: str = 'any'
     ) -> list[bool]:
-        """None値およびNaN値を含む行をフィルタリングして除外します"""
+        """Return boolean mask for valid rows (no None/NaN).
+mode='any': Keep row if ALL columns are valid. (Wait, logic check below)
+mode='all': Keep row if ANY column is valid. 
+
+Standard 'dropna' logic:
+any: if any value is NA, drop row. (So keep if ALL valid)
+all: if all values are NA, drop row. (So keep if ANY valid)
+
+The original implementation said:
+mode='any': keep if all valid (drop if any invalid?) 
+  -> "mode='any': ひとつでも無効なら除外" (If any invalid, exclude -> dropna(how='any'))
+mode='all': keep if any valid (drop if all invalid)
+  -> "mode='all': すべて無効なら除外" (If all invalid, exclude -> dropna(how='all'))"""
         ...
     
 
     def remove_consecutive_duplicates_across(
         self,
+        data: columns = typing.Optional[typing.List[str]],
+        dup_type: str = 'all',
+        column: columns = typing.Optional[typing.List[str]],
         columns: Optional[list[str]] = None,
         dup_type: str = 'all'
     ) -> list[int]:
-        """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します"""
+        """"""
         ...
     
 
@@ -540,41 +562,23 @@ Returns:
 
     def search_by_value(
         self,
+        vals: values = typing.Any,
+        column: values = typing.Any,
         op_str: str,
         value: Any
     ) -> list[int]:
-        """値による検索を行います
-
-指定された列の値に対して比較演算子を適用し、条件に一致する行のインデックスを返します。
-
-Args:
-    vals: 列の値 (inject_columnsにより注入)
-    op_str: 演算子文字列 (">", "<", ">=", "<=", "==", "!=")
-    value: 比較する値
-
-Returns:
-    List[int]: 条件に一致するインデックスのリスト"""
+        """"""
         ...
     
 
     def search_by_range(
         self,
+        column: str,
         min_value: Any,
         max_value: Any,
         inclusive: bool = True
     ) -> list[int]:
-        """範囲による検索を行います
-
-指定された列の値が特定の範囲内にある行のインデックスを返します。
-
-Args:
-    vals: 列の値
-    min_value: 最小値
-    max_value: 最大値
-    inclusive: 境界値を含めるかどうか
-
-Returns:
-    List[int]: 条件に一致するインデックスのリスト"""
+        """"""
         ...
     
 
@@ -586,165 +590,36 @@ Returns:
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> Union[list[int], tuple]:
-        """ステップ範囲による検索を行います"""
+        """"""
         ...
     
 
     def search_by_condition(
         self,
-        condition_func: Callable[[Dict[str, Any]], bool],
-        columns: Optional[list[str]] = None
+        data: columns = typing.Optional[typing.List[str]],
+        column: columns = typing.Optional[typing.List[str]],
+        condition_func: Callable[[Dict[str, Any]], bool]
     ) -> list[int]:
-        """条件関数による検索を行います
-
-行ごとのデータを辞書として受け取り、条件関数が True を返す行のインデックスを返します。
-columns引数を指定すると、その列のみがデータ辞書に含まれます（パフォーマンス最適化）。
-
-Args:
-    data: 列データの辞書 (inject_columnsにより注入)
-    condition_func: 行データ辞書を受け取り、boolを返す関数
-    columns: 使用する列名のリスト (Noneの場合は全列)"""
+        """"""
         ...
     
 
     def search_missing_values(
         self,
-        columns: Optional[list[str]] = None
+        data: columns = typing.Optional[typing.List[str]],
+        column: columns = typing.Optional[typing.List[str]]
     ) -> list[int]:
-        """欠損値がある行を検索します
-
-指定された列に欠損値（None または NaN）を含む行のインデックスを返します。"""
+        """Find indices of rows with missing values (any column)"""
         ...
     
 
     def search_top_n(
         self,
+        column: str,
         n: int,
         descending: bool = True
     ) -> list[int]:
-        """指定した列の上位 N 件を検索します"""
-        ...
-    
-
-    def moving_average(
-        self,
-        window_size: int = 3,
-        edge_handling: str = 'asymmetric'
-    ) -> Any:
-        """指定した列に対して移動平均を計算します
-
-指定された列の各値に対して、周辺値を使用した平均値を算出します。
-エッジ処理方法を選択することで、端部の計算方法を調整できます。
-
-Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
-    in_place: True の場合、結果を元の列に上書き
-
-Returns:
-    ColumnCollection: 移動平均が計算された列を含むコレクション
-
-Raises:
-    KeyError: 指定された列が存在しない場合
-    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合"""
-        ...
-    
-
-    def detect_outliers(
-        self,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0
-    ) -> list[int]:
-        """移動平均との差分比率を用いた異常値検出を行います
-
-データ値と移動平均の差分比率が閾値を超える場合に、その値を異常値として検出します。
-検出結果は新しい列に 0（正常）または 1（異常）のフラグとして格納されます。
-
-Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    window_size: 移動平均のウィンドウサイズ（奇数推奨）
-    threshold: 異常値とみなす移動平均との差分比率の閾値
-    edge_handling: エッジ処理方法（"symmetric", "asymmetric"）
-    min_abs_value: 比率計算時の最小絶対値
-    scale_factor: スケール調整係数
-    result_column: 結果を格納する列名（None の場合は自動生成）
-
-Returns:
-    ColumnCollection: 異常値フラグ列を含むコレクション（1=異常値、0=正常値）
-
-Raises:
-    KeyError: 指定された列が存在しない場合
-    ValueError: 無効なエッジ処理方法やウィンドウサイズが指定された場合、または有効なデータがない場合"""
-        ...
-    
-
-    def gaussian_filter(
-        self,
-        sigma: float = 1.0,
-        window_size: Optional[int] = None
-    ) -> Any:
-        """指定した列に対してガウシアンフィルタを適用します
-
-ガウス分布の重みを用いた畳み込み演算により、データを平滑化します。
-ノイズ除去特性が優れており、急激な変化を滑らかにします。
-
-Args:
-    collection: 処理対象の ColumnCollection
-    column: 処理対象の列名
-    sigma: ガウス分布の標準偏差（平滑化の強さ）
-    window_size: カーネルサイズ（デフォルトは 6*sigma + 1 の奇数）
-    result_column: 結果を格納する列名（None の場合は自動生成）
-    in_place: True の場合、結果を元の列に上書き
-
-Returns:
-    ColumnCollection: 平滑化された列を含むコレクション"""
-        ...
-    
-
-    def max(
-        self,
-        
-    ) -> float:
-        """列の最大値を取得します"""
-        ...
-    
-
-    def min(
-        self,
-        
-    ) -> float:
-        """列の最小値を取得します"""
-        ...
-    
-
-    def mean(
-        self,
-        
-    ) -> float:
-        """列の平均値を取得します"""
-        ...
-    
-
-    def std(
-        self,
-        
-    ) -> float:
-        """列の標準偏差を取得します"""
-        ...
-    
-
-    def sum(
-        self,
-        
-    ) -> float:
-        """列の合計値を取得します"""
+        """"""
         ...
     
 
@@ -757,11 +632,7 @@ Returns:
         ax: Optional[Axes] = None,
         **kwargs
     ) -> Axes:
-        """グラフを描画します
-
-(backend_mpl.plot を使用)
-Args:
-    x_values, y_values, x_label, y_label, title: @inject_plot_data により注入されます"""
+        """基本プロット関数 (Functional wrapper)"""
         ...
     
 
@@ -786,43 +657,21 @@ Args:
         scale_factor: float = 1.0,
         **kwargs
     ) -> Axes:
-        """異常値を可視化します（純粋関数版）
-
-Args:
-    x_values: X軸のデータ（@inject_plot_dataにより注入）
-    y_values: Y軸のデータ（@inject_plot_dataにより注入）
-    x_label: X軸ラベル
-    y_label: Y軸ラベル
-    title: グラフタイトル
-    window_size: 移動平均のウィンドウサイズ
-    threshold: 異常値判定の閾値
-    show_normal: 正常値を表示するかどうか
-    ax: 既存のAxes
-    ... (他パラメータ)
-
-Returns:
-    plt.Axes: プロットオブジェクト"""
+        """異常値を可視化する (Functional implementation)"""
         ...
     
 
     def plot_const_x(
         self,
+        y_data: y_columns = typing.List[str],
+        x_values: list[float] = None,
+        column: y_columns = typing.List[str],
         x_values: list[float],
         show_legend: bool = True,
         ax: Optional[Axes] = None,
         **kwargs
     ) -> Axes:
-        """特定のx値に対して複数のy列の値をプロットします（純粋関数版）
-
-Args:
-    y_data: {列名: 値配列} の辞書 (@inject_columnsにより注入)
-    x_values: X軸の値のリスト
-    show_legend: 凡例を表示するかどうか
-    ax: 既存のAxes
-    **kwargs: プロット関数に渡すキーワード引数
-
-Returns:
-    plt.Axes: プロットオブジェクト"""
+        """特定のx値に対して複数のy列の値をプロットします"""
         ...
     
 
@@ -835,15 +684,7 @@ Returns:
         fig: Optional[Any] = None,
         **kwargs
     ) -> Any:
-        """インタラクティブなグラフを描画します (Plotly使用)
-
-Args:
-    x_values, y_values, x_label, y_label, title: @inject_plot_data により注入されます
-    fig: 既存の Plotly Figure オブジェクト
-    **kwargs: Plotly backend に渡す追加引数
-
-Returns:
-    Any: Plotly Figure オブジェクト (ノートブック環境では自動的に表示される)"""
+        """インタラクティブなグラフを描画します (Functional wrapper)"""
         ...
     
 
@@ -854,56 +695,18 @@ Returns:
         steps: Optional[list[Union[int, float]]] = None,
         by_step_value: bool = True,
         tolerance: Optional[float] = None
-    ) -> Union[list[int], tuple[list[int], dict[str, Any]]]:
-        """指定した列名、行インデックス、またはステップ値に基づいてデータを抽出します
-
-複数の方法でデータ抽出を行うことができる汎用的な選択操作です。
-列の選択、インデックスによる行の選択、ステップ値による行の選択を組み合わせて使用できます。
-
-Args:
-    step_values: ステップ値のリストまたは配列 (@inject_step_valuesにより注入)
-    columns: (デコレータで処理) 抽出する列名のリスト。None の場合は全列が対象
-    indices: 抽出する行インデックスのリスト。None の場合は全行が対象
-    steps: 抽出するステップのリスト。None の場合は全行が対象
-        by_step_value=True の場合：ステップ値として解釈
-        by_step_value=False の場合：インデックスとして解釈
-    by_step_value: True の場合は steps をステップ値として解釈、False の場合はインデックスとして解釈
-    tolerance: ステップ値検索時の許容範囲（by_step_value=True の場合のみ有効）
-
-Returns:
-    Union[List[int], Tuple[List[int], Dict[str, Any]]]: 
-        抽出する行インデックスのリスト、および更新するメタデータのタプル"""
-        ...
-    
-
-    def select_step(
-        self,
-        steps: list[Union[int, float]],
-        columns: Optional[list[str]] = None,
-        by_step_value: bool = True,
-        tolerance: Optional[float] = None
-    ) -> "StrainCollectionOperations":
-        """指定した列名とステップ番号に基づいてデータを抽出します (後方互換性)"""
+    ) -> tuple[list[int], dict[str, Any]]:
+        """"""
         ...
     
 
     def fetch_near_step(
         self,
+        column: str,
         value: float,
         **kwargs
     ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """指定された値に最も近い行を取得します
-
-inject_columnsにより、第一引数がカラム名の場合はそのカラムの値が、
-そうでない場合(数値のみ)はデフォルト(通常はStep)の値が注入されます。
-
-Args:
-    values: 検索対象の値の配列 (@inject_columnsにより注入)
-    value: 検索する値
-    **kwargs: inject_columns用の追加引数
-
-Returns:
-    List[int]: 最も近い値を持つ行のインデックス（1つ）"""
+        """"""
         ...
     
 
@@ -969,86 +772,97 @@ Args:
 
     def conditional_select(
         self,
+        v1: v1 = <class 'numpy.ndarray'>,
+        v2: v2 = <class 'numpy.ndarray'>,
+        cond_values: cond_values = <class 'numpy.ndarray'>,
+        threshold: Union[int, float] = 0,
+        compare: str = '>',
+        column: v1 = <class 'numpy.ndarray'>,
         v2: ndarray,
         cond_values: ndarray,
         threshold: Union[int, float] = 0,
         compare: str = '>'
-    ) -> Any:
-        """条件に基づいて2つの値を選択的に取得します
-
-Args:
-    v1: 条件を満たす場合に使用する値
-    v2: 条件を満たさない場合に使用する値
-    cond_values: 条件判定に使用する値
-    threshold: 条件判定の閾値
-    compare: 比較演算子"""
+    ) -> ndarray:
+        """Select from v1 or v2 based on condition."""
         ...
     
 
     def custom_combine(
         self,
+        v1: v1 = typing.Any,
+        v2: v2 = typing.Any,
+        combine_func: combine_func = typing.Callable[[typing.Any, typing.Any], typing.Any],
+        column: v1 = typing.Any,
         v2: Any,
         combine_func: Callable[[Any, Any], Any],
-        func_name: Optional[str] = None
+        **kwargs
     ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """カスタム関数を使用して2つの値を合成します"""
+        """Combine v1 and v2 using custom function."""
         ...
     
 
     def add(
         self,
-        v2: Union[ndarray, float],
-        **kwargs
+        column: str,
+        v2: Union[ndarray, float]
     ) -> ndarray:
-        """列または定数を加算します"""
+        """Add two values or arrays."""
         ...
     
 
     def subtract(
         self,
-        v2: Union[ndarray, float],
-        **kwargs
+        column: str,
+        v2: Union[ndarray, float]
     ) -> ndarray:
-        """列または定数を減算します"""
+        """Subtract v2 from v1."""
         ...
     
 
     def multiply(
         self,
-        v2: Union[ndarray, float],
-        **kwargs
+        column: str,
+        v2: Union[ndarray, float]
     ) -> ndarray:
-        """列または定数を乗算します"""
+        """Multiply two values or arrays."""
         ...
     
 
     def divide(
         self,
+        column: str,
         v2: Union[ndarray, float],
         **kwargs
     ) -> ndarray:
-        """列または定数で除算します"""
+        """Divide v1 by v2."""
         ...
     
 
     def diff(
         self,
-        x_values: ndarray,
+        y: y_values = <class 'numpy.ndarray'>,
+        x: x_values = <class 'numpy.ndarray'>,
         method: str = 'central',
-        **kwargs
+        column: y_values = <class 'numpy.ndarray'>,
+        x: Union[ndarray, list[float]],
+        method: str = 'central'
     ) -> ndarray:
-        """指定された 2 つの列間の微分を計算します（dy/dx）"""
+        """Calculate differential coefficient from x, y coordinates."""
         ...
     
 
     def integrate(
         self,
-        x_values: ndarray,
+        y: y_values = <class 'numpy.ndarray'>,
+        x: x_values = <class 'numpy.ndarray'>,
         method: str = 'trapezoid',
         initial_value: float = 0.0,
-        **kwargs
+        column: y_values = <class 'numpy.ndarray'>,
+        x: Union[ndarray, list[float]],
+        method: str = 'trapezoid',
+        initial_value: float = 0.0
     ) -> ndarray:
-        """指定された 2 つの列間の積分を計算します（∫y dx）"""
+        """Calculate integral of y with respect to x."""
         ...
     
 
@@ -1083,90 +897,192 @@ Raises:
         ...
     
 
+    def moving_average(
+        self,
+        vals: vals = typing.Any,
+        window_size: int = 3,
+        edge_handling: str = 'asymmetric',
+        column: vals = typing.Any,
+        window_size: int = 3,
+        edge_handling: str = 'asymmetric'
+    ) -> Any:
+        """Calculate moving average."""
+        ...
+    
+
+    def detect_outliers(
+        self,
+        vals: vals = typing.Any,
+        window_size: int = 3,
+        threshold: float = 0.5,
+        edge_handling: str = 'asymmetric',
+        min_abs_value: float = 1e-10,
+        scale_factor: float = 1.0,
+        column: vals = typing.Any,
+        window_size: int = 3,
+        threshold: float = 0.5,
+        edge_handling: str = 'asymmetric',
+        min_abs_value: float = 1e-10,
+        scale_factor: float = 1.0
+    ) -> list[int]:
+        """Detect outliers using moving average."""
+        ...
+    
+
+    def gaussian_filter(
+        self,
+        vals: vals = typing.Any,
+        sigma: float = 1.0,
+        window_size: Optional[int] = None,
+        column: vals = typing.Any,
+        sigma: float = 1.0,
+        window_size: Optional[int] = None
+    ) -> Any:
+        """Apply gaussian filter."""
+        ...
+    
+
+    def max(
+        self,
+        column: str
+    ) -> float:
+        """Get max value."""
+        ...
+    
+
+    def min(
+        self,
+        column: str
+    ) -> float:
+        """Get min value."""
+        ...
+    
+
+    def mean(
+        self,
+        column: str
+    ) -> float:
+        """Get mean value."""
+        ...
+    
+
+    def std(
+        self,
+        column: str
+    ) -> float:
+        """Get standard deviation."""
+        ...
+    
+
+    def sum(
+        self,
+        column: str
+    ) -> float:
+        """Get sum."""
+        ...
+    
+
     def sin(
         self,
+        values: values = <class 'numpy.ndarray'>,
         degrees: bool = False,
-        **kwargs
+        column: values = <class 'numpy.ndarray'>,
+        degrees: bool = False
     ) -> ndarray:
-        """指定した列の各値に sin 関数を適用します"""
+        """Calculate sine of values."""
         ...
     
 
     def cos(
         self,
+        values: values = <class 'numpy.ndarray'>,
         degrees: bool = False,
-        **kwargs
+        column: values = <class 'numpy.ndarray'>,
+        degrees: bool = False
     ) -> ndarray:
-        """指定した列の各値に cos 関数を適用します"""
+        """Calculate cosine of values."""
         ...
     
 
     def tan(
         self,
+        values: values = <class 'numpy.ndarray'>,
         degrees: bool = False,
-        **kwargs
+        column: values = <class 'numpy.ndarray'>,
+        degrees: bool = False
     ) -> ndarray:
-        """指定した列の各値に tan 関数を適用します"""
+        """Calculate tangent of values."""
         ...
     
 
     def exp(
         self,
-        **kwargs
+        values: values = <class 'numpy.ndarray'>,
+        column: values = <class 'numpy.ndarray'>
     ) -> ndarray:
-        """指定した列の各値に指数関数(e^x)を適用します"""
+        """Calculate exponential of values."""
         ...
     
 
     def log(
         self,
+        values: values = <class 'numpy.ndarray'>,
         base: float = 2.718281828459045,
-        **kwargs
+        column: values = <class 'numpy.ndarray'>,
+        base: float = 2.718281828459045
     ) -> ndarray:
-        """指定した列の各値に対数関数を適用します"""
+        """Calculate logarithm of values."""
         ...
     
 
     def sqrt(
         self,
-        **kwargs
+        values: values = <class 'numpy.ndarray'>,
+        column: values = <class 'numpy.ndarray'>
     ) -> ndarray:
-        """指定した列の各値の平方根を計算します"""
+        """Calculate square root of values."""
         ...
     
 
     def pow(
         self,
-        exponent: float,
-        **kwargs
+        values: values = <class 'numpy.ndarray'>,
+        exponent: float = 1.0,
+        column: values = <class 'numpy.ndarray'>,
+        exponent: float
     ) -> ndarray:
-        """指定した列の各値を指定した指数でべき乗します"""
+        """Calculate power of values."""
         ...
     
 
     def abs_values(
         self,
-        **kwargs
+        values: values = <class 'numpy.ndarray'>,
+        column: values = <class 'numpy.ndarray'>
     ) -> ndarray:
-        """指定した列の各値の絶対値を計算します"""
+        """Calculate absolute values."""
         ...
     
 
     def round_values(
         self,
+        values: values = <class 'numpy.ndarray'>,
         decimals: int = 0,
-        **kwargs
+        column: values = <class 'numpy.ndarray'>,
+        decimals: int = 0
     ) -> ndarray:
-        """指定した列の各値を指定した小数点以下の桁数に丸めます"""
+        """Round values to specified decimals."""
         ...
     
 
     def normalize(
         self,
+        values: values = <class 'numpy.ndarray'>,
         method: str = 'minmax',
-        **kwargs
+        column: values = <class 'numpy.ndarray'>,
+        method: str = 'minmax'
     ) -> ndarray:
-        """指定した列の値を正規化します"""
+        """Normalize values using specified method."""
         ...
     
 
@@ -1184,31 +1100,23 @@ Raises:
 
     def split_by_integers(
         self,
-        markers: list[int]
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """整数リストの値でデータを分割します
-
-Args:
-    length: データの長さ (Decoratorにより自動注入)
-    markers: 各データ値がどのグループに属するかを示す整数リスト（データと同じ長さ）
-    
-Returns:
-    List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト。"""
+        length: length = <class 'int'>,
+        markers: markers = typing.List[int],
+        column: length = <class 'int'>,
+        markers: Union[list[int], ndarray]
+    ) -> list[ndarray]:
+        """Calculate split indices based on integer markers."""
         ...
     
 
     def split_at_indices(
         self,
+        length: length = <class 'int'>,
+        indices: indices = typing.Union[int, typing.List[int]],
+        column: length = <class 'int'>,
         indices: Union[int, list[int]]
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """指定されたインデックスでコレクションを分割します
-
-Args:
-    length: データの長さ (Decoratorにより自動注入)
-    indices: 分割するインデックス（intまたはList[int]）
-    
-Returns:
-    List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト"""
+    ) -> list[slice]:
+        """Calculate split slices based on indices."""
         ...
     
 

@@ -7,7 +7,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.operations.proxy import CollectionOperations
-from tascpy.operations.core.select import select, select_step
+from tascpy.operations.core.select import select
 
 
 @pytest.fixture
@@ -156,17 +156,3 @@ class TestSelect:
         with pytest.raises(ValueError, match="indicesとstepsは同時に指定できません"):
             select(sample_collection, indices=[0, 1], steps=[2, 3])
 
-    def test_legacy_select_step(self, sample_collection):
-        """旧select_step関数の互換性テスト"""
-        # 旧関数を使用
-        result = select_step(sample_collection, steps=[2, 4], columns=["A", "C"])
-
-        # 新しいselect関数と同じ結果が得られるか検証
-        expected = select(sample_collection, steps=[2, 4], columns=["A", "C"])
-
-        assert list(result.columns.keys()) == list(expected.columns.keys())
-        np.testing.assert_array_equal(result.step.values, expected.step.values)
-        # オブジェクト自体ではなく、値を比較する
-        np.testing.assert_array_equal(result["A"].values, expected["A"].values)
-        np.testing.assert_array_equal(result["C"].values, expected["C"].values)
-        assert result.metadata["operation"] == expected.metadata["operation"]

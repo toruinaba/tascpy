@@ -13,6 +13,8 @@ import re
 import ast
 import math
 import numpy as np
+from ...functional import arithmetic
+from ..registry import operation, register_functional
 
 
 def _safe_add_naming(func_name, col1, col2, **kwargs):
@@ -35,49 +37,34 @@ def _safe_div_naming(func_name, col1, col2, **kwargs):
     return f"{c1_str}/{col2}"
 
 
-@operation(domain="core")
-@transform_column(num_inputs=2, result_naming=_safe_add_naming)
-def add(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float], 
-    **kwargs
-) -> np.ndarray:
-    """列または定数を加算します"""
-    return v1 + v2
+add = register_functional(
+    arithmetic.add,
+    domain="core",
+    name="add",
+    transform_column={"num_inputs": 2, "result_naming": _safe_add_naming},
+)
 
+subtract = register_functional(
+    arithmetic.subtract,
+    domain="core",
+    name="subtract",
+    transform_column={"num_inputs": 2, "result_naming": _safe_sub_naming},
+)
 
-@operation(domain="core")
-@transform_column(num_inputs=2, result_naming=_safe_sub_naming)
-def subtract(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float], 
-    **kwargs
-) -> np.ndarray:
-    """列または定数を減算します"""
-    return v1 - v2
+multiply = register_functional(
+    arithmetic.multiply,
+    domain="core",
+    name="multiply",
+    transform_column={"num_inputs": 2, "result_naming": _safe_mul_naming},
+)
 
-
-@operation(domain="core")
-@transform_column(num_inputs=2, result_naming=_safe_mul_naming)
-def multiply(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float], 
-    **kwargs
-) -> np.ndarray:
-    """列または定数を乗算します"""
-    return v1 * v2
-
-
-@operation(domain="core")
-@transform_column(num_inputs=2, result_naming=_safe_div_naming)
-@handle_zero_division(numerator_idx=0, denominator_idx=1)
-def divide(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float], 
-    **kwargs
-) -> np.ndarray:
-    """列または定数で除算します"""
-    return v1 / v2
+divide = register_functional(
+    arithmetic.divide,
+    domain="core",
+    name="divide",
+    transform_column={"num_inputs": 2, "result_naming": _safe_div_naming},
+    extra_decorators=[handle_zero_division(numerator_idx=0, denominator_idx=1)]
+)
 
 # 微分と積分の関数を定義
 
@@ -104,72 +91,35 @@ def _integrate_unit_inference(collection, y_col, x_col, **kwargs):
     return f"{y_unit}·{x_unit}" if y_unit or x_unit else None
 
 
-@operation(domain="core")
-@store_result(result_naming=_diff_naming, unit_inference=_diff_unit_inference)
-@inject_columns(num_inputs=2)
-@handle_missing_values(strategy="strict")
-def diff(
-    y_values: np.ndarray,
-    x_values: np.ndarray,
-    method: str = "central",
-    **kwargs
-) -> np.ndarray:
-    """指定された 2 つの列間の微分を計算します（dy/dx）"""
-    
-    # Check data points
-    if len(x_values) < 2:
-        raise ValueError(
-            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
-        )
-
-    from ...utils.data import diff_xy
-    # diff_xy returns list, we convert to array
-    # diff_xy expects x, y as lists or arrays.
-    res_list = diff_xy(x_values, y_values, method=method)
-    return np.array(res_list)
+diff = register_functional(
+    arithmetic.diff,
+    domain="core",
+    name="diff",
+    store_result={"result_naming": _diff_naming, "unit_inference": _diff_unit_inference},
+    inject_columns={"num_inputs": 2},
+    extra_decorators=[handle_missing_values(strategy="strict")],
+    signature_override={
+        "y": ("y_values", np.ndarray),
+        "x": ("x_values", np.ndarray),
+        "method": (str, "central")
+    }
+)
 
 
-@operation(domain="core")
-@store_result(result_naming=_integrate_naming, unit_inference=_integrate_unit_inference)
-@inject_columns(num_inputs=2)
-@handle_missing_values(strategy="strict")
-def integrate(
-    y_values: np.ndarray,
-    x_values: np.ndarray,
-    method: str = "trapezoid",
-    initial_value: float = 0.0,
-    **kwargs
-) -> np.ndarray:
-    """指定された 2 つの列間の積分を計算します（∫y dx）"""
-    
-    # メソッドの検証
-    if method != "trapezoid":
-        raise ValueError("現在は trapezoid 積分のみサポートしています")
-
-    if len(x_values) < 2:
-         raise ValueError(
-            f"有効なデータポイントが不足しています: {len(x_values)} (最低2点必要)"
-        )
-
-    # We must sort here.
-    sorted_indices = np.argsort(x_values)
-    sorted_x = x_values[sorted_indices]
-    sorted_y = y_values[sorted_indices]
-    
-    from ...utils.data import integrate_xy
-    integral_values = integrate_xy(sorted_x, sorted_y, initial_value=initial_value)
-    integral_arr = np.array(integral_values)
-    
-    # Map back to original order
-    # We need to unsort.
-    # The result `integral_arr` corresponds to `sorted_x`.
-    # We want result corresponding to `x_values`.
-    # result[sorted_indices] = integral_arr
-    
-    result = np.empty_like(integral_arr)
-    result[sorted_indices] = integral_arr
-    
-    return result
+integrate = register_functional(
+    arithmetic.integrate,
+    domain="core",
+    name="integrate",
+    store_result={"result_naming": _integrate_naming, "unit_inference": _integrate_unit_inference},
+    inject_columns={"num_inputs": 2},
+    extra_decorators=[handle_missing_values(strategy="strict")],
+    signature_override={
+        "y": ("y_values", np.ndarray),
+        "x": ("x_values", np.ndarray),
+        "method": (str, "trapezoid"),
+        "initial_value": (float, 0.0)
+    }
+)
 
 
 def _evaluate_naming(func_name, expression, *args, **kwargs):

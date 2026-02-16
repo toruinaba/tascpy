@@ -251,7 +251,7 @@ class TestPlot:
 class TestVisualizeOutliers:
     """visualize_outliers関数のテスト"""
 
-    @patch("tascpy.operations.core.plot.detect_outliers")
+    @patch("tascpy.functional.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
     def test_basic_visualization(
@@ -293,7 +293,7 @@ class TestVisualizeOutliers:
         # 結果がAxesオブジェクトであることを確認
         assert result is mock_ax
 
-    @patch("tascpy.operations.core.plot.detect_outliers")
+    @patch("tascpy.functional.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     def test_existing_axes(self, mock_show, mock_detect_outliers, sample_collection):
         """既存のAxesオブジェクトを使用する機能が正しく動作することを確認"""
@@ -317,7 +317,7 @@ class TestVisualizeOutliers:
         # 結果がAxesであることを確認
         assert result is mock_ax
 
-    @patch("tascpy.operations.core.plot.detect_outliers")
+    @patch("tascpy.functional.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
     def test_no_outliers(
@@ -345,7 +345,7 @@ class TestVisualizeOutliers:
         # 結果がAxesであることを確認
         assert result is mock_ax
 
-    @patch("tascpy.operations.core.plot.detect_outliers")
+    @patch("tascpy.functional.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
     def test_custom_parameters(
@@ -390,7 +390,7 @@ from tascpy.operations.core.plot import plot_const_x
 class TestPlotConstX:
     """plot_const_x関数のテスト"""
 
-    @patch("tascpy.operations.core.plot.plot")
+    @patch("tascpy.visualization.backend_mpl.plot")
     def test_basic_plot_const_x(self, mock_plot, sample_collection):
         """plot_const_xが正しく動作することを確認"""
         # mock_plot returns what? usually ax.
@@ -417,7 +417,7 @@ class TestPlotConstX:
         
         assert result is mock_ax
 
-    @patch("tascpy.operations.core.plot.plot")
+    @patch("tascpy.visualization.backend_mpl.plot")
     def test_length_mismatch(self, mock_plot, sample_collection):
         """長さが一致しない場合にエラーが発生することを確認"""
         x_values = [10] # len 1

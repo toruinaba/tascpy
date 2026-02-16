@@ -206,15 +206,154 @@ def generate_operation_stub(
         logging.debug(f"関数 {func.__name__} の get_type_hints でエラー: {e}")
         type_hints = {}
 
+    # Check for Stub Signature Metadata (attached by register_functional)
+    stub_sig_meta = getattr(func, "__tascpy_stub_signature__", None)
+    
     # 第一引数 (collection) を除外したパラメータと型アノテーションを取得
     params = []
+    
+    # If explicit stub signature is provided, use it primarily
+    if stub_sig_meta:
+        # stub_sig_meta expects {param_name: (type, default)} or just simple dict
+        # But we need ordered params. The dict in register_functional might not order well 
+        # unless it was an ordered dict or list.
+        # Let's assume standard k:v where v is type or (type, default)
+        
+        # We still iterate sig.parameters of the WRAPPER to catch *args/**kwargs correctly?
+        # NO, the wrapper signature (after decorators) is usually generic (*args, **kwargs)
+        # or heavily modified.
+        # However, `inspect.signature(func)` on a functools.wrapped func returns the ORIGINAL pure function signature.
+        # The problem is we want to REPLACE pure function params (values) with operation params (column).
+        
+        # Hybrid Approach:
+        # Use signature(func) as base (which is pure func), but OVERRIDE specific params defined in metadata.
+        # e.g., 'vals' -> 'column: str'
+        
+        # Iterate pure func params
+        first = True
+        for name, param in sig.parameters.items():
+             # Pure function usually doesn't have 'collection' as first arg.
+             # Wait, the wrapper does. But `sig` here is from `inspect.signature(func)`.
+             # If `func` is the wrapper (returned by register_functional), it has `__wrapped__` pointing to pure func.
+             # `inspect.signature` follows `__wrapped__` by default.
+             # So `sig` IS the pure function signature.
+             
+             # Pure func: (values, value, tolerance)
+             # Op wanted: (column: str, value, tolerance)
+             
+             # We can't just skip first arg if pure func didn't have collection.
+             # But pure func definitely DOES NOT have collection.
+             
+             # We need to map `values` (arg 0) to `column`.
+             
+             # Check if this param is in metadata overridden
+             if name in stub_sig_meta:
+                 # Override
+                 meta = stub_sig_meta[name]
+                 # meta could be (type, default) or just type
+                 if isinstance(meta, tuple):
+                     m_type, m_default = meta
+                     m_anno = format_annotation(m_type)
+                     p_str = f"{name}: {m_anno}"
+                     if m_default is not inspect.Parameter.empty:
+                          p_str += f" = {repr(m_default)}"
+                     params.append(p_str)
+                 else:
+                     # Just name replacement? Or name is the key?
+                     # Ideally we want to rename 'values' to 'column'.
+                     # But 'name' here is parameter name. 
+                     
+                     # If stub_sig_meta is {'values': ('column', str, None)}?
+                     # Let's simplify and rely on the plan:
+                     # "function signatures in functional modules"
+                     pass
+
+        # Since simple override is tricky with just dict, let's look at `stub_sig_meta` structure.
+        # We probably want to define the FULL desired parameter list if we are transforming it.
+        # BUT, preserving default values from pure func is good.
+        
+        # Let's look at what we likely put in `register_functional`: `signature_override`.
+        
+        # New Logic:
+        # If stub_sig_meta is present AND looks like a full definitions list/dict:
+        # We reconstruct params from it.
+        # But usually we just want to "Replace first arg name to 'column'".
+        
+        # Let's try to infer from inspection + metadata.
+        pass
+
+    # Fallback to standard logic but adapted for pure/wrapper difference
+    is_pure_functional = hasattr(func, "__tascpy_functional_origin__")
+    
     first = True
     for name, param in sig.parameters.items():
-        if first:
-            first = False
-            continue  # collection引数をスキップ
+        # If pure functional, the first arg is 'values', NOT 'collection'. 
+        # But pure functions don't take collection.
+        # However, the wrapper DOES take collection.
+        # We are generating Stub for the WRAPPER method on the Collection class.
+        # So `self` is the collection.
+        
+        # Standard operations: def op(collection, arg1, ...)
+        # inspect.signature(op) -> (collection, arg1, ...)
+        # We skip first ('collection').
+        
+        # Pure functions adapted: def op(values, ...)
+        # inspect.signature(wrapper) -> (values, ...) because it unwraps to pure func.
+        
+        # So `name` is 'values'. We DON'T skip it if it's the data input (which becomes column selection).
+        # We want to convert `values: np.ndarray` -> `column: str`.
+        
+        if not is_pure_functional:
+            if first:
+                first = False
+                continue  # collection引数をスキップ
+        else:
+             # For pure functional, first arg is the data input.
+             # We want to expose it as 'column' (str).
+             if first:
+                 first = False
+                 # Check metadata for name override
+                 target_name = "column" # Default
+                 target_type = "str"
+                 
+                 # Look up signature override for this param
+                 if stub_sig_meta and name in stub_sig_meta:
+                      # override: {'values': ('column', str)}
+                      # Just assume simple dict for now?
+                      pass
+                      
+                 # Hardcode common pattern for now:
+                 # logic: pure func first arg -> "column: str"
+                 
+                 # Resolve name override
+                 param_name = name
+                 param_type = "str"
+                 param_default = inspect.Parameter.empty
+                 
+                 if stub_sig_meta and name in stub_sig_meta:
+                      meta = stub_sig_meta[name]
+                      if isinstance(meta, tuple):
+                          # (type, default)
+                          if len(meta) >= 1: param_type = format_annotation(meta[0])
+                          if len(meta) >= 2: param_default = meta[1]
+                      elif isinstance(meta, dict):
+                           # {'name': 'column', 'type': str, 'default': ...}
+                           if 'name' in meta: target_name = meta['name']
+                           if 'type' in meta: param_type = format_annotation(meta['type'])
+                           if 'default' in meta: param_default = meta['default']
+                      else:
+                           # Just type
+                           param_type = format_annotation(meta)
+                 
+                 param_str = f"{target_name}: {param_type}"
+                 if param_default is not inspect.Parameter.empty and param_default is not None:
+                      param_str += f" = {repr(param_default)}"
+                 elif param_default is None:
+                      param_str += " = None"
+                      
+                 params.append(param_str)
+                 continue
 
-        # パラメータの種類に応じた処理
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             # *args のような可変長位置引数
             param_str = f"*{name}"
@@ -226,8 +365,6 @@ def generate_operation_stub(
             param_str = f"{name}"
 
         # 型アノテーションの処理
-        # 1. get_type_hints から取得した型情報を優先
-        # 2. なければ signature から取得
         if name in type_hints:
             annotation_str = format_annotation(type_hints[name])
             param_str += f": {annotation_str}"
@@ -244,6 +381,7 @@ def generate_operation_stub(
                 param_str += f" = {default_repr}"
 
         params.append(param_str)
+
 
     # 関数が List[ColumnCollection] を返すかどうかを判定
     if is_returning_collection_list(func):

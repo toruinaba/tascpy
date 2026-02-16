@@ -171,7 +171,7 @@ class TestLoadDisplacementCollection:
         assert added["load_plus_5"].values[0] == 5.0  # 元の0.0 + 5.0
 
         # 特定の行のみを選択
-        selected = ops.select_step(steps=[1, 2]).end()
+        selected = ops.select(steps=[1, 2]).end()
         assert len(selected) == 2
         np.testing.assert_array_equal(selected.step.values, [1, 2])
 

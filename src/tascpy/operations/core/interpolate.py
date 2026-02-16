@@ -5,142 +5,14 @@ import numpy as np
 from ...core.collection import ColumnCollection
 from ...core.column import NumberColumn, Column
 from ..registry import operation
+from ...functional import interpolate as functional_interpolate
 
 
 # ---------------------------------------------------------
 # Pure Functions
 # ---------------------------------------------------------
 
-def _interpolate_core(
-    base_values: np.ndarray,
-    numeric_data: Dict[str, np.ndarray],
-    other_data: Dict[str, np.ndarray],
-    new_axis: np.ndarray,
-    method: str = "linear"
-) -> Dict[str, np.ndarray]:
-    """
-    Pure function for interpolation.
-    """
-    
-    resampled_data = {}
-    
-# Alias for backward compatibility
 
-    
-    # Check monotonicity for np.interp (it requires sorted x)
-    # Using a heuristic: if not sorted, we sort.
-    # Step is typically sorted. If not, np.interp results might be garbage.
-    # Sorting is O(N log N).
-    
-    # Sort indices if base_values are not sorted
-    # Checking is_monotonic efficiently
-    is_sorted = True
-    if len(base_values) > 1:
-        if not (base_values[1:] >= base_values[:-1]).all():
-            is_sorted = False
-            
-    if not is_sorted:
-        # Sort based on base_values
-        sort_idx = np.argsort(base_values)
-        base_values = base_values[sort_idx]
-        # Reorder input data
-        numeric_data = {
-            name: vals[sort_idx] for name, vals in numeric_data.items()
-        }
-        other_data = {
-            name: vals[sort_idx] for name, vals in other_data.items()
-        }
-        
-    # 1. Linear Interpolation for Numeric Data
-    for name, values in numeric_data.items():
-        # np.interp handles extrapolation linearly if left/right not provided?
-        # No, defaults to constant (fp[0], fp[-1]).
-        # Original implementation did linear extrapolation.
-        # np.interp does NOT extrapolation linearly by default.
-        # We need to handle extrapolation manually or use scipy.interpolate.interp1d(fill_value="extrapolate")
-        # Trying to avoid scipy dependency in core if possible.
-        
-        # Linear Extrapolation with numpy:
-        # Calculate slope at ends?
-        
-        # For simplicity and performance, standard np.interp is often accepted, 
-        # but if requirement matches pure python one (extrapolation), we need it.
-        # The pure python did linear extrapolation.
-        
-        # Let's use a helper for extrapolation or enable it.
-        # Custom numpy-based linear interp with extrapolation:
-        
-        # Use np.interp for inside range
-        interp_vals = np.interp(new_axis, base_values, values, left=np.nan, right=np.nan)
-        
-        # Handle Nans (extrapolation) if needed
-        # Identify left/right out of bounds
-        left_mask = new_axis < base_values[0]
-        right_mask = new_axis > base_values[-1]
-        
-        if np.any(left_mask):
-            # Extrapolate Left
-            if len(base_values) >= 2:
-                x1, x2 = base_values[0], base_values[1]
-                y1, y2 = values[0], values[1]
-                slope = (y2 - y1) / (x2 - x1) if x2 != x1 else 0
-                interp_vals[left_mask] = y1 + slope * (new_axis[left_mask] - x1)
-            else:
-                 interp_vals[left_mask] = values[0]
-
-        if np.any(right_mask):
-            # Extrapolate Right
-            if len(base_values) >= 2:
-                x1, x2 = base_values[-2], base_values[-1]
-                y1, y2 = values[-2], values[-1]
-                slope = (y2 - y1) / (x2 - x1) if x2 != x1 else 0
-                interp_vals[right_mask] = y2 + slope * (new_axis[right_mask] - x2)
-            else:
-                interp_vals[right_mask] = values[-1]
-        
-        resampled_data[name] = interp_vals
-
-    # 2. Nearest Neighbor Interpolation for Other Data
-    # Find indices of nearest base_value for each new_val
-    # np.searchsorted gives insertion points.
-    # Closest is either idx or idx-1.
-    
-    if other_data:
-        # Logic: find insertion index.
-        idx = np.searchsorted(base_values, new_axis, side="left")
-        
-        # Clip types to valid range for indexing
-        idx = np.clip(idx, 0, len(base_values) - 1)
-        
-        # Check if previous index is closer
-        # Compute distances
-        # Left neighbor: base_values[idx-1] (careful with 0)
-        # Right neighbor: base_values[idx]
-        
-        # This nearest logic is tricky with just searchsorted.
-        # 'abs(xi - x_value)' minimization is O(N*M).
-        # Optimization:
-        # idx is right neighbor (or exact).
-        # dist_right = abs(base[idx] - new)
-        # dist_left = abs(base[idx-1] - new)
-        
-        # Refine idx:
-        
-        # Ensure idx is within bounds for checking neighbors
-        idx_right = idx
-        idx_left = np.maximum(idx - 1, 0)
-        
-        dist_right = np.abs(base_values[idx_right] - new_axis)
-        dist_left = np.abs(base_values[idx_left] - new_axis)
-        
-        # Where left is closer
-        use_left = dist_left < dist_right
-        final_idx = np.where(use_left, idx_left, idx_right)
-        
-        for name, values in other_data.items():
-            resampled_data[name] = values[final_idx]
-
-    return resampled_data
 
 
 # ---------------------------------------------------------
@@ -258,7 +130,7 @@ def interpolate(
         target_other[f"__meta_{k}__"] = v
 
     # 6. Execution
-    resampled_all = _interpolate_core(
+    resampled_all = functional_interpolate.interpolate_core(
         base_values, target_numeric, target_other, new_axis, method=method
     )
     

@@ -3,8 +3,9 @@ import numpy as np
 from typing import Union, Optional, List, Dict, Any, Callable
 from ...core.collection import ColumnCollection
 from ...core.column import Column, detect_column_type
-from ..registry import operation
+from ..registry import operation, register_functional
 from ..abstraction import transform_column
+from ...functional import transform as functional_transform
 
 
 # ---------------------------------------------------------
@@ -73,173 +74,126 @@ def _abs_naming(func_name, *args, **kwargs):
 # ---------------------------------------------------------
 
 # 三角関数
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_basic_naming)
-def sin(
-    values: np.ndarray,
-    degrees: bool = False,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値に sin 関数を適用します"""
-    if degrees:
-        values = np.radians(values)
-    return np.sin(values)
+sin = register_functional(
+    functional_transform.sin,
+    domain="core",
+    name="sin",
+    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
+)
 
 
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_basic_naming)
-def cos(
-    values: np.ndarray,
-    degrees: bool = False,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値に cos 関数を適用します"""
-    if degrees:
-        values = np.radians(values)
-    return np.cos(values)
+cos = register_functional(
+    functional_transform.cos,
+    domain="core",
+    name="cos",
+    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
+)
 
 
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_basic_naming)
-def tan(
-    values: np.ndarray,
-    degrees: bool = False,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値に tan 関数を適用します"""
-    if degrees:
-        values = np.radians(values)
-    return np.tan(values)
+tan = register_functional(
+    functional_transform.tan,
+    domain="core",
+    name="tan",
+    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
+)
 
 
 # 指数関数/対数関数
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_basic_naming)
-def exp(
-    values: np.ndarray,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値に指数関数(e^x)を適用します"""
-    return np.exp(values)
+exp = register_functional(
+    functional_transform.exp,
+    domain="core",
+    name="exp",
+    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    signature_override={"values": ("values", np.ndarray)}
+)
 
 
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_log_naming)
-def log(
-    values: np.ndarray,
-    base: float = math.e,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値に対数関数を適用します"""
-    # 0以下はNaNにする (元の挙動に合わせる)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        if base == math.e:
-            res_arr = np.log(values)
-        elif base == 10:
-            res_arr = np.log10(values)
-        else:
-            res_arr = np.log(values) / np.log(base)
-            
-    # 値が0以下の場所をNaNにする
-    # values自体にNaNが含まれている可能性があるので注意
-    mask_le_zero = (values <= 0)
-    # maskがTrueの場所(<=0)をNaNにする
-    # NaNとの比較はFalseになるので、元のNaNはそのまま
-    res_arr[mask_le_zero] = np.nan
-    
-    return res_arr
+log = register_functional(
+    functional_transform.log,
+    domain="core",
+    name="log",
+    transform_column={"num_inputs": 1, "result_naming": _log_naming},
+    signature_override={"values": ("values", np.ndarray), "base": (float, math.e)}
+)
 
 
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_basic_naming)
-def sqrt(
-    values: np.ndarray,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値の平方根を計算します"""
-    # 負の値はNaNになる (Warning抑制)
-    with np.errstate(invalid='ignore'):
-         return np.sqrt(values)
+sqrt = register_functional(
+    functional_transform.sqrt,
+    domain="core",
+    name="sqrt",
+    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    signature_override={"values": ("values", np.ndarray)}
+)
 
 
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_pow_naming)
-def pow(
-    values: np.ndarray,
-    exponent: float,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値を指定した指数でべき乗します"""
-    with np.errstate(invalid='ignore'):
-        return np.power(values, exponent)
+pow = register_functional(
+    functional_transform.power,
+    domain="core",
+    name="pow",
+    transform_column={"num_inputs": 1, "result_naming": _pow_naming},
+    signature_override={"values": ("values", np.ndarray), "exponent": (float, 1.0)}
+)
 
 
 # その他の変換関数
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_abs_naming)
-def abs_values(
-    values: np.ndarray,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値の絶対値を計算します"""
-    return np.abs(values)
+abs_values = register_functional(
+    functional_transform.abs_values,
+    domain="core",
+    name="abs_values",
+    transform_column={"num_inputs": 1, "result_naming": _abs_naming},
+    signature_override={"values": ("values", np.ndarray)}
+)
 
-# エイリアス: absはtransform.pyモジュールレベルで定義
-# ただし @operation として登録するため、元の名前を使用
-# 既存コードでは abs = abs_values としていた
 abs = abs_values
+# Note: abs is explicitly registered as standard op via register_functional, 
+# and aliasing shares it, but `abs` builtin name conflict is intentional.
+# Original implementation: abs = abs_values.
+# If we re-register `abs`, it might be safer, but alias works if `register_functional` returns the wrapped function.
+# Yes it does.
+# However, `abs` variable name overrides builtin `abs`. This is intentional in original.
+
+# Also register 'abs' explicitly to be safe? 
+# No, `abs_values` is registered. `abs = abs_values` just aliases the variable.
+# But `@operation` on `abs_values` registered it as `abs_values`. 
+# If want `abs` operation, we might need to register it.
+# Original: just `abs = abs_values`.
+# If `abs_values` was decorated, `abs` refers to the wrapper.
+# So users can invoke `core.transform.abs(col)`.
+# And registry has "abs_values". 
+# Registry does NOT have "abs" unless `abs` variable was decorated independently?
+# No, original code:
+# @operation ... def abs_values ...
+# abs = abs_values
+# So registry has "abs_values". `abs` is just Python alias.
+# Users calling `collection.core.transform.abs(...)` works via module attribute.
+# Users calling `registry.get_operation("abs")` fails?
+# Unless `abs = @operation...`
+# Wait, `abs` was NOT decorated separately.
+# So registry key is "abs_values".
+# So `transform.abs(...)` works as function call.
+# `collection.apply(transform.abs)` works.
+# `collection.apply("abs")` would FAIL in original code?
+# Yes.
+# So this refactor maintains that behavior.
 
 
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_round_naming)
-def round_values(
-    values: np.ndarray,
-    decimals: int = 0,
-    **kwargs
-) -> np.ndarray:
-    """指定した列の各値を指定した小数点以下の桁数に丸めます"""
-    return np.round(values, decimals)
+round_values = register_functional(
+    functional_transform.round_values,
+    domain="core",
+    name="round_values",
+    transform_column={"num_inputs": 1, "result_naming": _round_naming},
+    signature_override={"values": ("values", np.ndarray), "decimals": (int, 0)}
+)
 
 
-@operation(domain="core")
-@transform_column(num_inputs=1, result_naming=_normalize_naming)
-def normalize(
-    values: np.ndarray,
-    method: str = "minmax",
-    **kwargs
-) -> np.ndarray:
-    """指定した列の値を正規化します"""
-    result_arr = np.full(len(values), np.nan)
-    
-    # 統計量計算にはNaNを除外したデータを使用
-    valid_mask = ~np.isnan(values)
-    if not np.any(valid_mask):
-         return result_arr # All NaNs
-         
-    valid_arr = values[valid_mask]
-
-    if method == "minmax":
-        min_val = np.min(valid_arr)
-        max_val = np.max(valid_arr)
-
-        if max_val == min_val:
-            # すべて0.5に設定 (NaN以外)
-            result_arr[valid_mask] = 0.5
-        else:
-            result_arr = (values - min_val) / (max_val - min_val)
-
-    elif method == "zscore":
-        mean = np.mean(valid_arr)
-        variance = np.var(valid_arr) # デフォルトはddof=0 (母分散)
-        
-        if variance < 1e-10:
-             result_arr[valid_mask] = 0.0
-        else:
-             std_dev = np.sqrt(variance)
-             result_arr = (values - mean) / std_dev
-             
-    else:
-        raise ValueError(f"methodは['minmax', 'zscore']のいずれかを指定してください")
-            
-    return result_arr
+normalize = register_functional(
+    functional_transform.normalize,
+    domain="core",
+    name="normalize",
+    transform_column={"num_inputs": 1, "result_naming": _normalize_naming},
+    signature_override={"values": ("values", np.ndarray), "method": (str, "minmax")}
+)
 
