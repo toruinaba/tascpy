@@ -1,12 +1,12 @@
 import pytest
-from src.tascpy.operations.core.filters import (
+from tascpy.operations.core.filters import (
     filter_by_value,
     filter_out_none,
     remove_consecutive_duplicates_across,
     remove_outliers,
 )
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ class TestFilterByValue:
         # 結果の検証: 2, 3, 4 の値がフィルタリングされるはず
         assert len(result.step) == 3
         # Indicesオブジェクトの値を直接比較する代わりに個々の要素を確認
-        assert result.step.values == [2, 3, 4]
+        assert list(result.step.values) == [2, 3, 4]
         assert [result["A"][i] for i in range(3)] == [2, 3, 4]
         assert [result["B"][i] for i in range(3)] == [20, 30, 40]
 
@@ -59,7 +59,7 @@ class TestFilterByValue:
 
     def test_invalid_column(self, sample_collection):
         """存在しない列名でKeyErrorが発生することを確認"""
-        with pytest.raises(KeyError, match="列'不存在'が存在しません"):
+        with pytest.raises(KeyError, match="列 '不存在' が存在しません"):
             filter_by_value(sample_collection, "不存在", 1)
 
 
@@ -73,7 +73,7 @@ class TestFilterOutNone:
         # 結果の検証: 列Cに含まれるNoneが2行目と4行目にあるため、それらが除外される
         assert len(result.step) == 3
         # Indicesオブジェクトの値を直接比較する代わりに個々の要素を確認
-        assert result.step.values == [1, 3, 5]
+        assert list(result.step.values) == [1, 3, 5]
         assert [result["A"][i] for i in range(3)] == [1, 3, 5]
         assert [result["B"][i] for i in range(3)] == [10, 30, 50]
         assert [result["C"][i] for i in range(3)] == [100, 300, 500]
@@ -86,7 +86,7 @@ class TestFilterOutNone:
         # 結果の検証: 列Cに含まれるNoneが2行目と4行目にあるため、それらが除外される
         assert len(result.step) == 3
         # Indicesオブジェクトの値を直接比較する代わりに個々の要素を確認
-        assert result.step.values == [1, 3, 5]
+        assert list(result.step.values) == [1, 3, 5]
         assert [result["C"][i] for i in range(3)] == [100, 300, 500]
 
     def test_filter_all_mode(self, sample_collection):
@@ -107,11 +107,11 @@ class TestFilterOutNone:
         # 結果の検証: すべての列がNoneの行は6行目のみ
         assert len(result.step) == 5
         # Indicesオブジェクトの値を直接比較する代わりに個々の要素を確認
-        assert result.step.values == [1, 2, 3, 4, 5]
+        assert list(result.step.values) == [1, 2, 3, 4, 5]
 
     def test_invalid_column(self, sample_collection):
         """存在しない列名でKeyErrorが発生することを確認"""
-        with pytest.raises(KeyError, match="列'不存在'が存在しません"):
+        with pytest.raises(KeyError, match="列 '不存在' が存在しません"):
             filter_out_none(sample_collection, columns=["A", "不存在"])
 
     def test_invalid_mode(self, sample_collection):
@@ -160,7 +160,7 @@ class TestRemoveConsecutiveDuplicatesAcross:
         # 'all'モードでは、いずれかの列で値が変化していれば行が保持される
         assert len(result) == 7
         # 保持されるインデックス: 0,1,2,4,5,6,7
-        assert result.step.values == [1, 2, 3, 5, 6, 7, 8]
+        assert list(result.step.values) == [1, 2, 3, 5, 6, 7, 8]
         assert [result["A"][i] for i in range(7)] == [1.0, 1.0, 2.0, 3.0, 3.0, 4.0, 4.0]
         assert [result["B"][i] for i in range(7)] == [
             10.0,
@@ -182,7 +182,7 @@ class TestRemoveConsecutiveDuplicatesAcross:
         # 結果の検証: いずれかの列で値が変化していれば行が保持される
         assert len(result) == 7
         # 保持されるインデックス: 0,1,2,4,5,6,7
-        assert result.step.values == [1, 2, 3, 5, 6, 7, 8]
+        assert list(result.step.values) == [1, 2, 3, 5, 6, 7, 8]
         assert [result["A"][i] for i in range(7)] == [1.0, 1.0, 2.0, 3.0, 3.0, 4.0, 4.0]
         assert [result["B"][i] for i in range(7)] == [
             10.0,
@@ -204,7 +204,7 @@ class TestRemoveConsecutiveDuplicatesAcross:
         # 結果の検証: A列とC列のみを考慮して重複を除去
         assert len(result) == 5
         # 'all'モードでA列とC列を考慮すると、インデックス0,1,2,5,7が保持される
-        assert result.step.values == [1, 3, 5, 7, 8]
+        assert list(result.step.values) == [1, 3, 5, 7, 8]
         assert [result["A"][i] for i in range(5)] == [1.0, 2.0, 3.0, 4.0, 4.0]
         # B列は考慮されていないが、フィルタリングの結果として値は残る
         assert [result["B"][i] for i in range(5)] == [10.0, 30.0, 40.0, 60.0, 60.0]
@@ -221,7 +221,7 @@ class TestRemoveConsecutiveDuplicatesAcross:
 
     def test_invalid_column(self, duplicate_collection):
         """存在しない列名でKeyErrorが発生することを確認"""
-        with pytest.raises(KeyError, match="列'不存在'が存在しません"):
+        with pytest.raises(KeyError, match="列 '不存在' が存在しません"):
             remove_consecutive_duplicates_across(
                 duplicate_collection, columns=["A", "不存在"]
             )
@@ -350,12 +350,12 @@ class TestRemoveOutliers:
 
     def test_invalid_column(self, outlier_collection):
         """存在しない列でKeyErrorが発生することを確認"""
-        with pytest.raises(KeyError, match="列"):
+        with pytest.raises(KeyError, match="列 '不存在' が存在しません"):
             remove_outliers(outlier_collection, column="不存在")
 
     def test_method_chain(self, outlier_collection):
         """メソッドチェーンでの使用を確認"""
-        from src.tascpy.operations.core.stats import moving_average
+        from tascpy.operations.core.stats import moving_average
 
         # メソッドチェーンで異常値除去と移動平均を組み合わせる
         result = (

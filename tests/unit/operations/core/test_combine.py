@@ -39,8 +39,8 @@ def test_switch_by_step_basic(sample_collection):
     """Test switch_by_step using index"""
     result = switch_by_step(
         sample_collection,
-        column1="col1",
-        column2="col2",
+        "col1",
+        "col2",
         threshold=5,
         compare_mode="index",
         by_step_value=False
@@ -60,8 +60,8 @@ def test_switch_by_step_value(sample_collection):
     # Steps are 0, 1, ..., 9. Threshold 5 means steps < 5 use col1
     result = switch_by_step(
         sample_collection,
-        column1="col1",
-        column2="col2",
+        "col1",
+        "col2",
         threshold=5,
         compare_mode="value",
         by_step_value=True
@@ -84,8 +84,8 @@ def test_blend_by_step_linear(sample_collection):
     
     result = blend_by_step(
         sample_collection,
-        column1="col1",
-        column2="col2",
+        "col1",
+        "col2",
         start=2,
         end=7,
         compare_mode="index",
@@ -122,9 +122,9 @@ def test_conditional_select(sample_collection):
     
     result = conditional_select(
         sample_collection,
-        column1="col1",
-        column2="col2",
-        condition_column="cond",
+        "col1",
+        "col2",
+        "cond",
         threshold=0.5,
         compare=">"
     )
@@ -168,8 +168,8 @@ def test_custom_combine(sample_collection):
         
     result = custom_combine(
         sample_collection,
-        column1="col1",
-        column2="col2",
+        "col1",
+        "col2",
         combine_func=my_add,
         func_name="my_add"
     )

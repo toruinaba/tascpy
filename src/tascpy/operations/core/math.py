@@ -172,7 +172,7 @@ def integrate(
     return result
 
 
-def _evaluate_naming(func_name, expression, **kwargs):
+def _evaluate_naming(func_name, expression, *args, **kwargs):
     return f"expression_result"
 
 def _evaluate_unit_inference(collection, expression, **kwargs):
@@ -198,6 +198,7 @@ def _evaluate_unit_inference(collection, expression, **kwargs):
 def evaluate(
     collection: ColumnCollection,
     expression: str,
+    *,
     result_column: Optional[str] = None,
     in_place: bool = False,
     unit: Optional[str] = None,

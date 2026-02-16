@@ -1,12 +1,12 @@
 import pytest
 import numpy as np
 import math
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.operations.core import math as tasc_math
-from src.tascpy.operations.core import transform as tasc_transform
-from src.tascpy.operations.core import stats as tasc_stats
-from src.tascpy.utils import data as tasc_data
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.operations.core import math as tasc_math
+from tascpy.operations.core import transform as tasc_transform
+from tascpy.operations.core import stats as tasc_stats
+from tascpy.utils import data as tasc_data
 
 class TestNumericalRefactoring:
     @pytest.fixture
@@ -103,7 +103,7 @@ class TestNumericalRefactoring:
 
     def test_math_evaluate_vectorized(self, collection):
         # A + B * 2
-        res = tasc_math.evaluate(collection, "A + B * 2", "result")
+        res = tasc_math.evaluate(collection, "A + B * 2", result_column="result")
         # 1+20=21, 2+40=42, 3+60=63, 4+80=84, 5+100=105
         np.testing.assert_array_equal(res["result"].values, [21.0, 42.0, 63.0, 84.0, 105.0])
 
@@ -118,7 +118,7 @@ class TestNumericalRefactoring:
         # This will trigger the fallback!
         
         expr = "A if A > 3 else 0"
-        res = tasc_math.evaluate(collection, expr, "fallback_result")
+        res = tasc_math.evaluate(collection, expr, result_column="fallback_result")
         # A: 1, 2, 3, 4, 5
         # 1>3 F -> 0
         # 2>3 F -> 0
@@ -129,7 +129,7 @@ class TestNumericalRefactoring:
 
     def test_math_evaluate_none_handling(self, collection):
         # C * 2. C has None.
-        res = tasc_math.evaluate(collection, "C * 2", "result_none")
+        res = tasc_math.evaluate(collection, "C * 2", result_column="result_none")
         # 1->2, -1->-2, 0->0, None->None, 5->10
         vals = res["result_none"].values
         assert vals[0] == 2.0

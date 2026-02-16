@@ -4,10 +4,10 @@ select 操作のテスト
 
 import pytest
 import numpy as np
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.operations.proxy import CollectionOperations
-from src.tascpy.operations.core.select import select, select_step
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.operations.proxy import CollectionOperations
+from tascpy.operations.core.select import select, select_step
 
 
 @pytest.fixture

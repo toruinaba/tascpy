@@ -76,7 +76,7 @@ class TestJapaneseFont:
 
     def test_japanese_operation_plot(self, japanese_sample_collection):
         """operations.core.plot を使用した日本語表示テスト"""
-        from src.tascpy.operations.core.plot import plot
+        from tascpy.operations.core.plot import plot
 
         # 日本語カラム名を使用したプロット
         result = plot(
@@ -88,6 +88,7 @@ class TestJapaneseFont:
 
         # 図を保存
         output_path = Path(self.temp_dir) / "japanese_operation_plot.png"
+        import matplotlib.pyplot as plt
         plt.savefig(output_path)
         plt.close()
 
@@ -95,8 +96,9 @@ class TestJapaneseFont:
         assert output_path.exists()
         assert output_path.stat().st_size > 0
 
-        # 戻り値がオリジナルのコレクションであることを確認
-        assert result is japanese_sample_collection
+        # 戻り値がAxesオブジェクトであることを確認
+        import matplotlib.pyplot as plt
+        assert isinstance(result, plt.Axes)
 
     def test_japanese_text_in_figure(self, japanese_sample_collection):
         """図の中に日本語テキストを追加するテスト"""

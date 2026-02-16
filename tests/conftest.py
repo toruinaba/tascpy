@@ -1,8 +1,8 @@
 import pytest
 import os
 from pathlib import Path
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
 
 # W-N.txt content for testing
 TEST_WN_CONTENT = """無題

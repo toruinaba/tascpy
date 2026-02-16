@@ -422,6 +422,7 @@ def create_skeleton_curve(
                 "has_decrease": has_decrease,
                 "decrease_type": decrease_type,
             },
+            "units": {"load": load_unit, "displacement": disp_unit},
         }
     )
     result.add_result(curve)
@@ -610,6 +611,7 @@ def create_cumulative_curve(
         metadata={
             "source_columns": {"load": load_column, "displacement": disp_column},
             "description": "Cumulative curve derived from load-displacement data",
+            "units": {"load": load_unit, "displacement": disp_unit},
         }
     )
     result.add_result(curve)

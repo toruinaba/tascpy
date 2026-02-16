@@ -98,27 +98,38 @@ def select(
                          nearest_idx = np.argmin(diff)
                          if diff[nearest_idx] <= tolerance:
                              idx = int(nearest_idx)
+                if not isinstance(step_values, np.ndarray) and isinstance(step_values, list):
+                     # List search
+                     found = False
+                     if tolerance is None:
+                         try:
+                              # list.index handles exact match
+                              idx = step_values.index(target_step)
+                              found = True
+                         except ValueError:
+                              pass
+                     else:
+                          # Scan
+                          for i, v in enumerate(step_values):
+                              if abs(v - target_step) <= tolerance:
+                                  idx = i
+                                  found = True
+                                  break
                 else:
-                    # List search
-                    # find_step_index logic: 
-                    # closest match within tolerance? Or exact match?
-                    # "find_step_index ... default=None" implies exact search if tolerance is None.
+                    # Generic / Numpy search fallback for non-list iterables or just in case
+                    # (Should cover the case where is_array check failed but it behaves like array)
+                    # Convert to array if not
+                    arr_vals = np.array(step_values) if not isinstance(step_values, np.ndarray) else step_values
                     
-                    found = False
                     if tolerance is None:
-                        try:
-                             # list.index handles exact match
-                             idx = step_values.index(target_step)
-                             found = True
-                        except ValueError:
-                             pass
+                         indices_found = np.where(arr_vals == target_step)[0]
+                         if len(indices_found) > 0:
+                             idx = int(indices_found[0])
                     else:
-                         # Scan
-                         for i, v in enumerate(step_values):
-                             if abs(v - target_step) <= tolerance:
-                                 idx = i
-                                 found = True
-                                 break
+                         diff = np.abs(arr_vals - target_step)
+                         nearest_idx = np.argmin(diff)
+                         if diff[nearest_idx] <= tolerance:
+                             idx = int(nearest_idx)
                 
                 if idx is not None:
                     final_indices.append(idx)
@@ -164,31 +175,35 @@ def select_step(
 
 @operation(domain="core")
 @filter_rows
-@inject_step_values
+@inject_columns(num_inputs=1)
 def fetch_near_step(
-    step_values: Union[np.ndarray, List[float]], value: float
+    values: np.ndarray, value: float, **kwargs
 ) -> List[int]:
     """指定された値に最も近い行を取得します
+    
+    inject_columnsにより、第一引数がカラム名の場合はそのカラムの値が、
+    そうでない場合(数値のみ)はデフォルト(通常はStep)の値が注入されます。
 
     Args:
-        step_values: 検索対象のステップ値（@inject_step_valuesにより注入）
+        values: 検索対象の値の配列 (@inject_columnsにより注入)
         value: 検索する値
+        **kwargs: inject_columns用の追加引数
 
     Returns:
         List[int]: 最も近い値を持つ行のインデックス（1つ）
     """
     # 数値型変換とチェック
-    if isinstance(step_values, list):
-         step_values = np.array(step_values)
+    if isinstance(values, list):
+         values = np.array(values)
     
-    if not np.issubdtype(step_values.dtype, np.number):
+    if not np.issubdtype(values.dtype, np.number):
          try:
-             step_values = step_values.astype(float)
+             values = values.astype(float)
          except ValueError:
-             raise TypeError(f"ステップ列は数値型ではありません")
+             raise TypeError(f"検索対象列は数値型ではありません")
 
     # 絶対差分
-    diff = np.abs(step_values - value)
+    diff = np.abs(values - value)
     
     # NaNが含まれる場合は無視
     try:

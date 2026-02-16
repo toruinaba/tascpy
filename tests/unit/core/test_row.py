@@ -1,5 +1,5 @@
 import pytest
-from src.tascpy.core.row import Row
+from tascpy.core.row import Row
 
 class TestRow:
     """Rowクラスのテスト"""

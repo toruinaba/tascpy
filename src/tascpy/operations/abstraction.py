@@ -217,26 +217,19 @@ def handle_missing_values(strategy: str = "nan"):
             
             processed_args = []
             
-            if strategy == "strict":
-                # Check for None or NaN in any arg
-                for arg in args:
-                    if arg is None: 
-                        pass
-                        
-                    if isinstance(arg, np.ndarray):
-                        if np.isnan(arg).any():
-                             # Strict Fail -> Return NaN array like arg
-                             return np.full_like(arg, np.nan)
-                    elif isinstance(arg, list):
-                         if None in arg:
-                             pass
-            
             # 'nan' strategy
             if strategy == "nan":
                 for arg in args:
                     if isinstance(arg, np.ndarray) and np.issubdtype(arg.dtype, np.number):
                         processed_args.append(arg.astype(float)) # Ensure float for NaN
-                    elif isinstance(arg, list) or (isinstance(arg, np.ndarray) and arg.dtype == object):
+                    elif isinstance(arg, np.ndarray) and arg.dtype == object:
+                        # Attempt to cast object array to float/nan
+                        try:
+                            vals = [v if v is not None else np.nan for v in arg]
+                            processed_args.append(np.array(vals, dtype=float))
+                        except:
+                            processed_args.append(arg)
+                    elif isinstance(arg, list):
                          # Convert list with None to float array with NaN
                          try:
                              vals = [v if v is not None else np.nan for v in arg] if isinstance(arg, (list, np.ndarray)) else arg
@@ -273,7 +266,14 @@ def handle_missing_values(strategy: str = "nan"):
                         if isinstance(arg, list):
                             if None in arg: has_missing = True
                         elif isinstance(arg, np.ndarray):
-                            if arg.dtype == object and None in arg: has_missing = True
+                            if arg.dtype == object:
+                                if None in arg: 
+                                    has_missing = True
+                                else:
+                                    # vector check for nan in object/float mix
+                                    # safe check
+                                    is_nan = np.vectorize(lambda x: isinstance(x, float) and np.isnan(x))(arg)
+                                    if is_nan.any(): has_missing = True
                             elif np.issubdtype(arg.dtype, np.number) and np.isnan(arg).any(): has_missing = True
                     
                     converted_args.append(arg)
@@ -295,6 +295,8 @@ def handle_missing_values(strategy: str = "nan"):
 
 
 def store_result(
+    func: Optional[Callable] = None,
+    *,
     result_naming: Union[str, Callable[..., str]] = None,
     unit_inference: Optional[Callable[..., Optional[str]]] = None,
 ):
@@ -302,13 +304,13 @@ def store_result(
     Decorator to store return value into ColumnCollection.
     Expected to be the OUTERMOST decorator (receiving Collection).
     """
-    def decorator(func):
-        @functools.wraps(func)
+    def decorator(target_func):
+        @functools.wraps(target_func)
         def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
             # Pass through if not collection
             if not isinstance(collection, ColumnCollection):
                  all_args = (collection,) + args
-                 return func(*all_args, **kwargs)
+                 return target_func(*all_args, **kwargs)
 
             # Extract and consume metadata arguments
             # We copy kwargs to avoid side effects if func modifies it, 
@@ -320,7 +322,7 @@ def store_result(
             ch = func_kwargs.pop("ch", None)
 
             # Calls the chain with cleaned kwargs
-            res_data = func(collection, *args, **func_kwargs)
+            res_data = target_func(collection, *args, **func_kwargs)
             
             # Check for (values, metadata) tuple
             metadata_update = {}
@@ -349,10 +351,13 @@ def store_result(
                     except:
                         result_column = f"result_{len(collection.columns)}"
                 elif callable(result_naming):
-                    result_column = result_naming(func.__name__, *args, **kwargs)
+                    result_column = result_naming(func.__name__ if func else target_func.__name__, *args, **kwargs)
                 else:
                     # Fallback if func is wrapper? funcs usually retain __name__ via wraps
-                    result_column = f"{func.__name__}({args[0]})"
+                    if len(args) > 0:
+                        result_column = f"{target_func.__name__}({args[0]})"
+                    else:
+                        result_column = f"{target_func.__name__}_result"
             
             # Metadata / Add Column
             if result_column in result_collection.columns:
@@ -379,6 +384,9 @@ def store_result(
                 
             return result_collection
         return wrapper
+
+    if func is not None:
+        return decorator(func)
     return decorator
 
 
@@ -655,9 +663,34 @@ def inject_plot_data(
                  # If valid usage, this is fine.
                  return func(collection, *args, **kwargs)
 
-            # Extract Column Names (pop to remove from kwargs)
-            x_column = kwargs.pop(x_arg, None)
-            y_column = kwargs.pop(y_arg, None)
+            # Extract Column Names
+            # Priority: 1. kwargs, 2. args (positional)
+            
+            x_column = None
+            y_column = None
+            
+            # Check kwargs first
+            if x_arg in kwargs:
+                x_column = kwargs.pop(x_arg)
+            
+            if y_arg in kwargs:
+                y_column = kwargs.pop(y_arg)
+                
+            # Check args if not found in kwargs using mutable list
+            mutable_args = list(args)
+            
+            # Attempt to pop x_column from args if not yet found
+            if x_column is None and len(mutable_args) > 0:
+                # We consume the first arg as x_column if it's potentially a column identifier
+                # (We assume positional args start with x_column, then y_column)
+                x_column = mutable_args.pop(0)
+                
+            # Attempt to pop y_column from args if not yet found
+            if y_column is None and len(mutable_args) > 0:
+                 y_column = mutable_args.pop(0)
+
+            # Update args to passed-through args
+            args = tuple(mutable_args)
             
             # Extract Data & Metadata
             # X Axis

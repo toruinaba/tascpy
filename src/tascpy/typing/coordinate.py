@@ -358,7 +358,7 @@ Raises:
 
     def remove_consecutive_duplicates_across(
         self,
-        columns: list[str],
+        columns: Optional[list[str]] = None,
         dup_type: str = 'all'
     ) -> list[int]:
         """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します"""
@@ -696,24 +696,109 @@ Returns:
 
     def fetch_near_step(
         self,
-        value: float
+        value: float,
+        **kwargs
     ) -> "CollectionListOperations[CoordinateCollectionOperations]":
         """指定された値に最も近い行を取得します
 
+inject_columnsにより、第一引数がカラム名の場合はそのカラムの値が、
+そうでない場合(数値のみ)はデフォルト(通常はStep)の値が注入されます。
+
 Args:
-    step_values: 検索対象のステップ値（@inject_step_valuesにより注入）
+    values: 検索対象の値の配列 (@inject_columnsにより注入)
     value: 検索する値
+    **kwargs: inject_columns用の追加引数
 
 Returns:
     List[int]: 最も近い値を持つ行のインデックス（1つ）"""
         ...
     
 
-    def decorator(
+    def switch_by_step(
         self,
-        
+        v1: ndarray,
+        v2: ndarray,
+        threshold: Union[int, float],
+        compare_mode: str = 'value',
+        by_step_value: bool = True,
+        result_column: Optional[str] = None,
+        in_place: bool = False,
+        tolerance: Optional[float] = None
     ) -> Any:
-        """"""
+        """ステップ値を基準に2つのColumnを切り替える (ベクトル化済み)"""
+        ...
+    
+
+    def blend_by_step(
+        self,
+        v1: ndarray,
+        v2: ndarray,
+        start: Union[int, float],
+        end: Union[int, float],
+        compare_mode: str = 'value',
+        by_step_value: bool = True,
+        blend_method: str = 'linear',
+        result_column: Optional[str] = None,
+        in_place: bool = False,
+        tolerance: Optional[float] = None
+    ) -> Any:
+        """ステップ値の範囲内で2つのColumnをブレンドする (ベクトル化済み)"""
+        ...
+    
+
+    def sum_columns(
+        self,
+        columns: Optional[list[str]] = None
+    ) -> Any:
+        """複数の列を合計します。
+
+指定した複数の列の値を要素ごとに合計し、結果の配列を返します。
+
+Args:
+    data: 列データの辞書 (inject_columnsにより注入)
+    columns: 合計対象の列名リスト"""
+        ...
+    
+
+    def average_columns(
+        self,
+        columns: Optional[list[str]] = None
+    ) -> Any:
+        """複数の列の平均値を計算します。
+
+指定した複数の列の値を要素ごとに平均し、結果の配列を返します。
+
+Args:
+    data: 列データの辞書 (inject_columnsにより注入)
+    columns: 平均対象の列名リスト"""
+        ...
+    
+
+    def conditional_select(
+        self,
+        v2: ndarray,
+        cond_values: ndarray,
+        threshold: Union[int, float] = 0,
+        compare: str = '>'
+    ) -> Any:
+        """条件に基づいて2つの値を選択的に取得します
+
+Args:
+    v1: 条件を満たす場合に使用する値
+    v2: 条件を満たさない場合に使用する値
+    cond_values: 条件判定に使用する値
+    threshold: 条件判定の閾値
+    compare: 比較演算子"""
+        ...
+    
+
+    def custom_combine(
+        self,
+        v2: Any,
+        combine_func: Callable[[Any, Any], Any],
+        func_name: Optional[str] = None
+    ) -> "CollectionListOperations[CoordinateCollectionOperations]":
+        """カスタム関数を使用して2つの値を合成します"""
         ...
     
 
@@ -1053,6 +1138,24 @@ Args:
     
 Returns:
     List[ColumnCollection]: 分割後の ColumnCollection オブジェクトのリスト"""
+        ...
+    
+
+    def test_filter(
+        self,
+        column_name,
+        value
+    ) -> Any:
+        """テスト用フィルタリング操作"""
+        ...
+    
+
+    def add_derived_column(
+        self,
+        formula,
+        output_column
+    ) -> Any:
+        """数式に基づいて派生列を追加"""
         ...
     
 

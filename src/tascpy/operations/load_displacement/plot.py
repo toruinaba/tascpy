@@ -41,7 +41,7 @@ def plot_load_displacement(
         **kwargs: matplotlib の plot 関数に渡す追加引数
 
     Returns:
-        LoadDisplacementCollection: 元の荷重-変位コレクション
+        Axes: プロットされた軸オブジェクト
     """
     # 荷重と変位のカラムを取得
     disp_column = get_displacement_column(collection)
@@ -85,7 +85,7 @@ def plot_skeleton_curve(
         skeleton_kwargs: スケルトン曲線プロット用の追加引数
 
     Returns:
-        LoadDisplacementCollection: 元の荷重-変位コレクション
+        Axes: プロットされた軸オブジェクト
 
     Raises:
         ValueError: スケルトン曲線データが列にもメタデータにも見つからない場合
@@ -168,7 +168,7 @@ def plot_cumulative_curve(
         cumulative_kwargs: 累積曲線プロット用の追加引数
 
     Returns:
-        LoadDisplacementCollection: 元の荷重-変位コレクション
+        Axes: プロットされた軸オブジェクト
 
     Raises:
         ValueError: 累積曲線データが列にもメタデータにも見つからない場合
@@ -254,7 +254,7 @@ def plot_yield_point(
         **kwargs: matplotlib の plot 関数に渡す追加引数
 
     Returns:
-        LoadDisplacementCollection: 元の荷重-変位コレクション
+        Axes: プロットされた軸オブジェクト
     """
     # 降伏点のメタデータ確認
     if (
@@ -275,9 +275,9 @@ def plot_yield_point(
     else:
         fig = ax.figure
 
-    # 元の荷重変位データをプロットし、コレクションとaxを取得
+    # 元の荷重変位データをプロット
     if plot_original_data:
-        collection = plot_load_displacement(
+        plot_load_displacement(
             collection, ax=ax, label="Load-Displacement Data", **kwargs
         )
     else:
@@ -360,7 +360,7 @@ def plot_yield_analysis_details(
         **kwargs: matplotlib の plot 関数に渡す追加引数
 
     Returns:
-        LoadDisplacementCollection: 元の荷重-変位コレクション
+        Axes: プロットされた軸オブジェクト
     """
     # 降伏点のメタデータ確認
     if (
@@ -373,7 +373,7 @@ def plot_yield_analysis_details(
     method = yield_data["method"]
 
     # プロット作成
-    collection = plot_yield_point(collection, ax=ax, **kwargs)
+    plot_yield_point(collection, ax=ax, **kwargs)
 
     # 使用されたaxオブジェクトを取得
     created_new_figure = False
@@ -473,7 +473,7 @@ def compare_yield_methods(
         **kwargs: プロット関数に渡す追加引数
 
     Returns:
-        LoadDisplacementCollection: 元の荷重-変位コレクション
+        Axes: プロットされた軸オブジェクト
     """
     from ...operations.load_displacement.analysis import find_yield_point
 
@@ -589,7 +589,7 @@ def plot_multiple_curves(
         **kwargs: その他のオプション
 
     Returns:
-        LoadDisplacementCollection: 元のコレクション
+        Axes: プロットされた軸オブジェクト
     """
     # 軸が指定されていない場合は新規作成
     created_new_figure = False

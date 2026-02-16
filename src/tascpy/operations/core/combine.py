@@ -55,8 +55,8 @@ def _blend_core(
     return result
 
 @operation(domain="core")
-@inject_columns(num_inputs=2, include_step=True, cast_to_numpy=True)
 @store_result
+@inject_columns(num_inputs=2, include_step=True, cast_to_numpy=True)
 def switch_by_step(
     steps: np.ndarray,
     v1: np.ndarray,
@@ -100,8 +100,8 @@ def switch_by_step(
 
 
 @operation(domain="core")
-@inject_columns(num_inputs=2, include_step=True, cast_to_numpy=True)
 @store_result
+@inject_columns(num_inputs=2, include_step=True, cast_to_numpy=True)
 def blend_by_step(
     steps: np.ndarray,
     v1: np.ndarray,
@@ -166,8 +166,8 @@ def blend_by_step(
 
 
 @operation(domain="core")
-@inject_columns(columns_arg="columns", cast_to_numpy=True)
 @store_result
+@inject_columns(columns_arg="columns", cast_to_numpy=True)
 def sum_columns(
     data: Dict[str, np.ndarray],
     columns: Optional[List[str]] = None,
@@ -198,8 +198,8 @@ def sum_columns(
 
 
 @operation(domain="core")
-@inject_columns(columns_arg="columns", cast_to_numpy=True)
 @store_result
+@inject_columns(columns_arg="columns", cast_to_numpy=True)
 def average_columns(
     data: Dict[str, np.ndarray],
     columns: Optional[List[str]] = None,
@@ -224,8 +224,8 @@ def average_columns(
 
 
 @operation(domain="core")
-@inject_columns(num_inputs=3, cast_to_numpy=True)
 @store_result
+@inject_columns(num_inputs=3, cast_to_numpy=True)
 def conditional_select(
     v1: np.ndarray,
     v2: np.ndarray,
@@ -283,9 +283,37 @@ def conditional_select(
     return np.where(condition_mask, v1, v2)
 
 
+def _custom_combine_naming(operation_name, v1, v2, combine_func, func_name_arg=None, **kwargs):
+    """custom_combine用の命名ロジック"""
+    # func_name in arguments handles the `func_name` keyword argument of custom_combine
+    # (inject_columns passes args/kwargs to inner func, and store_result calls inner func)
+    # But store_result uses this naming strategy *before* calling inner func?
+    # No, store_result calls inner func, gets data, THEN does naming.
+    # So `args` and `kwargs` passed to naming strategy are ORIGINAL args/kwargs passed to wrapper.
+    # Wrapper call: custom_combine(collection, "col1", "col2", combine_func=..., func_name="my_add")
+    # args: ("col1", "col2"). kwargs: {combine_func:..., func_name:...}
+    
+    if func_name_arg:
+        return func_name_arg
+    # Check kwargs for func_name if passed as kwarg
+    if "func_name" in kwargs and kwargs["func_name"]:
+        return kwargs["func_name"]
+        
+    if hasattr(combine_func, "__name__") and combine_func.__name__ != "<lambda>":
+        return combine_func.__name__
+        
+    # Check if combine_func is in kwargs
+    if "combine_func" in kwargs:
+         cf = kwargs["combine_func"]
+         if hasattr(cf, "__name__") and cf.__name__ != "<lambda>":
+             return cf.__name__
+
+    return "custom_combine_result"
+
+
 @operation(domain="core")
+@store_result(result_naming=_custom_combine_naming)
 @inject_columns(num_inputs=2, cast_to_numpy=True)
-@store_result
 def custom_combine(
     v1: Any,
     v2: Any,

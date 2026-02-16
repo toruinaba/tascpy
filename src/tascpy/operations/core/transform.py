@@ -23,6 +23,10 @@ def _basic_naming(func_name, *args, **kwargs):
 
 def _log_naming(func_name, *args, base=math.e, **kwargs):
     col = _get_col_name(args, kwargs)
+    # Check if base is passed as positional arg (arg index 1)
+    if len(args) > 1:
+        base = args[1]
+    
     if base == math.e:
         return f"log({col})"
     elif base == 10:
@@ -32,14 +36,23 @@ def _log_naming(func_name, *args, base=math.e, **kwargs):
 
 def _pow_naming(func_name, *args, exponent=1.0, **kwargs):
     col = _get_col_name(args, kwargs)
+    # Check if exponent is passed as positional arg (arg index 1)
+    if len(args) > 1:
+        exponent = args[1]
     return f"{col}^{exponent}"
 
 def _round_naming(func_name, *args, decimals=0, **kwargs):
     col = _get_col_name(args, kwargs)
+    # Check if decimals is passed as positional arg (arg index 1)
+    if len(args) > 1:
+        decimals = args[1]
     return f"round({col}, {decimals})"
 
 def _normalize_naming(func_name, *args, method="minmax", **kwargs):
     col = _get_col_name(args, kwargs)
+    # Check if method is passed as positional arg (arg index 1)
+    if len(args) > 1:
+        method = args[1]
     return f"norm_{method}({col})"
 
 def _abs_naming(func_name, *args, **kwargs):

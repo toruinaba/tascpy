@@ -19,12 +19,20 @@ def filter_by_value(
     # vals is guaranteed to be numpy array by decorator
     
     if tolerance is not None:
+        # Ensure 1D array for safe iteration
+        vals_flat = vals.flatten() if hasattr(vals, "flatten") else vals
+
         return [
             (val >= value - tolerance) and (val <= value + tolerance)
-            for val in vals
+            for val in vals_flat
         ]
     else:
-        return (vals == value).tolist()
+
+        # Debugging aid/Fix: Ensure 1D bool array conversion
+        result = (vals == value)
+        if hasattr(result, "tolist"):
+             return result.tolist()
+        return list(result)
 
 
 @operation(domain="core")
@@ -95,7 +103,7 @@ def filter_out_none(
 @inject_columns(columns_arg="columns", cast_to_numpy=True)
 def remove_consecutive_duplicates_across(
     data: Dict[str, Union[np.ndarray, List[Any]]], 
-    columns: List[str], 
+    columns: Optional[List[str]] = None, 
     dup_type: str = "all"
 ) -> List[int]:
     """複数の列間で共通の連続重複データを削除した新しい ColumnCollection オブジェクトを返します"""

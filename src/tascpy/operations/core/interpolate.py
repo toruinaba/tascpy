@@ -20,18 +20,12 @@ def _interpolate_core(
 ) -> Dict[str, np.ndarray]:
     """
     Pure function for interpolation.
-    
-    Args:
-        base_values: Original x-axis values (must be 1D array).
-        numeric_data: Dictionary of numeric arrays to interpolate (linear).
-        other_data: Dictionary of non-numeric arrays to interpolate (nearest).
-        new_axis: New x-axis values.
-        method: Interpolation method for numeric data (currently only 'linear').
-        
-    Returns:
-        Dictionary containing all resampled data (numeric + other).
     """
+    
     resampled_data = {}
+    
+# Alias for backward compatibility
+
     
     # Check monotonicity for np.interp (it requires sorted x)
     # Using a heuristic: if not sorted, we sort.
@@ -152,6 +146,8 @@ def _interpolate_core(
 # ---------------------------------------------------------
 # Operation
 # ---------------------------------------------------------
+
+
 
 @operation(domain="core")
 def interpolate(

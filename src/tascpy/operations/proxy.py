@@ -32,8 +32,16 @@ class CollectionOperations(Generic[T]):
             collection: ColumnCollectionオブジェクト
             domain: 操作のドメイン（デフォルトは"core"）
         """
-        self._collection = collection
-        self._domain = domain
+        if isinstance(collection, type(self)):
+            self._collection = collection._collection
+            # ドメインがデフォルト("core")の場合、元のプロキシのドメインを継承する
+            if domain == "core":
+                 self._domain = collection._domain
+            else:
+                 self._domain = domain
+        else:
+            self._collection = collection
+            self._domain = domain
 
         # スタブファイルが生成されていない場合、生成を試みる
         if TYPE_CHECKING:

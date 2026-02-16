@@ -306,6 +306,10 @@ def create_skeleton_curve(
     d_ske = []
     p_max = 0.0
 
+    # Ensure inputs are lists
+    displacements = list(displacements)
+    loads = list(loads)
+
     markers = cycle_count(loads)
     max_index = loads.index(max(loads))
     max_marker = markers[max_index]

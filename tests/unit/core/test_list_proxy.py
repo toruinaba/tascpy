@@ -1,10 +1,10 @@
 import pytest
 import numpy as np
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.operations.core.split import split_by_integers
-from src.tascpy.operations.proxy import CollectionOperations
-from src.tascpy.operations.list_proxy import CollectionListOperations
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.operations.core.split import split_by_integers
+from tascpy.operations.proxy import CollectionOperations
+from tascpy.operations.list_proxy import CollectionListOperations
 
 
 @pytest.fixture

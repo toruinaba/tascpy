@@ -10,10 +10,10 @@ import numpy as np
 # プロジェクトのルートディレクトリをPYTHONPATHに追加
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.core.io_formats import register_format
-from src.tascpy.io.file_handlers import load_from_file, save_to_file, load_tasc_file
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.core.io_formats import register_format
+from tascpy.io.file_handlers import load_from_file, save_to_file, load_tasc_file
 
 # テストデータパスの設定
 TEST_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))
@@ -258,14 +258,14 @@ UNIT,,,kN,mm,°C
 
         # load_from_fileのテスト - モックパスを修正
         with patch(
-            "src.tascpy.core.collection.ColumnCollection.from_file"
+            "tascpy.core.collection.ColumnCollection.from_file"
         ) as mock_from_file:
             load_from_file("test.txt")
             mock_from_file.assert_called_once()
 
         # save_to_fileのテスト
         with patch(
-            "src.tascpy.core.collection.ColumnCollection.to_file"
+            "tascpy.core.collection.ColumnCollection.to_file"
         ) as mock_to_file:
             save_to_file(collection, "test.txt")
             mock_to_file.assert_called_once()
@@ -438,7 +438,7 @@ UNIT,,,kN,mm,°C
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
                 with patch(
-                    "src.tascpy.core.collection.open", mock_file
+                    "tascpy.core.collection.open", mock_file
                 ) as mock_open_func:
                     # ここでは実際にファイルを読み込む必要はない、エンコーディング設定が正しく渡されたかだけを確認
                     ColumnCollection.from_file("dummy_path.txt", format_name="tasc")
@@ -452,7 +452,7 @@ UNIT,,,kN,mm,°C
             with patch(
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
-                with patch("src.tascpy.core.collection.open", mock_file):
+                with patch("tascpy.core.collection.open", mock_file):
                     ColumnCollection.from_file("dummy_path.txt", format_name="standard")
                     # 引数をチェック
                     call_args = mock_file.call_args_list[0]
@@ -462,7 +462,7 @@ UNIT,,,kN,mm,°C
             with patch(
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
-                with patch("src.tascpy.core.collection.open", mock_file):
+                with patch("tascpy.core.collection.open", mock_file):
                     ColumnCollection.from_file(
                         "dummy_path.txt",
                         format_name="tasc",

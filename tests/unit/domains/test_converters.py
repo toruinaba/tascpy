@@ -1,10 +1,10 @@
 import pytest
 from datetime import datetime, timedelta
 import numpy as np
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.core.step import Step
-from src.tascpy.domains.converters import _prepare_for_timeseries, _prepare_for_load_displacement, _prepare_for_signal
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.core.step import Step
+from tascpy.domains.converters import _prepare_for_timeseries, _prepare_for_load_displacement, _prepare_for_signal
 
 class TestDomainConverters:
     """ドメイン変換ヘルパー関数のテスト"""

@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from src.tascpy.core.column import (
+from tascpy.core.column import (
     Column,
     NumberColumn,
     StringColumn,
@@ -8,7 +8,7 @@ from src.tascpy.core.column import (
     detect_column_type,
     create_column_from_values,
 )
-from src.tascpy.core.collection import ColumnCollection
+from tascpy.core.collection import ColumnCollection
 import unittest.mock as mock
 
 
@@ -313,7 +313,7 @@ class TestColumnCollectionAutoDetection:
     def test_column_collection_from_file_with_auto_detect(self):
         """from_fileメソッドでの自動判定フラグの伝播テスト"""
         # load_collectionをモック
-        with mock.patch("src.tascpy.io.file_io.load_collection") as mock_load:
+        with mock.patch("tascpy.io.file_io.load_collection") as mock_load:
             # モックの戻り値を設定
             mock_collection = ColumnCollection([1, 2, 3], {})
             mock_load.return_value = mock_collection

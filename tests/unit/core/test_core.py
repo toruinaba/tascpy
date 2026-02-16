@@ -2,12 +2,12 @@ import pytest
 from datetime import datetime, timedelta
 import numpy as np
 
-from src.tascpy.core.column import Column
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.step import Step
-from src.tascpy.core.row import Row
-from src.tascpy.operations.registry import operation, OperationRegistry
-from src.tascpy.domains.factory import DomainCollectionFactory
+from tascpy.core.column import Column
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.step import Step
+from tascpy.core.row import Row
+from tascpy.operations.registry import operation, OperationRegistry
+from tascpy.domains.factory import DomainCollectionFactory
 
 
 @pytest.fixture
@@ -146,6 +146,13 @@ class TestDomainConversion:
             result.metadata["resampled"] = True
             return result
 
+    @pytest.fixture(autouse=True)
+    def restore_domain_factory(self):
+        """テスト後にDomainCollectionFactoryの状態を復元するフィクスチャ"""
+        original_factories = DomainCollectionFactory._factories.copy()
+        yield
+        DomainCollectionFactory._factories = original_factories
+
     @pytest.fixture
     def basic_collection_for_domain(self):
         """ドメイン変換用のテストデータ"""
@@ -279,6 +286,10 @@ class TestDomainConversion:
             result = LoadDisplacementCollection(**kwargs)
             return result
 
+            result = LoadDisplacementCollection(**kwargs)
+            return result
+
+        # ファクトリ登録（フィクスチャがクリーンアップを行う）
         DomainCollectionFactory.register("load_displacement", create_load_displacement)
 
         # 2. coordinateドメインの準備
@@ -486,6 +497,8 @@ class TestDomainConversion:
             np.testing.assert_array_equal(
                 converted["flag"].values, basic_collection_for_domain["flag"].values
             )
+        # finallyブロックはフィクスチャに置き換えられたため削除
+
 
 
 # 統合テスト
@@ -533,41 +546,47 @@ def test_full_pipeline():
     def create_timeseries(**kwargs):
         return TimeSeriesCollection(**kwargs)
 
-    DomainCollectionFactory.register("timeseries", create_timeseries)
+    # 元のファクトリを保存
+    original_factories = DomainCollectionFactory._factories.copy()
+    try:
+        DomainCollectionFactory.register("timeseries", create_timeseries)
 
-    @operation(domain="timeseries")
-    def moving_average(collection, column, window=3):
-        """移動平均の計算"""
-        result = collection.clone()
-        values = collection.columns[column].values
+        @operation(domain="timeseries")
+        def moving_average(collection, column, window=3):
+            """移動平均の計算"""
+            result = collection.clone()
+            values = collection.columns[column].values
 
-        # 単純な移動平均の計算
-        ma_values = []
-        for i in range(len(values)):
-            start = max(0, i - window // 2)
-            end = min(len(values), i + window // 2 + 1)
-            window_values = [v for v in values[start:end] if v is not None]
+            # 単純な移動平均の計算
+            ma_values = []
+            for i in range(len(values)):
+                start = max(0, i - window // 2)
+                end = min(len(values), i + window // 2 + 1)
+                window_values = [v for v in values[start:end] if v is not None]
 
-            if window_values:
-                ma_values.append(sum(window_values) / len(window_values))
-            else:
-                ma_values.append(None)
+                if window_values:
+                    ma_values.append(sum(window_values) / len(window_values))
+                else:
+                    ma_values.append(None)
 
-        result.add_column(f"{column}_ma{window}", ma_values)
-        return result
+            result.add_column(f"{column}_ma{window}", ma_values)
+            return result
 
-    # パイプラインの実行
-    result = (
-        collection.ops.add_derived_column("x+y", "sum")
-        .filter_by_value("group", "A")
-        .as_domain(domain="timeseries", start_date="2023-01-01", frequency="1D")
-        .moving_average("sum", window=3)
-        .end()
-    )
+        # パイプラインの実行
+        result = (
+            collection.ops.add_derived_column("x+y", "sum")
+            .filter_by_value("group", "A")
+            .as_domain(domain="timeseries", start_date="2023-01-01", frequency="1D")
+            .moving_average("sum", window=3)
+            .end()
+        )
 
-    # 結果の検証
-    assert len(result) == 2  # group="A"のデータのみ
-    assert "sum" in result.columns
-    assert "sum_ma3" in result.columns
-    np.testing.assert_array_equal(result.columns["sum"].values, [2.0, 6.0])  # x+y の結果
-    assert isinstance(result.step.values[0], datetime)
+        # 結果の検証
+        assert len(result) == 2  # group="A"のデータのみ
+        assert "sum" in result.columns
+        assert "sum_ma3" in result.columns
+        np.testing.assert_array_equal(result.columns["sum"].values, [2.0, 6.0])  # x+y の結果
+        assert isinstance(result.step.values[0], datetime)
+    finally:
+        # ファクトリの状態を復元
+        DomainCollectionFactory._factories = original_factories

@@ -6,10 +6,10 @@
 import pytest
 import math
 import numpy as np
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.operations.proxy import CollectionOperations
-from src.tascpy.operations.core.stats import moving_average, detect_outliers
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.operations.proxy import CollectionOperations
+from tascpy.operations.core.stats import moving_average, detect_outliers
 
 
 @pytest.fixture

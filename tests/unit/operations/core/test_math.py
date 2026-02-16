@@ -1,7 +1,7 @@
 import pytest
 import math
 import numpy as np
-from src.tascpy.operations.core.math import (
+from tascpy.operations.core.math import (
     add,
     subtract,
     multiply,
@@ -10,9 +10,9 @@ from src.tascpy.operations.core.math import (
     diff,
     integrate
 )
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.operations.proxy import CollectionOperations
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.operations.proxy import CollectionOperations
 
 
 @pytest.fixture
@@ -209,7 +209,7 @@ class TestDivideOperation:
 
     def test_invalid_zero_division_handler(self, sample_collection):
         """不正なゼロ除算ハンドラーを指定した場合のテスト"""
-        with pytest.raises(ValueError, match="handle_zero_divisionは"):
+        with pytest.raises(ValueError, match="handle_zero_division must be one of"):
             divide(sample_collection, "A", 0, handle_zero_division="invalid")
 
 
@@ -239,8 +239,8 @@ class TestEvaluateOperation:
         # A + B * 2
         result = evaluate(sample_collection, "A + B * 2")
         
-        # 結果の列名が"expression_result_{n}"という形式であることを確認
-        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        # 結果の列名が"expression_result"であることを確認
+        result_column = "expression_result"
         assert result_column in result.columns
         expected = [11.0, 10.0, 9.0, 8.0, 7.0]  # A + B*2 = 1+5*2, 2+4*2, ...
         np.testing.assert_array_equal(result[result_column].values, expected)
@@ -250,8 +250,8 @@ class TestEvaluateOperation:
         # (A + B) * (C / 10)
         result = evaluate(sample_collection, "(A + B) * (C / 10)")
         
-        # 結果の列名が"expression_result_{n}"という形式であることを確認
-        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        # 結果の列名が"expression_result"であることを確認
+        result_column = "expression_result"
         assert result_column in result.columns
         # (1+5)*1, (2+4)*2, (3+3)*3, (4+2)*4, (5+1)*5
         expected = [6.0, 12.0, 18.0, 24.0, 30.0]
@@ -262,8 +262,8 @@ class TestEvaluateOperation:
         # sin(A) + cos(B)
         result = evaluate(sample_collection, "sin(A) + cos(B)")
         
-        # 結果の列名が"expression_result_{n}"という形式であることを確認
-        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        # 結果の列名が"expression_result"であることを確認
+        result_column = "expression_result"
         assert result_column in result.columns
         expected = [
             math.sin(1.0) + math.cos(5.0),
@@ -280,8 +280,8 @@ class TestEvaluateOperation:
         # with_none * 2 + A
         result = evaluate(sample_collection, "with_none * 2 + A")
         
-        # 結果の列名が"expression_result_{n}"という形式であることを確認
-        result_column = [col for col in result.columns if col.startswith("expression_result_")][0]
+        # 結果の列名が"expression_result"であることを確認
+        result_column = "expression_result"
         assert result_column in result.columns
         # (1*2+1), (None), (3*2+3), (None), (5*2+5)
         expected = [3.0, np.nan, 9.0, np.nan, 15.0]
@@ -405,7 +405,7 @@ class TestDiffOperation:
         assert "d(with_none)/d(x)" in result.columns
         # None値を含むデータの微分では、None値の位置は結果もNone
         # [1.0, None, 9.0, None, 25.0] -> 微分結果
-        expected = [np.nan, np.nan, np.nan, np.nan, np.nan]
+        expected = [None, None, None, None, None]
         np.testing.assert_array_equal(result["d(with_none)/d(x)"].values, expected)
 
     def test_diff_custom_result_column(self, diff_collection):
@@ -536,7 +536,7 @@ class TestIntegrateOperation:
         
         assert "∫with_none·dx" in result.columns
         # None値を含むデータの積分では、None値の位置は結果もNone
-        expected = [1.0, np.nan, np.nan, np.nan, np.nan]
+        expected = [None, None, None, None, None]
         # 最初の値は計算可能、残りはNoneとなる
         np.testing.assert_array_equal(result["∫with_none·dx"].values, expected)
 

@@ -1,8 +1,8 @@
 from pathlib import Path
 import pytest
 import numpy as np
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.io.file_io import load_collection, save_collection
+from tascpy.core.collection import ColumnCollection
+from tascpy.io.file_io import load_collection, save_collection
 
 @pytest.fixture
 def sample_data_path(tmp_path):
@@ -28,8 +28,8 @@ def test_load_collection(sample_data_path):
 def test_save_collection(tmp_path):
     """save_collection関数のテスト"""
     # データ作成
-    from src.tascpy.core.column import Column
-    from src.tascpy.core.step import Step
+    from tascpy.core.column import Column
+    from tascpy.core.step import Step
     
     step = Step([1, 2, 3])
     columns = {

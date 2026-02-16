@@ -2,7 +2,7 @@ import pytest
 import math
 import numpy as np
 import builtins # ビルトイン関数をインポート
-from src.tascpy.operations.core.transform import (
+from tascpy.operations.core.transform import (
     sin,
     cos,
     tan,
@@ -15,9 +15,9 @@ from src.tascpy.operations.core.transform import (
     round_values,
     normalize
 )
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.operations.proxy import CollectionOperations
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.operations.proxy import CollectionOperations
 
 
 @pytest.fixture
