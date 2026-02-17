@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Optional, Any, List, Set, Union
+from typing import Dict, Callable, Optional, Any, List, Set, Union, Tuple
 import inspect
 import importlib
 import pkgutil
@@ -91,6 +91,7 @@ class OperationRegistry:
         shared_with: Optional[List[str]] = None,
         signature_override: Optional[Dict[str, Any]] = None,
         extra_decorators: Optional[List[Callable]] = None,
+        inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
     ) -> Callable:
         """純粋関数をオペレーションとして登録するアダプターメソッド
 
@@ -112,6 +113,7 @@ class OperationRegistry:
             signature_override: スタブ生成用のシグネチャ上書き情報
                                 {param_name: (type, default)} の形式
             extra_decorators: 追加で適用するデコレータのリスト（transform_columnの内側に適用されます）
+            inject_metadata: メタデータ生成関数 (args, kwargs, result) -> dict
         """
         op_name = name or func.__name__
         
@@ -132,7 +134,11 @@ class OperationRegistry:
         if transform_column is not None:
              # transform_column applies store_result, handle_missing, inject_columns
              from .abstraction import transform_column as tc_decorator
-             wrapped_func = tc_decorator(**transform_column)(wrapped_func)
+             # Inject metadata into transform_column kwargs
+             tc_kwargs = transform_column.copy()
+             if inject_metadata:
+                 tc_kwargs["inject_metadata"] = inject_metadata
+             wrapped_func = tc_decorator(**tc_kwargs)(wrapped_func)
         else:
              # Manual composition
              if inject_step_values is not None:
@@ -151,7 +157,11 @@ class OperationRegistry:
                  from .abstraction import store_result as sr_decorator
                  # Ensure wrapper name is set for result naming
                  wrapped_func.__name__ = op_name
-                 wrapped_func = sr_decorator(**store_result)(wrapped_func)
+                 # Inject metadata into store_result kwargs
+                 sr_kwargs = store_result.copy()
+                 if inject_metadata:
+                     sr_kwargs["inject_metadata"] = inject_metadata
+                 wrapped_func = sr_decorator(**sr_kwargs)(wrapped_func)
 
         # @select_columns (outermost usually)
         if select_columns is not None:
@@ -187,6 +197,104 @@ class OperationRegistry:
         cls.register(wrapped_func, domain=domain, shared_with=shared_with)
         
         return wrapped_func
+
+
+    @classmethod
+    def register_pipeline(
+        cls,
+        steps: List[Tuple[Callable, Dict[str, Any]]],
+        domain: str = "core",
+        name: Optional[str] = None,
+        inject_columns: Optional[Dict[str, Any]] = None,
+        transform_column: Optional[Dict[str, Any]] = None,
+        filter_rows: Optional[bool] = None,
+        select_columns: Optional[Dict[str, Any]] = None,
+        inject_step_values: Optional[Dict[str, Any]] = None,
+        store_result: Optional[Dict[str, Any]] = None,
+        shared_with: Optional[List[str]] = None,
+        signature_override: Optional[Dict[str, Any]] = None,
+        extra_decorators: Optional[List[Callable]] = None,
+        inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
+    ) -> Callable:
+        """パイプライン操作を登録します
+
+        複数の純粋関数を連結して一つの操作として定義します。
+        
+        Args:
+            steps: (関数, config_kwargs) のタプルリスト。
+                   特殊なステップとして `tascpy.operations.abstraction.filter_rows` などを
+                   含めることで、フラグ（filter_rows=True）を自動設定できます。
+            ...他は register_functional と同様
+        """
+        # Control steps detection
+        from .abstraction import filter_rows as filter_rows_decorator
+        
+        real_steps = []
+        inferred_filter_rows = False
+        
+        for step_item in steps:
+            # Handle (func, config) or just func
+            if isinstance(step_item, tuple):
+                func, config = step_item
+            else:
+                func, config = step_item, {}
+                
+            if func is filter_rows_decorator:
+                inferred_filter_rows = True
+            else:
+                real_steps.append((func, config))
+        
+        # Use inferred filter_rows if not explicitly set
+        final_filter_rows = filter_rows if filter_rows is not None else inferred_filter_rows
+
+        if not real_steps:
+             raise ValueError("パイプラインには少なくとも一つの有効なステップが必要です")
+
+        # Define Composed Function
+        def composed_func(first_arg, *args, **kwargs):
+            current_val = first_arg
+            
+            for i, (func, config) in enumerate(real_steps):
+                 # Inspect signature to filter kwargs for this function
+                 sig = inspect.signature(func)
+                 call_kwargs = {}
+                 
+                 # 1. Config (Static/Fixed)
+                 call_kwargs.update(config)
+                 
+                 # 2. Dynamic Kwargs
+                 # If *kwargs contains potential args for this step
+                 for k, v in kwargs.items():
+                     if k in sig.parameters and k not in call_kwargs:
+                         call_kwargs[k] = v
+                 
+                 # 3. Positional Args
+                 # Only first step receives original positional args
+                 if i == 0:
+                      current_val = func(current_val, *args, **call_kwargs)
+                 else:
+                      current_val = func(current_val, **call_kwargs)
+            
+            return current_val
+
+        # Copy docstring/name from result? Or user provided?
+        composed_func.__name__ = name or f"pipeline_{real_steps[0][0].__name__}"
+        
+        return cls.register_functional(
+            composed_func,
+            domain=domain,
+            name=name,
+            inject_columns=inject_columns,
+            transform_column=transform_column,
+            filter_rows=final_filter_rows,
+            select_columns=select_columns,
+            inject_step_values=inject_step_values,
+            store_result=store_result,
+            shared_with=shared_with,
+            signature_override=signature_override,
+            extra_decorators=extra_decorators,
+            inject_metadata=inject_metadata
+        )
 
 
     @classmethod
@@ -471,6 +579,6 @@ class OperationRegistry:
 
 
 # デコレーターのエイリアス（より簡潔な名前で使用可能）
-# デコレーターのエイリアス（より簡潔な名前で使用可能）
 operation = OperationRegistry.register
 register_functional = OperationRegistry.register_functional
+register_pipeline = OperationRegistry.register_pipeline

@@ -119,12 +119,28 @@ def search_step_range(
     min_val: float,
     max_val: float,
     inclusive: bool = True,
-    tolerance: Optional[float] = None
+    tolerance: Optional[float] = None,
+    by_step_value: bool = True
 ) -> List[int]:
     """
     Return indices where steps are within range, with optional tolerance.
+    If by_step_value is False, searches within indices matching the step length.
     """
     arr = np.array(steps) if isinstance(steps, list) else steps
+    
+    if not by_step_value:
+        # Index based filtering
+        length = len(arr)
+        # Use arange as the "steps" to search
+        arr = np.arange(length)
+        # Tolerance usually doesn't apply to indices search? 
+        # But search_range logic allows it if we treat indices as values.
+        # Original adapter called selectors.search_range(np.arange(length), min, max, inclusive)
+        # So it ignored tolerance?
+        # Let's check adapter code again... 
+        # Adapter: `selectors.search_range(np.arange(length), min, max, inclusive)`
+        # Yes, tolerance was ignored in by_step_value=False case.
+        tolerance = None 
     
     if tolerance is not None:
          # Tolerance logic

@@ -5,165 +5,118 @@ from ...core.collection import ColumnCollection
 from ..registry import operation, register_functional
 from ..abstraction import filter_rows, inject_columns, inject_step_values
 from ...functional import selectors, row_ops
+from ...functional import search as functional_search
 import inspect
 
 
-def _search_by_value_adapter(
-    vals: Any, op_str: str, value: Any
-) -> List[int]:
-    return selectors.search(vals, op_str, value)
-
-
 search_by_value = register_functional(
-    _search_by_value_adapter,
+    selectors.search,
     domain="core",
     name="search_by_value",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},
     signature_override={
-        "vals": ("values", Any), # Just to be safe or maybe standard inference works
-        # actually stub gen logic: first arg -> column. 
-        # But wait, original stub had `vals: Any`. 
-        # We want `column: str` in stub for the operation on Collection.
-        # So "vals" -> "column".
+        "values": ("vals", Any),  # Renaming 'values' arg of pure func to 'vals' in op to match original adapter's first arg?
+        # Original adapter sig: (vals: Any, op_str: str, value: Any)
+        # So operation signature exposed 'vals'. 
+        # Wait, inject_columns replaces the first argument with data.
+        # But 'vals' would be the name of the column ARGUMENT in the wrapper? 
+        # No, inject_columns(num_inputs=1) implies the first POSITIONAL argument of the created wrapper is the column name.
+        # The name of that argument in the wrapper is determined by signature_override or inferred.
+        # If I want the wrapper to have `def search_by_value(vals: Any, ...)` I should map "values" -> "vals".
+        # Actually standard practice is "column". But original code had "vals" in adapter.
+        # Let's verify `test_search.py` usage.
+        # `test_search.py`: `search_by_value(col, "A", ...)` or `ops.search_by_value("A", ...)`
+        # If I change arg name to "column", it's safer.
+        # Let's map "values" -> "vals" to be conservative with original adapter name, OR "column" if cleaner.
+        # Original core operation usually takes "column".
+        # Let's look at `search_by_value` usages.
+        # Actually `inject_columns` with `num_inputs=1` creates `column` arg by default if not tailored?
+        # No, it injects into the functional arg.
+        # The wrapper arg name comes from signature override.
+        # Previous override: `"vals": ("values", Any)`. Wait.
+        # Adapter had `vals`. Override mapped `vals` (adapter arg) to `values` (wrapper arg)?
+        # No, `signature_override` maps { "internal_arg": ("exposed_name", type) }.
+        # Previous: `"vals": ("values", Any)`. So wrapper had `values`.
+        # Adapter: `def _search_by_value_adapter(vals, ...)`
+        # So `vals` was internal. `values` was exposed.
+        # So I should map `selectors.search`'s `values` -> `values`.
+        # `values`: ("values", Any).
+        "values": ("values", Any),
     }
 )
 
 
-def _search_by_range_adapter(
-    vals: Any,
-    min_value: Any,
-    max_value: Any,
-    inclusive: bool = True,
-) -> List[int]:
-    return selectors.search_range(vals, min_value, max_value, inclusive)
-
-
 search_by_range = register_functional(
-    _search_by_range_adapter,
+    selectors.search_range,
     domain="core",
     name="search_by_range",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},
     signature_override={
-        # vals mapped to column automatically by stub gen if first arg?
-        # Yes.
+        "values": ("values", Any),
+        "min_val": ("min_value", Any),
+        "max_val": ("max_value", Any),
     }
 )
 
 
-def _search_step_range_adapter(
-    step_values: Union[List[Union[int, float]], np.ndarray],
-    min: Union[int, float],  # Renamed from min_val to min to match Op
-    max: Union[int, float],  # Renamed from max_val to max to match Op
-    inclusive: bool = True,
-    by_step_value: bool = True,
-    tolerance: Optional[float] = None,
-) -> Union[List[int], tuple]:
+def _search_step_metadata(args, kwargs, result):
+    # args: (steps, min_val, max_val, ...)
+    # But inject_step_values injects 'steps' into the first argument.
+    # The wrapper args are (min, max, inclusive=True, by_step_value=True, tolerance=None).
+    # Step values are injected.
+    # result is (indices, metadata).
+    # But wait, search_step_range pure func returns List[int].
+    # We need to return (indices, metadata) to match original adapter?
+    # Original adapter returned `(indices, metadata_update)`.
+    # `register_functional` with `store_result`?
+    # No, `search` operations usually return `Indices` object (which is just list + metadata update? No.)
+    # `search` ops return `List[int]` or `Indices`.
+    # If pure func returns list, `register_functional` wraps it.
+    # If we want to return metadata update from pure func, we use `(result, metadata)` tuple.
+    # `selectors.search_step_range` returns `List[int]`.
+    # We need to inject metadata.
+    # `register_functional` has `inject_metadata`.
     
-    if by_step_value:
-        indices = selectors.search_step_range(step_values, min, max, inclusive, tolerance)
-    else:
-        # Index based filtering
-        length = len(step_values)
-        indices = selectors.search_range(np.arange(length), min, max, inclusive)
-
-    # メタデータを更新するためにタプルを返す
-    metadata_update = {
+    min_val = kwargs.get("min", args[0] if len(args) > 0 else None)
+    max_val = kwargs.get("max", args[1] if len(args) > 1 else None)
+    inclusive = kwargs.get("inclusive", True)
+    by_step_value = kwargs.get("by_step_value", True)
+    
+    return {
         "operation": "search_by_step_range",
         "by_step_value": by_step_value,
-        "min": min,
-        "max": max,
+        "min": min_val,
+        "max": max_val,
         "inclusive": inclusive,
     }
-    return indices, metadata_update
 
 
 search_by_step_range = register_functional(
-    _search_step_range_adapter,
+    selectors.search_step_range,
     domain="core",
     name="search_by_step_range",
     inject_step_values={"cast_to_numpy": True},
-    # No signature override needed for arg names if adapter matches
-)
-
-
-def _search_cond_pure(
-    data: Dict[str, Any], 
-    condition_func: Callable[[Dict[str, Any]], bool]
-) -> List[int]:
-    if not data:
-        return []
-
-    indices = []
-    
-    # Check length
-    length = 0
-    for arr in data.values():
-        length = len(arr)
-        break
-    
-    cols_data = data
-    col_names = list(data.keys())
-    
-    for i in range(length):
-        row_data = {}
-        for name in col_names:
-            vals = cols_data[name]
-            if i < len(vals):
-                 val = vals[i]
-            else:
-                 val = None
-            row_data[name] = val
-
-        if condition_func(row_data):
-            indices.append(i)
-
-    return indices
-
-
-search_by_condition = register_functional(
-    _search_cond_pure,
-    domain="core",
-    name="search_by_condition",
-    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
+    inject_metadata=_search_step_metadata,
     signature_override={
-        "data": ("columns", Optional[List[str]])
+        "steps": ("step_values", np.ndarray), # Injected
+        "min_val": ("min", Union[int, float]),
+        "max_val": ("max", Union[int, float]),
     }
 )
-
-
-def _search_missing_pure(data: Dict[str, Any]) -> List[int]:
-    """Find indices of rows with missing values (any column)"""
-    # This corresponds to keeping valid rows using "all" logic (keep if ANY valid -> NO)
-    # We want rows that have ANY missing value.
-    # filter_valid_rows(mode="any") returns True if ALL columns valid.
-    # So missing rows are ~filter_valid_rows(mode="any").
-    
-    valid_mask = row_ops.filter_valid_rows(data, mode="any")
-    # Invert mask
-    missing_mask = [not x for x in valid_mask]
-    return selectors.where(missing_mask)
-
-
-search_missing_values = register_functional(
-    _search_missing_pure,
-    domain="core",
-    name="search_missing_values",
-    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
-    signature_override={
-        "data": ("columns", Optional[List[str]])
-    }
-)
-
-
-def _search_top_n_adapter(
-    vals: Any, n: int, descending: bool = True
-) -> List[int]:
-    return selectors.top_n(vals, n, descending)
 
 
 search_top_n = register_functional(
-    _search_top_n_adapter,
+    selectors.top_n,
     domain="core",
     name="search_top_n",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},
+    signature_override={
+        "values": ("vals", Any), # Original adapter named it 'vals'
+        # Check `_search_top_n_adapter(vals, ...)`
+        # `operations/core/search.py` previous had NO signature override for `search_top_n`?
+        # Yes, lines 120-125.
+        # So wrapper args were inferred from adapter: `vals`, `n`, `descending`.
+        # `selectors.top_n` has `values`.
+        # So we map `values` -> `vals`.
+    }
 )

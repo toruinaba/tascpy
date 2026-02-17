@@ -12,8 +12,10 @@ from ..abstraction import (
 import re
 import ast
 import math
+import inspect
 import numpy as np
 from ...functional import arithmetic
+from ...functional import math as functional_math
 from ..registry import operation, register_functional
 
 
@@ -140,249 +142,42 @@ def _evaluate_unit_inference(collection, expression, **kwargs):
         pass
     return None
 
-@operation(domain="core")
-@store_result(
-    result_naming=_evaluate_naming,
-    unit_inference=_evaluate_unit_inference
-)
-def evaluate(
+def _evaluate_adapter(
     collection: ColumnCollection,
     expression: str,
-    *,
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-    unit: Optional[str] = None,
-    ch: Optional[str] = None,
+    **kwargs
 ) -> Union[List[Optional[float]], np.ndarray]:
-    """数式文字列を評価し、結果を返します
     
-    指定された数式を評価し、その結果の値を返します。
-    数式内では各列の値を変数として参照でき、基本的な数学関数も使用できます。
-
-    Args:
-        collection: ColumnCollection オブジェクト
-        expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
-        result_column: 結果を格納する列名（この引数はデコレータで使用されます）
-        in_place: (デコレータで使用)
-        unit: (デコレータで使用)
-        ch: (デコレータで使用)
-
-    Returns:
-         Union[List[Optional[float]], np.ndarray]: 計算結果の値リストまたは配列
-
-    Raises:
-        KeyError: 指定された列名が存在しない場合
-        ValueError: 式の評価中にエラーが発生した場合
-        SyntaxError: 式の構文に問題がある場合
-    """
-    # ASTを使用して式の構文検証
-    try:
-        parsed_ast = ast.parse(expression, mode="eval")
-
-        # 安全でない操作や関数呼び出しをチェック
-        for node in ast.walk(parsed_ast):
-            # 属性アクセス（例：os.system）をブロック
-            if isinstance(node, ast.Attribute):
-                raise ValueError(
-                    f"式に安全でない属性アクセスが含まれています: {expression}"
-                )
-
-            # 関数呼び出しが安全かチェック（数学関数以外をブロック）
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                func_name = node.func.id
-                safe_funcs = {
-                    "sin",
-                    "cos",
-                    "tan",
-                    "exp",
-                    "log",
-                    "sqrt",
-                    "abs",
-                    "max",
-                    "min",
-                    "pow",
-                    "round",
-                }
-                if func_name not in safe_funcs:
-                    raise ValueError(
-                        f"許可されていない関数が使用されています: {func_name}"
-                    )
-
-    except SyntaxError as e:
-        line_no = getattr(e, "lineno", "不明")
-        col_offset = getattr(e, "offset", "不明")
-        raise ValueError(f"式の構文エラー (行:{line_no}, 列:{col_offset}): {str(e)}")
-
-    # 式からカラム名を抽出
-    column_names = []
-    for node in ast.walk(parsed_ast):
-        if isinstance(node, ast.Name) and node.id not in {
-            "sin",
-            "cos",
-            "tan",
-            "exp",
-            "log",
-            "sqrt",
-            "abs",
-            "max",
-            "min",
-            "pow",
-            "round",
-            "pi",
-            "e",
-        }:
-            column_names.append(node.id)
-
-    # 重複を削除し、実際にコレクションに存在するカラム名のみをフィルタリング
-    column_names = list(set(col for col in column_names if col in collection.columns))
-
-    # 存在しないカラム名の検出
-    all_vars = set()
-    for node in ast.walk(parsed_ast):
-        if (
-            isinstance(node, ast.Name)
-            and not isinstance(node.ctx, ast.Param)
-            and node.id
-            not in {
-                "sin",
-                "cos",
-                "tan",
-                "exp",
-                "log",
-                "sqrt",
-                "abs",
-                "max",
-                "min",
-                "pow",
-                "round",
-                "pi",
-                "e",
-            }
-        ):
-            all_vars.add(node.id)
-
-    missing_columns = all_vars - set(collection.columns)
-    if missing_columns:
-        # 類似したカラム名の提案
-        suggestions = {}
-        for missing in missing_columns:
-            possible_matches = []
-            for existing in collection.columns:
-                # レーベンシュタイン距離などの類似度チェックをここで実装できますが、簡略化のため部分文字列マッチを使用
-                if missing in existing or existing in missing:
-                    possible_matches.append(existing)
-
-            if possible_matches:
-                suggestions[missing] = possible_matches
-
-        error_msg = (
-            f"式に存在しないカラム名が含まれています: {', '.join(missing_columns)}"
-        )
-        if suggestions:
-            error_msg += "\n提案: "
-            for missing, candidates in suggestions.items():
-                error_msg += f"\n  - {missing}: {', '.join(candidates)} ?"
+    # Prepare data dictionary for pure function
+    # Extract all columns
+    data_map = {}
+    
+    # Add columns
+    for name, col in collection.columns.items():
+        data_map[name] = col.values
         
-        raise KeyError(error_msg)
-
-    # 評価に使用する変数名のみを抽出
-    used_cols = list(all_vars)
-
-    # NumPyによるベクトル化評価を試みる
-    try:
-        # 名前空間の構築
-        namespace = {
-            "sin": np.sin,
-            "cos": np.cos,
-            "tan": np.tan,
-            "exp": np.exp,
-            "log": np.log,
-            "sqrt": np.sqrt,
-            "abs": np.abs,
-            "max": np.maximum,
-            "min": np.minimum,
-            "pow": np.power,
-            "round": np.round,
-            "pi": np.pi,
-            "e": np.e,
-        }
-        
-        # データの準備（None -> NaN）
-        for col_name in used_cols:
-            vals = collection[col_name].values
-            if isinstance(vals, np.ndarray) and np.issubdtype(vals.dtype, np.number):
-                arr = vals.astype(float)
-            else:
-                arr = np.array([v if v is not None else np.nan for v in vals], dtype=float)
-            namespace[col_name] = arr
-            
-        # 評価実行
-        with np.errstate(all='ignore'):
-            res = eval(expression, {"__builtins__": {}}, namespace)
-            
-        # 結果がNumPy配列でなければ（スカラー等）、配列にブロードキャスト
-        if np.isscalar(res):
-            res = np.full(len(collection), res)
-        elif isinstance(res, np.ndarray):
-            pass 
-        else:
-             raise ValueError("Vectorized evaluation returned non-array")
+    # Add results if accessible via keys? 
+    # Let's iterate over results too if available.
+    if hasattr(collection, "_results"):
+         for name, res in collection._results.items():
+            # AnalysisResult might need unpacking or might not be compatible.
+            # Only include if it looks like data
+            # For now ignore results to match original behavior (which filtered by collection.columns)
+            pass
              
-        # 結果をリストに変換 (NaN -> None)
-        result_values = [None if np.isnan(v) else v for v in res.tolist()]
-        return result_values
-        
-    except Exception:
-        # ベクトル評価に失敗した場合は、従来の行ごとの評価にフォールバック
-        try:
-            length = len(collection)
-            result_values = []
-            
-            # 数学関数（スカラー用）
-            math_funcs = {
-                "sin": math.sin,
-                "cos": math.cos,
-                "tan": math.tan,
-                "exp": math.exp,
-                "log": math.log,
-                "sqrt": math.sqrt,
-                "abs": abs,
-                "max": max,
-                "min": min,
-                "pow": math.pow,
-                "round": round,
-                "pi": math.pi,
-                "e": math.e,
-            }
-    
-            # 各行に対して式を評価
-            for i in range(length):
-                row_data = {}
-                is_row_valid = True
-                
-                # 値の取得とNoneチェック
-                for col in used_cols:
-                    val = collection.columns[col].values[i]
-                    if val is None:
-                        is_row_valid = False
-                        break
-                    row_data[col] = val
-                    
-                if not is_row_valid:
-                     result_values.append(None)
-                     continue
-    
-                eval_namespace = dict(row_data)
-                eval_namespace.update(math_funcs)
-    
-                restricted_globals = {"__builtins__": {}}
-                try:
-                     row_result = eval(expression, restricted_globals, eval_namespace)
-                     result_values.append(row_result)
-                except (ValueError, TypeError, ZeroDivisionError):
-                     result_values.append(None)
-            
-            return result_values
+    return functional_math.evaluate_expression(data_map, expression)
 
-        except Exception as e:
-             raise ValueError(f"式の評価中にエラーが発生しました: {str(e)}")
+
+evaluate = register_functional(
+    _evaluate_adapter,
+    domain="core",
+    name="evaluate",
+    store_result={
+        "result_naming": _evaluate_naming,
+        "unit_inference": _evaluate_unit_inference
+    },
+    signature_override={
+        "collection": ("collection", ColumnCollection),
+        "expression": (str, inspect.Parameter.empty)
+    }
+)

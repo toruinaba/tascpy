@@ -6,6 +6,7 @@
 
 from typing import Union, Optional, List, Dict, Any, Callable, Tuple
 import numpy as np
+import inspect
 from ...core.collection import ColumnCollection
 from ...core.column import Column, NumberColumn, detect_column_type
 from ..registry import operation, register_functional
@@ -14,112 +15,115 @@ from ...functional import combine as functional_combine
 
 
 
-
-@operation(domain="core")
-@store_result
-@inject_columns(num_inputs=2, include_step=True, cast_to_numpy=True)
-def switch_by_step(
-    steps: np.ndarray,
-    v1: np.ndarray,
-    v2: np.ndarray,
-    threshold: Union[int, float],
-    compare_mode: str = "value",
-    by_step_value: bool = True,
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-    tolerance: Optional[float] = None,
-) -> Any:
-    """ステップ値を基準に2つのColumnを切り替える (ベクトル化済み)"""
-    new_values = functional_combine.switch_by_step(
-        steps, v1, v2, threshold, 
-        compare_mode=compare_mode, 
-        by_step_value=by_step_value, 
-        tolerance=tolerance
-    )
-
-    metadata = {
-            "operation": "switch_by_step",
-            "by_step_value": by_step_value,
-            "compare_mode": compare_mode,
-            "threshold": threshold,
+def _switch_by_step_metadata(args, kwargs, result):
+    """Metadata generator for switch_by_step"""
+    # args are inputs to the wrapper (excluding collection?)
+    # wrapper(collection, v1, v2, threshold, ...)
+    # args passed to inject_metadata are (v1, v2, threshold, ...)
+    
+    # Extract threshold (pos 2 or kwarg)
+    threshold = kwargs.get("threshold")
+    if threshold is None and len(args) > 2:
+        threshold = args[2]
+        
+    compare_mode = kwargs.get("compare_mode", "value")
+    by_step_value = kwargs.get("by_step_value", True)
+    
+    return {
+        "operation": "switch_by_step",
+        "by_step_value": by_step_value,
+        "compare_mode": compare_mode,
+        "threshold": threshold,
     }
-    return new_values, metadata
 
 
-@operation(domain="core")
-@store_result
-@inject_columns(num_inputs=2, include_step=True, cast_to_numpy=True)
-def blend_by_step(
-    steps: np.ndarray,
-    v1: np.ndarray,
-    v2: np.ndarray,
-    start: Union[int, float],
-    end: Union[int, float],
-    compare_mode: str = "value",
-    by_step_value: bool = True,
-    blend_method: str = "linear",
-    result_column: Optional[str] = None,
-    in_place: bool = False,
-    tolerance: Optional[float] = None,
-) -> Any:
-    """ステップ値の範囲内で2つのColumnをブレンドする (ベクトル化済み)"""
-    new_values = functional_combine.blend_by_step(
-        steps, v1, v2, start, end,
-        compare_mode=compare_mode,
-        by_step_value=by_step_value,
-        blend_method=blend_method,
-        tolerance=tolerance
-    )
-
-    metadata = {
-            "operation": "blend_by_step",
-            "by_step_value": by_step_value,
-            "compare_mode": compare_mode,
-            "start": start,
-            "end": end,
-            "blend_method": blend_method,
+switch_by_step = register_functional(
+    functional_combine.switch_by_step,
+    domain="core",
+    name="switch_by_step",
+    inject_columns={"num_inputs": 2, "include_step": True, "cast_to_numpy": True},
+    store_result={},
+    inject_metadata=_switch_by_step_metadata,
+    signature_override={
+        "steps": ("step_values", np.ndarray), # Injected
+        "v1": ("v1", Union[str, np.ndarray]),
+        "v2": ("v2", Union[str, np.ndarray]),
+        "threshold": (Union[int, float], inspect.Parameter.empty),
+        "compare_mode": (str, "value"),
+        "by_step_value": (bool, True),
+        "tolerance": (Optional[float], None)
     }
-    return new_values, metadata
+)
 
 
-@operation(domain="core")
-@store_result
-@inject_columns(columns_arg="columns", cast_to_numpy=True)
-def sum_columns(
-    data: Dict[str, np.ndarray],
-    columns: Optional[List[str]] = None,
-) -> Any:
-    """複数の列を合計します。
+
+def _blend_by_step_metadata(args, kwargs, result):
+    """Metadata generator for blend_by_step"""
+    # args: (v1, v2, start, end, ...)
+    start = kwargs.get("start")
+    if start is None and len(args) > 2:
+        start = args[2]
+
+    end = kwargs.get("end")
+    if end is None and len(args) > 3:
+        end = args[3]
+        
+    compare_mode = kwargs.get("compare_mode", "value")
+    by_step_value = kwargs.get("by_step_value", True)
+    blend_method = kwargs.get("blend_method", "linear")
     
-    指定した複数の列の値を要素ごとに合計し、結果の配列を返します。
-    
-    Args:
-        data: 列データの辞書 (inject_columnsにより注入)
-        columns: 合計対象の列名リスト
-    """
-    if not data:
-        raise ValueError("合計対象の列が指定されていません")
-    return functional_combine.sum_columns(list(data.values()))
+    return {
+        "operation": "blend_by_step",
+        "by_step_value": by_step_value,
+        "compare_mode": compare_mode,
+        "start": start,
+        "end": end,
+        "blend_method": blend_method,
+    }
+
+blend_by_step = register_functional(
+    functional_combine.blend_by_step,
+    domain="core",
+    name="blend_by_step",
+    inject_columns={"num_inputs": 2, "include_step": True, "cast_to_numpy": True},
+    store_result={},
+    inject_metadata=_blend_by_step_metadata,
+    signature_override={
+        "steps": ("step_values", np.ndarray),
+        "v1": ("v1", np.ndarray),
+        "v2": ("v2", np.ndarray),
+        "start": (Union[int, float], inspect.Parameter.empty),
+        "end": (Union[int, float], inspect.Parameter.empty),
+        "compare_mode": (str, "value"),
+        "by_step_value": (bool, True),
+        "blend_method": (str, "linear"),
+        "tolerance": (Optional[float], None),
+    }
+)
 
 
-@operation(domain="core")
-@store_result
-@inject_columns(columns_arg="columns", cast_to_numpy=True)
-def average_columns(
-    data: Dict[str, np.ndarray],
-    columns: Optional[List[str]] = None,
-) -> Any:
-    """複数の列の平均値を計算します。
-    
-    指定した複数の列の値を要素ごとに平均し、結果の配列を返します。
-    
-    Args:
-        data: 列データの辞書 (inject_columnsにより注入)
-        columns: 平均対象の列名リスト
-    """
-    if not data:
-        raise ValueError("平均対象の列が指定されていません")
-    return functional_combine.average_columns(list(data.values()))
+sum_columns = register_functional(
+    lambda data, columns=None: functional_combine.sum_columns(list(data.values())),
+    domain="core",
+    name="sum_columns",
+    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
+    store_result={},
+    signature_override={
+        "data": ("columns", Optional[List[str]]),
+    }
+)
+
+
+average_columns = register_functional(
+    lambda data, columns=None: functional_combine.average_columns(list(data.values())),
+    domain="core",
+    name="average_columns",
+    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
+    store_result={},
+    signature_override={
+        "data": ("columns", Optional[List[str]]),
+    }
+)
 
 
 conditional_select = register_functional(

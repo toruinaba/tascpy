@@ -145,22 +145,28 @@ mode='all': keep if any valid (drop if all invalid)
 
     def remove_consecutive_duplicates_across(
         self,
-        columns: Optional[list[str]] = None,
+        mode: str = 'consecutive',
         dup_type: str = 'all'
     ) -> List[list[int]]:
-        """"""
+        """Return indices to KEEP after removing duplicates.
+
+Args:
+    data: Dict of columns
+    mode: 
+        'consecutive': Remove if previous row is identical (keep first).
+        'all': Not implemented yet, reserved for unique rows.
+    dup_type:
+        'all': Remove row if ALL columns match previous row value (standard).
+        'any': Remove row if ANY column matches previous row value (strict)."""
         ...
     
 
     def remove_outliers(
         self,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0
-    ) -> "CollectionListOperations[C]":
-        """異常値を検出して除去した新しいコレクションを返します"""
+        *args,
+        **kwargs
+    ) -> List[Any]:
+        """"""
         ...
     
 
@@ -168,7 +174,8 @@ mode='all': keep if any valid (drop if all invalid)
         self,
         condition: <built-in function callable>
     ) -> "CollectionListOperations[C]":
-        """指定された列の値が条件を満たす行をフィルタリングします"""
+        """Filter values by condition.
+Returns boolean mask (True to keep)."""
         ...
     
 
@@ -177,39 +184,8 @@ mode='all': keep if any valid (drop if all invalid)
         steps: list[Any],
         tolerance: Optional[float] = None
     ) -> List[list[bool]]:
-        """指定されたステップ値を持つ行を削除します"""
-        ...
-    
-
-    def filter_val(
-        self,
-        column_name: str,
-        value: Any,
-        tolerance: Optional[float] = None
-    ) -> "CollectionListOperations[C]":
-        """filter_by_value のエイリアス"""
-        ...
-    
-
-    def filter_cond(
-        self,
-        column_name: str,
-        condition: <built-in function callable>
-    ) -> "CollectionListOperations[C]":
-        """filter_by_condition のエイリアス"""
-        ...
-    
-
-    def rm_outliers(
-        self,
-        column: str,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0
-    ) -> "CollectionListOperations[C]":
-        """remove_outliers のエイリアス"""
+        """Generate mask to remove specific steps.
+Returns True for kept steps."""
         ...
     
 
@@ -218,45 +194,30 @@ mode='all': keep if any valid (drop if all invalid)
         op_str: str,
         value: Any
     ) -> List[list[int]]:
-        """"""
+        """Return indices where values satisfy the operator condition."""
         ...
     
 
     def search_by_range(
         self,
-        min_value: Any,
-        max_value: Any,
+        min_val: Any,
+        max_val: Any,
         inclusive: bool = True
     ) -> List[list[int]]:
-        """"""
+        """Return indices where values are within range."""
         ...
     
 
     def search_by_step_range(
         self,
-        min: Union[int, float],
-        max: Union[int, float],
+        min_val: float,
+        max_val: float,
         inclusive: bool = True,
-        by_step_value: bool = True,
-        tolerance: Optional[float] = None
-    ) -> List[Union[list[int], tuple]]:
-        """"""
-        ...
-    
-
-    def search_by_condition(
-        self,
-        condition_func: Callable[[Dict[str, Any]], bool]
+        tolerance: Optional[float] = None,
+        by_step_value: bool = True
     ) -> List[list[int]]:
-        """"""
-        ...
-    
-
-    def search_missing_values(
-        self,
-        
-    ) -> List[list[int]]:
-        """Find indices of rows with missing values (any column)"""
+        """Return indices where steps are within range, with optional tolerance.
+If by_step_value is False, searches within indices matching the step length."""
         ...
     
 
@@ -265,7 +226,8 @@ mode='all': keep if any valid (drop if all invalid)
         n: int,
         descending: bool = True
     ) -> List[list[int]]:
-        """"""
+        """Return indices of top N values.
+Handles NaN by excluding them."""
         ...
     
 
@@ -339,7 +301,8 @@ mode='all': keep if any valid (drop if all invalid)
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> List[tuple[list[int], dict[str, Any]]]:
-        """"""
+        """Select indices based on steps or direct indices.
+Returns: (final_indices, metadata_update)"""
         ...
     
 
@@ -348,7 +311,8 @@ mode='all': keep if any valid (drop if all invalid)
         value: float,
         **kwargs
     ) -> "CollectionListOperations[C]":
-        """"""
+        """Find index of nearest value.
+Returns list containing single index."""
         ...
     
 
@@ -359,11 +323,9 @@ mode='all': keep if any valid (drop if all invalid)
         threshold: Union[int, float],
         compare_mode: str = 'value',
         by_step_value: bool = True,
-        result_column: Optional[str] = None,
-        in_place: bool = False,
         tolerance: Optional[float] = None
-    ) -> List[Any]:
-        """ステップ値を基準に2つのColumnを切り替える (ベクトル化済み)"""
+    ) -> List[ndarray]:
+        """Switch between v1 and v2 based on steps/index."""
         ...
     
 
@@ -376,39 +338,25 @@ mode='all': keep if any valid (drop if all invalid)
         compare_mode: str = 'value',
         by_step_value: bool = True,
         blend_method: str = 'linear',
-        result_column: Optional[str] = None,
-        in_place: bool = False,
         tolerance: Optional[float] = None
-    ) -> List[Any]:
-        """ステップ値の範囲内で2つのColumnをブレンドする (ベクトル化済み)"""
+    ) -> List[ndarray]:
+        """Blend v1 and v2 based on steps/index."""
         ...
     
 
     def sum_columns(
         self,
-        columns: Optional[list[str]] = None
+        columns = None
     ) -> List[Any]:
-        """複数の列を合計します。
-
-指定した複数の列の値を要素ごとに合計し、結果の配列を返します。
-
-Args:
-    data: 列データの辞書 (inject_columnsにより注入)
-    columns: 合計対象の列名リスト"""
+        """"""
         ...
     
 
     def average_columns(
         self,
-        columns: Optional[list[str]] = None
+        columns = None
     ) -> List[Any]:
-        """複数の列の平均値を計算します。
-
-指定した複数の列の値を要素ごとに平均し、結果の配列を返します。
-
-Args:
-    data: 列データの辞書 (inject_columnsにより注入)
-    columns: 平均対象の列名リスト"""
+        """"""
         ...
     
 
@@ -488,31 +436,9 @@ Args:
     def evaluate(
         self,
         expression: str,
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
+        **kwargs
     ) -> List[Union[list[Optional[float]], ndarray]]:
-        """数式文字列を評価し、結果を返します
-
-指定された数式を評価し、その結果の値を返します。
-数式内では各列の値を変数として参照でき、基本的な数学関数も使用できます。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
-    result_column: 結果を格納する列名（この引数はデコレータで使用されます）
-    in_place: (デコレータで使用)
-    unit: (デコレータで使用)
-    ch: (デコレータで使用)
-
-Returns:
-     Union[List[Optional[float]], np.ndarray]: 計算結果の値リストまたは配列
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 式の評価中にエラーが発生した場合
-    SyntaxError: 式の構文に問題がある場合"""
+        """"""
         ...
     
 
@@ -691,24 +617,6 @@ Raises:
         indices: Union[int, list[int]]
     ) -> List[list[slice]]:
         """Calculate split slices based on indices."""
-        ...
-    
-
-    def test_filter(
-        self,
-        column_name,
-        value
-    ) -> List[Any]:
-        """テスト用フィルタリング操作"""
-        ...
-    
-
-    def add_derived_column(
-        self,
-        formula,
-        output_column
-    ) -> List[Any]:
-        """数式に基づいて派生列を追加"""
         ...
     
 

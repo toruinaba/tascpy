@@ -315,6 +315,7 @@ def store_result(
     *,
     result_naming: Union[str, Callable[..., str]] = None,
     unit_inference: Optional[Callable[..., Optional[str]]] = None,
+    inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
 ):
     """
     Decorator to store return value into ColumnCollection.
@@ -397,7 +398,22 @@ def store_result(
                                 
                 new_col = detect_column_type(ch, result_column, unit, result_values)
                 result_collection.add_column(result_column, new_col)
-                
+
+            # Metadata Injection
+            if inject_metadata is not None:
+                try:
+                    # Pass original args/kwargs and the raw result result_values (or the processed one?)
+                    # Usually we want to know what happened.
+                    # let's pass (args, kwargs, result_values)
+                    # Note: args are tuple of user inputs excluding collection.
+                    extra_meta = inject_metadata(args, kwargs, result_values)
+                    if extra_meta and isinstance(extra_meta, dict):
+                         result_collection.metadata.update(extra_meta)
+                except Exception as e:
+                    # Metadata injection shouldn't crash the op? Or should it? 
+                    # Let's warn and continue or raise? User code -> Raise.
+                    raise e
+            
             return result_collection
         return wrapper
 
@@ -411,6 +427,7 @@ def transform_column(
     result_naming: Union[str, Callable[..., str]] = None,
     unit_inference: Optional[Callable[..., Optional[str]]] = None,
     handle_none: str = "nan",  # 'nan', 'pass'
+    inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
 ):
     """
     Facade decorator composed of store_result, handle_missing_values, and inject_columns.
@@ -432,7 +449,11 @@ def transform_column(
         # 3. Store Result
         # We need to preserve __name__ for naming logic
         functools.update_wrapper(f_inject, func)
-        f_store = store_result(result_naming=result_naming, unit_inference=unit_inference)(f_inject)
+        f_store = store_result(
+            result_naming=result_naming, 
+            unit_inference=unit_inference,
+            inject_metadata=inject_metadata
+        )(f_inject)
         
         return f_store
     return decorator

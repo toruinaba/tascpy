@@ -490,32 +490,43 @@ mode='all': keep if any valid (drop if all invalid)
     def remove_consecutive_duplicates_across(
         self,
         data: columns = typing.Optional[typing.List[str]],
+        mode: str = 'consecutive',
         dup_type: str = 'all',
         column: columns = typing.Optional[typing.List[str]],
-        columns: Optional[list[str]] = None,
+        mode: str = 'consecutive',
         dup_type: str = 'all'
     ) -> list[int]:
-        """"""
+        """Return indices to KEEP after removing duplicates.
+
+Args:
+    data: Dict of columns
+    mode: 
+        'consecutive': Remove if previous row is identical (keep first).
+        'all': Not implemented yet, reserved for unique rows.
+    dup_type:
+        'all': Remove row if ALL columns match previous row value (standard).
+        'any': Remove row if ANY column matches previous row value (strict)."""
         ...
     
 
     def remove_outliers(
         self,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """異常値を検出して除去した新しいコレクションを返します"""
+        column: str,
+        *args,
+        **kwargs
+    ) -> Any:
+        """"""
         ...
     
 
     def filter_by_condition(
         self,
+        vals: column = <class 'str'>,
+        column: column = <class 'str'>,
         condition: <built-in function callable>
     ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """指定された列の値が条件を満たす行をフィルタリングします"""
+        """Filter values by condition.
+Returns boolean mask (True to keep)."""
         ...
     
 
@@ -524,102 +535,62 @@ mode='all': keep if any valid (drop if all invalid)
         steps: list[Any],
         tolerance: Optional[float] = None
     ) -> list[bool]:
-        """指定されたステップ値を持つ行を削除します"""
-        ...
-    
-
-    def filter_val(
-        self,
-        column_name: str,
-        value: Any,
-        tolerance: Optional[float] = None
-    ) -> "StrainCollectionOperations":
-        """filter_by_value のエイリアス"""
-        ...
-    
-
-    def filter_cond(
-        self,
-        column_name: str,
-        condition: <built-in function callable>
-    ) -> "StrainCollectionOperations":
-        """filter_by_condition のエイリアス"""
-        ...
-    
-
-    def rm_outliers(
-        self,
-        column: str,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0
-    ) -> "StrainCollectionOperations":
-        """remove_outliers のエイリアス"""
+        """Generate mask to remove specific steps.
+Returns True for kept steps."""
         ...
     
 
     def search_by_value(
         self,
-        vals: values = typing.Any,
+        values: values = typing.Any,
         column: values = typing.Any,
         op_str: str,
         value: Any
     ) -> list[int]:
-        """"""
+        """Return indices where values satisfy the operator condition."""
         ...
     
 
     def search_by_range(
         self,
-        column: str,
-        min_value: Any,
-        max_value: Any,
+        values: values = typing.Any,
+        min_val: min_value = typing.Any,
+        max_val: max_value = typing.Any,
+        column: values = typing.Any,
+        min_val: Any,
+        max_val: Any,
         inclusive: bool = True
     ) -> list[int]:
-        """"""
+        """Return indices where values are within range."""
         ...
     
 
     def search_by_step_range(
         self,
-        min: Union[int, float],
-        max: Union[int, float],
+        steps: step_values = <class 'numpy.ndarray'>,
+        min_val: min = typing.Union[int, float],
+        max_val: max = typing.Union[int, float],
+        column: step_values = <class 'numpy.ndarray'>,
+        min_val: float,
+        max_val: float,
         inclusive: bool = True,
-        by_step_value: bool = True,
-        tolerance: Optional[float] = None
-    ) -> Union[list[int], tuple]:
-        """"""
-        ...
-    
-
-    def search_by_condition(
-        self,
-        data: columns = typing.Optional[typing.List[str]],
-        column: columns = typing.Optional[typing.List[str]],
-        condition_func: Callable[[Dict[str, Any]], bool]
+        tolerance: Optional[float] = None,
+        by_step_value: bool = True
     ) -> list[int]:
-        """"""
-        ...
-    
-
-    def search_missing_values(
-        self,
-        data: columns = typing.Optional[typing.List[str]],
-        column: columns = typing.Optional[typing.List[str]]
-    ) -> list[int]:
-        """Find indices of rows with missing values (any column)"""
+        """Return indices where steps are within range, with optional tolerance.
+If by_step_value is False, searches within indices matching the step length."""
         ...
     
 
     def search_top_n(
         self,
-        column: str,
+        values: vals = typing.Any,
+        column: vals = typing.Any,
         n: int,
         descending: bool = True
     ) -> list[int]:
-        """"""
+        """Return indices of top N values.
+Handles NaN by excluding them."""
         ...
     
 
@@ -696,7 +667,8 @@ mode='all': keep if any valid (drop if all invalid)
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> tuple[list[int], dict[str, Any]]:
-        """"""
+        """Select indices based on steps or direct indices.
+Returns: (final_indices, metadata_update)"""
         ...
     
 
@@ -706,27 +678,44 @@ mode='all': keep if any valid (drop if all invalid)
         value: float,
         **kwargs
     ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """"""
+        """Find index of nearest value.
+Returns list containing single index."""
         ...
     
 
     def switch_by_step(
         self,
+        steps: step_values = <class 'numpy.ndarray'>,
+        v1: v1 = typing.Union[str, numpy.ndarray],
+        v2: v2 = typing.Union[str, numpy.ndarray],
+        threshold: Union[int, float],
+        compare_mode: str = 'value',
+        by_step_value: bool = True,
+        tolerance: Optional[float] = None,
+        column: step_values = <class 'numpy.ndarray'>,
         v1: ndarray,
         v2: ndarray,
         threshold: Union[int, float],
         compare_mode: str = 'value',
         by_step_value: bool = True,
-        result_column: Optional[str] = None,
-        in_place: bool = False,
         tolerance: Optional[float] = None
-    ) -> Any:
-        """ステップ値を基準に2つのColumnを切り替える (ベクトル化済み)"""
+    ) -> ndarray:
+        """Switch between v1 and v2 based on steps/index."""
         ...
     
 
     def blend_by_step(
         self,
+        steps: step_values = <class 'numpy.ndarray'>,
+        v1: v1 = <class 'numpy.ndarray'>,
+        v2: v2 = <class 'numpy.ndarray'>,
+        start: Union[int, float],
+        end: Union[int, float],
+        compare_mode: str = 'value',
+        by_step_value: bool = True,
+        blend_method: str = 'linear',
+        tolerance: Optional[float] = None,
+        column: step_values = <class 'numpy.ndarray'>,
         v1: ndarray,
         v2: ndarray,
         start: Union[int, float],
@@ -734,39 +723,29 @@ mode='all': keep if any valid (drop if all invalid)
         compare_mode: str = 'value',
         by_step_value: bool = True,
         blend_method: str = 'linear',
-        result_column: Optional[str] = None,
-        in_place: bool = False,
         tolerance: Optional[float] = None
-    ) -> Any:
-        """ステップ値の範囲内で2つのColumnをブレンドする (ベクトル化済み)"""
+    ) -> ndarray:
+        """Blend v1 and v2 based on steps/index."""
         ...
     
 
     def sum_columns(
         self,
-        columns: Optional[list[str]] = None
+        data: columns = typing.Optional[typing.List[str]],
+        column: columns = typing.Optional[typing.List[str]],
+        columns = None
     ) -> Any:
-        """複数の列を合計します。
-
-指定した複数の列の値を要素ごとに合計し、結果の配列を返します。
-
-Args:
-    data: 列データの辞書 (inject_columnsにより注入)
-    columns: 合計対象の列名リスト"""
+        """"""
         ...
     
 
     def average_columns(
         self,
-        columns: Optional[list[str]] = None
+        data: columns = typing.Optional[typing.List[str]],
+        column: columns = typing.Optional[typing.List[str]],
+        columns = None
     ) -> Any:
-        """複数の列の平均値を計算します。
-
-指定した複数の列の値を要素ごとに平均し、結果の配列を返します。
-
-Args:
-    data: 列データの辞書 (inject_columnsにより注入)
-    columns: 平均対象の列名リスト"""
+        """"""
         ...
     
 
@@ -868,32 +847,13 @@ Args:
 
     def evaluate(
         self,
+        collection: collection = <class 'tascpy.core.collection.ColumnCollection'>,
         expression: str,
-        result_column: Optional[str] = None,
-        in_place: bool = False,
-        unit: Optional[str] = None,
-        ch: Optional[str] = None
+        column: collection = <class 'tascpy.core.collection.ColumnCollection'>,
+        expression: str,
+        **kwargs
     ) -> Union[list[Optional[float]], ndarray]:
-        """数式文字列を評価し、結果を返します
-
-指定された数式を評価し、その結果の値を返します。
-数式内では各列の値を変数として参照でき、基本的な数学関数も使用できます。
-
-Args:
-    collection: ColumnCollection オブジェクト
-    expression: 評価する数式文字列（例: "price * quantity * (1 - discount)"）
-    result_column: 結果を格納する列名（この引数はデコレータで使用されます）
-    in_place: (デコレータで使用)
-    unit: (デコレータで使用)
-    ch: (デコレータで使用)
-
-Returns:
-     Union[List[Optional[float]], np.ndarray]: 計算結果の値リストまたは配列
-
-Raises:
-    KeyError: 指定された列名が存在しない場合
-    ValueError: 式の評価中にエラーが発生した場合
-    SyntaxError: 式の構文に問題がある場合"""
+        """"""
         ...
     
 
@@ -1117,24 +1077,6 @@ Raises:
         indices: Union[int, list[int]]
     ) -> list[slice]:
         """Calculate split slices based on indices."""
-        ...
-    
-
-    def test_filter(
-        self,
-        column_name,
-        value
-    ) -> Any:
-        """テスト用フィルタリング操作"""
-        ...
-    
-
-    def add_derived_column(
-        self,
-        formula,
-        output_column
-    ) -> Any:
-        """数式に基づいて派生列を追加"""
         ...
     
 
