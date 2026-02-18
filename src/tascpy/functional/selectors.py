@@ -103,21 +103,21 @@ def search(values: Union[np.ndarray, list], op_str: str, value: Any) -> List[int
 
 def search_range(
     values: Union[np.ndarray, list], 
-    min_val: Any, 
-    max_val: Any, 
+    min_value: Any, 
+    max_value: Any, 
     inclusive: bool = True
 ) -> List[int]:
     """
     Return indices where values are within range.
     """
-    mask = predicates.in_range(values, min_val, max_val, inclusive)
+    mask = predicates.in_range(values, min_value, max_value, inclusive)
     return where(mask)
     
     
 def search_step_range(
     steps: Union[np.ndarray, list],
-    min_val: float,
-    max_val: float,
+    min: float,
+    max: float,
     inclusive: bool = True,
     tolerance: Optional[float] = None,
     by_step_value: bool = True
@@ -133,24 +133,18 @@ def search_step_range(
         length = len(arr)
         # Use arange as the "steps" to search
         arr = np.arange(length)
-        # Tolerance usually doesn't apply to indices search? 
-        # But search_range logic allows it if we treat indices as values.
-        # Original adapter called selectors.search_range(np.arange(length), min, max, inclusive)
-        # So it ignored tolerance?
-        # Let's check adapter code again... 
-        # Adapter: `selectors.search_range(np.arange(length), min, max, inclusive)`
-        # Yes, tolerance was ignored in by_step_value=False case.
+        # Tolerance logic handled below using these new 'arr'
         tolerance = None 
     
     if tolerance is not None:
          # Tolerance logic
          if inclusive:
-             mask = (arr >= min_val - tolerance) & (arr <= max_val + tolerance)
+             mask = (arr >= min - tolerance) & (arr <= max + tolerance)
          else:
-             mask = (arr > min_val + tolerance) & (arr < max_val - tolerance)
+             mask = (arr > min + tolerance) & (arr < max - tolerance)
     else:
          # Standard range
-         mask = predicates.in_range(arr, min_val, max_val, inclusive)
+         mask = predicates.in_range(arr, min, max, inclusive)
          
     if np.issubdtype(arr.dtype, np.number):
          mask = mask & ~np.isnan(arr)

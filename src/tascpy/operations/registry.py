@@ -162,6 +162,63 @@ class OperationRegistry:
                  if inject_metadata:
                      sr_kwargs["inject_metadata"] = inject_metadata
                  wrapped_func = sr_decorator(**sr_kwargs)(wrapped_func)
+             elif inject_metadata is not None:
+                 # If store_result is not used, but inject_metadata is provided,
+                 # we attach metadata to the result (as a tuple).
+                 
+                 # Prepare a wrapper that injects metadata
+                 # Note: inject_metadata func signature is (args, kwargs, result) -> dict
+                 # We need to capture the args passed to this specific wrapper.
+                 
+                 _meta_gen = inject_metadata
+                 
+                 # We need to use functools.wraps explicitly or manage __name__ manually
+                 # 'wrapped_func' here is the function after inner decorators (like filters, inject_columns).
+                 # So its args match what the inner decorators expect?
+                 # Wait, 'wrapped_func' is built from inside out.
+                 # inject_columns converts (collection, *args) -> (values, ...).
+                 # so 'wrapped_func' expects (values, ...) or (steps, values, ...).
+                 
+                 # However, `inject_metadata` usually wants to see the arguments passed *to the operation* (e.g. min, max).
+                 # Those arguments are passed through `inject_columns` wrapper if they are not consumed?
+                 # `inject_columns` consumes `columns_arg` if specified in kwargs?
+                 # But usually `min`, `max` are passed through.
+                 
+                 # The wrapper we are adding is OUTER to `inject_columns` etc?
+                 # No, `wrapped_func` is currently the result of `inject_columns(filter_rows(... func ...))`.
+                 # So `wrapped_func` signature is `(collection, *args, **kwargs)`.
+                 
+                 # So if we wrap it here, we see `collection` and user args.
+                 # `inject_metadata` expects `(args, kwargs, result)`.
+                 # `store_result` passes `(args, kwargs, result)` where `args` is tuple of user args (excluding collection).
+                 
+                 target_func = wrapped_func
+                 
+                 @functools.wraps(target_func)
+                 def meta_wrapper(collection_or_data, *args, **kwargs):
+                     # Call inner
+                     result = target_func(collection_or_data, *args, **kwargs)
+                     
+                     # Generate metadata
+                     # We pass args/kwargs as seen here.
+                     # If collection was passed as first arg?
+                     # store_result excludes collection from args passed to metadata generator.
+                     
+                     # Check if first arg is collection?
+                     # wrapper signature is typically (collection, *args).
+                     # So `args` tuple effectively excludes collection.
+                     
+                     try:
+                         meta = _meta_gen(args, kwargs, result)
+                         if meta:
+                             return result, meta
+                         return result
+                     except Exception:
+                         # Fallback or strict?
+                         # Ideally should propagate error for debugging
+                         raise 
+
+                 wrapped_func = meta_wrapper
 
         # @select_columns (outermost usually)
         if select_columns is not None:

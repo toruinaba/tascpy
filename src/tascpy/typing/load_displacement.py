@@ -747,12 +747,10 @@ Returns True for kept steps."""
 
     def search_by_range(
         self,
-        values: values = typing.Any,
-        min_val: min_value = typing.Any,
-        max_val: max_value = typing.Any,
-        column: values = typing.Any,
-        min_val: Any,
-        max_val: Any,
+        values: vals = typing.Any,
+        column: vals = typing.Any,
+        min_value: Any,
+        max_value: Any,
         inclusive: bool = True
     ) -> list[int]:
         """Return indices where values are within range."""
@@ -761,18 +759,33 @@ Returns True for kept steps."""
 
     def search_by_step_range(
         self,
-        steps: step_values = <class 'numpy.ndarray'>,
-        min_val: min = typing.Union[int, float],
-        max_val: max = typing.Union[int, float],
-        column: step_values = <class 'numpy.ndarray'>,
-        min_val: float,
-        max_val: float,
+        min: float,
+        max: float,
         inclusive: bool = True,
         tolerance: Optional[float] = None,
         by_step_value: bool = True
     ) -> list[int]:
         """Return indices where steps are within range, with optional tolerance.
 If by_step_value is False, searches within indices matching the step length."""
+        ...
+    
+
+    def search_by_condition(
+        self,
+        data: columns = typing.Optional[typing.List[str]],
+        column: columns = typing.Optional[typing.List[str]],
+        condition_func: Callable[[Dict[str, Any]], bool]
+    ) -> list[int]:
+        """Find indices where condition_func(row_dict) is True."""
+        ...
+    
+
+    def search_missing_values(
+        self,
+        data: columns = typing.Optional[typing.List[str]],
+        column: columns = typing.Optional[typing.List[str]]
+    ) -> list[int]:
+        """Find indices of rows with any missing values."""
         ...
     
 

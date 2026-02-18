@@ -200,8 +200,8 @@ Returns True for kept steps."""
 
     def search_by_range(
         self,
-        min_val: Any,
-        max_val: Any,
+        min_value: Any,
+        max_value: Any,
         inclusive: bool = True
     ) -> List[list[int]]:
         """Return indices where values are within range."""
@@ -210,14 +210,30 @@ Returns True for kept steps."""
 
     def search_by_step_range(
         self,
-        min_val: float,
-        max_val: float,
+        min: float,
+        max: float,
         inclusive: bool = True,
         tolerance: Optional[float] = None,
         by_step_value: bool = True
     ) -> List[list[int]]:
         """Return indices where steps are within range, with optional tolerance.
 If by_step_value is False, searches within indices matching the step length."""
+        ...
+    
+
+    def search_by_condition(
+        self,
+        condition_func: Callable[[Dict[str, Any]], bool]
+    ) -> List[list[int]]:
+        """Find indices where condition_func(row_dict) is True."""
+        ...
+    
+
+    def search_missing_values(
+        self,
+        
+    ) -> List[list[int]]:
+        """Find indices of rows with any missing values."""
         ...
     
 

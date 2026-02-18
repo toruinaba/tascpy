@@ -52,31 +52,12 @@ search_by_range = register_functional(
     name="search_by_range",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},
     signature_override={
-        "values": ("values", Any),
-        "min_val": ("min_value", Any),
-        "max_val": ("max_value", Any),
+        "values": ("vals", Any),
     }
 )
 
 
 def _search_step_metadata(args, kwargs, result):
-    # args: (steps, min_val, max_val, ...)
-    # But inject_step_values injects 'steps' into the first argument.
-    # The wrapper args are (min, max, inclusive=True, by_step_value=True, tolerance=None).
-    # Step values are injected.
-    # result is (indices, metadata).
-    # But wait, search_step_range pure func returns List[int].
-    # We need to return (indices, metadata) to match original adapter?
-    # Original adapter returned `(indices, metadata_update)`.
-    # `register_functional` with `store_result`?
-    # No, `search` operations usually return `Indices` object (which is just list + metadata update? No.)
-    # `search` ops return `List[int]` or `Indices`.
-    # If pure func returns list, `register_functional` wraps it.
-    # If we want to return metadata update from pure func, we use `(result, metadata)` tuple.
-    # `selectors.search_step_range` returns `List[int]`.
-    # We need to inject metadata.
-    # `register_functional` has `inject_metadata`.
-    
     min_val = kwargs.get("min", args[0] if len(args) > 0 else None)
     max_val = kwargs.get("max", args[1] if len(args) > 1 else None)
     inclusive = kwargs.get("inclusive", True)
@@ -97,10 +78,27 @@ search_by_step_range = register_functional(
     name="search_by_step_range",
     inject_step_values={"cast_to_numpy": True},
     inject_metadata=_search_step_metadata,
+)
+
+
+search_by_condition = register_functional(
+    functional_search.search_by_condition,
+    domain="core",
+    name="search_by_condition",
+    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
     signature_override={
-        "steps": ("step_values", np.ndarray), # Injected
-        "min_val": ("min", Union[int, float]),
-        "max_val": ("max", Union[int, float]),
+        "data": ("columns", Optional[List[str]])
+    }
+)
+
+
+search_missing_values = register_functional(
+    functional_search.search_missing_values,
+    domain="core",
+    name="search_missing_values",
+    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
+    signature_override={
+        "data": ("columns", Optional[List[str]])
     }
 )
 
