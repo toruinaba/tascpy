@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 import numpy as np
 
 def interpolate_core(
@@ -91,3 +91,58 @@ def interpolate_core(
             resampled_data[name] = values[final_idx]
 
     return resampled_data
+
+
+def calculate_new_axis(
+    base_values: np.ndarray,
+    x_values: Optional[list] = None,
+    point_count: Optional[int] = None
+) -> np.ndarray:
+    """
+    Calculate the new axis for interpolation.
+    """
+    if x_values is None and point_count is None:
+        raise ValueError("x_valuesまたはpoint_countのいずれかを指定してください")
+    if x_values is not None and point_count is not None:
+        raise ValueError("x_valuesとpoint_countは同時に指定できません")
+
+    if x_values is not None:
+        return np.array(x_values)
+    else:
+        min_val = np.min(base_values)
+        max_val = np.max(base_values)
+        if point_count <= 1:
+            return np.array([min_val])
+        else:
+            return np.linspace(min_val, max_val, point_count)
+
+
+def partition_data(
+    data: Dict[str, np.ndarray],
+    numeric_keys: Optional[list] = None
+) -> tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+    """
+    Partition data into numeric (for linear interp) and other (for nearest neighbor).
+    If numeric_keys is None, it attempts to detect numeric types.
+    """
+    numeric_data = {}
+    other_data = {}
+    
+    for key, val in data.items():
+        is_numeric = False
+        if numeric_keys is not None:
+            if key in numeric_keys:
+                is_numeric = True
+        else:
+            # Auto-detect
+            if np.issubdtype(val.dtype, np.number):
+                # Check for object arrays that might be numeric? 
+                # Ideally, val should already be cast if possible.
+                is_numeric = True
+                
+        if is_numeric:
+            numeric_data[key] = val
+        else:
+            other_data[key] = val
+            
+    return numeric_data, other_data

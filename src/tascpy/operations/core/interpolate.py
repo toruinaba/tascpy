@@ -4,7 +4,7 @@ import numpy as np
 
 from ...core.collection import ColumnCollection
 from ...core.column import NumberColumn, Column
-from ..registry import operation
+from ..registry import register_functional
 from ...functional import interpolate as functional_interpolate
 
 
@@ -21,8 +21,7 @@ from ...functional import interpolate as functional_interpolate
 
 
 
-@operation(domain="core")
-def interpolate(
+def _interpolate_impl(
     collection: ColumnCollection,
     base_column_name: str = "step",  # デフォルトでステップを使用
     x_values: Optional[List[float]] = None,
@@ -46,38 +45,21 @@ def interpolate(
         base_values = np.array(column.values)
 
     # 2. 新しい軸（new_axis）の計算
-    if x_values is None and point_count is None:
-        raise ValueError("x_valuesまたはpoint_countのいずれかを指定してください")
-    if x_values is not None and point_count is not None:
-        raise ValueError("x_valuesとpoint_countは同時に指定できません")
-
-    if x_values is not None:
-        new_axis = np.array(x_values)
-    else:
-        min_val = np.min(base_values)
-        max_val = np.max(base_values)
-        if point_count <= 1:
-            new_axis = np.array([min_val])
-        else:
-            new_axis = np.linspace(min_val, max_val, point_count)
+    new_axis = functional_interpolate.calculate_new_axis(
+        base_values, x_values, point_count
+    )
     
     # 3. データの準備 (Numeric vs Other)
-    target_numeric = {}
-    target_other = {}
-    
-    all_col_names = list(collection.columns.keys())
+    # Extract all data first
+    raw_data = {}
+    numeric_keys = []
     
     if columns is None:
-        # Default: All valid NumberColumns are numeric, rest are other
-        for name in all_col_names:
-            col = collection[name]
-            # Convert to numpy array safely
-            vals = np.array(col.values)
-            
+        # Default: All valid NumberColumns are numeric candidates
+        for name, col in collection.columns.items():
+            raw_data[name] = np.array(col.values)
             if isinstance(col, NumberColumn) and col.count_nones() == 0:
-                 target_numeric[name] = vals
-            else:
-                 target_other[name] = vals
+                numeric_keys.append(name)
     else:
         # User specified columns
         for name in columns:
@@ -88,11 +70,14 @@ def interpolate(
                 raise TypeError(f"列 '{name}' は数値型ではありません")
             if col.count_nones() > 0:
                 raise ValueError(f"列 '{name}' にNone値が含まれています")
-            target_numeric[name] = np.array(col.values)
+            numeric_keys.append(name)
             
-        for name in all_col_names:
-            if name not in columns:
-                target_other[name] = np.array(collection[name].values)
+        for name, col in collection.columns.items():
+            raw_data[name] = np.array(col.values)
+
+    target_numeric, target_other = functional_interpolate.partition_data(
+        raw_data, numeric_keys
+    )
                 
     # Handle base_column (remove from map if present to avoid self-interpolation artifacts,
     # though technically it should interpolate to identity)
@@ -107,11 +92,6 @@ def interpolate(
     original_step_vals = np.array(collection.step.values)
     
     if not step_is_base:
-        # Add step to numeric data if it's numeric and valid, else other
-        # Step is usually numeric.
-        # But wait, we want Step to be interpolated based on BASE COLUMN.
-        # So treating Step as just another column data-wise is correct.
-        # But we need to separate it because it goes into .step property.
         if np.issubdtype(original_step_vals.dtype, np.number) and not np.isnan(original_step_vals).any():
              target_numeric["__step__"] = original_step_vals
         else:
@@ -173,4 +153,11 @@ def interpolate(
     result.metadata = new_metadata
     
     return result
+
+
+interpolate = register_functional(
+    _interpolate_impl,
+    domain="core",
+    name="interpolate",
+)
 
