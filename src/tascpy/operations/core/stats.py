@@ -11,18 +11,18 @@ from ...core.column import Column, detect_column_type
 from ..registry import operation, register_functional
 from ..abstraction import transform_column, inject_columns, handle_missing_values
 from ...functional import stats as functional_stats
+from ..naming import format_naming
 
 # --- Transformation Operations ---
-
-def _ma_naming(func_name, col_name, **kwargs):
-    window_size = kwargs.get("window_size", 3)
-    return f"ma{window_size}({col_name})"
 
 moving_average = register_functional(
     functional_stats.moving_average,
     domain="core",
     name="moving_average",
-    transform_column={"num_inputs": 1, "result_naming": _ma_naming},
+    transform_column={
+        "num_inputs": 1, 
+        "result_naming": format_naming("ma{window_size}({0})", defaults={"window_size": 3}, arg_names=["vals", "window_size", "edge_handling"])
+    },
     signature_override={
         "vals": ("vals", Any),
         "window_size": (int, 3),
@@ -31,14 +31,11 @@ moving_average = register_functional(
 )
 
 
-def _outlier_naming(func_name, col_name, **kwargs):
-    return f"outlier({col_name})"
-
 detect_outliers = register_functional(
     functional_stats.detect_outliers,
     domain="core",
     name="detect_outliers",
-    transform_column={"num_inputs": 1, "result_naming": _outlier_naming},
+    transform_column={"num_inputs": 1, "result_naming": format_naming("outlier({0})")},
     signature_override={
         "vals": ("vals", Any),
         "window_size": (int, 3),
@@ -50,15 +47,14 @@ detect_outliers = register_functional(
 )
 
 
-def _gaussian_naming(func_name, col_name, **kwargs):
-    sigma = kwargs.get("sigma", 1.0)
-    return f"gaussian(col={col_name},sigma={sigma})"
-
 gaussian_filter = register_functional(
     functional_stats.gaussian_filter,
     domain="core",
     name="gaussian_filter",
-    transform_column={"num_inputs": 1, "result_naming": _gaussian_naming},
+    transform_column={
+        "num_inputs": 1, 
+        "result_naming": format_naming("gaussian(col={0},sigma={sigma})", defaults={"sigma": 1.0}, arg_names=["vals", "sigma", "window_size"])
+    },
     signature_override={
         "vals": ("vals", Any),
         "sigma": (float, 1.0),

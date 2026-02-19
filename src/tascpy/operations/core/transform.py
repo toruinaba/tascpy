@@ -6,6 +6,7 @@ from ...core.column import Column, detect_column_type
 from ..registry import operation, register_functional
 from ..abstraction import transform_column
 from ...functional import transform as functional_transform
+from ..naming import basic_naming, format_naming
 
 
 # ---------------------------------------------------------
@@ -17,10 +18,6 @@ def _get_col_name(args, kwargs):
     if len(args) > 0:
         return args[0]
     return kwargs.get("column")
-
-def _basic_naming(func_name, *args, **kwargs):
-    col = _get_col_name(args, kwargs)
-    return f"{func_name}({col})"
 
 def _log_naming(func_name, *args, base=math.e, **kwargs):
     col = _get_col_name(args, kwargs)
@@ -35,39 +32,6 @@ def _log_naming(func_name, *args, base=math.e, **kwargs):
     else:
         return f"log{base}({col})"
 
-def _pow_naming(func_name, *args, exponent=1.0, **kwargs):
-    col = _get_col_name(args, kwargs)
-    # Check if exponent is passed as positional arg (arg index 1)
-    if len(args) > 1:
-        exponent = args[1]
-    return f"{col}^{exponent}"
-
-def _round_naming(func_name, *args, decimals=0, **kwargs):
-    col = _get_col_name(args, kwargs)
-    # Check if decimals is passed as positional arg (arg index 1)
-    if len(args) > 1:
-        decimals = args[1]
-    return f"round({col}, {decimals})"
-
-def _normalize_naming(func_name, *args, method="minmax", **kwargs):
-    col = _get_col_name(args, kwargs)
-    # Check if method is passed as positional arg (arg index 1)
-    if len(args) > 1:
-        method = args[1]
-    return f"norm_{method}({col})"
-
-def _abs_naming(func_name, *args, **kwargs):
-    col = _get_col_name(args, kwargs)
-    return f"abs({col})"
-
-
-# ---------------------------------------------------------
-# Operations
-# ---------------------------------------------------------
-# ... (intermediate code skipped by tool logic if not modifying, but here I am modifying abs_values which is further down.
-# Wait, I cannot skip huge chunks in ReplacementContent unless I use MultiReplace or close chunks.
-# I will use MultiReplace to add helper and update decorator separately.
-
 
 # ---------------------------------------------------------
 # Operations
@@ -78,7 +42,7 @@ sin = register_functional(
     functional_transform.sin,
     domain="core",
     name="sin",
-    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
 )
 
@@ -87,7 +51,7 @@ cos = register_functional(
     functional_transform.cos,
     domain="core",
     name="cos",
-    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
 )
 
@@ -96,7 +60,7 @@ tan = register_functional(
     functional_transform.tan,
     domain="core",
     name="tan",
-    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
 )
 
@@ -106,7 +70,7 @@ exp = register_functional(
     functional_transform.exp,
     domain="core",
     name="exp",
-    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray)}
 )
 
@@ -124,7 +88,7 @@ sqrt = register_functional(
     functional_transform.sqrt,
     domain="core",
     name="sqrt",
-    transform_column={"num_inputs": 1, "result_naming": _basic_naming},
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray)}
 )
 
@@ -133,7 +97,10 @@ pow = register_functional(
     functional_transform.power,
     domain="core",
     name="pow",
-    transform_column={"num_inputs": 1, "result_naming": _pow_naming},
+    transform_column={
+        "num_inputs": 1, 
+        "result_naming": format_naming("{0}^{exponent}", defaults={"exponent": 1.0}, arg_names=["values", "exponent"])
+    },
     signature_override={"values": ("values", np.ndarray), "exponent": (float, 1.0)}
 )
 
@@ -143,7 +110,7 @@ abs_values = register_functional(
     functional_transform.abs_values,
     domain="core",
     name="abs_values",
-    transform_column={"num_inputs": 1, "result_naming": _abs_naming},
+    transform_column={"num_inputs": 1, "result_naming": format_naming("abs({0})")},
     signature_override={"values": ("values", np.ndarray)}
 )
 
@@ -168,12 +135,7 @@ abs = abs_values
 # @operation ... def abs_values ...
 # abs = abs_values
 # So registry has "abs_values". `abs` is just Python alias.
-# Users calling `collection.core.transform.abs(...)` works via module attribute.
-# Users calling `registry.get_operation("abs")` fails?
-# Unless `abs = @operation...`
-# Wait, `abs` was NOT decorated separately.
-# So registry key is "abs_values".
-# So `transform.abs(...)` works as function call.
+# Users calling `transform.abs(...)` works as function call.
 # `collection.apply(transform.abs)` works.
 # `collection.apply("abs")` would FAIL in original code?
 # Yes.
@@ -184,7 +146,7 @@ round_values = register_functional(
     functional_transform.round_values,
     domain="core",
     name="round_values",
-    transform_column={"num_inputs": 1, "result_naming": _round_naming},
+    transform_column={"num_inputs": 1, "result_naming": format_naming("round({0}, {decimals})", defaults={"decimals": 0})},
     signature_override={"values": ("values", np.ndarray), "decimals": (int, 0)}
 )
 
@@ -193,7 +155,6 @@ normalize = register_functional(
     functional_transform.normalize,
     domain="core",
     name="normalize",
-    transform_column={"num_inputs": 1, "result_naming": _normalize_naming},
+    transform_column={"num_inputs": 1, "result_naming": format_naming("norm_{method}({0})", defaults={"method": "minmax"})},
     signature_override={"values": ("values", np.ndarray), "method": (str, "minmax")}
 )
-

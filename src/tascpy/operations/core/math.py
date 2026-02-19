@@ -17,61 +17,39 @@ import numpy as np
 from ...functional import arithmetic
 from ...functional import math as functional_math
 from ..registry import operation, register_functional
-
-
-def _safe_add_naming(func_name, col1, col2, **kwargs):
-    return f"{col1}+{col2}"
-
-def _safe_sub_naming(func_name, col1, col2, **kwargs):
-    return f"{col1}-{col2}"
-
-def _safe_mul_naming(func_name, col1, col2, **kwargs):
-    # Add parentheses if needed for precedence
-    c1_str = str(col1)
-    if any(op in c1_str for op in ["+", "-"]):
-        c1_str = f"({c1_str})"
-    return f"{c1_str}*{col2}"
-
-def _safe_div_naming(func_name, col1, col2, **kwargs):
-    c1_str = str(col1)
-    if any(op in c1_str for op in ["+", "-"]):
-        c1_str = f"({c1_str})"
-    return f"{c1_str}/{col2}"
+from ..naming import infix_naming, format_naming, basic_naming
 
 
 add = register_functional(
     arithmetic.add,
     domain="core",
     name="add",
-    transform_column={"num_inputs": 2, "result_naming": _safe_add_naming},
+    transform_column={"num_inputs": 2, "result_naming": infix_naming("+")},
 )
 
 subtract = register_functional(
     arithmetic.subtract,
     domain="core",
     name="subtract",
-    transform_column={"num_inputs": 2, "result_naming": _safe_sub_naming},
+    transform_column={"num_inputs": 2, "result_naming": infix_naming("-")},
 )
 
 multiply = register_functional(
     arithmetic.multiply,
     domain="core",
     name="multiply",
-    transform_column={"num_inputs": 2, "result_naming": _safe_mul_naming},
+    transform_column={"num_inputs": 2, "result_naming": infix_naming("*")},
 )
 
 divide = register_functional(
     arithmetic.divide,
     domain="core",
     name="divide",
-    transform_column={"num_inputs": 2, "result_naming": _safe_div_naming},
+    transform_column={"num_inputs": 2, "result_naming": infix_naming("/")},
     extra_decorators=[handle_zero_division(numerator_idx=0, denominator_idx=1)]
 )
 
 # 微分と積分の関数を定義
-
-def _diff_naming(func_name, y_col, x_col, **kwargs):
-    return f"d({y_col})/d({x_col})"
 
 def _diff_unit_inference(collection, y_col, x_col, **kwargs):
     y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
@@ -80,9 +58,6 @@ def _diff_unit_inference(collection, y_col, x_col, **kwargs):
     y_unit = getattr(y_obj, "unit", "") or ""
     x_unit = getattr(x_obj, "unit", "") or ""
     return f"{y_unit}/{x_unit}" if y_unit or x_unit else None
-
-def _integrate_naming(func_name, y_col, x_col, **kwargs):
-    return f"∫{y_col}·d{x_col}"
 
 def _integrate_unit_inference(collection, y_col, x_col, **kwargs):
     y_obj = collection[y_col] if isinstance(y_col, str) and y_col in collection.columns else None
@@ -97,7 +72,10 @@ diff = register_functional(
     arithmetic.diff,
     domain="core",
     name="diff",
-    store_result={"result_naming": _diff_naming, "unit_inference": _diff_unit_inference},
+    store_result={
+        "result_naming": format_naming("d({0})/d({1})"), 
+        "unit_inference": _diff_unit_inference
+    },
     inject_columns={"num_inputs": 2},
     extra_decorators=[handle_missing_values(strategy="strict")],
     signature_override={
@@ -112,7 +90,10 @@ integrate = register_functional(
     arithmetic.integrate,
     domain="core",
     name="integrate",
-    store_result={"result_naming": _integrate_naming, "unit_inference": _integrate_unit_inference},
+    store_result={
+        "result_naming": format_naming("∫{0}·d{1}"), 
+        "unit_inference": _integrate_unit_inference
+    },
     inject_columns={"num_inputs": 2},
     extra_decorators=[handle_missing_values(strategy="strict")],
     signature_override={
@@ -123,9 +104,6 @@ integrate = register_functional(
     }
 )
 
-
-def _evaluate_naming(func_name, expression, *args, **kwargs):
-    return f"expression_result"
 
 def _evaluate_unit_inference(collection, expression, **kwargs):
     try:
@@ -173,7 +151,7 @@ evaluate = register_functional(
     domain="core",
     name="evaluate",
     store_result={
-        "result_naming": _evaluate_naming,
+        "result_naming": format_naming("expression_result"),
         "unit_inference": _evaluate_unit_inference
     },
     signature_override={
