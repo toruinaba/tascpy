@@ -636,6 +636,24 @@ Returns list containing single index."""
         ...
     
 
+    def test_filter(
+        self,
+        column_name,
+        value
+    ) -> List[Any]:
+        """テスト用フィルタリング操作"""
+        ...
+    
+
+    def add_derived_column(
+        self,
+        formula,
+        output_column
+    ) -> List[Any]:
+        """数式に基づいて派生列を追加"""
+        ...
+    
+
     def get_column_coordinates(
         self,
         column: str

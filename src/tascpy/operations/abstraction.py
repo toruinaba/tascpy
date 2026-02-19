@@ -3,6 +3,7 @@ import functools
 import numpy as np
 from ..core.collection import ColumnCollection
 from ..core.column import detect_column_type
+from ..core.step import Step
 
 
 def inject_columns(
@@ -620,21 +621,18 @@ def filter_rows(func):
         if indices is None:
              res_collection = collection.clone()
         else:
-             import numpy as np
+             res_collection = collection.clone() # Start with a clone to modify
+             
              if len(indices) == 0:
                  # Empty result
-                 res_collection = collection.clone()
                  res_collection.step.values = []
-                 for col in res_collection.columns.values():
-                     col.values = []
+                 for name in res_collection.columns:
+                     res_collection.columns[name].values = []
              else:
                  # Filter step
-                 current_steps = np.array(collection.step.values) if not isinstance(collection.step.values, np.ndarray) else np.array(collection.step.values)
+                 # Ensure we work with numpy arrays for indexing
+                 current_steps = np.array(collection.step.values)
                  
-                 # Handle indices type
-                 if isinstance(indices, list):
-                     indices = np.array(indices)
-                     
                  try:
                      filtered_steps = current_steps[indices]
                  except IndexError:
@@ -642,23 +640,55 @@ def filter_rows(func):
                      
                  if isinstance(collection.step.values, list):
                      filtered_steps = filtered_steps.tolist()
-                     
+                 
+                 # Assign back to step (setter handles validation now!)
+                 # Validation might fail if we set step before columns, or columns before step?
+                 # Setter checks against existing columns.
+                 # If we update columns first, they become short, then update step.
+                 # Or update step first?
+                 # If we update step first, it checks against OLD columns (length mismatch).
+                 # If we update columns first, valid?
+                 # Wait, setter checks: "New step length ... does not match existing columns length"
+                 # So if we update step to shorter, but columns are still long -> Error.
+                 # If we update columns to shorter, existing step is long -> Invariant broken temporarily?
+                 # `collection.columns[name].values = ...` does NOT trigger collection validation usually.
+                 # But `Column` itself doesn't know about collection.
+                 # So we can update columns one by one. invariants are checked at boundaries?
+                 # No, `add_column` checks. Direct assignment `col.values = ...` is bypass.
+                 # But we need to use `res_collection.step = ...`.
+                 # To safely update all, we might need to clear columns first?
+                 # Or manually set `_step`.
+                 
+                 # Strategy: Update columns first (bypassing collection-level checks), then update step?
+                 # `res_collection.step = ...` check will fail if columns are different length.
+                 # If we update all columns to new length, then `res_collection.step = ...` will succeed.
+                 
                  # Filter columns
                  filtered_cols = {}
                  for name, col in collection.columns.items():
-                     cur_vals = np.array(col.values) if not isinstance(col.values, np.ndarray) else np.array(col.values)
-                     
+                     cur_vals = np.array(col.values)
                      new_vals = cur_vals[indices]
                          
                      if isinstance(col.values, list):
                          new_vals = new_vals.tolist()
                          
-                     new_col = col.__class__(col.ch, col.name, col.unit, new_vals)
-                     filtered_cols[name] = new_col
+                     # Direct modification of values in cloned collection's columns
+                     # We need to ensure we don't trigger checks yet.
+                     # But `res_collection.columns` is a dict.
+                     # `res_collection.columns[name]` gives Column object.
+                     # `col.values = ...` is safe.
+                     
+                     # We create NEW column objects to be safe
+                     new_col = col.__class__(col.ch, col.name, col.unit, new_vals, col.metadata)
+                     res_collection.columns[name] = new_col
+
+                 # Now all columns are short.
+                 # Set step.
+                 # But `res_collection.step` setter checks against `res_collection.columns`.
+                 # Since we updated all columns in `res_collection`, they are now short.
+                 # So setting short step should be valid!
                  
-                 res_collection = collection.clone()
-                 res_collection.step.values = filtered_steps
-                 res_collection.columns = filtered_cols
+                 res_collection.step = Step(values=filtered_steps)
 
         # Update metadata
         if metadata_update:
@@ -803,12 +833,11 @@ def inject_length(func):
     return wrapper
 def split_result(func):
     """
-    Decorator for functions returning List[Union[slice, np.ndarray, list]].
-    Converts them into List[ColumnCollection].
+    Decorator that expects the function to return a list of Step (or lengths/indices) or similar split info,
+    and returns a list of ColumnCollections.
     """
     @functools.wraps(func)
     def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
-        # Pass through if not collection
         if not isinstance(collection, ColumnCollection):
              return func(collection, *args, **kwargs)
 
@@ -821,11 +850,11 @@ def split_result(func):
         if isinstance(split_defs, tuple) and len(split_defs) == 2 and isinstance(split_defs[1], dict):
              split_defs, metadata_update = split_defs
 
-        results = []
-        
         # Optimization: Pre-convert to numpy if needed? 
         # But we don't want to mutate original collection here.
         # Let's trust pure func or handle it inside.
+        
+        results = []
         
         # Post-process results
         for item in split_defs:
@@ -852,7 +881,11 @@ def split_result(func):
                  
                  # Step
                  step_vals = np.array(collection.step.values)
-                 new_step = step_vals[indices].tolist()
+                 
+                 try:
+                     new_step = step_vals[indices].tolist()
+                 except IndexError:
+                     raise IndexError("指定されたインデックスが範囲外です")
                  
                  # Columns
                  new_cols = {}

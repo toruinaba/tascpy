@@ -56,9 +56,10 @@ def test_conditional_select():
     # Indices 0-4 (A<=40): C -> 0, -10, -20, -30, -40
     # Indices 5-9 (A>40): B -> 10, 12, 14, 16, 18
     
+    # inject_columns(num_inputs=3) -> expects 3 positional args for v1, v2, cond_values
     res = c.ops.conditional_select(
-        column1="B", column2="C", 
-        condition_column="A", threshold=40.0, compare=">",
+        "B", "C", "A",
+        threshold=40.0, compare=">",
         result_column="Select"
     )
     
@@ -72,7 +73,8 @@ def test_custom_combine():
     def add_func(a, b):
         return a + b
         
-    res = c.ops.custom_combine(column1="A", column2="B", combine_func=add_func, result_column="CustomSum")
+    # inject_columns(num_inputs=2) -> v1, v2
+    res = c.ops.custom_combine("A", "B", combine_func=add_func, result_column="CustomSum")
     expected = np.array([float(i*12) for i in range(10)])
     np.testing.assert_array_almost_equal(res["CustomSum"].values, expected)
     print("Pass: custom_combine")
@@ -83,8 +85,9 @@ def test_switch_by_step():
     # A: 0, 10, 20, 30, 40
     # B: 10, 12, 14, 16, 18 (indices 5-9 -> 5*2=10... wait. B is i*2. Index 5 is 10. Correct)
     
+    # inject_columns(num_inputs=2, include_step=True) -> step (auto), v1, v2
     res = c.ops.switch_by_step(
-        column1="A", column2="B", threshold=4.5, by_step_value=True, result_column="Switch"
+        "A", "B", threshold=4.5, by_step_value=True, result_column="Switch"
     )
     
     expected = [0.0, 10.0, 20.0, 30.0, 40.0, 10.0, 12.0, 14.0, 16.0, 18.0]
@@ -98,8 +101,9 @@ def test_blend_by_step():
     # <=4: A. >=6: B.
     # 5: Midpoint (linear). A(50), B(10). Mid = 30?
     
+    # inject_columns(num_inputs=2, include_step=True) -> step (auto), v1, v2
     res = c.ops.blend_by_step(
-        column1="A", column2="B", start=4.0, end=6.0, by_step_value=True, result_column="Blend"
+        "A", "B", start=4.0, end=6.0, by_step_value=True, result_column="Blend"
     )
     
     # 0,1,2,3,4 -> A -> 0,10,20,30,40

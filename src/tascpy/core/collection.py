@@ -49,13 +49,14 @@ class ColumnCollection:
         """
         # ステップの初期化
         if isinstance(step, Step):
-            self.step: Step = step
+            self._step: Step = step
         else:
-            self.step: Step = Step(values=step if step is not None else [])
+            self._step: Step = Step(values=step if step is not None else [])
 
         # 列の初期化
         self.columns = {}
         if columns:
+            step_len = len(self.step)
             for name, column in columns.items():
                 if isinstance(column, Column):
                     self.columns[name] = column
@@ -67,6 +68,13 @@ class ColumnCollection:
                         )
                     else:
                         self.columns[name] = Column(None, name, None, column)
+                
+                # Check length immediately
+                if len(self.columns[name]) != step_len:
+                    raise ValueError(
+                        f"Column '{name}' length ({len(self.columns[name])}) does not match Step length ({step_len})"
+                    )
+
         self.metadata = metadata if metadata is not None else {}
         self._results: Dict[str, AnalysisResult] = {}
         
@@ -74,6 +82,32 @@ class ColumnCollection:
         # 注: 現状の実装ではメタデータ内の辞書構造からAnalysisResultを復元するロジックは
         # 各ドメインのサブクラスやファクトリに委ねられる可能性があります。
         # ここではプレースホルダーとして空の辞書を初期化します。
+
+    @property
+    def step(self) -> Step:
+        return self._step
+    
+    @step.setter
+    def step(self, value: Union[Step, List[Any]]):
+        if isinstance(value, Step):
+            new_step = value
+        else:
+            new_step = Step(values=value if value is not None else [])
+            
+        # Validate length against existing columns
+        # If no columns exist, any length is fine
+        if self.columns:
+            # Check against arbitrary existing column (all should be same length due to invariants)
+            # Or iterate all to be safe?
+            # Let's iterate all to ensure full consistency
+            step_len = len(new_step)
+            for name, col in self.columns.items():
+                if len(col) != step_len:
+                    raise ValueError(
+                        f"New step length ({step_len}) does not match existing columns length ({len(col)} for '{name}')"
+                    )
+        
+        self._step = new_step
 
     def __len__(self) -> int:
         return len(self.step)
@@ -165,11 +199,19 @@ class ColumnCollection:
         """
         if name in self.columns:
             raise KeyError(f"列'{name}'はすでに存在します")
+        # Create temp column to check length
         if isinstance(column, Column):
-            self.columns[name] = column
+            temp_col = column
         else:
-            self.columns[name] = Column(None, name, None, column)
-        self.harmonize_length()
+            temp_col = Column(None, name, None, column)
+            
+        if len(temp_col) != len(self.step):
+             raise ValueError(
+                f"Column '{name}' length ({len(temp_col)}) does not match Step length ({len(self.step)})"
+             )
+
+        self.columns[name] = temp_col
+        # self.harmonize_length() # No longer needed as we check before add
         return self
 
     def remove_column(self, name: str) -> "ColumnCollection":

@@ -4,6 +4,7 @@ import numpy as np
 
 from ...core.collection import ColumnCollection
 from ...core.column import NumberColumn, Column
+from ...core.step import Step
 from ..registry import register_functional
 from ...functional import interpolate as functional_interpolate
 
@@ -54,26 +55,51 @@ def _interpolate_impl(
     raw_data = {}
     numeric_keys = []
     
-    if columns is None:
-        # Default: All valid NumberColumns are numeric candidates
-        for name, col in collection.columns.items():
-            raw_data[name] = np.array(col.values)
-            if isinstance(col, NumberColumn) and col.count_nones() == 0:
-                numeric_keys.append(name)
-    else:
-        # User specified columns
-        for name in columns:
-            if name not in collection.columns:
-                raise KeyError(f"列 '{name}' が存在しません")
-            col = collection[name]
-            if not isinstance(col, NumberColumn):
-                raise TypeError(f"列 '{name}' は数値型ではありません")
-            if col.count_nones() > 0:
-                raise ValueError(f"列 '{name}' にNone値が含まれています")
+    # User specified columns act as "force linear/numeric interpolation"
+    # All other columns are interpolated as well, but method depends on type/specification.
+    
+    if columns is not None:
+        for col_name in columns:
+            if col_name not in collection.columns:
+                raise KeyError(f"列 '{col_name}' が存在しません")
+    
+    # Strategy:
+    # 1. Collect all columns.
+    # 2. Identify numeric columns (Linear) vs Other (Nearest).
+    # 3. If user specified `columns`, those MUST be numeric/linear.
+    # 4. If user DID NOT specify `columns`, auto-detect all numeric columns for linear, others nearest.
+    
+    for name, col in collection.columns.items():
+        raw_data[name] = np.array(col.values)
+        
+        # Check if this column should be treated as numeric (linear interp)
+        is_linear_candidate = False
+        
+        if columns is not None:
+            # User specified list
+            if name in columns:
+                if not isinstance(col, NumberColumn):
+                     raise TypeError(f"列 '{name}' は数値型ではありません")
+                if col.count_nones() > 0:
+                     raise ValueError(f"列 '{name}' にNone値が含まれています")
+                is_linear_candidate = True
+            else:
+                # Not in user list -> Nearest Neighbor (even if numeric)
+                is_linear_candidate = False
+        else:
+            # Auto-detect
+            # Check if Column is NumberColumn OR if the underlying data is numeric
+            is_numeric_type = False
+            if isinstance(col, NumberColumn):
+                is_numeric_type = True
+            elif np.issubdtype(col.values.dtype, np.number):
+                is_numeric_type = True
+                
+            if is_numeric_type and col.count_nones() == 0:
+                is_linear_candidate = True
+        
+        if is_linear_candidate:
             numeric_keys.append(name)
-            
-        for name, col in collection.columns.items():
-            raw_data[name] = np.array(col.values)
 
     target_numeric, target_other = functional_interpolate.partition_data(
         raw_data, numeric_keys
@@ -103,7 +129,10 @@ def _interpolate_impl(
     meta_keys = ["date", "time"]
     for k in meta_keys:
         if k in collection.metadata and collection.metadata[k]:
-            meta_to_resample[k] = np.array(collection.metadata[k])
+            meta_val = collection.metadata[k]
+            # Ensure length matches step
+            if len(meta_val) == len(collection.step):
+                 meta_to_resample[k] = np.array(meta_val)
             
     # Combine meta into other_data for processing (using prefix to avoid collision)
     for k, v in meta_to_resample.items():
@@ -132,27 +161,34 @@ def _interpolate_impl(
 
     # Base column injection (if not step)
     if not step_is_base and base_column_name in collection.columns:
-        # Override with exact new_axis values
-        # If base_column was in calculation, it's in resampled_all.
-        # But we want to ensure it matches new_axis exactly.
-        # But wait, if we interpolated it, it should be close.
-        # Let's trust pure new_axis for precision.
         resampled_all[base_column_name] = new_axis
-
-    # Build Columns
-    for name, vals in resampled_all.items():
-        if name in collection.columns:
-            orig_col = collection[name]
-            new_col = orig_col.clone()
-            new_col.values = vals.tolist()
+        
+    # Create Columns
+    # Need to preserve original column types regarding name, unit, ch
+    for name in raw_data.keys():
+        if name in resampled_all:
+            # Get original column to copy attributes
+            orig_col = collection.columns[name]
+            new_vals = resampled_all[name]
+            
+            # Since we interpolated, values might be float even if original was int?
+            # functional_interpolate handles this?
+            # NumberColumn handles types.
+            
+            new_col = orig_col.__class__(
+                orig_col.ch, orig_col.name, orig_col.unit, new_vals
+            )
             new_cols[name] = new_col
             
-    result = collection.clone()
-    result.step = result.step.__class__(values=final_step_values)
-    result.columns = new_cols
-    result.metadata = new_metadata
-    
-    return result
+    # Construct new collection
+    # This ensures step and columns are consistent from the start
+    return collection.__class__(
+        step=Step(final_step_values),
+        columns=new_cols,
+        metadata=new_metadata
+    )
+
+
 
 
 interpolate = register_functional(
