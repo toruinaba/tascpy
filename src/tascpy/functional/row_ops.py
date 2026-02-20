@@ -12,9 +12,14 @@ def filter_by_row_condition(
     data: Dict[str, Union[np.ndarray, list]], 
     condition: Callable[[Dict[str, Any]], bool]
 ) -> List[int]:
-    """
-    Return indices where row satisfies condition.
-    Optimization: condition function receives a dict of row values.
+    """行ごとの条件に基づいてインデックスをフィルタリングします。
+
+    Args:
+        data (Dict[str, Union[np.ndarray, list]]): カラム名をキーとするデータ辞書。
+        condition (Callable[[Dict[str, Any]], bool]): 行データ（辞書）を受け取り、boolを返す関数。
+
+    Returns:
+        List[int]: 条件を満たす行のインデックスリスト。
     """
     if not data:
         return []
@@ -54,17 +59,21 @@ def duplicated_indices(
     mode: str = "consecutive",
     dup_type: str = "all"
 ) -> List[int]:
-    """
-    Return indices to KEEP after removing duplicates.
-    
+    """重複を除去した後の保持すべきインデックスを返します。
+
     Args:
-        data: Dict of columns
-        mode: 
-            'consecutive': Remove if previous row is identical (keep first).
-            'all': Not implemented yet, reserved for unique rows.
-        dup_type:
-            'all': Remove row if ALL columns match previous row value (standard).
-            'any': Remove row if ANY column matches previous row value (strict).
+        data (Dict[str, Union[np.ndarray, list]]): カラム名をキーとするデータ辞書。
+        mode (str, optional): 重複判定モード。'consecutive'（連続する重複のみ）または 'all'（全行での重複、未実装）。デフォルトは "consecutive"。
+        dup_type (str, optional): 重複判定の厳密さ。
+            'all': すべてのカラムが一致する場合に重複とみなす（標準）。
+            'any': いずれかのカラムが一致する場合に重複とみなす（厳密、またはテスト用）。デフォルトは "all"。
+
+    Returns:
+        List[int]: 保持すべき行のインデックスリスト。
+
+    Raises:
+        ValueError: dup_type が 'all' または 'any' 以外の場合。
+        NotImplementedError: mode が 'consecutive' 以外の場合。
     """
     if not data:
         return []
@@ -124,20 +133,19 @@ def filter_valid_rows(
     data: Dict[str, Union[np.ndarray, list]],
     mode: str = "any"
 ) -> List[bool]:
-    """
-    Return boolean mask for valid rows (no None/NaN).
-    mode='any': Keep row if ALL columns are valid. (Wait, logic check below)
-    mode='all': Keep row if ANY column is valid. 
-    
-    Standard 'dropna' logic:
-    any: if any value is NA, drop row. (So keep if ALL valid)
-    all: if all values are NA, drop row. (So keep if ANY valid)
-    
-    The original implementation said:
-    mode='any': keep if all valid (drop if any invalid?) 
-      -> "mode='any': ひとつでも無効なら除外" (If any invalid, exclude -> dropna(how='any'))
-    mode='all': keep if any valid (drop if all invalid)
-      -> "mode='all': すべて無効なら除外" (If all invalid, exclude -> dropna(how='all'))
+    """有効な行（欠損値を含まない行）を判定するマスクを返します。
+
+    Args:
+        data (Dict[str, Union[np.ndarray, list]]): カラム名をキーとするデータ辞書。
+        mode (str, optional): 欠損値の扱い。
+            'any': 少なくとも1つのカラムが欠損している行を除外（すべて有効な場合に保持）。
+            'all': すべてのカラムが欠損している行を除外（少なくとも1つ有効なら保持）。デフォルトは "any"。
+
+    Returns:
+        List[bool]: 有効な行に対応するブール値リスト。
+
+    Raises:
+        ValueError: モードが 'any' または 'all' 以外の場合。
     """
     if mode not in ["any", "all"]:
         raise ValueError("モードは'any'または'all'のいずれかである必要があります")

@@ -9,8 +9,13 @@ from . import predicates
 
 
 def where(mask: Union[np.ndarray, list]) -> List[int]:
-    """
-    Return indices where mask is True.
+    """ブール値マスクに基づいてTrueの要素のインデックスを返します。
+
+    Args:
+        mask (Union[np.ndarray, list]): ブール値の配列またはリスト。
+
+    Returns:
+        List[int]: Trueの要素のインデックスリスト。
     """
     if isinstance(mask, list):
          mask = np.array(mask)
@@ -19,9 +24,17 @@ def where(mask: Union[np.ndarray, list]) -> List[int]:
 
 
 def top_n(values: Union[np.ndarray, list], n: int, descending: bool = True) -> List[int]:
-    """
-    Return indices of top N values.
-    Handles NaN by excluding them.
+    """上位N個の値のインデックスを返します。
+
+    NaNは除外されます。結果のインデックスは昇順にソートされて返されます。
+
+    Args:
+        values (Union[np.ndarray, list]): 値の配列。
+        n (int): 取得する要素数。
+        descending (bool, optional): 降順（大きい順）に選択するかどうか。Falseの場合は昇順（小さい順）。デフォルトは True。
+
+    Returns:
+        List[int]: 選択された要素のインデックスリスト（昇順ソート済み）。
     """
     vals = np.array(values) if isinstance(values, list) else values
     
@@ -66,9 +79,20 @@ def nearest_index(
     target: float, 
     tolerance: Optional[float] = None
 ) -> Optional[int]:
-    """
-    Return index of value nearest to target.
-    If tolerance is provided, returns None if min diff > tolerance.
+    """指定されたターゲット値に最も近い値のインデックスを返します。
+
+    許容誤差が指定されている場合、最小差分が許容誤差を超える場合はNoneを返します。
+
+    Args:
+        values (Union[np.ndarray, list]): 検索対象の数値配列。
+        target (float): ターゲット値。
+        tolerance (float, optional): 許容誤差。デフォルトは None。
+
+    Returns:
+        Optional[int]: 最も近い値のインデックス。見つからない場合や条件を満たさない場合は None。
+
+    Raises:
+        TypeError: values が数値型でない場合。
     """
     vals = np.array(values) if isinstance(values, list) else values
     
@@ -94,8 +118,15 @@ def nearest_index(
 
 
 def search(values: Union[np.ndarray, list], op_str: str, value: Any) -> List[int]:
-    """
-    Return indices where values satisfy the operator condition.
+    """演算子条件を満たす値のインデックスを返します。
+
+    Args:
+        values (Union[np.ndarray, list]): 判定対象の値の配列。
+        op_str (str): 比較演算子 ('>', '<', '>=', '<=', '==', '!=')。
+        value (Any): 比較するターゲット値。
+
+    Returns:
+        List[int]: 条件を満たす要素のインデックスリスト。
     """
     mask = predicates.compare(values, op_str, value)
     return where(mask)
@@ -107,8 +138,16 @@ def search_range(
     max_value: Any, 
     inclusive: bool = True
 ) -> List[int]:
-    """
-    Return indices where values are within range.
+    """指定された範囲内の値のインデックスを返します。
+
+    Args:
+        values (Union[np.ndarray, list]): 判定対象の値の配列。
+        min_value (Any): 範囲の下限。
+        max_value (Any): 範囲の上限。
+        inclusive (bool, optional): 端点を含めるかどうか。Trueの場合は [min, max]、Falseの場合は (min, max)。デフォルトは True。
+
+    Returns:
+        List[int]: 範囲内の要素のインデックスリスト。
     """
     mask = predicates.in_range(values, min_value, max_value, inclusive)
     return where(mask)
@@ -122,9 +161,18 @@ def search_step_range(
     tolerance: Optional[float] = None,
     by_step_value: bool = True
 ) -> List[int]:
-    """
-    Return indices where steps are within range, with optional tolerance.
-    If by_step_value is False, searches within indices matching the step length.
+    """ステップ値が指定された範囲内にあるインデックスを返します。
+
+    Args:
+        steps (Union[np.ndarray, list]): ステップ値の配列。
+        min (float): 範囲の下限。
+        max (float): 範囲の上限。
+        inclusive (bool, optional): 端点を含めるかどうか。デフォルトは True。
+        tolerance (float, optional): 許容誤差。デフォルトは None。
+        by_step_value (bool, optional): ステップ値に基づいて検索するかどうか。Falseの場合はインデックス自体を対象とします。デフォルトは True。
+
+    Returns:
+        List[int]: 条件を満たすステップのインデックスリスト。
     """
     arr = np.array(steps) if isinstance(steps, list) else steps
     

@@ -11,9 +11,20 @@ def remove_outliers_mask(
     min_abs_value: float = 1e-10,
     scale_factor: float = 1.0,
 ) -> List[bool]:
-    """
-    Generate mask to remove outliers.
-    Returns True for kept values (non-outliers), False for outliers.
+    """外れ値を除去するためのマスクを生成します。
+
+    外れ値ではない値に対して True、外れ値に対して False を返します。
+
+    Args:
+        vals (Any): 入力値（リストまたは配列）。
+        window_size (int, optional): 移動平均のウィンドウサイズ。デフォルトは 3。
+        threshold (float, optional): 外れ値判定の閾値。割合による変動がこの閾値を超えると外れ値とみなされます。デフォルトは 0.5。
+        edge_handling (str, optional): 境界処理の方法 ('asymmetric' など)。デフォルトは "asymmetric"。
+        min_abs_value (float, optional): ゼロ除算を防ぐための最小絶対値。デフォルトは 1e-10。
+        scale_factor (float, optional): 閾値をスケーリングする係数。デフォルトは 1.0。
+
+    Returns:
+        List[bool]: 保持すべき値（非外れ値）のブール値リスト。
     """
     flags = functional_stats.detect_outliers(
         vals,
@@ -32,9 +43,14 @@ def remove_outliers_mask(
 def filter_by_condition(
     vals: Any, condition: callable
 ) -> List[bool]:
-    """
-    Filter values by condition.
-    Returns boolean mask (True to keep).
+    """条件に基づいて値をフィルタリングするためのマスクを生成します。
+
+    Args:
+        vals (Any): 入力値（リストまたは配列）。
+        condition (callable): 値を引数に取り、保持すべき場合に True を返す関数。
+
+    Returns:
+        List[bool]: 保持すべき値のブール値リスト。
     """
     # vals is numpy array or list
     return [condition(val) for val in vals]
@@ -44,9 +60,17 @@ def remove_steps_mask(
     steps: List[Any], 
     tolerance: Optional[float] = None
 ) -> List[bool]:
-    """
-    Generate mask to remove specific steps.
-    Returns True for kept steps.
+    """特定のステップを除去するためのマスクを生成します。
+
+    指定されたステップに含まれない値に対して True を返します。
+
+    Args:
+        step_values (Union[List[Any], np.ndarray]): 入力のステップ値リスト。
+        steps (List[Any]): 除去するステップのリスト。
+        tolerance (float, optional): ステップ一致判定の許容誤差。デフォルトは None（完全一致）。
+
+    Returns:
+        List[bool]: 保持すべきステップ（除去対象でない）のブール値リスト。
     """
     current_steps = step_values if isinstance(step_values, (list, np.ndarray)) else np.array(step_values)
     steps_to_remove = set(steps)
@@ -80,5 +104,5 @@ def remove_steps_mask(
                 except Exception:
                     # In case of type error in subtraction
                     mask.append(True) # Keep?
-
+            
     return mask

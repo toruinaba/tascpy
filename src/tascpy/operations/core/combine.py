@@ -142,39 +142,14 @@ conditional_select = register_functional(
 )
 
 
-def _custom_combine_naming(operation_name, v1, v2, combine_func, func_name_arg=None, **kwargs):
-    """custom_combine用の命名ロジック"""
-    # func_name in arguments handles the `func_name` keyword argument of custom_combine
-    # (inject_columns passes args/kwargs to inner func, and store_result calls inner func)
-    # But store_result uses this naming strategy *before* calling inner func?
-    # No, store_result calls inner func, gets data, THEN does naming.
-    # So `args` and `kwargs` passed to naming strategy are ORIGINAL args/kwargs passed to wrapper.
-    # Wrapper call: custom_combine(collection, "col1", "col2", combine_func=..., func_name="my_add")
-    # args: ("col1", "col2"). kwargs: {combine_func:..., func_name:...}
-    
-    if func_name_arg:
-        return func_name_arg
-    # Check kwargs for func_name if passed as kwarg
-    if "func_name" in kwargs and kwargs["func_name"]:
-        return kwargs["func_name"]
-        
-    if hasattr(combine_func, "__name__") and combine_func.__name__ != "<lambda>":
-        return combine_func.__name__
-        
-    # Check if combine_func is in kwargs
-    if "combine_func" in kwargs:
-         cf = kwargs["combine_func"]
-         if hasattr(cf, "__name__") and cf.__name__ != "<lambda>":
-             return cf.__name__
-
-    return "custom_combine_result"
+from ..naming import callable_naming
 
 
 custom_combine = register_functional(
     functional_combine.custom_combine,
     domain="core",
     name="custom_combine",
-    store_result={"result_naming": _custom_combine_naming},
+    store_result={"result_naming": callable_naming(callable_arg="combine_func", name_arg="func_name", default="custom_combine_result")},
     inject_columns={"num_inputs": 2, "cast_to_numpy": True},
     signature_override={
         "v1": ("v1", Any),

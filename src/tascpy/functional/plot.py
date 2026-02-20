@@ -13,7 +13,20 @@ def plot(
     ax: Optional[plt.Axes] = None,
     **kwargs,
 ) -> plt.Axes:
-    """基本プロット関数 (Functional wrapper)"""
+    """基本プロットを行います (Functional wrapper)。
+
+    Args:
+        x_values (np.ndarray): x軸のデータ配列。
+        y_values (np.ndarray): y軸のデータ配列。
+        x_label (str): x軸のラベル。
+        y_label (str): y軸のラベル。
+        title (str): グラフのタイトル。
+        ax (Optional[plt.Axes], optional): 描画先のMatplotlib Axesオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
+        **kwargs: その他のプロットオプション（color, marker, linestyleなど）。
+
+    Returns:
+        plt.Axes: 描画に使用されたAxesオブジェクト。
+    """
     return backend_mpl.plot(
         x_values=x_values,
         y_values=y_values,
@@ -45,7 +58,32 @@ def visualize_outliers(
     scale_factor: float = 1.0,
     **kwargs
 ) -> plt.Axes:
-    """異常値を可視化する (Functional implementation)"""
+    """異常値を検出し可視化します (Functional implementation)。
+
+    Args:
+        x_values (Any): x軸のデータ配列。
+        y_values (Any): y軸のデータ配列。
+        x_label (str): x軸のラベル。
+        y_label (str): y軸のラベル。
+        title (str): グラフのタイトル。
+        window_size (int, optional): 外れ値検出のウィンドウサイズ。デフォルトは 3。
+        threshold (float, optional): 外れ値検出の閾値。デフォルトは 0.5。
+        highlight_color (str, optional): 異常値のハイライト色。デフォルトは "red"。
+        plot_type (str, optional): プロットタイプ ('scatter', 'line' など)。デフォルトは "scatter"。
+        show_normal (bool, optional): 正常値を描画するかどうか。デフォルトは True。
+        normal_color (str, optional): 正常値の色。デフォルトは "blue"。
+        normal_alpha (float, optional): 正常値の透明度。デフォルトは 0.5。
+        outlier_marker (str, optional): 異常値のマーカー形状。デフォルトは "o"。
+        outlier_size (int, optional): 異常値のマーカーサイズ。デフォルトは 50。
+        ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
+        edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
+        min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
+        scale_factor (float, optional): 閾値のスケーリング係数。デフォルトは 1.0。
+        **kwargs: その他のプロットオプション。
+
+    Returns:
+        plt.Axes: 描画に使用されたAxesオブジェクト。
+    """
     # 1. Detect Outliers
     flags = functional_stats.detect_outliers(
         y_values,
@@ -141,7 +179,22 @@ def iplot(
     fig: Optional[Any] = None,
     **kwargs,
 ) -> Any:
-    """インタラクティブなグラフを描画します (Functional wrapper)"""
+    """インタラクティブなグラフを描画します (Functional wrapper)。
+
+    Plotlyを使用してインタラクティブなプロットを作成します。
+
+    Args:
+        x_values (np.ndarray): x軸のデータ配列。
+        y_values (np.ndarray): y軸のデータ配列。
+        x_label (str): x軸のラベル。
+        y_label (str): y軸のラベル。
+        title (str): グラフのタイトル。
+        fig (Optional[Any], optional): 既存のPlotly Figureオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
+        **kwargs: その他のプロットオプション (name, color, symbol, sizeなど)。
+
+    Returns:
+        Any: PlotlyのFigureオブジェクト。
+    """
     from ..visualization import backend_plotly
     
     # y_label format is "Name [Unit]" or "Name".
@@ -165,7 +218,18 @@ def plot_const_x(
     ax: Optional[plt.Axes] = None,
     **kwargs
 ) -> plt.Axes:
-    """特定のx値に対して複数のy列の値をプロットします"""
+    """特定のx値に対して複数のy列の値をプロットします。
+
+    Args:
+        y_data (Dict[str, Any]): プロットするyデータの辞書（キー: 名前, 値: データ列またはスカラー）。
+        x_values (List[float]): x軸の値のリスト（y_dataと同じ長さが必要）。
+        show_legend (bool, optional): 凡例を表示するかどうか。デフォルトは True。
+        ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
+        **kwargs: その他のプロットオプション (x_label, y_label, titleなど)。
+
+    Returns:
+        plt.Axes: 描画に使用されたAxesオブジェクト。
+    """
     x_arr, y_arr = prepare_const_x_data(y_data, x_values)
 
     x_label = kwargs.pop("x_label", "X Parameters")
@@ -187,9 +251,16 @@ def prepare_outlier_data(
     y_values: np.ndarray,
     flags: List[int],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
-    """
-    Split x/y arrays into normal and outlier arrays based on flags.
-    Returns: (x_normal, y_normal, x_outlier, y_outlier, outlier_count)
+    """異常値フラグに基づいてデータを正常値と異常値に分割します。
+
+    Args:
+        x_values (np.ndarray): x軸のデータ配列。
+        y_values (np.ndarray): y軸のデータ配列。
+        flags (List[int]): 異常値フラグのリスト（0: 正常, 1: 異常）。
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]: 
+            (正常値x, 正常値y, 異常値x, 異常値y, 異常値カウント) のタプル。
     """
     flags_arr = np.array(flags)
     x_arr = np.array(x_values)
@@ -211,9 +282,17 @@ def prepare_const_x_data(
     y_data: Dict[str, Any],
     x_values: List[float],
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Extract scalar values from y_data columns and pair with x_values.
-    Returns: (x_arr, y_arr)
+    """yデータ列から最初の値を抽出し、x値とペアにします。
+
+    Args:
+        y_data (Dict[str, Any]): yデータの辞書。
+        x_values (List[float]): x値のリスト。
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: (x配列, y配列) のタプル。
+
+    Raises:
+        ValueError: x_valuesの長さとy_dataの長さが一致しない場合。
     """
     if len(x_values) != len(y_data):
         raise ValueError(f"x_valuesの長さ({len(x_values)})とy_columnsの長さ({len(y_data)})が一致しません")

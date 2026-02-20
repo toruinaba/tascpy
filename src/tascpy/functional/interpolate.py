@@ -8,9 +8,21 @@ def interpolate_core(
     new_axis: np.ndarray,
     method: str = "linear"
 ) -> Dict[str, np.ndarray]:
-    """
-    Pure function for interpolation.
-    resamples numeric_data and other_data based on base_values to new_axis.
+    """補間処理のコア関数です。
+
+    基準となる値 (base_values) に基づいて、数値データ (numeric_data) とその他のデータ (other_data) を
+    新しい軸 (new_axis) にリサンプリングします。
+    数値データは線形補間（外挿あり）、その他のデータは最近傍補間を使用します。
+
+    Args:
+        base_values (np.ndarray): 元の基準値の配列（x軸など）。
+        numeric_data (Dict[str, np.ndarray]): リサンプリング対象の数値データ辞書。
+        other_data (Dict[str, np.ndarray]): リサンプリング対象の非数値データ辞書。
+        new_axis (np.ndarray): 新しい基準値の配列。
+        method (str, optional): 補間方法。現在は "linear" のみが有効です。
+
+    Returns:
+        Dict[str, np.ndarray]: リサンプリングされたすべてのデータを含む辞書。
     """
     
     resampled_data = {}
@@ -98,8 +110,18 @@ def calculate_new_axis(
     x_values: Optional[list] = None,
     point_count: Optional[int] = None
 ) -> np.ndarray:
-    """
-    Calculate the new axis for interpolation.
+    """補間用の新しい軸を計算します。
+
+    Args:
+        base_values (np.ndarray): 現在の基準値配列。
+        x_values (list, optional): 新しい軸の値のリスト。
+        point_count (int, optional): 生成する点の数（等間隔）。
+
+    Returns:
+        np.ndarray: 計算された新しい軸の配列。
+
+    Raises:
+        ValueError: x_values と point_count の両方が指定されていない場合、または両方が指定されている場合。
     """
     if x_values is None and point_count is None:
         raise ValueError("x_valuesまたはpoint_countのいずれかを指定してください")
@@ -121,9 +143,15 @@ def partition_data(
     data: Dict[str, np.ndarray],
     numeric_keys: Optional[list] = None
 ) -> tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-    """
-    Partition data into numeric (for linear interp) and other (for nearest neighbor).
-    If numeric_keys is None, it attempts to detect numeric types.
+    """データを数値データとその他のデータに分割します。
+
+    Args:
+        data (Dict[str, np.ndarray]): 分割対象のデータ辞書。
+        numeric_keys (list, optional): 数値として扱うキーのリスト。Noneの場合は自動判定を試みます。
+
+    Returns:
+        tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]: 
+            (数値データ辞書, その他のデータ辞書) のタプル。
     """
     numeric_data = {}
     other_data = {}

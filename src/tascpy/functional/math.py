@@ -8,9 +8,21 @@ def evaluate_expression(
     data: Dict[str, Union[np.ndarray, List[Any]]],
     expression: str,
 ) -> List[Optional[float]]:
-    """
-    Evaluate a mathematical expression using columns in data.
-    Returns a list of values (with None for invalid/missing/error).
+    """データ列を使用して数式を評価します。
+
+    NumPyによるベクトル化評価を試み、失敗した場合はPythonのeval関数による行ごとの評価にフォールバックします。
+    安全のため、使用できる関数や操作は制限されています。
+
+    Args:
+        data (Dict[str, Union[np.ndarray, List[Any]]]): 評価に使用するデータの辞書（キー: カラム名, 値: データ列）。
+        expression (str): 評価する数式文字列（例: "col1 + col2 * 2"）。
+
+    Returns:
+        List[Optional[float]]: 計算結果のリスト（無効値やエラーはNone）。
+
+    Raises:
+        ValueError: 式の構文エラー、安全でない操作、未定義の関数使用、または評価中のエラーが発生した場合。
+        KeyError: 式に含まれるカラム名がデータに存在しない場合。
     """
     # ASTを使用して式の構文検証
     try:
@@ -224,6 +236,6 @@ def evaluate_expression(
                      result_values.append(None)
             
             return result_values
-
+        
         except Exception as e:
              raise ValueError(f"式の評価中にエラーが発生しました: {str(e)}")

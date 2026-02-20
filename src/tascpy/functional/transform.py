@@ -3,29 +3,70 @@ import numpy as np
 import math
 
 def sin(values: np.ndarray, degrees: bool = False) -> np.ndarray:
-    """Calculate sine of values."""
+    """正弦(sin)を計算します。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+        degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     if degrees:
         values = np.radians(values)
     return np.sin(values)
 
 def cos(values: np.ndarray, degrees: bool = False) -> np.ndarray:
-    """Calculate cosine of values."""
+    """余弦(cos)を計算します。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+        degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     if degrees:
         values = np.radians(values)
     return np.cos(values)
 
 def tan(values: np.ndarray, degrees: bool = False) -> np.ndarray:
-    """Calculate tangent of values."""
+    """正接(tan)を計算します。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+        degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     if degrees:
         values = np.radians(values)
     return np.tan(values)
 
 def exp(values: np.ndarray) -> np.ndarray:
-    """Calculate exponential of values."""
+    """指数関数(exp)を計算します。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     return np.exp(values)
 
 def log(values: np.ndarray, base: float = math.e) -> np.ndarray:
-    """Calculate logarithm of values."""
+    """対数(log)を計算します。
+
+    0以下の値はNaNになります。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+        base (float, optional): 対数の底。デフォルトは e（自然対数）。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     # Ensure values are float
     values = values.astype(float)
     
@@ -46,25 +87,70 @@ def log(values: np.ndarray, base: float = math.e) -> np.ndarray:
     return res_arr
 
 def sqrt(values: np.ndarray) -> np.ndarray:
-    """Calculate square root of values."""
+    """平方根(sqrt)を計算します。
+
+    負の値はNaNになります。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     with np.errstate(invalid='ignore'):
          return np.sqrt(values)
 
 def power(values: np.ndarray, exponent: float) -> np.ndarray:
-    """Calculate power of values."""
+    """累乗(power)を計算します。
+
+    Args:
+        values (np.ndarray): 基数の配列。
+        exponent (float): 指数。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     with np.errstate(invalid='ignore'):
         return np.power(values, exponent)
 
 def abs_values(values: np.ndarray) -> np.ndarray:
-    """Calculate absolute values."""
+    """絶対値(absolute value)を計算します。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     return np.abs(values)
 
 def round_values(values: np.ndarray, decimals: int = 0) -> np.ndarray:
-    """Round values to specified decimals."""
+    """値を指定された桁数で丸めます。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+        decimals (int, optional): 丸める小数点以下の桁数。デフォルトは 0。
+
+    Returns:
+        np.ndarray: 計算結果の配列。
+    """
     return np.round(values, decimals)
 
 def normalize(values: np.ndarray, method: str = "minmax") -> np.ndarray:
-    """Normalize values using specified method."""
+    """値を正規化します。
+
+    Args:
+        values (np.ndarray): 入力値の配列。
+        method (str, optional): 正規化方法。
+            'minmax': 最小値を0、最大値を1にスケーリング。
+            'zscore': 平均を0、標準偏差を1に標準化。デフォルトは "minmax"。
+
+    Returns:
+        np.ndarray: 正規化された配列。
+
+    Raises:
+        ValueError: 指定されたメソッドが無効な場合。
+    """
     values = values.astype(float)
     result_arr = np.full(len(values), np.nan)
     

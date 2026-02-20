@@ -5,21 +5,45 @@ def add(
     v1: Union[np.ndarray, float], 
     v2: Union[np.ndarray, float], 
 ) -> np.ndarray:
-    """Add two values or arrays."""
+    """2つの値または配列を加算します。
+
+    Args:
+        v1 (Union[np.ndarray, float]): 最初の値または配列。
+        v2 (Union[np.ndarray, float]): 2番目の値または配列。
+
+    Returns:
+        np.ndarray: 加算結果。
+    """
     return np.add(v1, v2)
 
 def subtract(
     v1: Union[np.ndarray, float], 
     v2: Union[np.ndarray, float], 
 ) -> np.ndarray:
-    """Subtract v2 from v1."""
+    """v1 から v2 を減算します。
+
+    Args:
+        v1 (Union[np.ndarray, float]): 最初の値または配列。
+        v2 (Union[np.ndarray, float]): 引く値または配列。
+
+    Returns:
+        np.ndarray: 減算結果。
+    """
     return np.subtract(v1, v2)
 
 def multiply(
     v1: Union[np.ndarray, float], 
     v2: Union[np.ndarray, float], 
 ) -> np.ndarray:
-    """Multiply two values or arrays."""
+    """2つの値または配列を乗算します。
+
+    Args:
+        v1 (Union[np.ndarray, float]): 最初の値または配列。
+        v2 (Union[np.ndarray, float]): 2番目の値または配列。
+
+    Returns:
+        np.ndarray: 乗算結果。
+    """
     return np.multiply(v1, v2)
 
 def divide(
@@ -27,7 +51,16 @@ def divide(
     v2: Union[np.ndarray, float], 
     **kwargs
 ) -> np.ndarray:
-    """Divide v1 by v2."""
+    """v1 を v2 で除算します。
+
+    Args:
+        v1 (Union[np.ndarray, float]): 分子となる値または配列。
+        v2 (Union[np.ndarray, float]): 分母となる値または配列。
+        **kwargs: 任意の追加引数。
+
+    Returns:
+        np.ndarray: 除算結果。
+    """
     return np.divide(v1, v2)
 
 def diff(
@@ -35,7 +68,19 @@ def diff(
     x: Union[np.ndarray, List[float]], 
     method: str = "central"
 ) -> np.ndarray:
-    """Calculate differential coefficient from x, y coordinates."""
+    """x, y座標から微分係数を計算します。
+
+    Args:
+        y (Union[np.ndarray, List[float]]): y座標の配列。
+        x (Union[np.ndarray, List[float]]): x座標の配列。
+        method (str, optional): 微分方法 ('central', 'forward', 'backward')。デフォルトは "central"。
+
+    Returns:
+        np.ndarray: 計算された微分係数の配列。
+
+    Raises:
+        ValueError: xとyの長さが異なる場合、またはデータ点が2点未満の場合、または無効なメソッドが指定された場合。
+    """
     # Ensure numpy arrays
     y_arr = np.asanyarray(y, dtype=float)
     x_arr = np.asanyarray(x, dtype=float)
@@ -81,7 +126,20 @@ def integrate(
     method: str = "trapezoid",
     initial_value: float = 0.0
 ) -> np.ndarray:
-    """Calculate integral of y with respect to x."""
+    """xに対するyの積分を計算します。
+
+    Args:
+        y (Union[np.ndarray, List[float]]): y座標の配列。
+        x (Union[np.ndarray, List[float]]): x座標の配列。
+        method (str, optional): 積分方法。現在は "trapezoid" (台形則) のみサポート。デフォルトは "trapezoid"。
+        initial_value (float, optional): 積分初期値。デフォルトは 0.0。
+
+    Returns:
+        np.ndarray: 計算された積分の配列（累積和）。
+
+    Raises:
+        ValueError: サポートされていないメソッドが指定された場合、またはxとyの長さが異なる場合。
+    """
     if method != "trapezoid":
         raise ValueError("現在は trapezoid 積分のみサポートしています")
 

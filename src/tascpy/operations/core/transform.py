@@ -6,7 +6,7 @@ from ...core.column import Column, detect_column_type
 from ..registry import operation, register_functional
 from ..abstraction import transform_column
 from ...functional import transform as functional_transform
-from ..naming import basic_naming, format_naming
+from ..naming import basic_naming, format_naming, log_naming
 
 
 # ---------------------------------------------------------
@@ -18,19 +18,6 @@ def _get_col_name(args, kwargs):
     if len(args) > 0:
         return args[0]
     return kwargs.get("column")
-
-def _log_naming(func_name, *args, base=math.e, **kwargs):
-    col = _get_col_name(args, kwargs)
-    # Check if base is passed as positional arg (arg index 1)
-    if len(args) > 1:
-        base = args[1]
-    
-    if base == math.e:
-        return f"log({col})"
-    elif base == 10:
-        return f"log10({col})"
-    else:
-        return f"log{base}({col})"
 
 
 # ---------------------------------------------------------
@@ -79,7 +66,7 @@ log = register_functional(
     functional_transform.log,
     domain="core",
     name="log",
-    transform_column={"num_inputs": 1, "result_naming": _log_naming},
+    transform_column={"num_inputs": 1, "result_naming": log_naming},
     signature_override={"values": ("values", np.ndarray), "base": (float, math.e)}
 )
 

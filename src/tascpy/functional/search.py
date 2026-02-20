@@ -7,8 +7,14 @@ def search_by_condition(
     data: Dict[str, Any], 
     condition_func: Callable[[Dict[str, Any]], bool]
 ) -> List[int]:
-    """
-    Find indices where condition_func(row_dict) is True.
+    """条件関数を満たす行のインデックスを検索します。
+
+    Args:
+        data (Dict[str, Any]): カラム名をキーとするデータ辞書。
+        condition_func (Callable[[Dict[str, Any]], bool]): 行データ（辞書）を受け取り、boolを返す関数。
+
+    Returns:
+        List[int]: 条件を満たす行のインデックスリスト。
     """
     if not data:
         return []
@@ -40,8 +46,13 @@ def search_by_condition(
     return indices
 
 def search_missing_values(data: Dict[str, Any]) -> List[int]:
-    """
-    Find indices of rows with any missing values.
+    """欠損値を含む行のインデックスを検索します。
+
+    Args:
+        data (Dict[str, Any]): カラム名をキーとするデータ辞書。
+
+    Returns:
+        List[int]: いずれかのカラムに欠損値を含む行のインデックスリスト。
     """
     # Keep rows where ALL columns are valid (valid_mask is True)
     # So rows with missing values are where valid_mask is False

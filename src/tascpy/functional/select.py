@@ -10,9 +10,22 @@ def select_indices(
     by_step_value: bool = True,
     tolerance: Optional[float] = None,
 ) -> Tuple[List[int], Dict[str, Any]]:
-    """
-    Select indices based on steps or direct indices.
-    Returns: (final_indices, metadata_update)
+    """指定されたステップまたはインデックスに基づいてデータを選択するためのインデックスを計算します。
+
+    Args:
+        step_values (Union[List[Union[int, float]], np.ndarray]): ステップ値のリストまたは配列。
+        columns (Optional[List[str]], optional): 選択するカラム名のリスト（未使用、互換性のため維持）。デフォルトは None。
+        indices (Optional[List[int]], optional): 直接指定するインデックスのリスト。デフォルトは None。
+        steps (Optional[List[Union[int, float]]], optional): 選択するステップ値またはインデックスのリスト。デフォルトは None。
+        by_step_value (bool, optional): `steps` をステップ値として扱うかどうか。Falseの場合はインデックスとして扱います。デフォルトは True。
+        tolerance (float, optional): ステップ値一致判定の許容誤差。指定された場合、許容誤差内の最も近い値を選択します。デフォルトは None。
+
+    Returns:
+        Tuple[List[int], Dict[str, Any]]: 
+            (選択されたインデックスのリスト, 実行結果のメタデータ辞書) のタプル。
+
+    Raises:
+        ValueError: indices と steps の両方が指定された場合。
     """
     # indicesとstepsの両方が指定された場合はエラー
     if indices is not None and steps is not None:
@@ -108,9 +121,19 @@ def select_indices(
 def fetch_near_step(
     values: np.ndarray, value: float, **kwargs
 ) -> List[int]:
-    """
-    Find index of nearest value.
-    Returns list containing single index.
+    """指定された値に最も近い要素のインデックスを検索します。
+
+    Args:
+        values (np.ndarray): 検索対象の数値配列。
+        value (float): ターゲット値。
+        **kwargs: その他のオプション（未使用）。
+
+    Returns:
+        List[int]: 最も近い値のインデックスを含むリスト（要素数1）。
+
+    Raises:
+        TypeError: values が数値型でない場合。
+        ValueError: 有効なデータが見つからない場合（全てNaNなど）。
     """
     # 数値型変換とチェック
     # Handle list input if necessary (though type hint says ndarray)

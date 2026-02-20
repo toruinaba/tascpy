@@ -9,16 +9,31 @@ import operator
 
 
 def _to_array(values: Any) -> np.ndarray:
-    """Helper to ensure input is numpy array"""
+    """入力値をNumPy配列に変換するヘルパー関数。
+
+    Args:
+        values (Any): 変換する値（リスト、配列、スカラーなど）。
+
+    Returns:
+        np.ndarray: 変換されたNumPy配列。
+    """
     if isinstance(values, np.ndarray):
         return values
     return np.array(values)
 
 
 def eq(values: Union[np.ndarray, list], value: Any, tolerance: Optional[float] = None) -> np.ndarray:
-    """
-    Check if values are equal to target value.
-    Supports tolerance for float comparisons.
+    """値がターゲット値と等しいかどうかを判定します。
+
+    浮動小数点数の比較には許容誤差 (tolerance) を指定できます。
+
+    Args:
+        values (Union[np.ndarray, list]): 判定対象の値の配列。
+        value (Any): 比較するターゲット値。
+        tolerance (float, optional): 許容誤差。指定された場合、`value - tolerance <= x <= value + tolerance` の範囲内であれば等しいとみなされます。
+
+    Returns:
+        np.ndarray: 条件を満たす要素がTrueとなるブール値配列。
     """
     arr = _to_array(values)
     
@@ -33,16 +48,34 @@ def eq(values: Union[np.ndarray, list], value: Any, tolerance: Optional[float] =
 
 
 def neq(values: Union[np.ndarray, list], value: Any, tolerance: Optional[float] = None) -> np.ndarray:
-    """
-    Check if values are NOT equal to target value.
+    """値がターゲット値と等しくないかどうかを判定します。
+
+    `eq` 関数の否定を返します。
+
+    Args:
+        values (Union[np.ndarray, list]): 判定対象の値の配列。
+        value (Any): 比較するターゲット値。
+        tolerance (float, optional): 許容誤差。
+
+    Returns:
+        np.ndarray: 条件を満たす要素がTrueとなるブール値配列。
     """
     return ~eq(values, value, tolerance)
 
 
 def compare(values: Union[np.ndarray, list], op_str: str, value: Any) -> np.ndarray:
-    """
-    Compare values using operator string.
-    Supported: ">", "<", ">=", "<=", "==", "!="
+    """演算子文字列を使用して値を比較します。
+
+    Args:
+        values (Union[np.ndarray, list]): 判定対象の値の配列。
+        op_str (str): 比較演算子 ('>', '<', '>=', '<=', '==', '!=')。
+        value (Any): 比較するターゲット値。
+
+    Returns:
+        np.ndarray: 条件を満たす要素がTrueとなるブール値配列。NaNは除外されます。
+
+    Raises:
+        ValueError: 無効な演算子が指定された場合。
     """
     arr = _to_array(values)
     
@@ -93,8 +126,16 @@ def in_range(
     max_val: Any, 
     inclusive: bool = True
 ) -> np.ndarray:
-    """
-    Check if values are within range [min, max].
+    """値が指定された範囲内にあるかどうかを判定します。
+
+    Args:
+        values (Union[np.ndarray, list]): 判定対象の値の配列。
+        min_val (Any): 範囲の下限。
+        max_val (Any): 範囲の上限。
+        inclusive (bool, optional): 端点を含めるかどうか。Trueの場合は [min, max]、Falseの場合は (min, max)。デフォルトは True。
+
+    Returns:
+        np.ndarray: 条件を満たす要素がTrueとなるブール値配列。NaNは除外されます。
     """
     arr = _to_array(values)
     
@@ -113,8 +154,15 @@ def in_range(
 
 
 def is_valid(values: Union[np.ndarray, list]) -> np.ndarray:
-    """
-    Check for non-missing values (not None, not NaN).
+    """値が有効か（欠損していないか）どうかを判定します。
+
+    NaNやNoneでない場合にTrueを返します。
+
+    Args:
+        values (Union[np.ndarray, list]): 判定対象の値の配列。
+
+    Returns:
+        np.ndarray: 有効な値がTrueとなるブール値配列。
     """
     arr = _to_array(values)
     

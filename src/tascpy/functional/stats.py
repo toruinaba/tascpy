@@ -9,7 +9,19 @@ def moving_average(
     window_size: int = 3,
     edge_handling: str = "asymmetric",
 ) -> Any:
-    """Calculate moving average."""
+    """移動平均を計算します。
+
+    Args:
+        vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
+        window_size (int, optional): ウィンドウサイズ。デフォルトは 3。
+        edge_handling (str, optional): 境界処理の方法 ('symmetric', 'asymmetric')。デフォルトは "asymmetric"。
+
+    Returns:
+        Any: 移動平均処理後の配列（入力の型に依存）。
+
+    Raises:
+        ValueError: 無効なエッジ処理方法、ウィンドウサイズが1未満、またはデータ長より大きい場合。
+    """
     if edge_handling not in ["symmetric", "asymmetric"]:
         raise ValueError(f"無効なエッジ処理方法です: {edge_handling}")
 
@@ -32,7 +44,24 @@ def detect_outliers(
     min_abs_value: float = 1e-10,
     scale_factor: float = 1.0,
 ) -> List[int]:
-    """Detect outliers using moving average."""
+    """移動平均を使用して外れ値を検出します。
+
+    移動平均からの偏差率が閾値を超える場合を外れ値とみなします。
+
+    Args:
+        vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
+        window_size (int, optional): 移動平均のウィンドウサイズ。デフォルトは 3。
+        threshold (float, optional): 外れ値判定の閾値（偏差率）。デフォルトは 0.5。
+        edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
+        min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
+        scale_factor (float, optional): 基準値（標準偏差等）のスケーリング係数。デフォルトは 1.0。
+
+    Returns:
+        List[int]: 外れ値フラグのリスト（0: 正常, 1: 外れ値）。
+
+    Raises:
+        ValueError: 無効な引数、または有効なデータが存在しない場合。
+    """
     if edge_handling not in ["symmetric", "asymmetric"]:
         raise ValueError(f"無効なエッジ処理方法です: {edge_handling}")
 
@@ -66,7 +95,7 @@ def detect_outliers(
     else:
         data_arr = np.array([x if x is not None else np.nan for x in data], dtype=float)
         
-    if isinstance(ma_values, np.ndarray) and np.issubdtype(ma_values.dtype, np.number):
+    if isinstance(ma_values, np.ndarray) and np.issubdtype(ma_values.dtype, np. number):
         ma_arr = ma_values.astype(float)
     else:
         ma_arr = np.array([x if x is not None else np.nan for x in ma_values], dtype=float)
@@ -89,7 +118,21 @@ def gaussian_filter(
     sigma: float = 1.0,
     window_size: Optional[int] = None,
 ) -> Any:
-    """Apply gaussian filter."""
+    """ガウシアンフィルタを適用して平滑化を行います。
+
+    欠損値は無視して畳み込み計算を行います。
+
+    Args:
+        vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
+        sigma (float, optional): ガウス分布の標準偏差。デフォルトは 1.0。
+        window_size (Optional[int], optional): フィルタのウィンドウサイズ。指定しない場合は sigma から自動計算されます。
+
+    Returns:
+        Any: 平滑化後の配列（NumPy配列）。
+
+    Raises:
+        ValueError: ウィンドウサイズが1未満の場合。
+    """
     if window_size is None:
         radius = int(4.0 * sigma + 0.5)
         window_size = 2 * radius + 1
@@ -124,21 +167,56 @@ def gaussian_filter(
 # --- Aggregations ---
 
 def calc_max(vals: Any) -> float:
-    """Get max value."""
+    """最大値を計算します（NaNは無視されます）。
+
+    Args:
+        vals (Any): 入力値の配列またはリスト。
+
+    Returns:
+        float: 最大値。
+    """
     return float(np.nanmax(vals))
 
 def calc_min(vals: Any) -> float:
-    """Get min value."""
+    """最小値を計算します（NaNは無視されます）。
+
+    Args:
+        vals (Any): 入力値の配列またはリスト。
+
+    Returns:
+        float: 最小値。
+    """
     return float(np.nanmin(vals))
 
 def calc_mean(vals: Any) -> float:
-    """Get mean value."""
+    """平均値を計算します（NaNは無視されます）。
+
+    Args:
+        vals (Any): 入力値の配列またはリスト。
+
+    Returns:
+        float: 平均値。
+    """
     return float(np.nanmean(vals))
 
 def calc_std(vals: Any) -> float:
-    """Get standard deviation."""
+    """標準偏差を計算します（NaNは無視されます）。
+
+    Args:
+        vals (Any): 入力値の配列またはリスト。
+
+    Returns:
+        float: 標準偏差。
+    """
     return float(np.nanstd(vals))
 
 def calc_sum(vals: Any) -> float:
-    """Get sum."""
+    """合計値を計算します（NaNは無視されます）。
+
+    Args:
+        vals (Any): 入力値の配列またはリスト。
+
+    Returns:
+        float: 合計値。
+    """
     return float(np.nansum(vals))

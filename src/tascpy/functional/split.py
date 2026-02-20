@@ -5,7 +5,20 @@ def split_by_integers(
     length: int, 
     markers: Union[List[int], np.ndarray],
 ) -> List[np.ndarray]:
-    """Calculate split indices based on integer markers."""
+    """整数マーカーに基づいて分割インデックスを計算します。
+
+    ユニークなマーカー値ごとに、そのマーカーに対応するインデックスの配列をリストとして返します。
+
+    Args:
+        length (int): データの長さ。
+        markers (Union[List[int], np.ndarray]): 各要素に対応する整数マーカーのリストまたは配列。長さは `length` と一致する必要があります。
+
+    Returns:
+        List[np.ndarray]: 各マーカーに対応するインデックス配列のリスト。
+
+    Raises:
+        ValueError: データ長とマーカーリストの長さが一致しない場合。
+    """
     if length != len(markers):
          raise ValueError(
              f"{length}vs{len(markers)}:データリストとマーカーリストの長さは一致する必要があります."
@@ -29,7 +42,18 @@ def split_at_indices(
     length: int,
     indices: Union[int, List[int]],
 ) -> List[slice]:
-    """Calculate split slices based on indices."""
+    """指定されたインデックスで分割するためのスライスを計算します。
+
+    Args:
+        length (int): データの長さ。
+        indices (Union[int, List[int]]): 分割点となるインデックス（またはそのリスト）。
+
+    Returns:
+        List[slice]: 分割された各セグメントを表すスライスのリスト。
+
+    Raises:
+        IndexError: インデックスが範囲外 (0-length) の場合。
+    """
     if isinstance(indices, int):
         indices_list = [indices]
     else:
