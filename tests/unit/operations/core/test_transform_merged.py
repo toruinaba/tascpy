@@ -2,7 +2,7 @@ import pytest
 import math
 import numpy as np
 import builtins # ビルトイン関数をインポート
-from tascpy.operations.core.transform import (
+from tascpy.operations.core.math import (
     sin,
     cos,
     tan,

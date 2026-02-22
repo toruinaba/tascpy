@@ -4,7 +4,7 @@ from ...core.column import Column
 from ...core.step import Step
 from ..registry import operation, register_functional, register_pipeline
 from ..abstraction import inject_columns, filter_rows, inject_step_values
-from ...functional import predicates, row_ops, stats as functional_stats
+from ...functional import predicates, row_ops, selectors, stats as functional_stats
 from ...functional import filters as functional_filters
 import inspect
 import numpy as np
@@ -94,6 +94,89 @@ remove_steps = register_functional(
     inject_step_values={},
     signature_override={
         # step_values injected, steps passed
+    }
+)
+
+
+# ---------------------------------------------------------
+# 検索操作 (search.pyから統合)
+# ---------------------------------------------------------
+
+search_by_value = register_functional(
+    selectors.search,
+    domain="core",
+    name="search_by_value",
+    inject_columns={"num_inputs": 1, "cast_to_numpy": True},
+    signature_override={
+        "values": ("values", Any),
+    }
+)
+
+
+search_by_range = register_functional(
+    selectors.search_range,
+    domain="core",
+    name="search_by_range",
+    inject_columns={"num_inputs": 1, "cast_to_numpy": True},
+    signature_override={
+        "values": ("vals", Any),
+    }
+)
+
+
+def _search_step_metadata(args, kwargs, result):
+    min_val = kwargs.get("min", args[0] if len(args) > 0 else None)
+    max_val = kwargs.get("max", args[1] if len(args) > 1 else None)
+    inclusive = kwargs.get("inclusive", True)
+    by_step_value = kwargs.get("by_step_value", True)
+    
+    return {
+        "operation": "search_by_step_range",
+        "by_step_value": by_step_value,
+        "min": min_val,
+        "max": max_val,
+        "inclusive": inclusive,
+    }
+
+
+search_by_step_range = register_functional(
+    selectors.search_step_range,
+    domain="core",
+    name="search_by_step_range",
+    inject_step_values={"cast_to_numpy": True},
+    inject_metadata=_search_step_metadata,
+)
+
+
+search_by_condition = register_functional(
+    functional_filters.search_by_condition,
+    domain="core",
+    name="search_by_condition",
+    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
+    signature_override={
+        "data": ("columns", Optional[List[str]])
+    }
+)
+
+
+search_missing_values = register_functional(
+    functional_filters.search_missing_values,
+    domain="core",
+    name="search_missing_values",
+    inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
+    signature_override={
+        "data": ("columns", Optional[List[str]])
+    }
+)
+
+
+search_top_n = register_functional(
+    selectors.top_n,
+    domain="core",
+    name="search_top_n",
+    inject_columns={"num_inputs": 1, "cast_to_numpy": True},
+    signature_override={
+        "values": ("vals", Any),
     }
 )
 

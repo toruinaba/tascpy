@@ -4,7 +4,6 @@ import math
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.operations.core import math as tasc_math
-from tascpy.operations.core import transform as tasc_transform
 from tascpy.operations.core import stats as tasc_stats
 from tascpy.utils import data as tasc_data
 
@@ -88,12 +87,12 @@ class TestNumericalRefactoring:
 
     def test_transform_log(self, collection):
         # log(A)
-        res = tasc_transform.log(collection, "A")
+        res = tasc_math.log(collection, "A")
         expected = [math.log(x) for x in range(1, 6)]
         np.testing.assert_allclose(res["log(A)"].values, expected)
         
         # log(C) -> 1.0 (0.0), -1.0 (None), 0.0 (None), None (None), 5.0 (log(5))
-        res2 = tasc_transform.log(collection, "C")
+        res2 = tasc_math.log(collection, "C")
         vals = res2["log(C)"].values
         assert vals[0] == 0.0
         assert np.isnan(vals[1]) # -1.0

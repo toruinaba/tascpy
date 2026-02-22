@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from tascpy.operations.core.search import (
+from tascpy.operations.core.filters import (
     search_by_value,
     search_by_range,
     search_by_step_range,

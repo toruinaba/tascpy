@@ -118,8 +118,17 @@ class CollectionListOperations(Generic[C]):
         value: Any,
         tolerance: Optional[float] = None
     ) -> List[ndarray]:
-        """Check if values are equal to target value.
-Supports tolerance for float comparisons."""
+        """値がターゲット値と等しいかどうかを判定します。
+
+浮動小数点数の比較には許容誤差 (tolerance) を指定できます。
+
+Args:
+    values (Union[np.ndarray, list]): 判定対象の値の配列。
+    value (Any): 比較するターゲット値。
+    tolerance (float, optional): 許容誤差。指定された場合、`value - tolerance <= x <= value + tolerance` の範囲内であれば等しいとみなされます。
+
+Returns:
+    np.ndarray: 条件を満たす要素がTrueとなるブール値配列。"""
         ...
     
 
@@ -127,19 +136,19 @@ Supports tolerance for float comparisons."""
         self,
         mode: str = 'any'
     ) -> List[list[bool]]:
-        """Return boolean mask for valid rows (no None/NaN).
-mode='any': Keep row if ALL columns are valid. (Wait, logic check below)
-mode='all': Keep row if ANY column is valid. 
+        """有効な行（欠損値を含まない行）を判定するマスクを返します。
 
-Standard 'dropna' logic:
-any: if any value is NA, drop row. (So keep if ALL valid)
-all: if all values are NA, drop row. (So keep if ANY valid)
+Args:
+    data (Dict[str, Union[np.ndarray, list]]): カラム名をキーとするデータ辞書。
+    mode (str, optional): 欠損値の扱い。
+        'any': 少なくとも1つのカラムが欠損している行を除外（すべて有効な場合に保持）。
+        'all': すべてのカラムが欠損している行を除外（少なくとも1つ有効なら保持）。デフォルトは "any"。
 
-The original implementation said:
-mode='any': keep if all valid (drop if any invalid?) 
-  -> "mode='any': ひとつでも無効なら除外" (If any invalid, exclude -> dropna(how='any'))
-mode='all': keep if any valid (drop if all invalid)
-  -> "mode='all': すべて無効なら除外" (If all invalid, exclude -> dropna(how='all'))"""
+Returns:
+    List[bool]: 有効な行に対応するブール値リスト。
+
+Raises:
+    ValueError: モードが 'any' または 'all' 以外の場合。"""
         ...
     
 
@@ -148,16 +157,21 @@ mode='all': keep if any valid (drop if all invalid)
         mode: str = 'consecutive',
         dup_type: str = 'all'
     ) -> List[list[int]]:
-        """Return indices to KEEP after removing duplicates.
+        """重複を除去した後の保持すべきインデックスを返します。
 
 Args:
-    data: Dict of columns
-    mode: 
-        'consecutive': Remove if previous row is identical (keep first).
-        'all': Not implemented yet, reserved for unique rows.
-    dup_type:
-        'all': Remove row if ALL columns match previous row value (standard).
-        'any': Remove row if ANY column matches previous row value (strict)."""
+    data (Dict[str, Union[np.ndarray, list]]): カラム名をキーとするデータ辞書。
+    mode (str, optional): 重複判定モード。'consecutive'（連続する重複のみ）または 'all'（全行での重複、未実装）。デフォルトは "consecutive"。
+    dup_type (str, optional): 重複判定の厳密さ。
+        'all': すべてのカラムが一致する場合に重複とみなす（標準）。
+        'any': いずれかのカラムが一致する場合に重複とみなす（厳密、またはテスト用）。デフォルトは "all"。
+
+Returns:
+    List[int]: 保持すべき行のインデックスリスト。
+
+Raises:
+    ValueError: dup_type が 'all' または 'any' 以外の場合。
+    NotImplementedError: mode が 'consecutive' 以外の場合。"""
         ...
     
 
@@ -174,8 +188,14 @@ Args:
         self,
         condition: <built-in function callable>
     ) -> "CollectionListOperations[C]":
-        """Filter values by condition.
-Returns boolean mask (True to keep)."""
+        """条件に基づいて値をフィルタリングするためのマスクを生成します。
+
+Args:
+    vals (Any): 入力値（リストまたは配列）。
+    condition (callable): 値を引数に取り、保持すべき場合に True を返す関数。
+
+Returns:
+    List[bool]: 保持すべき値のブール値リスト。"""
         ...
     
 
@@ -184,8 +204,17 @@ Returns boolean mask (True to keep)."""
         steps: list[Any],
         tolerance: Optional[float] = None
     ) -> List[list[bool]]:
-        """Generate mask to remove specific steps.
-Returns True for kept steps."""
+        """特定のステップを除去するためのマスクを生成します。
+
+指定されたステップに含まれない値に対して True を返します。
+
+Args:
+    step_values (Union[List[Any], np.ndarray]): 入力のステップ値リスト。
+    steps (List[Any]): 除去するステップのリスト。
+    tolerance (float, optional): ステップ一致判定の許容誤差。デフォルトは None（完全一致）。
+
+Returns:
+    List[bool]: 保持すべきステップ（除去対象でない）のブール値リスト。"""
         ...
     
 
@@ -194,7 +223,15 @@ Returns True for kept steps."""
         op_str: str,
         value: Any
     ) -> List[list[int]]:
-        """Return indices where values satisfy the operator condition."""
+        """演算子条件を満たす値のインデックスを返します。
+
+Args:
+    values (Union[np.ndarray, list]): 判定対象の値の配列。
+    op_str (str): 比較演算子 ('>', '<', '>=', '<=', '==', '!=')。
+    value (Any): 比較するターゲット値。
+
+Returns:
+    List[int]: 条件を満たす要素のインデックスリスト。"""
         ...
     
 
@@ -204,7 +241,16 @@ Returns True for kept steps."""
         max_value: Any,
         inclusive: bool = True
     ) -> List[list[int]]:
-        """Return indices where values are within range."""
+        """指定された範囲内の値のインデックスを返します。
+
+Args:
+    values (Union[np.ndarray, list]): 判定対象の値の配列。
+    min_value (Any): 範囲の下限。
+    max_value (Any): 範囲の上限。
+    inclusive (bool, optional): 端点を含めるかどうか。Trueの場合は [min, max]、Falseの場合は (min, max)。デフォルトは True。
+
+Returns:
+    List[int]: 範囲内の要素のインデックスリスト。"""
         ...
     
 
@@ -216,8 +262,18 @@ Returns True for kept steps."""
         tolerance: Optional[float] = None,
         by_step_value: bool = True
     ) -> List[list[int]]:
-        """Return indices where steps are within range, with optional tolerance.
-If by_step_value is False, searches within indices matching the step length."""
+        """ステップ値が指定された範囲内にあるインデックスを返します。
+
+Args:
+    steps (Union[np.ndarray, list]): ステップ値の配列。
+    min (float): 範囲の下限。
+    max (float): 範囲の上限。
+    inclusive (bool, optional): 端点を含めるかどうか。デフォルトは True。
+    tolerance (float, optional): 許容誤差。デフォルトは None。
+    by_step_value (bool, optional): ステップ値に基づいて検索するかどうか。Falseの場合はインデックス自体を対象とします。デフォルトは True。
+
+Returns:
+    List[int]: 条件を満たすステップのインデックスリスト。"""
         ...
     
 
@@ -225,7 +281,14 @@ If by_step_value is False, searches within indices matching the step length."""
         self,
         condition_func: Callable[[Dict[str, Any]], bool]
     ) -> List[list[int]]:
-        """Find indices where condition_func(row_dict) is True."""
+        """条件関数を満たす行のインデックスを検索します。
+
+Args:
+    data (Dict[str, Any]): カラム名をキーとするデータ辞書。
+    condition_func (Callable[[Dict[str, Any]], bool]): 行データ（辞書）を受け取り、boolを返す関数。
+
+Returns:
+    List[int]: 条件を満たす行のインデックスリスト。"""
         ...
     
 
@@ -233,7 +296,13 @@ If by_step_value is False, searches within indices matching the step length."""
         self,
         
     ) -> List[list[int]]:
-        """Find indices of rows with any missing values."""
+        """欠損値を含む行のインデックスを検索します。
+
+Args:
+    data (Dict[str, Any]): カラム名をキーとするデータ辞書。
+
+Returns:
+    List[int]: いずれかのカラムに欠損値を含む行のインデックスリスト。"""
         ...
     
 
@@ -242,8 +311,17 @@ If by_step_value is False, searches within indices matching the step length."""
         n: int,
         descending: bool = True
     ) -> List[list[int]]:
-        """Return indices of top N values.
-Handles NaN by excluding them."""
+        """上位N個の値のインデックスを返します。
+
+NaNは除外されます。結果のインデックスは昇順にソートされて返されます。
+
+Args:
+    values (Union[np.ndarray, list]): 値の配列。
+    n (int): 取得する要素数。
+    descending (bool, optional): 降順（大きい順）に選択するかどうか。Falseの場合は昇順（小さい順）。デフォルトは True。
+
+Returns:
+    List[int]: 選択された要素のインデックスリスト（昇順ソート済み）。"""
         ...
     
 
@@ -256,7 +334,19 @@ Handles NaN by excluding them."""
         ax: Optional[Axes] = None,
         **kwargs
     ) -> List[Axes]:
-        """基本プロット関数 (Functional wrapper)"""
+        """基本プロットを行います (Functional wrapper)。
+
+Args:
+    x_values (np.ndarray): x軸のデータ配列。
+    y_values (np.ndarray): y軸のデータ配列。
+    x_label (str): x軸のラベル。
+    y_label (str): y軸のラベル。
+    title (str): グラフのタイトル。
+    ax (Optional[plt.Axes], optional): 描画先のMatplotlib Axesオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
+    **kwargs: その他のプロットオプション（color, marker, linestyleなど）。
+
+Returns:
+    plt.Axes: 描画に使用されたAxesオブジェクト。"""
         ...
     
 
@@ -281,7 +371,31 @@ Handles NaN by excluding them."""
         scale_factor: float = 1.0,
         **kwargs
     ) -> List[Axes]:
-        """異常値を可視化する (Functional implementation)"""
+        """異常値を検出し可視化します (Functional implementation)。
+
+Args:
+    x_values (Any): x軸のデータ配列。
+    y_values (Any): y軸のデータ配列。
+    x_label (str): x軸のラベル。
+    y_label (str): y軸のラベル。
+    title (str): グラフのタイトル。
+    window_size (int, optional): 外れ値検出のウィンドウサイズ。デフォルトは 3。
+    threshold (float, optional): 外れ値検出の閾値。デフォルトは 0.5。
+    highlight_color (str, optional): 異常値のハイライト色。デフォルトは "red"。
+    plot_type (str, optional): プロットタイプ ('scatter', 'line' など)。デフォルトは "scatter"。
+    show_normal (bool, optional): 正常値を描画するかどうか。デフォルトは True。
+    normal_color (str, optional): 正常値の色。デフォルトは "blue"。
+    normal_alpha (float, optional): 正常値の透明度。デフォルトは 0.5。
+    outlier_marker (str, optional): 異常値のマーカー形状。デフォルトは "o"。
+    outlier_size (int, optional): 異常値のマーカーサイズ。デフォルトは 50。
+    ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
+    edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
+    min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
+    scale_factor (float, optional): 閾値のスケーリング係数。デフォルトは 1.0。
+    **kwargs: その他のプロットオプション。
+
+Returns:
+    plt.Axes: 描画に使用されたAxesオブジェクト。"""
         ...
     
 
@@ -292,7 +406,17 @@ Handles NaN by excluding them."""
         ax: Optional[Axes] = None,
         **kwargs
     ) -> List[Axes]:
-        """特定のx値に対して複数のy列の値をプロットします"""
+        """特定のx値に対して複数のy列の値をプロットします。
+
+Args:
+    y_data (Dict[str, Any]): プロットするyデータの辞書（キー: 名前, 値: データ列またはスカラー）。
+    x_values (List[float]): x軸の値のリスト（y_dataと同じ長さが必要）。
+    show_legend (bool, optional): 凡例を表示するかどうか。デフォルトは True。
+    ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
+    **kwargs: その他のプロットオプション (x_label, y_label, titleなど)。
+
+Returns:
+    plt.Axes: 描画に使用されたAxesオブジェクト。"""
         ...
     
 
@@ -305,7 +429,21 @@ Handles NaN by excluding them."""
         fig: Optional[Any] = None,
         **kwargs
     ) -> List[Any]:
-        """インタラクティブなグラフを描画します (Functional wrapper)"""
+        """インタラクティブなグラフを描画します (Functional wrapper)。
+
+Plotlyを使用してインタラクティブなプロットを作成します。
+
+Args:
+    x_values (np.ndarray): x軸のデータ配列。
+    y_values (np.ndarray): y軸のデータ配列。
+    x_label (str): x軸のラベル。
+    y_label (str): y軸のラベル。
+    title (str): グラフのタイトル。
+    fig (Optional[Any], optional): 既存のPlotly Figureオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
+    **kwargs: その他のプロットオプション (name, color, symbol, sizeなど)。
+
+Returns:
+    Any: PlotlyのFigureオブジェクト。"""
         ...
     
 
@@ -317,8 +455,22 @@ Handles NaN by excluding them."""
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> List[tuple[list[int], dict[str, Any]]]:
-        """Select indices based on steps or direct indices.
-Returns: (final_indices, metadata_update)"""
+        """指定されたステップまたはインデックスに基づいてデータを選択するためのインデックスを計算します。
+
+Args:
+    step_values (Union[List[Union[int, float]], np.ndarray]): ステップ値のリストまたは配列。
+    columns (Optional[List[str]], optional): 選択するカラム名のリスト（未使用、互換性のため維持）。デフォルトは None。
+    indices (Optional[List[int]], optional): 直接指定するインデックスのリスト。デフォルトは None。
+    steps (Optional[List[Union[int, float]]], optional): 選択するステップ値またはインデックスのリスト。デフォルトは None。
+    by_step_value (bool, optional): `steps` をステップ値として扱うかどうか。Falseの場合はインデックスとして扱います。デフォルトは True。
+    tolerance (float, optional): ステップ値一致判定の許容誤差。指定された場合、許容誤差内の最も近い値を選択します。デフォルトは None。
+
+Returns:
+    Tuple[List[int], Dict[str, Any]]: 
+        (選択されたインデックスのリスト, 実行結果のメタデータ辞書) のタプル。
+
+Raises:
+    ValueError: indices と steps の両方が指定された場合。"""
         ...
     
 
@@ -327,8 +479,19 @@ Returns: (final_indices, metadata_update)"""
         value: float,
         **kwargs
     ) -> "CollectionListOperations[C]":
-        """Find index of nearest value.
-Returns list containing single index."""
+        """指定された値に最も近い要素のインデックスを検索します。
+
+Args:
+    values (np.ndarray): 検索対象の数値配列。
+    value (float): ターゲット値。
+    **kwargs: その他のオプション（未使用）。
+
+Returns:
+    List[int]: 最も近い値のインデックスを含むリスト（要素数1）。
+
+Raises:
+    TypeError: values が数値型でない場合。
+    ValueError: 有効なデータが見つからない場合（全てNaNなど）。"""
         ...
     
 
@@ -341,7 +504,22 @@ Returns list containing single index."""
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> List[ndarray]:
-        """Switch between v1 and v2 based on steps/index."""
+        """ステップ値またはインデックスに基づいて2つの配列を切り替えます。
+
+Args:
+    steps (np.ndarray): ステップ値の配列。
+    v1 (np.ndarray): 閾値未満の場合の値の配列。
+    v2 (np.ndarray): 閾値以上の場合の値の配列。
+    threshold (Union[int, float]): 切り替えの閾値。
+    compare_mode (str, optional): 比較モード ('value' または 'index')。デフォルトは "value"。
+    by_step_value (bool, optional): ステップ値で比較するかどうか。Falseの場合はインデックスを使用。デフォルトは True。
+    tolerance (float, optional): 閾値特定時の許容誤差（compare_mode='index' かつ by_step_value=True の場合に使用）。
+
+Returns:
+    np.ndarray: 切り替え後の配列。
+
+Raises:
+    ValueError: v1とv2の長さが異なる場合。"""
         ...
     
 
@@ -356,7 +534,24 @@ Returns list containing single index."""
         blend_method: str = 'linear',
         tolerance: Optional[float] = None
     ) -> List[ndarray]:
-        """Blend v1 and v2 based on steps/index."""
+        """ステップ値またはインデックスに基づいて2つの配列を指定区間でブレンドします。
+
+Args:
+    steps (np.ndarray): ステップ値の配列。
+    v1 (np.ndarray): ブレンド開始前の値の配列。
+    v2 (np.ndarray): ブレンド終了後の値の配列。
+    start (Union[int, float]): ブレンド開始値。
+    end (Union[int, float]): ブレンド終了値。
+    compare_mode (str, optional): 比較モード ('value' または 'index')。デフォルトは "value"。
+    by_step_value (bool, optional): ステップ値で比較するかどうか。Falseの場合はインデックスを使用。デフォルトは True。
+    blend_method (str, optional): ブレンド方法 ('linear', 'smooth', 'log', 'exp')。デフォルトは "linear"。
+    tolerance (float, optional): 開始・終了値特定時の許容誤差（compare_mode='index' かつ by_step_value=True の場合に使用）。
+
+Returns:
+    np.ndarray: ブレンド後の配列。
+
+Raises:
+    ValueError: v1とv2の長さが異なる場合、終了値が開始値以下の場合、または無効なブレンドメソッドが指定された場合。"""
         ...
     
 
@@ -383,7 +578,22 @@ Returns list containing single index."""
         threshold: Union[int, float] = 0,
         compare: str = '>'
     ) -> List[ndarray]:
-        """Select from v1 or v2 based on condition."""
+        """条件に基づいて2つの配列から値を選択します。
+
+cond_values が条件を満たす位置では v1 の値を、そうでない場合は v2 の値を選択します。
+
+Args:
+    v1 (np.ndarray): 条件真の場合の値の配列。
+    v2 (np.ndarray): 条件偽の場合の値の配列。
+    cond_values (np.ndarray): 条件判定に使用する値の配列。
+    threshold (Union[int, float], optional): 比較の閾値。デフォルトは 0。
+    compare (str, optional): 比較演算子 ('>', '>=', '<', '<=', '==', '!=')。デフォルトは ">"。
+
+Returns:
+    np.ndarray: 選択された値の配列。
+
+Raises:
+    ValueError: 無効な比較演算子が指定された場合。"""
         ...
     
 
@@ -393,7 +603,16 @@ Returns list containing single index."""
         combine_func: Callable[[Any, Any], Any],
         **kwargs
     ) -> "CollectionListOperations[C]":
-        """Combine v1 and v2 using custom function."""
+        """カスタム関数を使用して2つの値または配列を結合します。
+
+Args:
+    v1 (Any): 最初の値または配列。
+    v2 (Any): 2番目の値または配列。
+    combine_func (Callable[[Any, Any], Any]): 2つの引数を取る結合関数。
+    **kwargs: 任意の追加引数（ここでは使用されません）。
+
+Returns:
+    Any: 結合結果（配列またはリスト）。"""
         ...
     
 
@@ -401,7 +620,14 @@ Returns list containing single index."""
         self,
         v2: Union[ndarray, float]
     ) -> List[ndarray]:
-        """Add two values or arrays."""
+        """2つの値または配列を加算します。
+
+Args:
+    v1 (Union[np.ndarray, float]): 最初の値または配列。
+    v2 (Union[np.ndarray, float]): 2番目の値または配列。
+
+Returns:
+    np.ndarray: 加算結果。"""
         ...
     
 
@@ -409,7 +635,14 @@ Returns list containing single index."""
         self,
         v2: Union[ndarray, float]
     ) -> List[ndarray]:
-        """Subtract v2 from v1."""
+        """v1 から v2 を減算します。
+
+Args:
+    v1 (Union[np.ndarray, float]): 最初の値または配列。
+    v2 (Union[np.ndarray, float]): 引く値または配列。
+
+Returns:
+    np.ndarray: 減算結果。"""
         ...
     
 
@@ -417,7 +650,14 @@ Returns list containing single index."""
         self,
         v2: Union[ndarray, float]
     ) -> List[ndarray]:
-        """Multiply two values or arrays."""
+        """2つの値または配列を乗算します。
+
+Args:
+    v1 (Union[np.ndarray, float]): 最初の値または配列。
+    v2 (Union[np.ndarray, float]): 2番目の値または配列。
+
+Returns:
+    np.ndarray: 乗算結果。"""
         ...
     
 
@@ -426,7 +666,15 @@ Returns list containing single index."""
         v2: Union[ndarray, float],
         **kwargs
     ) -> List[ndarray]:
-        """Divide v1 by v2."""
+        """v1 を v2 で除算します。
+
+Args:
+    v1 (Union[np.ndarray, float]): 分子となる値または配列。
+    v2 (Union[np.ndarray, float]): 分母となる値または配列。
+    **kwargs: 任意の追加引数。
+
+Returns:
+    np.ndarray: 除算結果。"""
         ...
     
 
@@ -435,7 +683,18 @@ Returns list containing single index."""
         x: Union[ndarray, list[float]],
         method: str = 'central'
     ) -> List[ndarray]:
-        """Calculate differential coefficient from x, y coordinates."""
+        """x, y座標から微分係数を計算します。
+
+Args:
+    y (Union[np.ndarray, List[float]]): y座標の配列。
+    x (Union[np.ndarray, List[float]]): x座標の配列。
+    method (str, optional): 微分方法 ('central', 'forward', 'backward')。デフォルトは "central"。
+
+Returns:
+    np.ndarray: 計算された微分係数の配列。
+
+Raises:
+    ValueError: xとyの長さが異なる場合、またはデータ点が2点未満の場合、または無効なメソッドが指定された場合。"""
         ...
     
 
@@ -445,7 +704,19 @@ Returns list containing single index."""
         method: str = 'trapezoid',
         initial_value: float = 0.0
     ) -> List[ndarray]:
-        """Calculate integral of y with respect to x."""
+        """xに対するyの積分を計算します。
+
+Args:
+    y (Union[np.ndarray, List[float]]): y座標の配列。
+    x (Union[np.ndarray, List[float]]): x座標の配列。
+    method (str, optional): 積分方法。現在は "trapezoid" (台形則) のみサポート。デフォルトは "trapezoid"。
+    initial_value (float, optional): 積分初期値。デフォルトは 0.0。
+
+Returns:
+    np.ndarray: 計算された積分の配列（累積和）。
+
+Raises:
+    ValueError: サポートされていないメソッドが指定された場合、またはxとyの長さが異なる場合。"""
         ...
     
 
@@ -458,12 +729,179 @@ Returns list containing single index."""
         ...
     
 
+    def sin(
+        self,
+        degrees: bool = False
+    ) -> List[ndarray]:
+        """正弦(sin)を計算します。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+    degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def cos(
+        self,
+        degrees: bool = False
+    ) -> List[ndarray]:
+        """余弦(cos)を計算します。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+    degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def tan(
+        self,
+        degrees: bool = False
+    ) -> List[ndarray]:
+        """正接(tan)を計算します。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+    degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def exp(
+        self,
+        
+    ) -> List[ndarray]:
+        """指数関数(exp)を計算します。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def log(
+        self,
+        base: float = 2.718281828459045
+    ) -> List[ndarray]:
+        """対数(log)を計算します。
+
+0以下の値はNaNになります。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+    base (float, optional): 対数の底。デフォルトは e（自然対数）。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def sqrt(
+        self,
+        
+    ) -> List[ndarray]:
+        """平方根(sqrt)を計算します。
+
+負の値はNaNになります。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def pow(
+        self,
+        exponent: float
+    ) -> List[ndarray]:
+        """累乗(power)を計算します。
+
+Args:
+    values (np.ndarray): 基数の配列。
+    exponent (float): 指数。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def abs_values(
+        self,
+        
+    ) -> List[ndarray]:
+        """絶対値(absolute value)を計算します。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def round_values(
+        self,
+        decimals: int = 0
+    ) -> List[ndarray]:
+        """値を指定された桁数で丸めます。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+    decimals (int, optional): 丸める小数点以下の桁数。デフォルトは 0。
+
+Returns:
+    np.ndarray: 計算結果の配列。"""
+        ...
+    
+
+    def normalize(
+        self,
+        method: str = 'minmax'
+    ) -> List[ndarray]:
+        """値を正規化します。
+
+Args:
+    values (np.ndarray): 入力値の配列。
+    method (str, optional): 正規化方法。
+        'minmax': 最小値を0、最大値を1にスケーリング。
+        'zscore': 平均を0、標準偏差を1に標準化。デフォルトは "minmax"。
+
+Returns:
+    np.ndarray: 正規化された配列。
+
+Raises:
+    ValueError: 指定されたメソッドが無効な場合。"""
+        ...
+    
+
     def moving_average(
         self,
         window_size: int = 3,
         edge_handling: str = 'asymmetric'
     ) -> List[Any]:
-        """Calculate moving average."""
+        """移動平均を計算します。
+
+Args:
+    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
+    window_size (int, optional): ウィンドウサイズ。デフォルトは 3。
+    edge_handling (str, optional): 境界処理の方法 ('symmetric', 'asymmetric')。デフォルトは "asymmetric"。
+
+Returns:
+    Any: 移動平均処理後の配列（入力の型に依存）。
+
+Raises:
+    ValueError: 無効なエッジ処理方法、ウィンドウサイズが1未満、またはデータ長より大きい場合。"""
         ...
     
 
@@ -475,7 +913,23 @@ Returns list containing single index."""
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
     ) -> List[list[int]]:
-        """Detect outliers using moving average."""
+        """移動平均を使用して外れ値を検出します。
+
+移動平均からの偏差率が閾値を超える場合を外れ値とみなします。
+
+Args:
+    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
+    window_size (int, optional): 移動平均のウィンドウサイズ。デフォルトは 3。
+    threshold (float, optional): 外れ値判定の閾値（偏差率）。デフォルトは 0.5。
+    edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
+    min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
+    scale_factor (float, optional): 基準値（標準偏差等）のスケーリング係数。デフォルトは 1.0。
+
+Returns:
+    List[int]: 外れ値フラグのリスト（0: 正常, 1: 外れ値）。
+
+Raises:
+    ValueError: 無効な引数、または有効なデータが存在しない場合。"""
         ...
     
 
@@ -484,7 +938,20 @@ Returns list containing single index."""
         sigma: float = 1.0,
         window_size: Optional[int] = None
     ) -> List[Any]:
-        """Apply gaussian filter."""
+        """ガウシアンフィルタを適用して平滑化を行います。
+
+欠損値は無視して畳み込み計算を行います。
+
+Args:
+    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
+    sigma (float, optional): ガウス分布の標準偏差。デフォルトは 1.0。
+    window_size (Optional[int], optional): フィルタのウィンドウサイズ。指定しない場合は sigma から自動計算されます。
+
+Returns:
+    Any: 平滑化後の配列（NumPy配列）。
+
+Raises:
+    ValueError: ウィンドウサイズが1未満の場合。"""
         ...
     
 
@@ -492,7 +959,13 @@ Returns list containing single index."""
         self,
         
     ) -> List[float]:
-        """Get max value."""
+        """最大値を計算します（NaNは無視されます）。
+
+Args:
+    vals (Any): 入力値の配列またはリスト。
+
+Returns:
+    float: 最大値。"""
         ...
     
 
@@ -500,7 +973,13 @@ Returns list containing single index."""
         self,
         
     ) -> List[float]:
-        """Get min value."""
+        """最小値を計算します（NaNは無視されます）。
+
+Args:
+    vals (Any): 入力値の配列またはリスト。
+
+Returns:
+    float: 最小値。"""
         ...
     
 
@@ -508,7 +987,13 @@ Returns list containing single index."""
         self,
         
     ) -> List[float]:
-        """Get mean value."""
+        """平均値を計算します（NaNは無視されます）。
+
+Args:
+    vals (Any): 入力値の配列またはリスト。
+
+Returns:
+    float: 平均値。"""
         ...
     
 
@@ -516,7 +1001,13 @@ Returns list containing single index."""
         self,
         
     ) -> List[float]:
-        """Get standard deviation."""
+        """標準偏差を計算します（NaNは無視されます）。
+
+Args:
+    vals (Any): 入力値の配列またはリスト。
+
+Returns:
+    float: 標準偏差。"""
         ...
     
 
@@ -524,87 +1015,13 @@ Returns list containing single index."""
         self,
         
     ) -> List[float]:
-        """Get sum."""
-        ...
-    
+        """合計値を計算します（NaNは無視されます）。
 
-    def sin(
-        self,
-        degrees: bool = False
-    ) -> List[ndarray]:
-        """Calculate sine of values."""
-        ...
-    
+Args:
+    vals (Any): 入力値の配列またはリスト。
 
-    def cos(
-        self,
-        degrees: bool = False
-    ) -> List[ndarray]:
-        """Calculate cosine of values."""
-        ...
-    
-
-    def tan(
-        self,
-        degrees: bool = False
-    ) -> List[ndarray]:
-        """Calculate tangent of values."""
-        ...
-    
-
-    def exp(
-        self,
-        
-    ) -> List[ndarray]:
-        """Calculate exponential of values."""
-        ...
-    
-
-    def log(
-        self,
-        base: float = 2.718281828459045
-    ) -> List[ndarray]:
-        """Calculate logarithm of values."""
-        ...
-    
-
-    def sqrt(
-        self,
-        
-    ) -> List[ndarray]:
-        """Calculate square root of values."""
-        ...
-    
-
-    def pow(
-        self,
-        exponent: float
-    ) -> List[ndarray]:
-        """Calculate power of values."""
-        ...
-    
-
-    def abs_values(
-        self,
-        
-    ) -> List[ndarray]:
-        """Calculate absolute values."""
-        ...
-    
-
-    def round_values(
-        self,
-        decimals: int = 0
-    ) -> List[ndarray]:
-        """Round values to specified decimals."""
-        ...
-    
-
-    def normalize(
-        self,
-        method: str = 'minmax'
-    ) -> List[ndarray]:
-        """Normalize values using specified method."""
+Returns:
+    float: 合計値。"""
         ...
     
 
@@ -624,7 +1041,19 @@ Returns list containing single index."""
         self,
         markers: Union[list[int], ndarray]
     ) -> List[list[ndarray]]:
-        """Calculate split indices based on integer markers."""
+        """整数マーカーに基づいて分割インデックスを計算します。
+
+ユニークなマーカー値ごとに、そのマーカーに対応するインデックスの配列をリストとして返します。
+
+Args:
+    length (int): データの長さ。
+    markers (Union[List[int], np.ndarray]): 各要素に対応する整数マーカーのリストまたは配列。長さは `length` と一致する必要があります。
+
+Returns:
+    List[np.ndarray]: 各マーカーに対応するインデックス配列のリスト。
+
+Raises:
+    ValueError: データ長とマーカーリストの長さが一致しない場合。"""
         ...
     
 
@@ -632,7 +1061,17 @@ Returns list containing single index."""
         self,
         indices: Union[int, list[int]]
     ) -> List[list[slice]]:
-        """Calculate split slices based on indices."""
+        """指定されたインデックスで分割するためのスライスを計算します。
+
+Args:
+    length (int): データの長さ。
+    indices (Union[int, List[int]]): 分割点となるインデックス（またはそのリスト）。
+
+Returns:
+    List[slice]: 分割された各セグメントを表すスライスのリスト。
+
+Raises:
+    IndexError: インデックスが範囲外 (0-length) の場合。"""
         ...
     
 

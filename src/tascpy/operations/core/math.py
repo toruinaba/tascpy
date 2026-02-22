@@ -17,7 +17,7 @@ import numpy as np
 from ...functional import arithmetic
 from ...functional import math as functional_math
 from ..registry import operation, register_functional
-from ..naming import infix_naming, format_naming, basic_naming
+from ..naming import infix_naming, format_naming, basic_naming, log_naming
 
 
 add = register_functional(
@@ -156,6 +156,105 @@ evaluate = register_functional(
     },
     signature_override={
         "collection": ("collection", ColumnCollection),
-        "expression": (str, inspect.Parameter.empty)
     }
+)
+
+# ---------------------------------------------------------
+# 変換操作 (transform.pyから統合)
+# ---------------------------------------------------------
+
+# 三角関数
+sin = register_functional(
+    functional_math.sin,
+    domain="core",
+    name="sin",
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
+    signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
+)
+
+
+cos = register_functional(
+    functional_math.cos,
+    domain="core",
+    name="cos",
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
+    signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
+)
+
+
+tan = register_functional(
+    functional_math.tan,
+    domain="core",
+    name="tan",
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
+    signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
+)
+
+
+# 指数関数/対数関数
+exp = register_functional(
+    functional_math.exp,
+    domain="core",
+    name="exp",
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
+    signature_override={"values": ("values", np.ndarray)}
+)
+
+
+log = register_functional(
+    functional_math.log,
+    domain="core",
+    name="log",
+    transform_column={"num_inputs": 1, "result_naming": log_naming},
+    signature_override={"values": ("values", np.ndarray), "base": (float, math.e)}
+)
+
+
+sqrt = register_functional(
+    functional_math.sqrt,
+    domain="core",
+    name="sqrt",
+    transform_column={"num_inputs": 1, "result_naming": basic_naming},
+    signature_override={"values": ("values", np.ndarray)}
+)
+
+
+pow = register_functional(
+    functional_math.power,
+    domain="core",
+    name="pow",
+    transform_column={
+        "num_inputs": 1, 
+        "result_naming": format_naming("{column}^{exponent}", defaults={"exponent": 1.0}, arg_names=["column", "exponent"])
+    },
+    signature_override={"values": ("column", str), "exponent": (float, 1.0)}
+)
+
+
+# その他の変換関数
+abs_values = register_functional(
+    functional_math.abs_values,
+    domain="core",
+    name="abs_values",
+    transform_column={"num_inputs": 1, "result_naming": format_naming("abs({column})", arg_names=["column"])},
+    signature_override={"values": ("column", str)}
+)
+
+abs = abs_values
+
+round_values = register_functional(
+    functional_math.round_values,
+    domain="core",
+    name="round_values",
+    transform_column={"num_inputs": 1, "result_naming": format_naming("round({column}, {decimals})", defaults={"decimals": 0}, arg_names=["column", "decimals"])},
+    signature_override={"values": ("column", str), "decimals": (int, 0)}
+)
+
+
+normalize = register_functional(
+    functional_math.normalize,
+    domain="core",
+    name="normalize",
+    transform_column={"num_inputs": 1, "result_naming": format_naming("norm_{method}({column})", defaults={"method": "minmax"}, arg_names=["column", "method"])},
+    signature_override={"values": ("column", str), "method": (str, "minmax")}
 )
