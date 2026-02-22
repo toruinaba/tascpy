@@ -4,7 +4,7 @@ from ...core.column import Column
 from ...core.step import Step
 from ..registry import operation, register_functional, register_pipeline
 from ..abstraction import inject_columns, filter_rows, inject_step_values
-from ...functional import predicates, row_ops, selectors, stats as functional_stats
+from ...functional import filter_utils, stats as functional_stats
 from ...functional import filters as functional_filters
 import inspect
 import numpy as np
@@ -12,7 +12,7 @@ import numpy as np
 
 # Refactored to use functional core
 filter_by_value = register_functional(
-    predicates.eq,
+    filter_utils.eq,
     domain="core",
     name="filter_by_value",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},
@@ -27,7 +27,7 @@ filter_by_value = register_functional(
 
 
 filter_out_none = register_functional(
-    row_ops.filter_valid_rows,
+    filter_utils.filter_valid_rows,
     domain="core",
     name="filter_out_none",
     inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
@@ -40,7 +40,7 @@ filter_out_none = register_functional(
 
 
 remove_consecutive_duplicates_across = register_functional(
-    row_ops.duplicated_indices,
+    filter_utils.duplicated_indices,
     domain="core",
     name="remove_consecutive_duplicates_across",
     inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
@@ -57,7 +57,7 @@ remove_consecutive_duplicates_across = register_functional(
 remove_outliers = register_pipeline(
     steps=[
         (functional_stats.detect_outliers, {}),
-        (predicates.eq, {"value": 0}),
+        (filter_utils.eq, {"value": 0}),
         (filter_rows, {})
     ],
     domain="core",
@@ -103,7 +103,7 @@ remove_steps = register_functional(
 # ---------------------------------------------------------
 
 search_by_value = register_functional(
-    selectors.search,
+    filter_utils.search,
     domain="core",
     name="search_by_value",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},
@@ -114,7 +114,7 @@ search_by_value = register_functional(
 
 
 search_by_range = register_functional(
-    selectors.search_range,
+    filter_utils.search_range,
     domain="core",
     name="search_by_range",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},
@@ -140,7 +140,7 @@ def _search_step_metadata(args, kwargs, result):
 
 
 search_by_step_range = register_functional(
-    selectors.search_step_range,
+    filter_utils.search_step_range,
     domain="core",
     name="search_by_step_range",
     inject_step_values={"cast_to_numpy": True},
@@ -171,7 +171,7 @@ search_missing_values = register_functional(
 
 
 search_top_n = register_functional(
-    selectors.top_n,
+    filter_utils.top_n,
     domain="core",
     name="search_top_n",
     inject_columns={"num_inputs": 1, "cast_to_numpy": True},

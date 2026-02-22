@@ -2,7 +2,7 @@
 from typing import Any, List, Union, Optional, Dict, Callable
 import numpy as np
 from . import stats as functional_stats
-from . import selectors, row_ops
+from . import filter_utils
 
 def remove_outliers_mask(
     vals: Any,
@@ -163,9 +163,9 @@ def search_missing_values(data: Dict[str, Any]) -> List[int]:
     """
     # Keep rows where ALL columns are valid (valid_mask is True)
     # So rows with missing values are where valid_mask is False
-    valid_mask = row_ops.filter_valid_rows(data, mode="any")
+    valid_mask = filter_utils.filter_valid_rows(data, mode="any")
     
     # Invert mask to find rows WITH missing values
     missing_mask = [not x for x in valid_mask]
-    return selectors.where(missing_mask)
+    return filter_utils.where(missing_mask)
 
