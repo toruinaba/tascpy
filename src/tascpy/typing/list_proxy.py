@@ -495,6 +495,44 @@ Raises:
         ...
     
 
+    def split_by_integers(
+        self,
+        markers: Union[list[int], ndarray]
+    ) -> List[list[ndarray]]:
+        """整数マーカーに基づいて分割インデックスを計算します。
+
+ユニークなマーカー値ごとに、そのマーカーに対応するインデックスの配列をリストとして返します。
+
+Args:
+    length (int): データの長さ。
+    markers (Union[List[int], np.ndarray]): 各要素に対応する整数マーカーのリストまたは配列。長さは `length` と一致する必要があります。
+
+Returns:
+    List[np.ndarray]: 各マーカーに対応するインデックス配列のリスト。
+
+Raises:
+    ValueError: データ長とマーカーリストの長さが一致しない場合。"""
+        ...
+    
+
+    def split_at_indices(
+        self,
+        indices: Union[int, list[int]]
+    ) -> List[list[slice]]:
+        """指定されたインデックスで分割するためのスライスを計算します。
+
+Args:
+    length (int): データの長さ。
+    indices (Union[int, List[int]]): 分割点となるインデックス（またはそのリスト）。
+
+Returns:
+    List[slice]: 分割された各セグメントを表すスライスのリスト。
+
+Raises:
+    IndexError: インデックスが範囲外 (0-length) の場合。"""
+        ...
+    
+
     def switch_by_step(
         self,
         v1: ndarray,
@@ -1034,44 +1072,6 @@ Returns:
         columns: Optional[list[str]] = None
     ) -> "CollectionListOperations[C]":
         """指定した列の値に基づいてデータを内挿します"""
-        ...
-    
-
-    def split_by_integers(
-        self,
-        markers: Union[list[int], ndarray]
-    ) -> List[list[ndarray]]:
-        """整数マーカーに基づいて分割インデックスを計算します。
-
-ユニークなマーカー値ごとに、そのマーカーに対応するインデックスの配列をリストとして返します。
-
-Args:
-    length (int): データの長さ。
-    markers (Union[List[int], np.ndarray]): 各要素に対応する整数マーカーのリストまたは配列。長さは `length` と一致する必要があります。
-
-Returns:
-    List[np.ndarray]: 各マーカーに対応するインデックス配列のリスト。
-
-Raises:
-    ValueError: データ長とマーカーリストの長さが一致しない場合。"""
-        ...
-    
-
-    def split_at_indices(
-        self,
-        indices: Union[int, list[int]]
-    ) -> List[list[slice]]:
-        """指定されたインデックスで分割するためのスライスを計算します。
-
-Args:
-    length (int): データの長さ。
-    indices (Union[int, List[int]]): 分割点となるインデックス（またはそのリスト）。
-
-Returns:
-    List[slice]: 分割された各セグメントを表すスライスのリスト。
-
-Raises:
-    IndexError: インデックスが範囲外 (0-length) の場合。"""
         ...
     
 

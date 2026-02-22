@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.operations.core.split import split_by_integers
+from tascpy.operations.core.select import split_by_integers
 from tascpy.operations.proxy import CollectionOperations
 from tascpy.operations.list_proxy import CollectionListOperations
 

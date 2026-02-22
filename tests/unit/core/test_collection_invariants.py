@@ -96,7 +96,7 @@ class TestColumnCollectionInvariants:
             step=Step([1, 2, 3, 4]),
             columns={"col1": [10, 20, 30, 40]}
         )
-        from tascpy.operations.core.split import split_at_indices
+        from tascpy.operations.core.select import split_at_indices
         res_list = split_at_indices(col, indices=2)
         
         assert len(res_list) == 2

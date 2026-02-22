@@ -108,7 +108,7 @@ def split_by_cycles(
             collection = temp_result
 
     # サイクルで分割
-    from ...operations.core.split import split_by_integers
+    from ...operations.core.select import split_by_integers
 
     return split_by_integers(collection, collection[cycle_column].values)
 

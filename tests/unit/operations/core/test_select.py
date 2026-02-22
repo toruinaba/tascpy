@@ -156,3 +156,121 @@ class TestSelect:
         with pytest.raises(ValueError, match="indicesとstepsは同時に指定できません"):
             select(sample_collection, indices=[0, 1], steps=[2, 3])
 
+# --- split operations tests ---
+from tascpy.operations.core.select import split_by_integers, split_at_indices
+from tascpy.operations.list_proxy import CollectionListOperations
+
+def test_split_by_integers_basic(sample_collection):
+    """split_by_integersの基本機能をテスト"""
+    # 3つのグループに分割
+    markers = [1, 2, 1, 3, 2]  # 1=グループ1, 2=グループ2, 3=グループ3
+    result = split_by_integers(sample_collection, markers)
+
+    # 結果検証
+    assert len(result) == 3  # 3つのグループができているか
+
+    # グループ1 (marker=1) の検証
+    np.testing.assert_array_equal(result[0].step.values, [1, 3])
+    np.testing.assert_array_equal(result[0].columns["A"].values, [10, 30])
+    np.testing.assert_array_equal(result[0].columns["B"].values, [1.1, 3.3])
+
+    # グループ2 (marker=2) の検証
+    np.testing.assert_array_equal(result[1].step.values, [2, 5])
+    np.testing.assert_array_equal(result[1].columns["A"].values, [20, 50])
+    np.testing.assert_array_equal(result[1].columns["B"].values, [2.2, 5.5])
+
+    # グループ3 (marker=3) の検証
+    np.testing.assert_array_equal(result[2].step.values, [4])
+    np.testing.assert_array_equal(result[2].columns["A"].values, [40])
+    np.testing.assert_array_equal(result[2].columns["B"].values, [4.4])
+
+
+def test_split_by_integers_single_marker(sample_collection):
+    """単一マーカー値での分割をテスト"""
+    # すべて同じマーカー値で分割
+    markers = [1, 1, 1, 1, 1]
+    result = split_by_integers(sample_collection, markers)
+
+    # 結果検証
+    assert len(result) == 1  # 1つのグループができる
+    np.testing.assert_array_equal(result[0].step.values, [1, 2, 3, 4, 5])  # 元のステップと同じ
+    np.testing.assert_array_equal(result[0].columns["A"].values, [10, 20, 30, 40, 50])  # 元の値と同じ
+    np.testing.assert_array_equal(result[0].columns["B"].values, [1.1, 2.2, 3.3, 4.4, 5.5])  # 元の値と同じ
+
+
+def test_split_by_integers_preserves_metadata(sample_collection):
+    """メタデータが保持されることを確認するテスト"""
+    # メタデータの追加
+    sample_collection.metadata = {"source": "test", "date": "2025-05-03"}
+
+    # 分割実行
+    markers = [1, 2, 1, 2, 1]
+    result = split_by_integers(sample_collection, markers)
+
+    # 結果検証
+    assert len(result) == 2
+    assert result[0].metadata == {"source": "test", "date": "2025-05-03"}
+    assert result[1].metadata == {"source": "test", "date": "2025-05-03"}
+
+
+def test_split_by_integers_error_length_mismatch(sample_collection):
+    """データとマーカーの長さが一致しない場合のエラーをテスト"""
+    # マーカーの長さが短い場合
+    with pytest.raises(ValueError) as err_short:
+        split_by_integers(sample_collection, [1, 2, 3])
+    assert "長さは一致する必要があります" in str(err_short.value)
+
+    # マーカーの長さが長い場合
+    with pytest.raises(ValueError) as err_long:
+        split_by_integers(sample_collection, [1, 2, 3, 4, 5, 6, 7])
+    assert "長さは一致する必要があります" in str(err_long.value)
+
+
+def test_split_by_integers_with_proxy(sample_collection):
+    """プロキシクラス経由でsplit_by_integersを使用するテスト"""
+    # プロキシ経由で分割
+    markers = [1, 2, 1, 3, 2]
+    result = sample_collection.ops.split_by_integers(markers)
+
+    # 結果がCollectionListOperationsであることを確認
+    assert isinstance(result, CollectionListOperations)
+    assert len(result) == 3
+
+    # 個々のコレクションにアクセス
+    first_group = result[0]
+    from tascpy.operations.proxy import CollectionOperations
+    assert isinstance(first_group, CollectionOperations)
+    np.testing.assert_array_equal(first_group.end().step.values, [1, 3])
+    np.testing.assert_array_equal(first_group.end().columns["A"].values, [10, 30])
+
+    # スライスでのアクセスをテスト
+    first_two = result[:2]
+    assert isinstance(first_two, CollectionListOperations)
+    assert len(first_two) == 2
+
+
+def test_split_by_integers_and_method_chain(sample_collection):
+    """メソッドチェーンでの操作をテスト"""
+    # 分割した結果に対してフィルタリング操作を適用
+    markers = [1, 2, 3, 1, 2]
+
+    # 最初の要素だけを取得（インデックス付きアクセス）
+    first_group = sample_collection.ops.split_by_integers(markers)[0]
+    from tascpy.operations.proxy import CollectionOperations
+    assert isinstance(first_group, CollectionOperations)
+
+    # 分割した結果に個別にアクセスして操作
+    result = sample_collection.ops.split_by_integers(markers)
+
+    # 個々のグループに対して操作
+    group1 = result[0].end()
+    assert len(group1) == 2  # マーカー1は2つある
+    np.testing.assert_array_equal(group1.step.values, [1, 4])
+
+    group2 = result[1].end()
+    assert len(group2) == 2  # マーカー2は2つある
+    np.testing.assert_array_equal(group2.step.values, [2, 5])
+
+    group3 = result[2].end()
+    assert len(group3) == 1  # マーカー3は1つある
+    np.testing.assert_array_equal(group3.step.values, [3])
