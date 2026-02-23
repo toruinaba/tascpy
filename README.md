@@ -162,7 +162,8 @@ tascpy/
 │   └── tascpy/
 │       ├── core/         # 基本データ構造
 │       ├── domains/      # ドメイン特化コレクション
-│       ├── operations/   # データ処理操作
+│       ├── functional/   # 計算ロジック・アルゴリズム層
+│       ├── operations/   # メソッドチェーンの操作ラッパー
 │       └── plugins/      # プラグイン
 ├── tests/                # テストコード
 ├── examples/             # サンプルコード

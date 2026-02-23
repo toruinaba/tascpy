@@ -17,9 +17,14 @@ tascpy/
 │   ├── converters.py   # ドメイン間変換
 │   ├── coordinate/     # 座標ドメイン
 │   ├── load_displacement/ # 荷重-変位ドメイン
-├── operations/         # データ処理操作
+├── functional/         # 純粋な計算ロジック（ステートレス関数）
+│   ├── math.py         # 数学演算・評価・正規化
+│   ├── filters.py      # 条件判定・マスキング・検索
+│   ├── stats.py        # 統計計算・平滑化
+│   └── select.py       # インデックス／ステップベースの抽出・分割
+├── operations/         # データ処理操作・メソッドチェーンのラッパー
 │   ├── registry.py     # 操作の登録システム
-│   ├── core/           # コアドメイン操作
+│   ├── core/           # コアドメイン操作（functionalのラッパー）
 │   ├── load_displacement/ # 荷重-変位ドメイン操作
 ```
 
@@ -29,6 +34,7 @@ tascpy/
 - **DomainCollectionFactory**: ドメイン特化コレクションの作成を担当
 - **CollectionOperations**: メソッドチェーンを実現するための操作ハブ
 - **OperationRegistry**: 操作関数を登録・管理
+- **Functional Modules**: 状態を持たない純粋な計算ロジックの実装層
 
 ## 開発環境のセットアップ
 
