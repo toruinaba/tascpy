@@ -1531,6 +1531,24 @@ Returns:
         ...
     
 
+    def test_filter(
+        self,
+        column_name,
+        value
+    ) -> Any:
+        """テスト用フィルタリング操作"""
+        ...
+    
+
+    def add_derived_column(
+        self,
+        formula,
+        output_column
+    ) -> Any:
+        """数式に基づいて派生列を追加"""
+        ...
+    
+
     @overload
     def as_domain(self, domain: Literal['core'], **kwargs: Any) -> CoreCollectionOperations:
         ...
