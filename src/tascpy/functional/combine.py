@@ -111,7 +111,7 @@ def switch_by_step(
              # To keep functional pure and independent of complex utils if possible,
              # but here we depend on it.
              # Importing inside function or module level?
-             from ...utils.searching import find_index_with_tolerance
+             from .filters import find_index_with_tolerance
              thresh_val = find_index_with_tolerance(
                  steps, threshold, tolerance=tolerance, default=len(steps) // 2
              )
@@ -177,7 +177,7 @@ def blend_by_step(
     else:  # index
         comp_arr = np.arange(len(steps))
         if by_step_value:
-            from ...utils.searching import find_index_with_tolerance
+            from .filters import find_index_with_tolerance
             s_val = find_index_with_tolerance(steps, start, tolerance=tolerance, default=0)
             e_val = find_index_with_tolerance(steps, end, tolerance=tolerance, default=len(steps)-1)
         else:

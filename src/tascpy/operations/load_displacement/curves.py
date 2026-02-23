@@ -6,7 +6,7 @@ from ...operations.registry import operation
 from ...domains.load_displacement import LoadDisplacementCollection
 from ...core.column import Column, NumberColumn
 from ...core.result import XYSeriesResult
-from ...utils.split import split_list_by_integers
+from ...functional.select import split_list_by_integers
 from .utils import (
     get_load_column,
     get_displacement_column,

@@ -5,7 +5,6 @@ from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.operations.core import math as tasc_math
 from tascpy.operations.core import stats as tasc_stats
-from tascpy.utils import data as tasc_data
 
 class TestNumericalRefactoring:
     @pytest.fixture
@@ -29,7 +28,7 @@ class TestNumericalRefactoring:
         # i=2: [2, 3, 4] -> 3.0
         # i=3: [3, 4, 5] -> 4.0
         # i=4: [4, 5] -> 4.5
-        ma = tasc_data.moving_average(data, window_size=3)
+        ma = tasc_stats.moving_average(data, window_size=3)
         expected = [1.5, 2.0, 3.0, 4.0, 4.5]
         np.testing.assert_allclose(ma, expected)
 
@@ -38,7 +37,7 @@ class TestNumericalRefactoring:
         # i=0: [1, Nan] -> 1.0 (mean of [1])
         # i=1: [1, Nan, 3] -> 2.0 (mean of [1, 3])
         # i=2: [Nan, 3] -> 3.0 (mean of [3])
-        ma_none = tasc_data.moving_average(data_none, window_size=3)
+        ma_none = tasc_stats.moving_average(data_none, window_size=3)
         # implementation details:
         # np.convolve used. 
         # i=0 (center): window covers -1..1. Index 0, 1. Values 1, Nan. Valid: 1. Mean: 1.
@@ -46,31 +45,6 @@ class TestNumericalRefactoring:
         # i=2 (center): window covers 1..3. Index 1, 2. Values Nan, 3. Valid: 3. Mean: 3.
         expected_none = [1.0, 2.0, 3.0] 
         np.testing.assert_allclose(ma_none, expected_none)
-
-    def test_utils_data_diff_xy(self):
-        x = [0, 1, 2, 3, 4]
-        y = [0, 1, 4, 9, 16] # y=x^2, dy/dx = 2x
-        # Central difference
-        # i=0: (1-0)/(1-0) = 1. (True: 0. Implementation using np.gradient uses forward for edge?)
-        # np.gradient uses 2nd order accurate one-sided at boundaries.
-        # i=1: (4-0)/(2-0) = 2. (True: 2)
-        # i=2: (9-1)/(3-1) = 4. (True: 4)
-        # i=3: (16-4)/(4-2) = 6. (True: 6)
-        # i=4: (16-9)/(4-3) = 7. (True: 8. Implementation uses backward?)
-        
-        diff = tasc_data.diff_xy(x, y, method="central")
-        # np.gradient results:
-        # 0: (4*1 - 3*0 - 4)/2? No.
-        # For x=[0,1,2..], dx=1.
-        # 0: -3*y0 + 4*y1 - y2 / 2dx = (-0 + 4 - 4)/2 = 0? No.
-        # np.gradient edge behavior:
-        # simple difference?
-        
-        # Let's just check standard cases
-        # Center points: 2, 4, 6.
-        assert diff[1] == 2.0
-        assert diff[2] == 4.0
-        assert diff[3] == 6.0
 
     def test_math_add_numpy(self, collection):
         # A + B

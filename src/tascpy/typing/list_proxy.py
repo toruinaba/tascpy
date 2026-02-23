@@ -926,20 +926,9 @@ Raises:
     def moving_average(
         self,
         window_size: int = 3,
-        edge_handling: str = 'asymmetric'
-    ) -> List[Any]:
-        """移動平均を計算します。
-
-Args:
-    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
-    window_size (int, optional): ウィンドウサイズ。デフォルトは 3。
-    edge_handling (str, optional): 境界処理の方法 ('symmetric', 'asymmetric')。デフォルトは "asymmetric"。
-
-Returns:
-    Any: 移動平均処理後の配列（入力の型に依存）。
-
-Raises:
-    ValueError: 無効なエッジ処理方法、ウィンドウサイズが1未満、またはデータ長より大きい場合。"""
+        edge_handling = 'asymmetric'
+    ) -> "CollectionListOperations[C]":
+        """"""
         ...
     
 

@@ -5,7 +5,6 @@
 
 from typing import Optional, List, Dict, Any, Tuple, Union
 import numpy as np
-from ...utils.data import moving_average as utils_moving_average
 from ...core.collection import ColumnCollection
 from ...core.column import Column, detect_column_type
 from ..registry import operation, register_functional

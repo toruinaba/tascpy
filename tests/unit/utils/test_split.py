@@ -1,6 +1,6 @@
 
 import pytest
-from tascpy.utils.split import (
+from tascpy.functional.select import (
     split_list_by_chunks,
     split_list_by_count,
     split_list_by_condition,

@@ -1,40 +1,120 @@
 from typing import Union, Optional, List, Any, Tuple
 import numpy as np
-from ..utils.data import moving_average as utils_moving_average
 
 # --- Transformations ---
 
 def moving_average(
-    vals: Union[np.ndarray, List[float]],
-    window_size: int = 3,
-    edge_handling: str = "asymmetric",
-) -> Any:
-    """移動平均を計算します。
+    data: List[float], window_size: int = 3, edge_handling="asymmetric"
+) -> List[float]:
+    # 入力をNumPy配列に変換 (NoneはNaNとして扱う)
+    # 既に数値型のNumPy配列であればそのまま使用
+    if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
+        data_arr = data.astype(float)
+    else:
+        # data内にNoneが含まれる可能性があるため、安全に変換
+        # dataがリストの場合や、オブジェクト配列の場合
+        if any(x is None for x in data):
+            data_arr = np.array([x if x is not None else np.nan for x in data], dtype=float)
+        else:
+            try:
+                data_arr = np.array(data, dtype=float)
+            except (ValueError, TypeError):
+                 # 変換できない場合（文字列などが混入）はNaNにするかエラーにするか
+                 # 元の実装に合わせてNaNにする安全策
+                 data_arr = np.array([x if isinstance(x, (int, float)) and x is not None else np.nan for x in data], dtype=float)
+        
+    if len(data_arr) == 0:
+        return []
 
-    Args:
-        vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
-        window_size (int, optional): ウィンドウサイズ。デフォルトは 3。
-        edge_handling (str, optional): 境界処理の方法 ('symmetric', 'asymmetric')。デフォルトは "asymmetric"。
+    half_window = window_size // 2
+    n = len(data_arr)
+    result = np.full(n, np.nan)
 
-    Returns:
-        Any: 移動平均処理後の配列（入力の型に依存）。
+    if edge_handling == "symmetric":
+        # numpy.convolveを使用（mode='same'はゼロパディングまたは境界処理が簡易的）
+        # symmetricの要件（端のデータ数が減る平均）を満たすために、カスタム実装が必要
+        # あるいはpandasのrolling(min_periods=1, center=True)相当
+        
+        # NumPyでの実装:
+        # カーネルを作成
+        kernel = np.ones(window_size)
+        
+        # データの畳み込み（NaNを0として扱う）
+        # ただし、単純なconvolveではNaNの伝播や、端の分母（要素数）の計算が難しい
+        # 以下の手順で計算:
+        # 1. 有効な値のみの配列と、有効な箇所を示すマスク(0/1)を用意
+        # 2. 値の畳み込み / マスクの畳み込み = 平均
+        
+        valid_mask = ~np.isnan(data_arr)
+        filled_data = np.where(valid_mask, data_arr, 0.0)
+        
+        # 分子: データの和
+        # 'same'モードで中央揃え
+        numerator = np.convolve(filled_data, kernel, mode='same')
+        
+        # 分母: 有効なデータ数
+        denominator = np.convolve(valid_mask.astype(float), kernel, mode='same')
+        
+        # ゼロ除算回避
+        with np.errstate(divide='ignore', invalid='ignore'):
+            result = numerator / denominator
+            
+        # denominatorが0の場所はNaNにする（既に0/0=NaNだが、念のため）
+        result[denominator == 0] = np.nan
+        
+    else:  # asymmetric
+        # asymmetric: 左端は window[0:i+hw+1], 右端は window[i-hw:]
+        # これは center=True だが、windowがデータをはみ出した部分をカットする挙動
+        # 実は上記のsymmetricの実装（np.convolve mode='same'）は
+        # データの外側を0とみなして計算している（padding）
+        # 一方、分母の計算もpadding部分を除外している（valid_maskの畳み込み）
+        # したがって、上記のsymmetric実装は、実質的に
+        # "ウィンドウ範囲内の有効なデータの平均" を計算している。
+        #
+        # 元のPython実装の "symmetric" は:
+        # start = max(0, i - half_window)
+        # end = min(len(data), i + half_window + 1)
+        # window = data[start:end]
+        # -> これはまさに上記のconvolve実装と同じ（範囲内の平均）
+        #
+        # 元のPython実装の "asymmetric" は:
+        # 左端: data[0 : i + half_window + 1] -> 右側だけ伸びる、左は0固定
+        # 右端: data[i - half_window :] -> 左側だけ伸びる、右は末尾固定
+        # 中央: data[i - half_window : i + half_window + 1] -> 通常
+        #
+        # よく見ると、asymmetricの実装は
+        # left edge: window from 0 to i+hw -> center is not i?
+        # i=0, hw=1 (w=3): window=0:2 (len 2). center 0. range [-1, 1] truncated to [0, 1].
+        # これはsymmetricと同じロジックに見える。
+        # 元のコードを確認:
+        # symmetric: start=max(0, i-hw), end=min(len, i+hw+1). Slice data[start:end].
+        # asymmetric:
+        #   i < hw: data[0 : i+hw+1] -> start=0, end=i+hw+1. Same as symmetric (since i-hw < 0 implies max(0, ..)=0)
+        #   i >= len-hw: data[i-hw:] -> start=i-hw, end=len. Same as symmetric?
+        #   else: data[i-hw:i+hw+1]. Same as symmetric.
+        #
+        # 結論：元のコードの symmetric と asymmetric は、実は同じロジックになっている可能性がある。
+        # 確認：
+        # symmetric: start = max(0, 0-1) = 0. end = min(L, 0+1+1) = 2. data[0:2].
+        # asymmetric (i=0 < hw=1): data[0 : 0+1+1] = data[0:2].
+        # 全く同じ。
+        # なので、symmetric/asymmetricの区別なく、上記のconvolve実装で良い。
+        
+        # 再実装（共通）
+        kernel = np.ones(window_size)
+        valid_mask = ~np.isnan(data_arr)
+        filled_data = np.where(valid_mask, data_arr, 0.0)
+        
+        numerator = np.convolve(filled_data, kernel, mode='same')
+        denominator = np.convolve(valid_mask.astype(float), kernel, mode='same')
+        
+        with np.errstate(divide='ignore', invalid='ignore'):
+            result = numerator / denominator
+            
+        result[denominator == 0] = np.nan
 
-    Raises:
-        ValueError: 無効なエッジ処理方法、ウィンドウサイズが1未満、またはデータ長より大きい場合。
-    """
-    if edge_handling not in ["symmetric", "asymmetric"]:
-        raise ValueError(f"無効なエッジ処理方法です: {edge_handling}")
-
-    if window_size < 1:
-        raise ValueError("ウィンドウサイズは1以上である必要があります")
-
-    # Check length
-    if len(vals) < window_size:
-         raise ValueError("ウィンドウサイズがデータ長より大きくなっています")
-
-    return utils_moving_average(
-        vals, window_size=window_size, edge_handling=edge_handling
-    )
+    # 結果をリストに戻す（Noneを含む）
+    return [None if np.isnan(x) else x for x in result]
 
 def detect_outliers(
     vals: Union[np.ndarray, List[float]],
@@ -85,7 +165,7 @@ def detect_outliers(
     # Use max from python defaults or numpy? Logic used builtins.max
     reference_value = float(max(data_std * scale_factor, min_abs_value))
 
-    ma_values = utils_moving_average(
+    ma_values = moving_average(
         data, window_size=window_size, edge_handling=edge_handling
     )
     
