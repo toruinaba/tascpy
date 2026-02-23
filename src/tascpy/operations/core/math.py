@@ -14,35 +14,34 @@ import ast
 import math
 import inspect
 import numpy as np
-from ...functional import arithmetic
 from ...functional import math as functional_math
 from ..registry import operation, register_functional
 from ..naming import infix_naming, format_naming, basic_naming, log_naming
 
 
 add = register_functional(
-    arithmetic.add,
+    functional_math.add,
     domain="core",
     name="add",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("+")},
 )
 
 subtract = register_functional(
-    arithmetic.subtract,
+    functional_math.subtract,
     domain="core",
     name="subtract",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("-")},
 )
 
 multiply = register_functional(
-    arithmetic.multiply,
+    functional_math.multiply,
     domain="core",
     name="multiply",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("*")},
 )
 
 divide = register_functional(
-    arithmetic.divide,
+    functional_math.divide,
     domain="core",
     name="divide",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("/")},
@@ -69,7 +68,7 @@ def _integrate_unit_inference(collection, y_col, x_col, **kwargs):
 
 
 diff = register_functional(
-    arithmetic.diff,
+    functional_math.diff,
     domain="core",
     name="diff",
     store_result={
@@ -87,7 +86,7 @@ diff = register_functional(
 
 
 integrate = register_functional(
-    arithmetic.integrate,
+    functional_math.integrate,
     domain="core",
     name="integrate",
     store_result={
