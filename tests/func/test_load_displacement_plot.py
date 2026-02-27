@@ -264,32 +264,29 @@ class TestLoadDisplacementPlotFunctional:
             load_displacement_data,
             method="offset",
             offset_value=0.001,
-            result_prefix="yield_small",
         )
 
         offset_standard = find_yield_point(
             load_displacement_data,
             method="offset",
             offset_value=0.002,
-            result_prefix="yield_standard",
         )
 
         general = find_yield_point(
             load_displacement_data,
             method="general",
             factor=0.33,
-            result_prefix="yield_general",
         )
 
         # 降伏解析結果の詳細を取得
-        small_yield_data = offset_small.metadata["analysis"]["yield_point"]
-        standard_yield_data = offset_standard.metadata["analysis"]["yield_point"]
-        general_yield_data = general.metadata["analysis"]["yield_point"]
+        small_yield_data = offset_small.results["yield_point"].metadata
+        standard_yield_data = offset_standard.results["yield_point"].metadata
+        general_yield_data = general.results["yield_point"].metadata
 
         # 結果の比較
-        small_yield_load = small_yield_data["load"]
-        standard_yield_load = standard_yield_data["load"]
-        general_yield_load = general_yield_data["load"]
+        small_yield_load = offset_small.results["yield_point"].y
+        standard_yield_load = offset_standard.results["yield_point"].y
+        general_yield_load = general.results["yield_point"].y
 
         # オフセット値が増えると降伏荷重も増えるはず
         assert small_yield_load <= standard_yield_load
@@ -326,13 +323,13 @@ class TestLoadDisplacementPlotFunctional:
                 "Method,Offset/Factor,Yield Load (kN),Yield Displacement (mm),Initial Slope (kN/mm)\n"
             )
             f.write(
-                f"Offset,0.001,{small_yield_data['load']:.2f},{small_yield_data['displacement']:.4f},{small_yield_data['initial_slope']:.2f}\n"
+                f"Offset,0.001,{offset_small.results['yield_point'].y:.2f},{offset_small.results['yield_point'].x:.4f},{small_yield_data['initial_slope']:.2f}\n"
             )
             f.write(
-                f"Offset,0.002,{standard_yield_data['load']:.2f},{standard_yield_data['displacement']:.4f},{standard_yield_data['initial_slope']:.2f}\n"
+                f"Offset,0.002,{offset_standard.results['yield_point'].y:.2f},{offset_standard.results['yield_point'].x:.4f},{standard_yield_data['initial_slope']:.2f}\n"
             )
             f.write(
-                f"General,0.33,{general_yield_data['load']:.2f},{general_yield_data['displacement']:.4f},{general_yield_data['initial_slope']:.2f}\n"
+                f"General,0.33,{general.results['yield_point'].y:.2f},{general.results['yield_point'].x:.4f},{general_yield_data['initial_slope']:.2f}\n"
             )
 
         # ファイルが作成されたことを確認
@@ -561,7 +558,6 @@ class TestLoadDisplacementPlotFunctional:
             skeleton_result,
             method="offset",
             offset_value=0.005,  # 0.002から0.005に変更
-            result_prefix="yield_skeleton",
         )
 
         # 2x2のグリッドで異なる解析結果を表示
@@ -602,21 +598,21 @@ class TestLoadDisplacementPlotFunctional:
         assert combined_plot_path.stat().st_size > 0
 
         # 結果のサマリデータを検証
-        original_yield_data = original_yield.metadata["analysis"]["yield_point"]
-        skeleton_yield_data = yield_result.metadata["analysis"]["yield_point"]
+        original_yield_data = original_yield.results["yield_point"].metadata
+        skeleton_yield_data = yield_result.results["yield_point"].metadata
 
         # スケルトン曲線の降伏点は元データの降伏点と異なるはず
         # 異なるオフセット値を使用しているので値も異なるはず
         # 厳密な不等式ではなく、結果がきちんと出ていることを確認
         assert (
             abs(
-                original_yield_data["displacement"]
-                - skeleton_yield_data["displacement"]
+                original_yield.results["yield_point"].x
+                - yield_result.results["yield_point"].x
             )
             > 0.001
         )
         assert (
-            abs(original_yield_data["load"] - skeleton_yield_data["load"]) > 0.005
+            abs(original_yield.results["yield_point"].y - yield_result.results["yield_point"].y) > 0.005
         )  # 0.1から0.05に調整 -> 0.005に緩和
 
         # 結果のサマリをファイル出力
@@ -624,10 +620,10 @@ class TestLoadDisplacementPlotFunctional:
         with open(results_path, "w") as f:
             f.write("データタイプ,降伏荷重 (kN),降伏変位 (mm),初期勾配 (kN/mm)\n")
             f.write(
-                f"元データ,{original_yield_data['load']:.2f},{original_yield_data['displacement']:.4f},{original_yield_data['initial_slope']:.2f}\n"
+                f"元データ,{original_yield.results['yield_point'].y:.2f},{original_yield.results['yield_point'].x:.4f},{original_yield_data['initial_slope']:.2f}\n"
             )
             f.write(
-                f"スケルトン曲線,{skeleton_yield_data['load']:.2f},{skeleton_yield_data['displacement']:.4f},{skeleton_yield_data['initial_slope']:.2f}\n"
+                f"スケルトン曲線,{yield_result.results['yield_point'].y:.2f},{yield_result.results['yield_point'].x:.4f},{skeleton_yield_data['initial_slope']:.2f}\n"
             )
 
         # ファイルが作成されたことを確認

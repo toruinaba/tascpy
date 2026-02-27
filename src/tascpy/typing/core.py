@@ -268,35 +268,19 @@ Returns:
 
     def plot(
         self,
-        y_values: ndarray,
-        x_label: str,
-        y_label: str,
-        title: str,
+        y_column: str,
+        x_column: Optional[str] = None,
         ax: Optional[Axes] = None,
         **kwargs
     ) -> Axes:
-        """基本プロットを行います (Functional wrapper)。
-
-Args:
-    x_values (np.ndarray): x軸のデータ配列。
-    y_values (np.ndarray): y軸のデータ配列。
-    x_label (str): x軸のラベル。
-    y_label (str): y軸のラベル。
-    title (str): グラフのタイトル。
-    ax (Optional[plt.Axes], optional): 描画先のMatplotlib Axesオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
-    **kwargs: その他のプロットオプション（color, marker, linestyleなど）。
-
-Returns:
-    plt.Axes: 描画に使用されたAxesオブジェクト。"""
+        """基本的なプロットを行います"""
         ...
     
 
     def visualize_outliers(
         self,
-        y_values: Any,
-        x_label: str,
-        y_label: str,
-        title: str,
+        column: str,
+        x_column: Optional[str] = None,
         window_size: int = 3,
         threshold: float = 0.5,
         highlight_color: str = 'red',
@@ -312,82 +296,28 @@ Returns:
         scale_factor: float = 1.0,
         **kwargs
     ) -> Axes:
-        """異常値を検出し可視化します (Functional implementation)。
-
-Args:
-    x_values (Any): x軸のデータ配列。
-    y_values (Any): y軸のデータ配列。
-    x_label (str): x軸のラベル。
-    y_label (str): y軸のラベル。
-    title (str): グラフのタイトル。
-    window_size (int, optional): 外れ値検出のウィンドウサイズ。デフォルトは 3。
-    threshold (float, optional): 外れ値検出の閾値。デフォルトは 0.5。
-    highlight_color (str, optional): 異常値のハイライト色。デフォルトは "red"。
-    plot_type (str, optional): プロットタイプ ('scatter', 'line' など)。デフォルトは "scatter"。
-    show_normal (bool, optional): 正常値を描画するかどうか。デフォルトは True。
-    normal_color (str, optional): 正常値の色。デフォルトは "blue"。
-    normal_alpha (float, optional): 正常値の透明度。デフォルトは 0.5。
-    outlier_marker (str, optional): 異常値のマーカー形状。デフォルトは "o"。
-    outlier_size (int, optional): 異常値のマーカーサイズ。デフォルトは 50。
-    ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
-    edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
-    min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
-    scale_factor (float, optional): 閾値のスケーリング係数。デフォルトは 1.0。
-    **kwargs: その他のプロットオプション。
-
-Returns:
-    plt.Axes: 描画に使用されたAxesオブジェクト。"""
+        """異常値を検出し可視化します"""
         ...
     
 
     def plot_const_x(
         self,
-        y_data: y_columns = typing.List[str],
-        x_values: list[float] = None,
-        column: y_columns = typing.List[str],
         x_values: list[float],
-        show_legend: bool = True,
+        y_columns: list[str],
         ax: Optional[Axes] = None,
         **kwargs
     ) -> Axes:
-        """特定のx値に対して複数のy列の値をプロットします。
-
-Args:
-    y_data (Dict[str, Any]): プロットするyデータの辞書（キー: 名前, 値: データ列またはスカラー）。
-    x_values (List[float]): x軸の値のリスト（y_dataと同じ長さが必要）。
-    show_legend (bool, optional): 凡例を表示するかどうか。デフォルトは True。
-    ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
-    **kwargs: その他のプロットオプション (x_label, y_label, titleなど)。
-
-Returns:
-    plt.Axes: 描画に使用されたAxesオブジェクト。"""
+        """共通のX軸に対して複数のY列をプロットします"""
         ...
     
 
     def iplot(
         self,
-        y_values: ndarray,
-        x_label: str,
-        y_label: str,
-        title: str,
-        fig: Optional[Any] = None,
+        y_column: str,
+        x_column: Optional[str] = None,
         **kwargs
     ) -> Any:
-        """インタラクティブなグラフを描画します (Functional wrapper)。
-
-Plotlyを使用してインタラクティブなプロットを作成します。
-
-Args:
-    x_values (np.ndarray): x軸のデータ配列。
-    y_values (np.ndarray): y軸のデータ配列。
-    x_label (str): x軸のラベル。
-    y_label (str): y軸のラベル。
-    title (str): グラフのタイトル。
-    fig (Optional[Any], optional): 既存のPlotly Figureオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
-    **kwargs: その他のプロットオプション (name, color, symbol, sizeなど)。
-
-Returns:
-    Any: PlotlyのFigureオブジェクト。"""
+        """インタラクティブなプロットを行います（Jupyter用）"""
         ...
     
 
@@ -442,45 +372,34 @@ Raises:
 
     def split_by_integers(
         self,
-        length: length = <class 'int'>,
-        markers: markers = typing.List[int],
-        column: length = <class 'int'>,
         markers: Union[list[int], ndarray]
-    ) -> list[ndarray]:
-        """整数マーカーに基づいて分割インデックスを計算します。
+    ) -> "CollectionListOperations[CoreCollectionOperations]":
+        """整数マーカーに基づいてコレクションを分割します。
 
-ユニークなマーカー値ごとに、そのマーカーに対応するインデックスの配列をリストとして返します。
+ユニークなマーカー値ごとに、そのマーカーに対応するデータを含む
+新しい ColumnCollection のリストを返します。
 
 Args:
-    length (int): データの長さ。
-    markers (Union[List[int], np.ndarray]): 各要素に対応する整数マーカーのリストまたは配列。長さは `length` と一致する必要があります。
+    collection: 対象の ColumnCollection
+    markers: 各要素に対応する整数マーカーのリストまたは配列。長さはコレクションの長さと一致する必要があります。
 
 Returns:
-    List[np.ndarray]: 各マーカーに対応するインデックス配列のリスト。
-
-Raises:
-    ValueError: データ長とマーカーリストの長さが一致しない場合。"""
+    List[ColumnCollection]: 分割されたコレクションのリスト"""
         ...
     
 
     def split_at_indices(
         self,
-        length: length = <class 'int'>,
-        indices: indices = typing.Union[int, typing.List[int]],
-        column: length = <class 'int'>,
         indices: Union[int, list[int]]
-    ) -> list[slice]:
-        """指定されたインデックスで分割するためのスライスを計算します。
+    ) -> "CollectionListOperations[CoreCollectionOperations]":
+        """指定されたインデックスでコレクションを分割します。
 
 Args:
-    length (int): データの長さ。
-    indices (Union[int, List[int]]): 分割点となるインデックス（またはそのリスト）。
+    collection: 対象の ColumnCollection
+    indices: 分割点となるインデックス（またはそのリスト）
 
 Returns:
-    List[slice]: 分割された各セグメントを表すスライスのリスト。
-
-Raises:
-    IndexError: インデックスが範囲外 (0-length) の場合。"""
+    List[ColumnCollection]: 分割されたコレクションのリスト"""
         ...
     
 

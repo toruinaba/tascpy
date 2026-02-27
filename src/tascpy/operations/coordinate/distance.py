@@ -9,6 +9,7 @@ from ...operations.registry import operation
 from ...domains.coordinate import CoordinateCollection
 from ...core.column import Column
 from ...operations.validation import requires_domain, requires_coordinates
+from ...functional.coordinate.clustering import simple_kmeans
 
 
 @operation(domain="coordinate", shared_with=["strain"])
@@ -201,7 +202,7 @@ def spatial_clustering(
     X = np.array(coord_data)
 
     if algorithm == "kmeans":
-        labels = _simple_kmeans(X, n_clusters)
+        labels = simple_kmeans(X, n_clusters)
     else:
         raise ValueError(f"不明なアルゴリズム: {algorithm}")
 
@@ -250,53 +251,6 @@ def spatial_clustering(
     )
 
     return result
-
-
-def _simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.ndarray:
-    """簡易的なK-meansクラスタリング実装
-
-    scikit-learnがない場合のフォールバック実装
-
-    Args:
-        X: 座標データ配列
-        n_clusters: クラスタ数
-        max_iter: 最大繰り返し回数
-
-    Returns:
-        np.ndarray: クラスタラベル
-    """
-    # データ点数と次元数
-    n_samples, n_features = X.shape
-
-    # 初期センターをランダムに選択
-    np.random.seed(42)
-    centers = X[np.random.choice(n_samples, n_clusters, replace=False)]
-
-    # クラスタラベル初期化
-    labels = np.zeros(n_samples, dtype=int)
-
-    for _ in range(max_iter):
-        # 各データ点に最も近いセンターを割り当て
-        old_labels = labels.copy()
-
-        for i in range(n_samples):
-            # 全センターとの距離を計算
-            distances = np.sqrt(((X[i] - centers) ** 2).sum(axis=1))
-            # 最も近いセンターのインデックスを割り当て
-            labels[i] = np.argmin(distances)
-
-        # 収束判定
-        if np.all(old_labels == labels):
-            break
-
-        # センターの更新
-        for j in range(n_clusters):
-            mask = labels == j
-            if mask.sum() > 0:  # クラスタjに割り当てられたデータ点がある場合
-                centers[j] = X[mask].mean(axis=0)
-
-    return labels
-
 
 @operation(domain="coordinate", shared_with=["strain"])
 @requires_domain(["coordinate", "strain"])

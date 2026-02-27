@@ -2,8 +2,9 @@ from typing import Callable, Optional, Union, List, Any, Dict
 import functools
 import numpy as np
 from ..core.collection import ColumnCollection
-from ..core.column import detect_column_type
+from ..core.column import detect_column_type, NumberColumn
 from ..core.step import Step
+from ..core.result import XYSeriesResult, PointResult
 
 
 def inject_columns(
@@ -423,6 +424,121 @@ def store_result(
     return decorator
 
 
+def store_xy_result(
+    func: Optional[Callable] = None,
+    *,
+    name: str = "curve",
+    x_suffix: str = "_x",
+    y_suffix: str = "_y",
+    inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
+):
+    """
+    Decorator to store a generic 2D series result.
+    The wrapped function is expected to return (x_values, y_values) or a tuple containing them.
+    """
+    def decorator(target_func):
+        @functools.wraps(target_func)
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            if not isinstance(collection, ColumnCollection):
+                return target_func(collection, *args, **kwargs)
+
+            func_kwargs = kwargs.copy()
+            res_data = target_func(collection, *args, **func_kwargs)
+            
+            # Unpack results: func might return (x, y) or (x, y, meta) etc.
+            x_vals, y_vals = res_data[0], res_data[1]
+            extra_meta = res_data[2] if len(res_data) > 2 else {}
+
+            result_collection = collection.clone()
+            
+            x_col = NumberColumn(ch=None, name=f"{name}{x_suffix}", unit="", values=x_vals)
+            y_col = NumberColumn(ch=None, name=f"{name}{y_suffix}", unit="", values=y_vals)
+
+            curve = XYSeriesResult(
+                name=name,
+                x=x_col,
+                y=y_col,
+                metadata=extra_meta
+            )
+            
+            result_collection.add_result(curve)
+
+            if inject_metadata:
+                try:
+                    meta = inject_metadata(args, kwargs, res_data)
+                    if meta:
+                        result_collection.metadata.update(meta)
+                except Exception as e:
+                    raise e
+                    
+            return result_collection
+        return wrapper
+
+    if func is not None:
+        return decorator(func)
+    return decorator
+
+
+def store_point_result(
+    func: Optional[Callable] = None,
+    *,
+    name: str = "point",
+    inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
+):
+    """
+    Decorator to store a PointResult.
+    The wrapped function is expected to return (is_valid, x_value, y_value, metadata) or similar.
+    We just need x and y.
+    """
+    def decorator(target_func):
+        @functools.wraps(target_func)
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            if not isinstance(collection, ColumnCollection):
+                return target_func(collection, *args, **kwargs)
+
+            func_kwargs = kwargs.copy()
+            res_data = target_func(collection, *args, **func_kwargs)
+            
+            # Assuming returns are (bool, x, y, meta) like yield point, or just (x, y)
+            if isinstance(res_data, tuple) and len(res_data) >= 3 and isinstance(res_data[0], bool):
+                # (is_valid, x, y, meta)
+                is_valid = res_data[0]
+                x_val = res_data[1]
+                y_val = res_data[2]
+                extra_meta = res_data[3] if len(res_data) > 3 else {}
+                extra_meta["is_valid"] = is_valid
+            else:
+                x_val, y_val = res_data[0], res_data[1]
+                extra_meta = res_data[2] if len(res_data) > 2 else {}
+
+            result_collection = collection.clone()
+
+            point = PointResult(
+                name=name,
+                x=x_val,
+                y=y_val,
+                metadata=extra_meta
+            )
+            
+            result_collection.add_result(point)
+
+            if inject_metadata:
+                try:
+                    meta = inject_metadata(args, kwargs, res_data)
+                    if meta:
+                        result_collection.metadata.update(meta)
+                except Exception as e:
+                    raise e
+                    
+            return result_collection
+        return wrapper
+
+    if func is not None:
+        return decorator(func)
+    return decorator
+
+
+
 def transform_column(
     num_inputs: int = 1,
     result_naming: Union[str, Callable[..., str]] = None,
@@ -699,219 +815,6 @@ def filter_rows(func):
     return wrapper
 
 
-
-def inject_plot_data(
-    x_arg: str = "x_column",
-    y_arg: str = "y_column",
-    positional_order: Optional[List[str]] = None,
-):
-    """
-    Decorator to extract plot data from ColumnCollection and inject into function.
-    Injects: x_values, y_values, x_label, y_label, title
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(collection: Union[ColumnCollection, Any] = None, *args, **kwargs):
-            # 1. If x_values and y_values are provided in kwargs, bypass extraction
-            # This allows calling plot(x_values=..., y_values=...) directly
-            if "x_values" in kwargs and "y_values" in kwargs:
-                # If collection was passed (e.g. None or some object), do we pass it? 
-                # If plot() does not take collection, we should NOT pass it.
-                # But if we are in pass-through mode...
-                # Actually, check if func accepts 'collection'? No, we know plot() is pure.
-                # If x_values/y_values are passed, we assume we are calling the pure function directly.
-                return func(*args, **kwargs)
-
-            # 2. Pass through if not collection (and data not fully provided)
-            # This handles plot(arr1, arr2) case where collection=arr1
-            if not isinstance(collection, ColumnCollection):
-                 # If collection is None (default), and we didn't satisfy condition 1,
-                 # it implies missing arguments. But let's pass it through and let func fail or handle.
-                 # However, if func is plot(x_values, ...), func(None, ...) maps None to x_values.
-                 # If valid usage, this is fine.
-                 return func(collection, *args, **kwargs)
-
-            # Extract Column Names
-            # Priority: 1. kwargs, 2. args (positional)
-            
-            x_column = None
-            y_column = None
-            
-            # Check kwargs first
-            if x_arg in kwargs:
-                x_column = kwargs.pop(x_arg)
-            
-            if y_arg in kwargs:
-                y_column = kwargs.pop(y_arg)
-                
-            # Check args if not found in kwargs using mutable list
-            mutable_args = list(args)
-            
-            # Determine processing order for positional args
-            # Default: x then y
-            if positional_order is None:
-                order = [x_arg, y_arg]
-            else:
-                order = positional_order
-                
-            for arg_name in order:
-                if len(mutable_args) == 0:
-                     break
-                     
-                if arg_name == x_arg:
-                    if x_column is None:
-                        x_column = mutable_args.pop(0)
-                        
-                elif arg_name == y_arg:
-                    if y_column is None:
-                        y_column = mutable_args.pop(0)
-
-            # Update args to passed-through args
-            args = tuple(mutable_args)
-            
-            # Extract Data & Metadata
-            # X Axis
-            x_values, x_name, x_unit = extract_axis_data(collection, x_column, "Step")
-
-            # Y Axis
-            y_values, y_name, y_unit = extract_axis_data(collection, y_column, "Step")
-            
-            # Construct Labels
-            x_label = f"{x_name} [{x_unit}]" if x_unit else x_name
-            y_label = f"{y_name} [{y_unit}]" if y_unit else y_name
-            
-            # Construct Default Title (can be overridden by kwargs if needed, but usually passed as arg)
-            # We construct it here to standardize
-            plot_type = kwargs.get("plot_type", "scatter")
-            default_title = f"{plot_type.capitalize()} plot of {y_name} vs {x_name}"
-            
-            # Inject
-            return func(
-                x_values=x_values,
-                y_values=y_values,
-                x_label=x_label,
-                y_label=y_label,
-                title=default_title,
-                *args,
-                **kwargs
-            )
-        return wrapper
-    return decorator
-
-
-def inject_length(func):
-    """
-    Decorator to inject the collection length as the first argument.
-    Usage:
-        @split_result
-        @inject_length
-        def my_split(length: int, ...):
-            ...
-    </details>
-    """
-    @functools.wraps(func)
-    def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
-        # If collection is ColumnCollection, extract length
-        if isinstance(collection, ColumnCollection):
-             length = len(collection)
-             return func(length, *args, **kwargs)
-        
-        # If collection is already int (testing or manual usage)
-        if isinstance(collection, int):
-             return func(collection, *args, **kwargs)
-             
-        # If collection is list/array? (maybe just len() it?)
-        try:
-             length = len(collection)
-             return func(length, *args, **kwargs)
-        except TypeError:
-             # Fallback or raise?
-             # If we can't determine length, pass as is? 
-             # No, the function expects int.
-             raise TypeError(f"Expected ColumnCollection or length(int), got {type(collection)}")
-
-    return wrapper
-def split_result(func):
-    """
-    Decorator that expects the function to return a list of Step (or lengths/indices) or similar split info,
-    and returns a list of ColumnCollections.
-    """
-    @functools.wraps(func)
-    def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
-        if not isinstance(collection, ColumnCollection):
-             return func(collection, *args, **kwargs)
-
-        # Call inner function
-        # Expecting it to return List of Indices/Slices
-        split_defs = func(collection, *args, **kwargs)
-        
-        # Check if tuple (defs, metadata)
-        metadata_update = {}
-        if isinstance(split_defs, tuple) and len(split_defs) == 2 and isinstance(split_defs[1], dict):
-             split_defs, metadata_update = split_defs
-
-        # Optimization: Pre-convert to numpy if needed? 
-        # But we don't want to mutate original collection here.
-        # Let's trust pure func or handle it inside.
-        
-        results = []
-        
-        # Post-process results
-        for item in split_defs:
-            if isinstance(item, slice):
-                # Apply slice
-                res = collection[item]
-                results.append(res)
-            elif isinstance(item, (list, np.ndarray)):
-                 # Apply indices
-                 # We need to use filter_rows logic here?
-                 # Or just delegate to collection slicing by index if supported?
-                 # Collection supports integer slicing but not list of integers (yet?)
-                 # Actually, filter_rows is what implements list-of-indices slicing logic.
-                 # We should expose that logic or reuse filter_rows wrapper logic?
-                 
-                 # Reusing logic from filter_rows wrapper:
-                 # But we can't call a decorated dummy.
-                 
-                 # Let's implement a helper method `_subset_by_indices` in collection?
-                 # Or do it here manually.
-                 
-                 # Simplified manual implementation for now:
-                 indices = np.array(item)
-                 
-                 # Step
-                 step_vals = np.array(collection.step.values)
-                 
-                 try:
-                     new_step = step_vals[indices].tolist()
-                 except IndexError:
-                     raise IndexError("指定されたインデックスが範囲外です")
-                 
-                 # Columns
-                 new_cols = {}
-                 for name, col in collection.columns.items():
-                     c_vals = np.array(col.values)
-                     new_vals = c_vals[indices].tolist()
-                     new_cols[name] = col.__class__(col.ch, col.name, col.unit, new_vals)
-                     
-                 res = collection.clone()
-                 res.step.values = new_step
-                 res.columns = new_cols
-                 results.append(res)
-            else:
-                 # Maybe already a Collection?
-                 if isinstance(item, ColumnCollection):
-                      results.append(item)
-                 else:
-                      raise TypeError(f"Unsupported split result type: {type(item)}")
-
-        # Update metadata if any
-        if metadata_update:
-             for res in results:
-                  res.metadata.update(metadata_update)
-
-        return results
-    return wrapper
 
 
 def extract_axis_data(

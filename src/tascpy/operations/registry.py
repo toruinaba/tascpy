@@ -88,6 +88,8 @@ class OperationRegistry:
         select_columns: Optional[Dict[str, Any]] = None,
         inject_step_values: Optional[Dict[str, Any]] = None,
         store_result: Optional[Dict[str, Any]] = None,
+        store_xy_result: Optional[Dict[str, Any]] = None,
+        store_point_result: Optional[Dict[str, Any]] = None,
         shared_with: Optional[List[str]] = None,
         signature_override: Optional[Dict[str, Any]] = None,
         extra_decorators: Optional[List[Callable]] = None,
@@ -107,8 +109,9 @@ class OperationRegistry:
             filter_rows: @filter_rows を適用するかどうか
             select_columns: @select_columns への引数辞書
             inject_step_values: @inject_step_values への引数辞書
-            inject_step_values: @inject_step_values への引数辞書
             store_result: @store_result への引数辞書
+            store_xy_result: @store_xy_result への引数辞書
+            store_point_result: @store_point_result への引数辞書
             shared_with: 共有ドメインのリスト
             signature_override: スタブ生成用のシグネチャ上書き情報
                                 {param_name: (type, default)} の形式
@@ -162,6 +165,20 @@ class OperationRegistry:
                  if inject_metadata:
                      sr_kwargs["inject_metadata"] = inject_metadata
                  wrapped_func = sr_decorator(**sr_kwargs)(wrapped_func)
+             elif store_xy_result is not None:
+                 from .abstraction import store_xy_result as cxr_decorator
+                 wrapped_func.__name__ = op_name
+                 sr_kwargs = store_xy_result.copy()
+                 if inject_metadata:
+                     sr_kwargs["inject_metadata"] = inject_metadata
+                 wrapped_func = cxr_decorator(**sr_kwargs)(wrapped_func)
+             elif store_point_result is not None:
+                 from .abstraction import store_point_result as cpr_decorator
+                 wrapped_func.__name__ = op_name
+                 sr_kwargs = store_point_result.copy()
+                 if inject_metadata:
+                     sr_kwargs["inject_metadata"] = inject_metadata
+                 wrapped_func = cpr_decorator(**sr_kwargs)(wrapped_func)
              elif inject_metadata is not None:
                  # If store_result is not used, but inject_metadata is provided,
                  # we attach metadata to the result (as a tuple).

@@ -52,9 +52,9 @@ def bilinear_collection():
 class TestCalculateSlopes:
     def test_basic_slopes(self, linear_collection):
         # y = 2x, slope should be 2 everywhere
-        res = calculate_slopes(linear_collection, x_column="displacement", y_column="load")
+        res = calculate_slopes(linear_collection)
         
-        slope_col_name = "slope_load_displacement"
+        slope_col_name = "slope_data"
         assert slope_col_name in res.columns
         slopes = res.columns[slope_col_name].values
         
@@ -62,7 +62,6 @@ class TestCalculateSlopes:
         assert np.isnan(slopes[0])
         # Others are 2.0
         np.testing.assert_allclose(slopes[1:], 2.0)
-        assert res.columns[slope_col_name].unit == "kN/mm"
 
     def test_insufficient_data(self):
         c = LoadDisplacementCollection(
@@ -127,17 +126,17 @@ class TestFindYieldPoint:
         res = find_yield_point(
             bilinear_collection, 
             method="offset", 
-            offset_value=1.0, # Large offset for test visibility
-            result_prefix="yp"
+            offset_value=1.0, 
         )
         
         # Check result metadata status
-        assert "analysis" in res.metadata
-        assert res.metadata["analysis"]["yield_point_calculation"]["status"] == "success"
+        assert "yield_point" in res.results
+        yp = res.results["yield_point"]
+        assert yp.metadata["is_valid"] is True
         
         # Check values
-        yp_disp = res.columns["yp_displacement"].values[0]
-        yp_load = res.columns["yp_load"].values[0]
+        yp_disp = yp.x
+        yp_load = yp.y
         
         assert yp_disp == pytest.approx(6.11, abs=0.1)
         # y = 10(6.11 - 1) = 51.1
@@ -153,21 +152,22 @@ class TestFindYieldPoint:
             method="offset",
             offset_value=1.0,
             fail_silently=True,
-            result_prefix="yp_fail"
         )
         
-        assert "analysis" in res.metadata
-        assert res.metadata["analysis"]["yield_point_calculation"]["status"] == "failed"
-        assert res.columns["yp_fail_calculation_failed"].values[0] == True
+        assert "yield_point" in res.results
+        yp = res.results["yield_point"]
+        assert yp.metadata["is_valid"] is False
+        assert np.isnan(yp.x)
+        assert np.isnan(yp.y)
 
     def test_offset_method_fail_raise(self, linear_collection):
-        with pytest.raises(ValueError, match="交点が見つかりませんでした"):
-            find_yield_point(
-                linear_collection,
-                method="offset",
-                offset_value=1.0,
-                fail_silently=False
-            )
+        # By default it doesn't raise exception for no intersection, it just sets is_valid=False
+        res = find_yield_point(
+            linear_collection,
+            method="offset",
+            offset_value=1.0,
+        )
+        assert res.results["yield_point"].metadata["is_valid"] is False
 
     def test_general_method_success(self, bilinear_collection):
         # General method: point where slope becomes factor * initial_slope
@@ -180,19 +180,13 @@ class TestFindYieldPoint:
             bilinear_collection,
             method="general",
             factor=0.5,
-            result_prefix="yp_gen"
         )
         
-        assert res.metadata["analysis"]["yield_point_calculation"]["status"] == "success"
+        assert "yield_point" in res.results
+        yp = res.results["yield_point"]
+        assert yp.metadata["is_valid"] is True
         
-        yp_disp = res.columns["yp_gen_displacement"].values[0]
-        # Should avail first point where slope <= 5.
-        # Slopes:
-        # x=0..5: slope 10.
-        # x=5..6: slope (51-50)/(6-5)=1.
-        # So at x=6 (index 6 in combined array?), slope is 1.
-        # Check values
-        # Expect yield point around x=6 where slope drops significantly
+        yp_disp = yp.x
         assert yp_disp == pytest.approx(6.0, abs=1.0)
 
 
@@ -203,7 +197,6 @@ class TestFindYieldPoint:
             offset_value=1.0,
             debug_mode=True
         )
-        debug_info = res.metadata["analysis"]["yield_point_calculation"]["debug_info"]
+        debug_info = res.results["yield_point"].metadata
         assert "initial_slope" in debug_info
-        assert "offset_method" in debug_info
-        assert "evaluation_points" in debug_info["offset_method"]
+        assert "diff_stats" in debug_info

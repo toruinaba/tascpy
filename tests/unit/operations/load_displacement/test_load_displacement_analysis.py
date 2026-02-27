@@ -201,7 +201,7 @@ class TestLoadDisplacementAnalysis:
         assert isinstance(result, LoadDisplacementCollection)
 
         # 結果列の存在を確認
-        expected_column = "slope_load_displacement"
+        expected_column = "slope_data"
         assert expected_column in result.columns
 
         # 傾きの値を確認
@@ -223,7 +223,7 @@ class TestLoadDisplacementAnalysis:
         result = calculate_slopes(self.custom_ld_collection)
 
         # 結果列の存在を確認
-        expected_column = "slope_force_disp"
+        expected_column = "slope_data"
         assert expected_column in result.columns
 
         # 傾きの値を確認
@@ -246,7 +246,7 @@ class TestLoadDisplacementAnalysis:
         assert custom_column in result.columns
 
         # デフォルト列名が存在しないことを確認
-        default_column = "slope_load_displacement"
+        default_column = "slope_data"
         assert default_column not in result.columns
 
         # 傾きの値を確認
@@ -265,7 +265,7 @@ class TestLoadDisplacementAnalysis:
         result = calculate_slopes(self.edge_ld_collection)
 
         # 結果列の存在を確認
-        expected_column = "slope_load_displacement"
+        expected_column = "slope_data"
         assert expected_column in result.columns
 
         # 傾きの値を確認
@@ -357,19 +357,18 @@ class TestLoadDisplacementAnalysis:
             offset_value=0.002,
             range_start=0.0,  # 範囲開始を0%に設定（データのはじめから）
             range_end=0.6,  # 範囲終了を60%に設定（線形領域内）
-            result_prefix="yield",
-        )
+            )
 
         # 結果のコレクション型の確認
         assert isinstance(result, LoadDisplacementCollection)
 
         # 結果列の存在を確認
-        assert "yield_displacement" in result.columns
-        assert "yield_load" in result.columns
+        assert "yield_point" in result.results
+        
 
         # 降伏変位と荷重の値が数値であることを確認
-        yield_disp = result["yield_displacement"].values[0]
-        yield_load = result["yield_load"].values[0]
+        yield_disp = result.results["yield_point"].x
+        yield_load = result.results["yield_point"].y
 
         assert isinstance(yield_disp, (int, float))
         assert isinstance(yield_load, (int, float))
@@ -383,19 +382,18 @@ class TestLoadDisplacementAnalysis:
             factor=0.33,
             range_start=0.0,  # 範囲開始を0%に設定（データのはじめから）
             range_end=0.6,  # 範囲終了を60%に設定（線形領域内）
-            result_prefix="yield",
-        )
+            )
 
         # 結果のコレクション型の確認
         assert isinstance(result, LoadDisplacementCollection)
 
         # 結果列の存在を確認
-        assert "yield_displacement" in result.columns
-        assert "yield_load" in result.columns
+        assert "yield_point" in result.results
+        
 
         # 降伏変位と荷重の値が数値であることを確認
-        yield_disp = result["yield_displacement"].values[0]
-        yield_load = result["yield_load"].values[0]
+        yield_disp = result.results["yield_point"].x
+        yield_load = result.results["yield_point"].y
 
         assert isinstance(yield_disp, (int, float))
         assert isinstance(yield_load, (int, float))
@@ -407,41 +405,13 @@ class TestLoadDisplacementAnalysis:
             offset_value=0.002,
             range_start=0.0,  # 範囲開始を0%に設定
             range_end=0.6,  # 範囲終了を60%に設定
-            result_prefix="yield",
-        )
+            )
 
-        offset_disp = offset_result["yield_displacement"].values[0]
-        general_disp = result["yield_displacement"].values[0]
+        offset_disp = offset_result.results["yield_point"].x
+        general_disp = result.results["yield_point"].x
 
         # 2つの方法での結果は異なるはず
         assert offset_disp != pytest.approx(general_disp)
-
-    def test_find_yield_point_custom_prefix(self):
-        """カスタム接頭辞でのfind_yield_pointのテスト"""
-        # カスタム接頭辞で降伏点を計算
-        custom_prefix = "y_point"
-        result = find_yield_point(
-            self.yield_ld_collection,
-            method="offset",
-            offset_value=0.002,
-            range_start=0.0,  # 範囲開始を0%に設定
-            range_end=0.6,  # 範囲終了を60%に設定
-            result_prefix=custom_prefix,
-        )
-
-        # カスタム結果列の存在を確認
-        assert f"{custom_prefix}_displacement" in result.columns
-        assert f"{custom_prefix}_load" in result.columns
-
-        # デフォルト接頭辞の列がないことを確認
-        assert "yield_displacement" not in result.columns
-
-        # 降伏変位と荷重の値が数値であることを確認
-        yield_disp = result[f"{custom_prefix}_displacement"].values[0]
-        yield_load = result[f"{custom_prefix}_load"].values[0]
-
-        assert isinstance(yield_disp, (int, float))
-        assert isinstance(yield_load, (int, float))
 
     def test_find_yield_point_metadata(self):
         """find_yield_pointのメタデータ設定テスト"""
@@ -455,18 +425,15 @@ class TestLoadDisplacementAnalysis:
         )
 
         # メタデータに降伏点情報が追加されていることを確認
-        assert "analysis" in result.metadata
-        assert "yield_point" in result.metadata["analysis"]
+        assert "yield_point" in result.results
+        assert "is_valid" in result.results["yield_point"].metadata
 
         # メタデータの内容を確認
-        yield_data = result.metadata["analysis"]["yield_point"]
+        yield_data = result.results["yield_point"].metadata
 
-        assert yield_data["method"] == "offset"
-        assert "displacement" in yield_data
-        assert "load" in yield_data
-        assert "initial_slope" in yield_data
-        assert "parameters" in yield_data
-        assert "offset_value" in yield_data["parameters"]
+        assert "offset_value" in yield_data
+        assert "offset_amount" in yield_data
+        assert "diff_stats" in yield_data
 
     def test_find_yield_point_insufficient_data(self):
         """データ不足時のfind_yield_pointエラーテスト"""

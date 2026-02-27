@@ -29,7 +29,7 @@ class TestIPlot:
         mock_plotly_plot.return_value = mock_fig
         
         # iplot呼び出し
-        result = iplot(sample_collection, "x", "y1")
+        result = iplot(sample_collection, y_column="y1", x_column="x")
         
         # 検証
         mock_plotly_plot.assert_called_once()
@@ -46,7 +46,7 @@ class TestIPlot:
         np.testing.assert_array_equal(kwargs["y_values"], sample_collection.columns["y1"].values)
         assert kwargs["x_label"] == "X Values [m]"
         assert kwargs["y_label"] == "Y1 Values [kg]"
-        assert kwargs["title"] == "Scatter plot of Y1 Values vs X Values"
+        assert kwargs["title"] == "Y1 Values vs X Values"
         
         # 戻り値の検証
         assert result is mock_fig
@@ -54,7 +54,7 @@ class TestIPlot:
     @patch("tascpy.visualization.backend_plotly.plot")
     def test_iplot_kwargs(self, mock_plotly_plot, sample_collection):
         """キーワード引数がbackend_plotly.plotに渡されることを確認"""
-        iplot(sample_collection, "x", "y1", plot_type="line", color="red")
+        iplot(sample_collection, y_column="y1", x_column="x", plot_type="line", color="red")
         
         args, kwargs = mock_plotly_plot.call_args
         assert kwargs.get("plot_type") == "line"
@@ -64,11 +64,13 @@ class TestIPlot:
     def test_iplot_name_extraction(self, mock_plotly_plot, sample_collection):
         """name引数またはy_labelからnameが抽出されることを確認"""
         # 1. 自動抽出 (Y1 Values [kg] -> Y1 Values)
-        iplot(sample_collection, "x", "y1")
+        # Note: functional_plot may extract name, but here we just check if it gets passed.
+        # functional_plot.iplot extracts name from y_label if not provided. This is in functional layer.
+        iplot(sample_collection, y_column="y1", x_column="x")
         args, kwargs = mock_plotly_plot.call_args
         assert kwargs.get("name") == "Y1 Values"
         
         # 2. 明示的指定
-        iplot(sample_collection, "x", "y1", name="Custom Name")
+        iplot(sample_collection, y_column="y1", x_column="x", name="Custom Name")
         args, kwargs = mock_plotly_plot.call_args
         assert kwargs.get("name") == "Custom Name"

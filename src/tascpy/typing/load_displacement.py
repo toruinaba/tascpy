@@ -121,126 +121,111 @@ Returns:
 
     def calculate_slopes(
         self,
-        result_column: Optional[str] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """変位と荷重の間の傾きを計算
-
-変位と荷重の間の点ごとの傾きを計算します。
-デフォルトでは変位列を独立変数（X軸）、荷重列を従属変数（Y軸）として使用します。
+        disp_data: column = <class 'float'>,
+        load_data: column = <class 'float'>,
+        column: column = <class 'float'>,
+        load_data: ndarray
+    ) -> ndarray:
+        """変位と荷重の間の点ごとの傾きを計算します。
 
 Args:
-    collection: 荷重-変位コレクション
-    result_column: 結果を格納する列名
-    x_column: X軸データの列名（指定がない場合は変位列を使用）
-    y_column: Y軸データの列名（指定がない場合は荷重列を使用）
-
+    disp_data: 変位データの配列
+    load_data: 荷重データの配列
+    
 Returns:
-    LoadDisplacementCollection: 傾きデータを含むコレクション"""
+    np.ndarray: 計算された傾きの配列（最初の要素は NaN）"""
         ...
     
 
     def calculate_stiffness(
         self,
+        disp_data: column = <class 'float'>,
+        load_data: column = <class 'float'>,
+        range_start: float = 0.2,
+        range_end: float = 0.8,
+        method: str = 'linear_regression',
+        column: column = <class 'float'>,
+        load_data: ndarray,
         range_start: float = 0.2,
         range_end: float = 0.8,
         method: str = 'linear_regression'
     ) -> float:
-        """荷重-変位曲線から剛性を計算
-
-指定された範囲内のデータを使用して荷重-変位間の剛性（傾き）を計算します。
+        """指定範囲における剛性（傾き）を計算します。
 
 Args:
-    collection: 荷重-変位コレクション
+    disp_data: 変位データの配列 (NaN/None 除去済み)
+    load_data: 荷重データの配列 (NaN/None 除去済み)
     range_start: 最大荷重に対する計算開始点の割合
     range_end: 最大荷重に対する計算終了点の割合
-    method: 剛性計算方法 ("linear_regression" または "secant")
+    method: 計算方法 ("linear_regression" または "secant")
 
 Returns:
-    float: 剛性値"""
+    float: 計算された剛性値"""
         ...
     
 
     def find_yield_point(
         self,
+        disp_data: column = <class 'float'>,
+        load_data: column = <class 'float'>,
         method: str = 'offset',
         offset_value: float = 0.002,
         range_start: float = 0.1,
         range_end: float = 0.3,
         factor: float = 0.33,
-        result_prefix: Optional[str] = 'yield',
         debug_mode: bool = False,
-        fail_silently: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """降伏点を計算
-
-荷重-変位データから降伏点を計算します。
-オフセット法または一般降伏法から選択できます。
-
-Args:
-    collection: 荷重-変位コレクション
-    method: 計算方法 ('offset', 'general')
-    offset_value: オフセット降伏法でのオフセット量
-    range_start: 初期勾配計算の範囲開始（最大荷重に対する比率）
-    range_end: 初期勾配計算の範囲終了（最大荷重に対する比率）
-    factor: 一般降伏法での勾配比率
-    result_prefix: 結果列の接頭辞
-    debug_mode: 詳細な計算過程情報を出力するかどうか
-    fail_silently: 降伏点が見つからない場合に例外を発生させずに情報を返すかどうか
-
-Returns:
-    LoadDisplacementCollection: 降伏点情報または計算過程情報を含むコレクション
-
-Raises:
-    ValueError: 降伏点が見つかりず、fail_silently=False の場合"""
-        ...
-    
-
-    def stiffness(
-        self,
-        range_start: float = 0.2,
-        range_end: float = 0.8,
-        method: str = 'linear_regression'
-    ) -> float:
-        """calculate_stiffness のエイリアス"""
-        ...
-    
-
-    def yield_point(
-        self,
+        fail_silently: bool = False,
+        column: column = <class 'float'>,
+        load_data: ndarray,
         method: str = 'offset',
         offset_value: float = 0.002,
         range_start: float = 0.1,
         range_end: float = 0.3,
         factor: float = 0.33,
-        result_prefix: Optional[str] = 'yield',
         debug_mode: bool = False,
         fail_silently: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """find_yield_point のエイリアス"""
+    ) -> tuple[bool, float, float, dict[str, Any]]:
+        """"""
+        ...
+    
+
+    def create_skeleton_curve(
+        self,
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None,
+        cycle_marker_column: Optional[str] = None,
+        has_decrease: bool = False,
+        decrease_type: str = 'envelope'
+    ) -> tuple[ndarray, ndarray, dict]:
+        """"""
+        ...
+    
+
+    def create_cumulative_curve(
+        self,
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None,
+        cycle_marker_column: Optional[str] = None
+    ) -> tuple[ndarray, ndarray, dict]:
+        """"""
         ...
     
 
     def cycle_count(
         self,
-        column: Optional[str] = None,
+        data: column = <class 'float'>,
         step: float = 0.5,
-        result_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """データの荷重符号反転からサイクル数をカウント
-
-荷重の符号変化（正負の反転）からサイクル数をカウントし、
-新しい列として追加します。
+        column: column = <class 'float'>,
+        step: float = 0.5
+    ) -> ndarray:
+        """データの符号反転からサイクル数をカウントします。
 
 Args:
-    collection: 荷重-変位コレクション
-    column: サイクルをカウントする列（指定がない場合は荷重列を使用）
+    data: 対象データ配列
     step: サイクルカウントの増分
-    result_column: 結果を格納する列名
-
+    
 Returns:
-    LoadDisplacementCollection: サイクル数を含むコレクション"""
+    np.ndarray: サイクルマーカーの配列"""
         ...
     
 
@@ -321,142 +306,6 @@ Args:
 
 Returns:
     LoadDisplacementCollection: ピーク/バレーフラグを含むコレクション"""
-        ...
-    
-
-    def get_curve_data(
-        self,
-        curve_name: str
-    ) -> dict[str, Any]:
-        """メタデータに格納された曲線データを取得
-
-Args:
-    collection: 荷重-変位コレクション
-    curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
-
-Returns:
-    Dict[str, Any]: 曲線データ（x, y, metadataを含む辞書）
-
-Raises:
-    ValueError: 指定した曲線が存在しない場合"""
-        ...
-    
-
-    def get_curve_columns(
-        self,
-        curve_name: str
-    ) -> tuple[Optional[Column], Optional[Column]]:
-        """メタデータに格納された曲線データをColumnオブジェクトとして取得
-
-Args:
-    collection: 荷重-変位コレクション
-    curve_name: 曲線名（例: "skeleton_curve", "cumulative_curve"）
-
-Returns:
-    Tuple[Optional[Column], Optional[Column]]:
-        (x軸のColumn, y軸のColumn)のタプル。曲線が存在しない場合は(None, None)
-
-Raises:
-    ValueError: 指定した曲線データにColumnが含まれていない場合
-    ValueError: 指定した曲線が存在しない場合"""
-        ...
-    
-
-    def list_available_curves(
-        self,
-        
-    ) -> list[str]:
-        """利用可能な曲線の一覧を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    List[str]: 利用可能な曲線名のリスト"""
-        ...
-    
-
-    def create_skeleton_curve(
-        self,
-        has_decrease: bool = False,
-        decrease_type: str = 'envelope',
-        cycle_column: Optional[str] = None,
-        result_load_column: Optional[str] = None,
-        result_disp_column: Optional[str] = None,
-        store_as_columns: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重-変位データからスケルトン曲線を作成
-
-複数サイクルの荷重-変位データから、包絡線（スケルトン曲線）を作成します。
-スケルトン曲線は、各サイクルの最大応答値を結んだ曲線です。
-
-デフォルトでは、スケルトン曲線はメタデータの "curves" セクションに格納されます。
-これにより、列の長さが異なるデータを格納できます。
-また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
-
-Args:
-    collection: 荷重-変位コレクション
-    has_decrease: 減少部分も含めるか
-    decrease_type: 減少部分の処理方法 ('envelope', 'continuous_only', 'both')
-    cycle_column: サイクル列名（指定なしの場合は自動生成）
-    result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
-    result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
-    store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
-
-Returns:
-    LoadDisplacementCollection: スケルトン曲線データを含むコレクション"""
-        ...
-    
-
-    def create_cumulative_curve(
-        self,
-        cycle_column: Optional[str] = None,
-        result_load_column: Optional[str] = None,
-        result_disp_column: Optional[str] = None,
-        store_as_columns: bool = False
-    ) -> "LoadDisplacementCollectionOperations":
-        """荷重-変位データから累積曲線を作成
-
-複数サイクルの荷重-変位データから、累積変形曲線を作成します。
-累積曲線は、各サイクルの変形を累積的に加算した曲線です。
-
-デフォルトでは、累積曲線はメタデータの "curves" セクションに格納されます。
-これにより、列の長さが異なるデータを格納できます。
-また、メタデータ内にColumnオブジェクトとしても格納されるため、いつでも取得可能です。
-
-Args:
-    collection: 荷重-変位コレクション
-    cycle_column: サイクル列名（指定なしの場合は自動生成）
-    result_load_column: 結果の荷重列名（指定なしの場合は自動生成）
-    result_disp_column: 結果の変位列名（指定なしの場合は自動生成）
-    store_as_columns: Trueの場合、旧形式との互換性のために列としても格納
-
-Returns:
-    LoadDisplacementCollection: 累積曲線データを含むコレクション"""
-        ...
-    
-
-    def export_curve_to_csv(
-        self,
-        curve_name: str,
-        file_path: str,
-        columns: tuple[str, str] = ('x', 'y'),
-        encoding: str = 'utf-8',
-        include_header: bool = True
-    ) -> None:
-        """メタデータに格納された曲線データを CSV ファイルにエクスポートします。
-
-Args:
-    collection: LoadDisplacementCollection オブジェクト
-    curve_name: エクスポートする曲線名（"skeleton_curve" や "cumulative_curve" など）
-    file_path: 出力先の CSV ファイルパス
-    columns: エクスポートするカラム名タプル（デフォルトは ("x", "y")）
-    encoding: ファイルエンコーディング（デフォルトは "utf-8"）
-    include_header: ヘッダー行を含めるかどうか
-
-Raises:
-    ValueError: 指定した曲線が存在しない場合、またはデータが不正な場合
-    IOError: ファイル書き込みに失敗した場合"""
         ...
     
 
@@ -881,35 +730,19 @@ Returns:
 
     def plot(
         self,
-        y_values: ndarray,
-        x_label: str,
-        y_label: str,
-        title: str,
+        y_column: str,
+        x_column: Optional[str] = None,
         ax: Optional[Axes] = None,
         **kwargs
     ) -> Axes:
-        """基本プロットを行います (Functional wrapper)。
-
-Args:
-    x_values (np.ndarray): x軸のデータ配列。
-    y_values (np.ndarray): y軸のデータ配列。
-    x_label (str): x軸のラベル。
-    y_label (str): y軸のラベル。
-    title (str): グラフのタイトル。
-    ax (Optional[plt.Axes], optional): 描画先のMatplotlib Axesオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
-    **kwargs: その他のプロットオプション（color, marker, linestyleなど）。
-
-Returns:
-    plt.Axes: 描画に使用されたAxesオブジェクト。"""
+        """基本的なプロットを行います"""
         ...
     
 
     def visualize_outliers(
         self,
-        y_values: Any,
-        x_label: str,
-        y_label: str,
-        title: str,
+        column: str,
+        x_column: Optional[str] = None,
         window_size: int = 3,
         threshold: float = 0.5,
         highlight_color: str = 'red',
@@ -925,82 +758,28 @@ Returns:
         scale_factor: float = 1.0,
         **kwargs
     ) -> Axes:
-        """異常値を検出し可視化します (Functional implementation)。
-
-Args:
-    x_values (Any): x軸のデータ配列。
-    y_values (Any): y軸のデータ配列。
-    x_label (str): x軸のラベル。
-    y_label (str): y軸のラベル。
-    title (str): グラフのタイトル。
-    window_size (int, optional): 外れ値検出のウィンドウサイズ。デフォルトは 3。
-    threshold (float, optional): 外れ値検出の閾値。デフォルトは 0.5。
-    highlight_color (str, optional): 異常値のハイライト色。デフォルトは "red"。
-    plot_type (str, optional): プロットタイプ ('scatter', 'line' など)。デフォルトは "scatter"。
-    show_normal (bool, optional): 正常値を描画するかどうか。デフォルトは True。
-    normal_color (str, optional): 正常値の色。デフォルトは "blue"。
-    normal_alpha (float, optional): 正常値の透明度。デフォルトは 0.5。
-    outlier_marker (str, optional): 異常値のマーカー形状。デフォルトは "o"。
-    outlier_size (int, optional): 異常値のマーカーサイズ。デフォルトは 50。
-    ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
-    edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
-    min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
-    scale_factor (float, optional): 閾値のスケーリング係数。デフォルトは 1.0。
-    **kwargs: その他のプロットオプション。
-
-Returns:
-    plt.Axes: 描画に使用されたAxesオブジェクト。"""
+        """異常値を検出し可視化します"""
         ...
     
 
     def plot_const_x(
         self,
-        y_data: y_columns = typing.List[str],
-        x_values: list[float] = None,
-        column: y_columns = typing.List[str],
         x_values: list[float],
-        show_legend: bool = True,
+        y_columns: list[str],
         ax: Optional[Axes] = None,
         **kwargs
     ) -> Axes:
-        """特定のx値に対して複数のy列の値をプロットします。
-
-Args:
-    y_data (Dict[str, Any]): プロットするyデータの辞書（キー: 名前, 値: データ列またはスカラー）。
-    x_values (List[float]): x軸の値のリスト（y_dataと同じ長さが必要）。
-    show_legend (bool, optional): 凡例を表示するかどうか。デフォルトは True。
-    ax (Optional[plt.Axes], optional): 描画先のAxesオブジェクト。デフォルトは None。
-    **kwargs: その他のプロットオプション (x_label, y_label, titleなど)。
-
-Returns:
-    plt.Axes: 描画に使用されたAxesオブジェクト。"""
+        """共通のX軸に対して複数のY列をプロットします"""
         ...
     
 
     def iplot(
         self,
-        y_values: ndarray,
-        x_label: str,
-        y_label: str,
-        title: str,
-        fig: Optional[Any] = None,
+        y_column: str,
+        x_column: Optional[str] = None,
         **kwargs
     ) -> Any:
-        """インタラクティブなグラフを描画します (Functional wrapper)。
-
-Plotlyを使用してインタラクティブなプロットを作成します。
-
-Args:
-    x_values (np.ndarray): x軸のデータ配列。
-    y_values (np.ndarray): y軸のデータ配列。
-    x_label (str): x軸のラベル。
-    y_label (str): y軸のラベル。
-    title (str): グラフのタイトル。
-    fig (Optional[Any], optional): 既存のPlotly Figureオブジェクト。Noneの場合は新規作成されます。デフォルトは None。
-    **kwargs: その他のプロットオプション (name, color, symbol, sizeなど)。
-
-Returns:
-    Any: PlotlyのFigureオブジェクト。"""
+        """インタラクティブなプロットを行います（Jupyter用）"""
         ...
     
 
@@ -1055,45 +834,34 @@ Raises:
 
     def split_by_integers(
         self,
-        length: length = <class 'int'>,
-        markers: markers = typing.List[int],
-        column: length = <class 'int'>,
         markers: Union[list[int], ndarray]
-    ) -> list[ndarray]:
-        """整数マーカーに基づいて分割インデックスを計算します。
+    ) -> "CollectionListOperations[LoadDisplacementCollectionOperations]":
+        """整数マーカーに基づいてコレクションを分割します。
 
-ユニークなマーカー値ごとに、そのマーカーに対応するインデックスの配列をリストとして返します。
+ユニークなマーカー値ごとに、そのマーカーに対応するデータを含む
+新しい ColumnCollection のリストを返します。
 
 Args:
-    length (int): データの長さ。
-    markers (Union[List[int], np.ndarray]): 各要素に対応する整数マーカーのリストまたは配列。長さは `length` と一致する必要があります。
+    collection: 対象の ColumnCollection
+    markers: 各要素に対応する整数マーカーのリストまたは配列。長さはコレクションの長さと一致する必要があります。
 
 Returns:
-    List[np.ndarray]: 各マーカーに対応するインデックス配列のリスト。
-
-Raises:
-    ValueError: データ長とマーカーリストの長さが一致しない場合。"""
+    List[ColumnCollection]: 分割されたコレクションのリスト"""
         ...
     
 
     def split_at_indices(
         self,
-        length: length = <class 'int'>,
-        indices: indices = typing.Union[int, typing.List[int]],
-        column: length = <class 'int'>,
         indices: Union[int, list[int]]
-    ) -> list[slice]:
-        """指定されたインデックスで分割するためのスライスを計算します。
+    ) -> "CollectionListOperations[LoadDisplacementCollectionOperations]":
+        """指定されたインデックスでコレクションを分割します。
 
 Args:
-    length (int): データの長さ。
-    indices (Union[int, List[int]]): 分割点となるインデックス（またはそのリスト）。
+    collection: 対象の ColumnCollection
+    indices: 分割点となるインデックス（またはそのリスト）
 
 Returns:
-    List[slice]: 分割された各セグメントを表すスライスのリスト。
-
-Raises:
-    IndexError: インデックスが範囲外 (0-length) の場合。"""
+    List[ColumnCollection]: 分割されたコレクションのリスト"""
         ...
     
 

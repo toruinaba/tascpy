@@ -8,71 +8,21 @@ from ...core.column import Column
 from .utils import get_load_column, get_displacement_column
 
 
-@operation(domain="load_displacement")
-def cycle_count(
-    collection: LoadDisplacementCollection,
-    column: Optional[str] = None,
-    step: float = 0.5,
-    result_column: Optional[str] = None,
-) -> LoadDisplacementCollection:
-    """データの荷重符号反転からサイクル数をカウント
+from ...operations.registry import register_functional
+from ...functional.load_displacement.cycles import compute_cycle_markers
+from .abstraction import resolve_load_column
 
-    荷重の符号変化（正負の反転）からサイクル数をカウントし、
-    新しい列として追加します。
-
-    Args:
-        collection: 荷重-変位コレクション
-        column: サイクルをカウントする列（指定がない場合は荷重列を使用）
-        step: サイクルカウントの増分
-        result_column: 結果を格納する列名
-
-    Returns:
-        LoadDisplacementCollection: サイクル数を含むコレクション
-    """
-    # 対象列の特定
-    if column is None:
-        # デフォルトは荷重列
-        column = get_load_column(collection)
-
-    if column not in collection.columns:
-        raise ValueError(f"列 '{column}' が見つかりません")
-
-    # データを取得
-    data = collection[column].values
-
-    # サイクルをカウント
-    cycle = [1.0]
-    for i in range(1, len(data)):
-        if (
-            data[i] is not None
-            and data[i - 1] is not None
-            and data[i] * data[i - 1] < 0
-        ):  # 符号が変わった
-            c = cycle[i - 1] + step
-            cycle.append(c)
-        else:
-            cycle.append(cycle[i - 1])
-
-    # 整数に変換
-    markers = [int(c) for c in cycle]
-
-    # 結果列名の決定
-    if result_column is None:
-        result_column = f"{column}_cycle"
-
-    # 結果を新しいコレクションとして作成
-    result = collection.clone()
-    result.columns[result_column] = Column(
-        ch=None,  # chパラメータを追加
-        name=result_column,
-        unit=None,  # unitパラメータを追加
-        values=markers,
-        metadata={
-            "description": f"Cycle count based on {column}"
-        },  # descriptionをmetadataに移動
-    )
-
-    return result
+cycle_count = resolve_load_column(register_functional(
+    compute_cycle_markers,
+    domain="load_displacement",
+    name="cycle_count",
+    inject_columns={"num_inputs": 1, "cast_to_numpy": True},
+    store_result={"result_naming": "{0}_cycle"},
+    signature_override={
+        "data": ("column", float),
+        "step": (float, 0.5)
+    }
+))
 
 
 @operation(domain="load_displacement")

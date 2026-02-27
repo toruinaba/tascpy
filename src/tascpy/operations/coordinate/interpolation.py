@@ -9,6 +9,11 @@ from ...operations.registry import operation
 from ...domains.coordinate import CoordinateCollection
 from ...core.column import Column
 from ...operations.validation import requires_domain, requires_coordinates
+from ...functional.coordinate.interpolation import (
+    inverse_distance_weighting,
+    nearest_neighbor,
+    linear_interpolation,
+)
 
 
 @operation(domain="coordinate", shared_with=["strain"])
@@ -60,11 +65,11 @@ def interpolate_at_point(
 
     # 補間方法の選択
     if method == "inverse_distance":
-        interp_func = _inverse_distance_weighting
+        interp_func = inverse_distance_weighting
     elif method == "nearest":
-        interp_func = _nearest_neighbor
+        interp_func = nearest_neighbor
     elif method == "linear":
-        interp_func = _linear_interpolation
+        interp_func = linear_interpolation
     else:
         raise ValueError(f"サポートされていない補間方法: {method}")
 
@@ -209,11 +214,11 @@ def interpolate_grid(
 
     # 補間方法の選択
     if method == "inverse_distance":
-        interp_func = _inverse_distance_weighting
+        interp_func = inverse_distance_weighting
     elif method == "nearest":
-        interp_func = _nearest_neighbor
+        interp_func = nearest_neighbor
     else:
-        interp_func = _linear_interpolation
+        interp_func = linear_interpolation
 
     # グリッド上で補間
     grid_values = np.zeros((ny, nx))
@@ -311,11 +316,11 @@ def spatial_interpolation_to_points(
 
     # 補間方法の選択
     if method == "inverse_distance":
-        interp_func = _inverse_distance_weighting
+        interp_func = inverse_distance_weighting
     elif method == "nearest":
-        interp_func = _nearest_neighbor
+        interp_func = nearest_neighbor
     else:
-        interp_func = _linear_interpolation
+        interp_func = linear_interpolation
 
     # ソースデータ収集
     source_data = []
@@ -392,102 +397,6 @@ def spatial_interpolation_to_points(
         )
 
     return result
-
-
-def _inverse_distance_weighting(
-    point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
-) -> float:
-    """逆距離加重法による補間を行います
-
-    点からの距離の逆数にべき乗をかけることで重み付けを行い、補間値を計算します。
-    距離が近いほど大きな影響を与える補間方法です。
-
-    Args:
-        point_data: 点のデータ（point, value, col_name）
-        x, y, z: 補間する座標位置
-        power: 重み付けパワー
-
-    Returns:
-        float: 補間値
-    """
-    # 点の座標
-    px = point_data["point"]["x"]
-    py = point_data["point"]["y"]
-    pz = point_data["point"]["z"]
-
-    value = point_data["value"]
-
-    # 距離の計算
-    if z is not None and pz is not None:
-        # 3D距離
-        distance = np.sqrt((x - px) ** 2 + (y - py) ** 2 + (z - pz) ** 2)
-    else:
-        # 2D距離
-        distance = np.sqrt((x - px) ** 2 + (y - py) ** 2)
-
-    # 距離が0（完全一致）の場合
-    if distance < 1e-10:
-        return value
-
-    # 逆距離重み
-    weight = 1.0 / (distance**power)
-    return value * weight
-
-
-def _nearest_neighbor(
-    point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
-) -> float:
-    """最近傍法による補間を行います
-
-    補間位置から最も近い点の値をそのまま使用する単純な補間方法です。
-    パラメータ power は使用しませんが、インターフェースの統一のために受け取ります。
-
-    Args:
-        point_data: 点のデータ（point, value, col_name）
-        x, y, z: 補間する座標位置
-        power: 使用しないパラメータ（インターフェース統一のため）
-
-    Returns:
-        float: 補間値
-    """
-    # 点の座標
-    px = point_data["point"]["x"]
-    py = point_data["point"]["y"]
-    pz = point_data["point"]["z"]
-
-    value = point_data["value"]
-
-    # 距離の計算 (補間結果には影響しないが、メタデータとして使用)
-    if z is not None and pz is not None:
-        # 3D距離
-        distance = np.sqrt((x - px) ** 2 + (y - py) ** 2 + (z - pz) ** 2)
-    else:
-        # 2D距離
-        distance = np.sqrt((x - px) ** 2 + (y - py) ** 2)
-
-    return value
-
-
-def _linear_interpolation(
-    point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
-) -> float:
-    """線形補間を行います（実装は簡略化されています）
-
-    本来の線形補間は複数の点が必要ですが、この実装では簡略化のため
-    逆距離加重法（power=1.0）を使用しています。理想的には三角形分割などを
-    用いた多点での線形補間が必要です。
-
-    Args:
-        point_data: 点のデータ（point, value, col_name）
-        x, y, z: 補間する座標位置
-        power: 使用しないパラメータ（インターフェース統一のため）
-
-    Returns:
-        float: 補間値
-    """
-    # 線形補間の代わりに逆距離加重法を使用
-    return _inverse_distance_weighting(point_data, x, y, z, 1.0)  # power=1.0 が線形的
-
 
 @operation(domain="coordinate", shared_with=["strain"])
 @requires_domain(["coordinate", "strain"])

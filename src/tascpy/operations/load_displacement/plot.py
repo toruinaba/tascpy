@@ -22,7 +22,6 @@ from ...domains.load_displacement import LoadDisplacementCollection
 from ...operations.registry import operation
 from ...operations.core.plot import plot as core_plot
 from .utils import get_load_column, get_displacement_column, get_valid_data
-from .curves import get_curve_data, list_available_curves
 from ...visualization import backend_mpl as mpl_backend
 
 
@@ -108,7 +107,7 @@ def plot_skeleton_curve(
     orig_load_column = get_load_column(collection)
     orig_disp_column = get_displacement_column(collection)
 
-    curve_data = get_curve_data(collection, "skeleton_curve")
+    curve_data = collection.results["skeleton_curve"].to_dict()["data"]
     skeleton_x = curve_data["x"]
     skeleton_y = curve_data["y"]
 
@@ -195,9 +194,8 @@ def plot_cumulative_curve(
     orig_load_column = get_load_column(collection)
     orig_disp_column = get_displacement_column(collection)
 
-    # 累積曲線データの取得
-    # get_curve_data関数でメタデータから曲線データを取得
-    curve_data = get_curve_data(collection, "cumulative_curve")
+    # collection.results から曲線データを取得
+    curve_data = collection.results["cumulative_curve"].to_dict()["data"]
     cumulative_x = curve_data["x"]
     cumulative_y = curve_data["y"]
 
@@ -256,16 +254,14 @@ def plot_yield_point(
     Returns:
         Axes: プロットされた軸オブジェクト
     """
-    # 降伏点のメタデータ確認
-    if (
-        "analysis" not in collection.metadata
-        or "yield_point" not in collection.metadata["analysis"]
-    ):
+    # 降伏点の存在確認
+    if "yield_point" not in collection.results:
         raise ValueError("コレクションに降伏点の解析結果が含まれていません")
 
-    yield_data = collection.metadata["analysis"]["yield_point"]
-    method = yield_data["method"]
-    initial_slope = yield_data["initial_slope"]
+    yield_point = collection.results["yield_point"]
+    yield_data = yield_point.metadata
+    method = yield_data.get("method", "unknown")
+    initial_slope = yield_data.get("initial_slope", 1.0)
 
     # 軸が指定されていない場合は新規作成
     created_new_figure = False
@@ -289,8 +285,8 @@ def plot_yield_point(
     disp_data, load_data = get_valid_data(collection)
 
     # 降伏点のプロット
-    yield_disp = yield_data["displacement"]
-    yield_load = yield_data["load"]
+    yield_disp = yield_point.x
+    yield_load = yield_point.y
 
     mpl_backend.scatter_points(
         [yield_disp],
@@ -362,15 +358,13 @@ def plot_yield_analysis_details(
     Returns:
         Axes: プロットされた軸オブジェクト
     """
-    # 降伏点のメタデータ確認
-    if (
-        "analysis" not in collection.metadata
-        or "yield_point" not in collection.metadata["analysis"]
-    ):
+    # 降伏点の確認
+    if "yield_point" not in collection.results:
         raise ValueError("コレクションに降伏点の解析結果が含まれていません")
 
-    yield_data = collection.metadata["analysis"]["yield_point"]
-    method = yield_data["method"]
+    yield_point = collection.results["yield_point"]
+    yield_data = yield_point.metadata
+    method = yield_data.get("method", "unknown")
 
     # プロット作成
     plot_yield_point(collection, ax=ax, **kwargs)
@@ -426,9 +420,9 @@ def plot_yield_analysis_details(
     # 降伏点情報のテキスト表示
     info_text = (
         f"Yield Point:\n"
-        f"  Displacement: {yield_data['displacement']:.4f}\n"
-        f"  Load: {yield_data['load']:.4f}\n"
-        f"  Initial Slope: {yield_data['initial_slope']:.4f}"
+        f"  Displacement: {yield_point.x:.4f}\n"
+        f"  Load: {yield_point.y:.4f}\n"
+        f"  Initial Slope: {yield_data.get('initial_slope', 0):.4f}"
     )
 
     # テキストボックスで情報表示
@@ -482,9 +476,8 @@ def compare_yield_methods(
             {
                 "method": "offset",
                 "offset_value": 0.002,
-                "result_prefix": "yield_offset",
             },
-            {"method": "general", "factor": 0.33, "result_prefix": "yield_general"},
+            {"method": "general", "factor": 0.33},
         ]
 
     # 軸が指定されていない場合は新規作成
@@ -512,13 +505,20 @@ def compare_yield_methods(
         color = colors[i % len(colors)]
         params_copy = params.copy()  # パラメータのコピーを作成して変更
 
+        if "result_prefix" in params_copy:
+            del params_copy["result_prefix"]
+
         # 降伏点計算
         result = find_yield_point(collection, **params_copy)
 
         # 降伏点のプロット
-        yield_data = result.metadata["analysis"]["yield_point"]
-        yield_disp = yield_data["displacement"]
-        yield_load = yield_data["load"]
+        yield_point = result.results.get("yield_point")
+        if not yield_point:
+            continue
+            
+        yield_data = yield_point.metadata
+        yield_disp = yield_point.x
+        yield_load = yield_point.y
 
         method_name = params["method"].capitalize()
         if params["method"] == "offset":
@@ -538,7 +538,7 @@ def compare_yield_methods(
         )
 
         # 初期勾配線
-        initial_slope = yield_data["initial_slope"]
+        initial_slope = yield_data.get("initial_slope", 1.0)
         max_disp = np.max(collection[get_displacement_column(collection)].values)
         x_vals = np.array([0, max_disp])
 
@@ -619,18 +619,18 @@ def plot_multiple_curves(
 
         elif curve_type == "skeleton":
             # スケルトン曲線のプロット
-            try:
-                curve_data = get_curve_data(collection, "skeleton_curve")
+            if "skeleton_curve" in collection.results:
+                curve_data = collection.results["skeleton_curve"].to_dict()["data"]
                 mpl_backend.draw_line(curve_data["x"], curve_data["y"], ax=ax, **plot_kwargs)
-            except ValueError:
+            else:
                 print("Warning: Skeleton curve data not found.")
 
         elif curve_type == "cumulative":
             # 累積曲線のプロット
-            try:
-                curve_data = get_curve_data(collection, "cumulative_curve")
+            if "cumulative_curve" in collection.results:
+                curve_data = collection.results["cumulative_curve"].to_dict()["data"]
                 mpl_backend.draw_line(curve_data["x"], curve_data["y"], ax=ax, **plot_kwargs)
-            except ValueError:
+            else:
                 print("Warning: Cumulative curve data not found.")
 
     mpl_backend.add_legend(ax)

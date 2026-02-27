@@ -37,7 +37,7 @@ class TestPlot:
         # plot関数を呼び出す
         # backend_mpl.plot defaults to "line" unless plot_type="scatter" is passed.
         # But this test expects scatter.
-        result = plot(sample_collection, "x", "y1", plot_type="scatter")
+        result = plot(sample_collection, y_column="y1", x_column="x", plot_type="scatter")
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         mock_ax.scatter.assert_called_once()
@@ -59,7 +59,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す
-        result = plot(sample_collection, "x", "y1", plot_type="line")
+        result = plot(sample_collection, y_column="y1", x_column="x", plot_type="line")
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         mock_ax.plot.assert_called_once()
@@ -78,7 +78,7 @@ class TestPlot:
         mock_ax = MagicMock()
 
         # plot関数を呼び出す
-        result = plot(sample_collection, "x", "y1", ax=mock_ax, plot_type="scatter")
+        result = plot(sample_collection, y_column="y1", x_column="x", ax=mock_ax, plot_type="scatter")
 
         # 検証: 新しいサブプロットを作らず、既存のaxesオブジェクトが使用されるか
         mock_ax.scatter.assert_called_once()
@@ -94,7 +94,7 @@ class TestPlot:
         mock_ax = MagicMock()
 
         # plot関数を呼び出す
-        result = plot(sample_collection, "x", "y1", ax=mock_ax, plot_type="scatter")
+        result = plot(sample_collection, y_column="y1", x_column="x", ax=mock_ax, plot_type="scatter")
 
         # 検証: 新しいサブプロットを作らず、既存のaxesオブジェクトが使用されるか
         mock_ax.scatter.assert_called_once()
@@ -116,7 +116,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # 追加のキーワード引数を持つplot関数の呼び出し
-        plot(sample_collection, "x", "y1", plot_type="scatter", color="red", marker="o", s=100)
+        plot(sample_collection, y_column="y1", x_column="x", plot_type="scatter", color="red", marker="o", s=100)
 
         # 検証: キーワード引数が正しく渡されたか
         args, kwargs = mock_ax.scatter.call_args
@@ -128,11 +128,11 @@ class TestPlot:
         """存在しない列名を指定した場合にKeyErrorが発生することを確認"""
         # 存在しないx列
         with pytest.raises(KeyError, match="列 'nonexistent_x' は存在しません"):
-            plot(sample_collection, "nonexistent_x", "y1")
+            plot(sample_collection, y_column="y1", x_column="nonexistent_x")
 
         # 存在しないy列
         with pytest.raises(KeyError, match="列 'nonexistent_y' は存在しません"):
-            plot(sample_collection, "x", "nonexistent_y")
+            plot(sample_collection, y_column="nonexistent_y", x_column="x")
 
     @patch("matplotlib.pyplot.subplots")
     def test_invalid_plot_type(self, mock_subplots, sample_collection):
@@ -143,7 +143,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # 無効なプロットタイプでの呼び出し - エラーにならずline plotとして描画される
-        plot(sample_collection, "x", "y1", plot_type="invalid_type")
+        plot(sample_collection, y_column="y1", x_column="x", plot_type="invalid_type")
         
         # エラーが発生しなければOK、かつplotが呼ばれているはず
         mock_ax.plot.assert_called()
@@ -158,15 +158,15 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す
-        plot(sample_collection, "x", "y1", plot_type="scatter")
+        plot(sample_collection, y_column="y1", x_column="x", plot_type="scatter")
 
         # 検証: タイトルが正しく設定されたか
-        mock_ax.set_title.assert_called_with("Scatter plot of Y1 Values vs X Values")
+        mock_ax.set_title.assert_called_with("Y1 Values vs X Values")
 
         # 線グラフでも確認
         mock_ax.reset_mock()
-        plot(sample_collection, "x", "y2", plot_type="line")
-        mock_ax.set_title.assert_called_with("Line plot of Y2 Values vs X Values")
+        plot(sample_collection, y_column="y2", x_column="x", plot_type="line")
+        mock_ax.set_title.assert_called_with("Y2 Values vs X Values")
 
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
@@ -178,18 +178,18 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す（x_column=None）
-        result = plot(sample_collection, None, "y1", plot_type="scatter")
+        result = plot(sample_collection, y_column="y1", x_column=None, plot_type="scatter")
 
         # 検証: stepがx軸として使われ、適切なラベルが設定されるか
         mock_ax.scatter.assert_called_once()
         # 第1引数（x値）がstep.valuesである
         args, kwargs = mock_ax.scatter.call_args
-        assert args[0] is sample_collection.step.values
+        np.testing.assert_array_equal(args[0], sample_collection.step.values)
 
         # 軸ラベルとタイトルの検証
         mock_ax.set_xlabel.assert_called_with("Step")
         mock_ax.set_ylabel.assert_called_with("Y1 Values [kg]")
-        mock_ax.set_title.assert_called_with("Scatter plot of Y1 Values vs Step")
+        mock_ax.set_title.assert_called_with("Y1 Values vs Step")
 
         # Axesオブジェクトが返されることを確認
         assert result is mock_ax
@@ -204,18 +204,18 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す（y_column=None）
-        result = plot(sample_collection, "x", None, plot_type="scatter")
+        result = plot(sample_collection, y_column=None, x_column="x", plot_type="scatter")
 
         # 検証: stepがy軸として使われ、適切なラベルが設定されるか
         mock_ax.scatter.assert_called_once()
         # 第2引数（y値）がstep.valuesである
         args, kwargs = mock_ax.scatter.call_args
-        assert args[1] is sample_collection.step.values
+        np.testing.assert_array_equal(args[1], sample_collection.step.values)
 
         # 軸ラベルとタイトルの検証
         mock_ax.set_xlabel.assert_called_with("X Values [m]")
         mock_ax.set_ylabel.assert_called_with("Step")
-        mock_ax.set_title.assert_called_with("Scatter plot of Step vs X Values")
+        mock_ax.set_title.assert_called_with("Step vs X Values")
 
         # Axesオブジェクトが返されることを確認
         assert result is mock_ax
@@ -230,19 +230,19 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す（x_column=None, y_column=None）
-        result = plot(sample_collection, None, None, plot_type="scatter")
+        result = plot(sample_collection, y_column=None, x_column=None, plot_type="scatter")
 
         # 検証: 両軸にstepが使われ、適切なラベルが設定されるか
         mock_ax.scatter.assert_called_once()
         # 両方の引数がstep.valuesである
         args, kwargs = mock_ax.scatter.call_args
-        assert args[0] is sample_collection.step.values
-        assert args[1] is sample_collection.step.values
+        np.testing.assert_array_equal(args[0], sample_collection.step.values)
+        np.testing.assert_array_equal(args[1], sample_collection.step.values)
 
         # 軸ラベルとタイトルの検証
         mock_ax.set_xlabel.assert_called_with("Step")
         mock_ax.set_ylabel.assert_called_with("Step")
-        mock_ax.set_title.assert_called_with("Scatter plot of Step vs Step")
+        mock_ax.set_title.assert_called_with("Step vs Step")
 
         # Axesオブジェクトが返されることを確認
         assert result is mock_ax
