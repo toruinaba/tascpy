@@ -1535,39 +1535,39 @@ Returns:
 
     def analyze_hysteresis(
         self,
-        cycle_column: Optional[str] = None
-    ) -> List[tuple]:
-        """ヒステリシスループ解析（エネルギー散逸の計算）
-
-各サイクルのヒステリシスループ面積（エネルギー散逸）を計算し、
-サイクルごとの統計量を含む新しいコレクションを返します。
+        disps: ndarray,
+        markers: ndarray,
+        *args,
+        **kwargs
+    ) -> List[tuple[float, float, float, float, float, float]]:
+        """1サイクルのヒステリシス解析結果と各種統計情報をまとめて計算します。
 
 Args:
-    collection: 荷重-変位コレクション (処理時に各サイクルに分割されて渡されます)
-    cycle_column: サイクル番号列（指定がない場合は自動検出）
-
+    loads: 荷重データ配列
+    disps: 変位データ配列
+    markers: サイクルマーカーの配列。先頭要素をサイクル番号として抽出します。
+    
 Returns:
-    tuple: (cycle_num, energy, max_load, min_load, max_disp, min_disp)"""
+    Tuple: (サイクル番号, エネルギー, 最大荷重, 最小荷重, 最大変位, 最小変位)"""
         ...
     
 
     def analyze_stiffness_degradation(
         self,
-        loads: ndarray,
         disps: ndarray,
-        markers: ndarray
-    ) -> List[tuple]:
-        """剛性低下解析（サイクルごとの割線剛性）
-
-各サイクルの最大荷重点と最小荷重点を結ぶ直線の傾き（割線剛性）を計算し、
-剛性の推移を示す新しいコレクションを返します。
+        markers: ndarray,
+        *args,
+        **kwargs
+    ) -> List[tuple[float, float]]:
+        """1サイクルの剛性推移（割線剛性）を計算します。
 
 Args:
-    collection: 荷重-変位コレクション
-    cycle_column: サイクル番号列（指定がない場合は自動検出）
-
+    loads: 荷重データ配列
+    disps: 変位データ配列
+    markers: サイクルマーカーの配列。先頭要素をサイクル番号として抽出します。
+    
 Returns:
-    LoadDisplacementCollection: サイクル番号、剛性を含むコレクション"""
+    Tuple: (サイクル番号, 割線剛性)"""
         ...
     
 

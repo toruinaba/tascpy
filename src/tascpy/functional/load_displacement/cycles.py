@@ -172,3 +172,48 @@ def compute_peaks_and_valleys(
                 flags[i] = -1
 
     return flags
+
+
+def compute_energy_and_stats(
+    loads: np.ndarray,
+    disps: np.ndarray,
+    markers: np.ndarray,
+    *args,
+    **kwargs
+) -> Tuple[float, float, float, float, float, float]:
+    """1サイクルのヒステリシス解析結果と各種統計情報をまとめて計算します。
+    
+    Args:
+        loads: 荷重データ配列
+        disps: 変位データ配列
+        markers: サイクルマーカーの配列。先頭要素をサイクル番号として抽出します。
+        
+    Returns:
+        Tuple: (サイクル番号, エネルギー, 最大荷重, 最小荷重, 最大変位, 最小変位)
+    """
+    energy, max_l, min_l, max_d, min_d = compute_hysteresis_energy(loads, disps)
+    c_num = float(markers[0]) if len(markers) > 0 else 1.0
+    return c_num, energy, max_l, min_l, max_d, min_d
+
+
+def compute_stiffness_degradation_stats(
+    loads: np.ndarray,
+    disps: np.ndarray,
+    markers: np.ndarray,
+    *args,
+    **kwargs
+) -> Tuple[float, float]:
+    """1サイクルの剛性推移（割線剛性）を計算します。
+    
+    Args:
+        loads: 荷重データ配列
+        disps: 変位データ配列
+        markers: サイクルマーカーの配列。先頭要素をサイクル番号として抽出します。
+        
+    Returns:
+        Tuple: (サイクル番号, 割線剛性)
+    """
+    energy, max_l, min_l, max_d, min_d = compute_hysteresis_energy(loads, disps)
+    k = compute_secant_stiffness(max_l, min_l, max_d, min_d)
+    c_num = float(markers[0]) if len(markers) > 0 else 1.0
+    return c_num, k

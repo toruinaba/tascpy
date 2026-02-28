@@ -76,95 +76,53 @@ def _calculate_polygon_area(x: np.ndarray, y: np.ndarray) -> float:
     return calculate_polygon_area(x, y)
 
 
-from ...operations.abstraction import process_by_group
+from ...functional.load_displacement.cycles import compute_energy_and_stats, compute_stiffness_degradation_stats
 
-@operation(domain="load_displacement")
-@process_by_group(
-    group_column_arg="cycle_column",
-    output_columns=[
-        {"name": "cycle", "index": 0},
-        {"name": "energy", "index": 1, "unit": "J", "metadata": {"description": "Hysteresis loop area"}},
-        {"name": "max_load", "index": 2, "inherit_unit_from": "__load__"},
-        {"name": "min_load", "index": 3, "inherit_unit_from": "__load__"},
-        {"name": "max_disp", "index": 4, "inherit_unit_from": "__disp__"},
-        {"name": "min_disp", "index": 5, "inherit_unit_from": "__disp__"},
-    ],
-    collection_cls=LoadDisplacementCollection
+analyze_hysteresis = register_functional(
+    compute_energy_and_stats,
+    domain="load_displacement",
+    name="analyze_hysteresis",
+    extra_decorators=[resolve_ld_and_cycle_columns],
+    process_by_group={
+        "group_column_arg": "cycle_column",
+        "output_columns": [
+            {"name": "cycle", "index": 0},
+            {"name": "energy", "index": 1, "unit": "J", "metadata": {"description": "Hysteresis loop area"}},
+            {"name": "max_load", "index": 2, "inherit_unit_from": "__load__"},
+            {"name": "min_load", "index": 3, "inherit_unit_from": "__load__"},
+            {"name": "max_disp", "index": 4, "inherit_unit_from": "__disp__"},
+            {"name": "min_disp", "index": 5, "inherit_unit_from": "__disp__"},
+        ],
+        "collection_cls": LoadDisplacementCollection
+    },
+    signature_override={
+        "cycle_column": (str, None),
+        "load_column": (str, None),
+        "displacement_column": (str, None),
+        "cycle_marker_column": (str, None)
+    }
 )
-def analyze_hysteresis(
-    collection: LoadDisplacementCollection,
-    cycle_column: Optional[str] = None
-) -> tuple:
-    """ヒステリシスループ解析（エネルギー散逸の計算）
 
-    各サイクルのヒステリシスループ面積（エネルギー散逸）を計算し、
-    サイクルごとの統計量を含む新しいコレクションを返します。
-
-    Args:
-        collection: 荷重-変位コレクション (処理時に各サイクルに分割されて渡されます)
-        cycle_column: サイクル番号列（指定がない場合は自動検出）
-
-    Returns:
-        tuple: (cycle_num, energy, max_load, min_load, max_disp, min_disp)
-    """
-    from ...functional.load_displacement.cycles import compute_hysteresis_energy
-    
-    load_col_name = collection.load_column
-    disp_col_name = collection.displacement_column
-    
-    loads = collection[load_col_name].values
-    disps = collection[disp_col_name].values
-    
-    energy, max_l, min_l, max_d, min_d = compute_hysteresis_energy(np.array(loads), np.array(disps))
-
-    c_num = 1
-    if cycle_column and cycle_column in collection.columns:
-        vals = collection[cycle_column].values
-        if len(vals) > 0 and vals[0] is not None:
-             c_num = vals[0]
-
-    return c_num, energy, max_l, min_l, max_d, min_d
-
-
-def _stiffness_bridge(collection, loads, disps, markers):
-    from ...functional.load_displacement.cycles import compute_hysteresis_energy, compute_secant_stiffness
-    
-    energy, max_l, min_l, max_d, min_d = compute_hysteresis_energy(loads, disps)
-    k = compute_secant_stiffness(max_l, min_l, max_d, min_d)
-    return k
-
-@operation(domain="load_displacement")
-@process_by_group(
-    group_column_arg="cycle_column",
-    output_columns=[
-        {"name": "cycle", "index": 0},
-        {"name": "stiffness", "index": 1, "metadata": {"description": "Secant stiffness"}}
-    ],
-    collection_cls=LoadDisplacementCollection
+analyze_stiffness_degradation = register_functional(
+    compute_stiffness_degradation_stats,
+    domain="load_displacement",
+    name="analyze_stiffness_degradation",
+    extra_decorators=[resolve_ld_and_cycle_columns],
+    process_by_group={
+        "group_column_arg": "cycle_column",
+        "output_columns": [
+            {"name": "cycle", "index": 0},
+            {"name": "stiffness", "index": 1, "metadata": {"description": "Secant stiffness"}}
+        ],
+        "collection_cls": LoadDisplacementCollection
+    },
+    signature_override={
+        "cycle_column": (str, None),
+        "load_column": (str, None),
+        "displacement_column": (str, None),
+        "cycle_marker_column": (str, None)
+    }
 )
-@resolve_ld_and_cycle_columns
-def analyze_stiffness_degradation(
-    collection: LoadDisplacementCollection,
-    loads: np.ndarray,
-    disps: np.ndarray,
-    markers: np.ndarray,
-) -> tuple:
-    """剛性低下解析（サイクルごとの割線剛性）
-
-    各サイクルの最大荷重点と最小荷重点を結ぶ直線の傾き（割線剛性）を計算し、
-    剛性の推移を示す新しいコレクションを返します。
-
-    Args:
-        collection: 荷重-変位コレクション
-        cycle_column: サイクル番号列（指定がない場合は自動検出）
-
-    Returns:
-        LoadDisplacementCollection: サイクル番号、剛性を含むコレクション
-    """
-    k = _stiffness_bridge(collection, loads, disps, markers)
-    
-    # Returns (cycle, stiffness) per group
-    return markers[0] if len(markers) > 0 else 1, k
 
 
 from ...functional.load_displacement.cycles import compute_peaks_and_valleys
