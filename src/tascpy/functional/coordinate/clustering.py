@@ -1,6 +1,7 @@
 """座標ドメインのクラスタリング用純粋関数群"""
 
 import numpy as np
+from typing import List, Tuple, Optional
 
 def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.ndarray:
     """簡易的なK-meansクラスタリング実装
@@ -36,3 +37,17 @@ def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nda
                 centers[j] = X[mask].mean(axis=0)
                 
     return labels
+
+def find_nearest_neighbors_logic(distances: List[Tuple[str, float]], n_neighbors: int) -> List[Tuple[str, float]]:
+    """距離のリストから最も近いN個の近傍を取得します。
+
+    Args:
+        distances: (識別子, 距離) のリスト
+        n_neighbors: 取得する近傍数
+
+    Returns:
+        List[Tuple[str, float]]: ソート済みの近傍リスト
+    """
+    sorted_distances = sorted([d for d in distances if d[1] is not None and not np.isnan(d[1])], key=lambda x: x[1])
+    n = min(n_neighbors, len(sorted_distances))
+    return sorted_distances[:n]

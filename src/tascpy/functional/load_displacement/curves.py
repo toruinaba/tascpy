@@ -53,7 +53,9 @@ def compute_skeleton_curve(
     displacements: np.ndarray,
     markers: np.ndarray,
     has_decrease: bool = False,
-    decrease_type: str = "envelope"
+    decrease_type: str = "envelope",
+    *args,
+    **kwargs
 ) -> Tuple[List[float], List[float]]:
     """荷重-変位データからスケルトン曲線を計算します。
     
@@ -183,7 +185,9 @@ def compute_skeleton_curve(
 def compute_cumulative_curve(
     loads: np.ndarray,
     displacements: np.ndarray,
-    markers: np.ndarray
+    markers: np.ndarray,
+    *args,
+    **kwargs
 ) -> Tuple[List[float], List[float]]:
     """荷重-変位データから累積曲線を計算します。
     

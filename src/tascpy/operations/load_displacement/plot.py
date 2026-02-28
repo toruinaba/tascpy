@@ -21,7 +21,6 @@ except ImportError:
 from ...domains.load_displacement import LoadDisplacementCollection
 from ...operations.registry import operation
 from ...operations.core.plot import plot as core_plot
-from .utils import get_load_column, get_displacement_column, get_valid_data
 from ...visualization import backend_mpl as mpl_backend
 
 
@@ -43,8 +42,8 @@ def plot_load_displacement(
         Axes: プロットされた軸オブジェクト
     """
     # 荷重と変位のカラムを取得
-    disp_column = get_displacement_column(collection)
-    load_column = get_load_column(collection)
+    disp_column = collection.displacement_column
+    load_column = collection.load_column
 
     # コアモジュールのplot関数を使用
     plot_kwargs = kwargs.copy()
@@ -104,8 +103,8 @@ def plot_skeleton_curve(
         created_new_figure = False
 
     # 元のデータの列名
-    orig_load_column = get_load_column(collection)
-    orig_disp_column = get_displacement_column(collection)
+    orig_load_column = collection.load_column
+    orig_disp_column = collection.displacement_column
 
     curve_data = collection.results["skeleton_curve"].to_dict()["data"]
     skeleton_x = curve_data["x"]
@@ -191,8 +190,8 @@ def plot_cumulative_curve(
         created_new_figure = False
 
     # 元のデータの列名
-    orig_load_column = get_load_column(collection)
-    orig_disp_column = get_displacement_column(collection)
+    orig_load_column = collection.load_column
+    orig_disp_column = collection.displacement_column
 
     # collection.results から曲線データを取得
     curve_data = collection.results["cumulative_curve"].to_dict()["data"]
@@ -282,7 +281,7 @@ def plot_yield_point(
         pass
 
     # 荷重と変位データの取得
-    disp_data, load_data = get_valid_data(collection)
+    disp_data, load_data = collection.valid_data
 
     # 降伏点のプロット
     yield_disp = yield_point.x
@@ -389,7 +388,7 @@ def plot_yield_analysis_details(
         created_new_figure = False
 
     # 初期勾配計算に使用した範囲をハイライト
-    disp_data, load_data = get_valid_data(collection)
+    disp_data, load_data = collection.valid_data
 
     range_start = yield_data["parameters"]["range_start"]
     range_end = yield_data["parameters"]["range_end"]
@@ -539,7 +538,7 @@ def compare_yield_methods(
 
         # 初期勾配線
         initial_slope = yield_data.get("initial_slope", 1.0)
-        max_disp = np.max(collection[get_displacement_column(collection)].values)
+        max_disp = np.max(collection[collection.displacement_column].values)
         x_vals = np.array([0, max_disp])
 
         if params["method"] == "offset":
@@ -606,8 +605,8 @@ def plot_multiple_curves(
 
         if curve_type == "original":
             # 元データのプロット
-            orig_load_column = get_load_column(collection)
-            orig_disp_column = get_displacement_column(collection)
+            orig_load_column = collection.load_column
+            orig_disp_column = collection.displacement_column
             plot_kwargs.setdefault("plot_type", "line")
             core_plot(
                 collection,

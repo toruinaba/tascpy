@@ -433,7 +433,7 @@ Returns:
         elastic_range: tuple[float, float] = (0.0005, 0.0025),
         offset: float = 0.002,
         result_prefix: str = 'material'
-    ) -> "StrainCollectionOperations":
+    ) -> tuple[float, float, float, float]:
         """材料特性（ヤング率、降伏点、ポアソン比）を解析する
 
 Args:
@@ -446,7 +446,7 @@ Args:
     result_prefix: 結果名の接頭辞
 
 Returns:
-    StrainCollection: 計算結果（ScalarResult, PointResult）が追加されたコレクション"""
+    Tuple: E, yield_strain, yield_stress, nu"""
         ...
     
 
@@ -1094,8 +1094,8 @@ Raises:
 
     def evaluate(
         self,
-        collection: collection = <class 'tascpy.core.collection.ColumnCollection'>,
-        column: collection = <class 'tascpy.core.collection.ColumnCollection'>,
+        collection: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
+        column: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
         expression: str,
         **kwargs
     ) -> Union[list[Optional[float]], ndarray]:
@@ -1435,24 +1435,6 @@ Returns:
         columns: Optional[list[str]] = None
     ) -> "StrainCollectionOperations":
         """指定した列の値に基づいてデータを内挿します"""
-        ...
-    
-
-    def test_filter(
-        self,
-        column_name,
-        value
-    ) -> Any:
-        """テスト用フィルタリング操作"""
-        ...
-    
-
-    def add_derived_column(
-        self,
-        formula,
-        output_column
-    ) -> Any:
-        """数式に基づいて派生列を追加"""
         ...
     
 

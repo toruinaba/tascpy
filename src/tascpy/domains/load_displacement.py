@@ -260,6 +260,46 @@ class LoadDisplacementCollection(ColumnCollection):
 
         return sorted(list(key_set))
 
+    @property
+    def load_data(self):
+        """荷重データ配列を取得 (NaNを保持)
+        
+        Returns:
+            np.ndarray: 荷重データの配列
+        """
+        import numpy as np
+        return np.array([v if v is not None else np.nan for v in self[self.load_column].values])
+
+    @property
+    def displacement_data(self):
+        """変位データ配列を取得 (NaNを保持)
+        
+        Returns:
+            np.ndarray: 変位データの配列
+        """
+        import numpy as np
+        return np.array([v if v is not None else np.nan for v in self[self.displacement_column].values])
+        
+    @property
+    def valid_data_mask(self):
+        """NaNを含まない有効なデータのブールマスクを取得
+        
+        Returns:
+            np.ndarray: 有効なデータのブールマスク
+        """
+        import numpy as np
+        return ~(np.isnan(self.load_data) | np.isnan(self.displacement_data))
+        
+    @property
+    def valid_data(self):
+        """有効な(変位, 荷重)の配列の組を取得
+        
+        Returns:
+            tuple[np.ndarray, np.ndarray]: (変位データ, 荷重データ)
+        """
+        mask = self.valid_data_mask
+        return self.displacement_data[mask], self.load_data[mask]
+
 
 # ファクトリ関数の定義
 def create_load_displacement_collection(**kwargs: Any) -> LoadDisplacementCollection:

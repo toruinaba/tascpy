@@ -6,13 +6,6 @@ from ...operations.registry import operation
 from ...domains.load_displacement import LoadDisplacementCollection
 from ...core.column import Column
 from ...core.result import PointResult
-from .utils import (
-    get_load_column,
-    get_displacement_column,
-    get_load_data,
-    get_displacement_data,
-    get_valid_data,
-)
 from ...operations.validation import requires_domain
 from ...operations.registry import register_functional
 from .abstraction import resolve_ld_columns

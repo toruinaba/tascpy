@@ -35,90 +35,6 @@ class LoadDisplacementCollectionOperations(CollectionOperationsBase[LoadDisplace
         ...
 
 
-    def get_load_column(
-        self,
-        
-    ) -> str:
-        """荷重データのカラム名を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    str: 荷重データのカラム名"""
-        ...
-    
-
-    def get_displacement_column(
-        self,
-        
-    ) -> str:
-        """変位データのカラム名を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    str: 変位データのカラム名"""
-        ...
-    
-
-    def get_load_data(
-        self,
-        
-    ) -> ndarray:
-        """荷重データを取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    np.ndarray: 荷重データの配列"""
-        ...
-    
-
-    def get_displacement_data(
-        self,
-        
-    ) -> ndarray:
-        """変位データを取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    np.ndarray: 変位データの配列"""
-        ...
-    
-
-    def get_valid_data_mask(
-        self,
-        
-    ) -> ndarray:
-        """有効なデータポイントのマスクを取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    np.ndarray: 有効なデータのブールマスク"""
-        ...
-    
-
-    def get_valid_data(
-        self,
-        
-    ) -> tuple[ndarray, ndarray]:
-        """有効な荷重と変位のデータ組を取得
-
-Args:
-    collection: 荷重-変位コレクション
-
-Returns:
-    Tuple[np.ndarray, np.ndarray]: 有効な(変位, 荷重)データの組"""
-        ...
-    
-
     def calculate_slopes(
         self,
         disp_data: column = <class 'float'>,
@@ -191,23 +107,46 @@ Returns:
 
     def create_skeleton_curve(
         self,
-        load_column: Optional[str] = None,
-        displacement_column: Optional[str] = None,
-        cycle_marker_column: Optional[str] = None,
         has_decrease: bool = False,
-        decrease_type: str = 'envelope'
-    ) -> tuple[ndarray, ndarray, dict]:
-        """"""
+        decrease_type: str = 'envelope',
+        column: str,
+        displacements: ndarray,
+        markers: ndarray,
+        has_decrease: bool = False,
+        decrease_type: str = 'envelope',
+        *args,
+        **kwargs
+    ) -> tuple[list[float], list[float]]:
+        """荷重-変位データからスケルトン曲線を計算します。
+
+Args:
+    loads: 荷重データ
+    displacements: 変位データ
+    markers: サイクルマーカー
+    has_decrease: 減少部分も含めるか
+    decrease_type: 減少部分の処理方法 ('envelope', 'continuous_only', 'both')
+    
+Returns:
+    Tuple[List[float], List[float]]: スケルトン曲線の(変位, 荷重)リスト"""
         ...
     
 
     def create_cumulative_curve(
         self,
-        load_column: Optional[str] = None,
-        displacement_column: Optional[str] = None,
-        cycle_marker_column: Optional[str] = None
-    ) -> tuple[ndarray, ndarray, dict]:
-        """"""
+        displacements: ndarray,
+        markers: ndarray,
+        *args,
+        **kwargs
+    ) -> tuple[list[float], list[float]]:
+        """荷重-変位データから累積曲線を計算します。
+
+Args:
+    loads: 荷重データ
+    displacements: 変位データ
+    markers: サイクルマーカー
+    
+Returns:
+    Tuple[List[float], List[float]]: 累積曲線の(変位, 荷重)リスト"""
         ...
     
 
@@ -250,25 +189,27 @@ Returns:
     def analyze_hysteresis(
         self,
         cycle_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+    ) -> tuple:
         """ヒステリシスループ解析（エネルギー散逸の計算）
 
 各サイクルのヒステリシスループ面積（エネルギー散逸）を計算し、
 サイクルごとの統計量を含む新しいコレクションを返します。
 
 Args:
-    collection: 荷重-変位コレクション
+    collection: 荷重-変位コレクション (処理時に各サイクルに分割されて渡されます)
     cycle_column: サイクル番号列（指定がない場合は自動検出）
 
 Returns:
-    LoadDisplacementCollection: サイクル番号、エネルギー、最大荷重などを列として持つコレクション"""
+    tuple: (cycle_num, energy, max_load, min_load, max_disp, min_disp)"""
         ...
     
 
     def analyze_stiffness_degradation(
         self,
-        cycle_column: Optional[str] = None
-    ) -> "LoadDisplacementCollectionOperations":
+        loads: ndarray,
+        disps: ndarray,
+        markers: ndarray
+    ) -> tuple:
         """剛性低下解析（サイクルごとの割線剛性）
 
 各サイクルの最大荷重点と最小荷重点を結ぶ直線の傾き（割線剛性）を計算し、
@@ -285,27 +226,22 @@ Returns:
 
     def find_peaks_and_valleys(
         self,
-        column: Optional[str] = None,
-        result_column: str = 'peak_valley',
+        data: column = <class 'float'>,
         distance: int = 1,
-        threshold: Optional[float] = None,
-        prominence: Optional[float] = None
-    ) -> "LoadDisplacementCollectionOperations":
-        """ピーク（極大値）とバレー（極小値）を検出します
-
-指定された列の極大値と極小値を検出し、
-1（ピーク）、-1（バレー）、0（その他）のフラグを持つ新しい列を追加します。
+        threshold: float = None,
+        column: column = <class 'float'>,
+        distance: int = 1,
+        threshold: Optional[float] = None
+    ) -> ndarray:
+        """配列内の極大値(1)と極小値(-1)を検出します。
 
 Args:
-    collection: 荷重-変位コレクション
-    column: 検出対象の列（指定がない場合は荷重列を使用）
-    result_column: 結果を格納する列名
+    data: 対象データ配列
     distance: ピーク間の最小距離（インデックス数）
     threshold: 隣接点との最小差
-    prominence: ピークの突出度（未実装: scipyが必要なため）
-
+    
 Returns:
-    LoadDisplacementCollection: ピーク/バレーフラグを含むコレクション"""
+    np.ndarray: ピーク(1)、バレー(-1)、その他(0)のフラグ配列"""
         ...
     
 
@@ -1137,8 +1073,8 @@ Raises:
 
     def evaluate(
         self,
-        collection: collection = <class 'tascpy.core.collection.ColumnCollection'>,
-        column: collection = <class 'tascpy.core.collection.ColumnCollection'>,
+        collection: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
+        column: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
         expression: str,
         **kwargs
     ) -> Union[list[Optional[float]], ndarray]:
@@ -1478,24 +1414,6 @@ Returns:
         columns: Optional[list[str]] = None
     ) -> "LoadDisplacementCollectionOperations":
         """指定した列の値に基づいてデータを内挿します"""
-        ...
-    
-
-    def test_filter(
-        self,
-        column_name,
-        value
-    ) -> Any:
-        """テスト用フィルタリング操作"""
-        ...
-    
-
-    def add_derived_column(
-        self,
-        formula,
-        output_column
-    ) -> Any:
-        """数式に基づいて派生列を追加"""
         ...
     
 

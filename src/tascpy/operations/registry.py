@@ -90,6 +90,8 @@ class OperationRegistry:
         store_result: Optional[Dict[str, Any]] = None,
         store_xy_result: Optional[Dict[str, Any]] = None,
         store_point_result: Optional[Dict[str, Any]] = None,
+        store_multiple_results: Optional[Dict[str, Any]] = None,
+        process_by_group: Optional[Dict[str, Any]] = None,
         shared_with: Optional[List[str]] = None,
         signature_override: Optional[Dict[str, Any]] = None,
         extra_decorators: Optional[List[Callable]] = None,
@@ -112,6 +114,8 @@ class OperationRegistry:
             store_result: @store_result への引数辞書
             store_xy_result: @store_xy_result への引数辞書
             store_point_result: @store_point_result への引数辞書
+            store_multiple_results: @store_multiple_results への引数辞書
+            process_by_group: @process_by_group への引数辞書
             shared_with: 共有ドメインのリスト
             signature_override: スタブ生成用のシグネチャ上書き情報
                                 {param_name: (type, default)} の形式
@@ -179,6 +183,18 @@ class OperationRegistry:
                  if inject_metadata:
                      sr_kwargs["inject_metadata"] = inject_metadata
                  wrapped_func = cpr_decorator(**sr_kwargs)(wrapped_func)
+             elif store_multiple_results is not None:
+                 from .abstraction import store_multiple_results as smr_decorator
+                 wrapped_func.__name__ = op_name
+                 sr_kwargs = store_multiple_results.copy()
+                 if inject_metadata:
+                     sr_kwargs["inject_metadata"] = inject_metadata
+                 wrapped_func = smr_decorator(**sr_kwargs)(wrapped_func)
+             elif process_by_group is not None:
+                 from .abstraction import process_by_group as pbg_decorator
+                 wrapped_func.__name__ = op_name
+                 sr_kwargs = process_by_group.copy()
+                 wrapped_func = pbg_decorator(**sr_kwargs)(wrapped_func)
              elif inject_metadata is not None:
                  # If store_result is not used, but inject_metadata is provided,
                  # we attach metadata to the result (as a tuple).
@@ -285,6 +301,8 @@ class OperationRegistry:
         select_columns: Optional[Dict[str, Any]] = None,
         inject_step_values: Optional[Dict[str, Any]] = None,
         store_result: Optional[Dict[str, Any]] = None,
+        store_multiple_results: Optional[Dict[str, Any]] = None,
+        process_by_group: Optional[Dict[str, Any]] = None,
         shared_with: Optional[List[str]] = None,
         signature_override: Optional[Dict[str, Any]] = None,
         extra_decorators: Optional[List[Callable]] = None,
@@ -364,6 +382,8 @@ class OperationRegistry:
             select_columns=select_columns,
             inject_step_values=inject_step_values,
             store_result=store_result,
+            store_multiple_results=store_multiple_results,
+            process_by_group=process_by_group,
             shared_with=shared_with,
             signature_override=signature_override,
             extra_decorators=extra_decorators,

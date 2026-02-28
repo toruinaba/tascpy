@@ -5,6 +5,7 @@ from ...domains.strain import StrainCollection
 from ...core.column import Column
 from ...core.result import ScalarResult, PointResult
 from ...operations.validation import requires_column
+from ...functional.strain.ss_analysis import compute_stress, compute_material_properties
 
 @operation(domain="strain")
 def calculate_stress(
@@ -31,14 +32,14 @@ def calculate_stress(
         
     load_vals = np.array(collection[load_column].values, dtype=float)
     
-    # 応力計算
-    stress_vals = load_vals / area
+    # functionalモジュールの純粋な関数を呼び出す
+    stress_vals = compute_stress(load_vals, area)
     
     result = collection.clone()
     result.columns[result_column] = Column(
         ch=None,
         name=result_column,
-        values=stress_vals,
+        values=stress_vals.tolist() if isinstance(stress_vals, np.ndarray) else stress_vals,
         unit=unit,
         metadata={
             "description": f"Calculated Stress (Load: {load_column}, Area: {area})", 
@@ -49,7 +50,32 @@ def calculate_stress(
     
     return result
 
+from ...operations.abstraction import store_multiple_results
+
 @operation(domain="strain")
+@store_multiple_results(
+    results=[
+        {
+            "type": "scalar", 
+            "name": "{result_prefix}_E", 
+            "index": 0, 
+            "metadata": {"description": "Young's Modulus"}
+        },
+        {
+            "type": "point", 
+            "name": "{result_prefix}_yield", 
+            "x_index": 1, 
+            "y_index": 2, 
+            "metadata": {"description": "Offset Yield Strength"}
+        },
+        {
+            "type": "scalar", 
+            "name": "{result_prefix}_nu", 
+            "index": 3, 
+            "metadata": {"description": "Poisson's Ratio"}
+        }
+    ]
+)
 def analyze_material_properties(
     collection: StrainCollection,
     stress_column: str,
@@ -58,7 +84,7 @@ def analyze_material_properties(
     elastic_range: Tuple[float, float] = (0.0005, 0.0025), # Strain range for Young's Modulus
     offset: float = 0.002, # 0.2% offset
     result_prefix: str = "material"
-) -> StrainCollection:
+) -> Tuple[float, float, float, float]:
     """材料特性（ヤング率、降伏点、ポアソン比）を解析する
 
     Args:
@@ -71,108 +97,24 @@ def analyze_material_properties(
         result_prefix: 結果名の接頭辞
 
     Returns:
-        StrainCollection: 計算結果（ScalarResult, PointResult）が追加されたコレクション
+        Tuple: E, yield_strain, yield_stress, nu
     """
     if stress_column not in collection.columns:
         raise ValueError(f"応力カラム '{stress_column}' が見つかりません")
     if strain_column not in collection.columns:
         raise ValueError(f"ひずみカラム '{strain_column}' が見つかりません")
 
-    # データ取得 (NaN除去)
-    s_col = collection[stress_column]
-    e_col = collection[strain_column]
+    # データ取得
+    stress = np.array(collection[stress_column].values, dtype=float)
+    strain = np.array(collection[strain_column].values, dtype=float)
     
-    # 配列化
-    stress = np.array(s_col.values, dtype=float)
-    strain = np.array(e_col.values, dtype=float)
-    
-    # 共通の有効データインデックス
-    mask = (~np.isnan(stress)) & (~np.isnan(strain))
-    stress = stress[mask]
-    strain = strain[mask]
-    
-    result_coll = collection.clone()
-    
-    # 1. ヤング率 (Young's Modulus)
-    # 指定範囲内のデータで線形回帰
-    e_start, e_end = elastic_range
-    range_mask = (strain >= e_start) & (strain <= e_end)
-    
-    E = np.nan
-    intercept = np.nan
-    
-    if np.sum(range_mask) > 2:
-        E, intercept = np.polyfit(strain[range_mask], stress[range_mask], 1)
-        
-        # 結果追加
-        result_coll.add_result(ScalarResult(
-            name=f"{result_prefix}_E",
-            value=E,
-            unit=f"{s_col.unit}/{e_col.unit}" if s_col.unit and e_col.unit else s_col.unit, # Strain unitless -> Stress unit
-            metadata={"description": "Young's Modulus", "range": elastic_range}
-        ))
-    else:
-        # 計算不可
-        pass
-
-    # 2. 降伏強度 / 耐力 (Yield Strength, 0.2% offset)
-    # offset line: sigma = E * (epsilon - offset)
-    # sigma_offset = E * epsilon - E * offset
-    # 交点を探す: stress - (E * strain - E * offset) = 0
-    
-    yield_stress = np.nan
-    yield_strain = np.nan
-    
-    if not np.isnan(E):
-        offset_stress = E * (strain - offset) + intercept
-        diff = stress - offset_stress
-        
-        # 符号が変わる点を探す (弾性域以降で)
-        # 探索範囲を elasticity range の後からにする
-        search_start_idx = np.where(strain > e_end)[0]
-        if len(search_start_idx) > 0:
-            start_idx = search_start_idx[0]
-            
-            for i in range(start_idx, len(diff)-1):
-                if diff[i] * diff[i+1] <= 0:
-                    # 交点発見 (線形補間)
-                    r = abs(diff[i]) / (abs(diff[i]) + abs(diff[i+1]))
-                    yield_strain = strain[i] + r * (strain[i+1] - strain[i])
-                    yield_stress = stress[i] + r * (stress[i+1] - stress[i])
-                    break
-        
-        if not np.isnan(yield_stress):
-             result_coll.add_result(PointResult(
-                name=f"{result_prefix}_yield",
-                x=yield_strain,
-                y=yield_stress,
-                x_unit=e_col.unit,
-                y_unit=s_col.unit,
-                metadata={"description": f"{offset*100}% Offset Yield Strength", "offset": offset}
-            ))
-
-    # 3. ポアソン比 (Poisson's Ratio)
-    # -e_lat / e_long in elastic range
+    lateral_strain = None
     if lateral_strain_column:
         if lateral_strain_column not in collection.columns:
-             raise ValueError(f"横ひずみカラム '{lateral_strain_column}' が見つかりません")
-             
-        l_col = collection[lateral_strain_column]
-        lat_strain = np.array(l_col.values, dtype=float)
-        lat_strain = lat_strain[mask] # 同様にマスク
-        
-        if np.sum(range_mask) > 2:
-            # 横ひずみ vs 縦ひずみの傾き = -nu
-            # slope = polyfit(x=long, y=lat)
-            # nu = -slope
-            slope_nu, _ = np.polyfit(strain[range_mask], lat_strain[range_mask], 1)
-            nu = -slope_nu
-            
-            result_coll.add_result(ScalarResult(
-                name=f"{result_prefix}_nu",
-                value=nu,
-                unit=None,
-                metadata={"description": "Poisson's Ratio", "range": elastic_range}
-            ))
-
-    return result_coll
+            raise ValueError(f"横ひずみカラム '{lateral_strain_column}' が見つかりません")
+        lateral_strain = np.array(collection[lateral_strain_column].values, dtype=float)
+    
+    # functionalモジュールの純粋な関数を呼び出してタプルを返すだけ
+    return compute_material_properties(
+        stress, strain, lateral_strain, elastic_range, offset
+    )

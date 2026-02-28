@@ -538,6 +538,253 @@ def store_point_result(
     return decorator
 
 
+def store_multiple_results(
+    func: Optional[Callable] = None,
+    *,
+    results: List[Dict[str, Any]],
+    inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
+):
+    """
+    単一の実行結果（タプル等）から複数の結果（ScalarResultやPointResultなど）を
+    抽出してコレクションに追加するデコレータ。
+
+    Args:
+        results: 各結果の抽出・作成設定のリスト
+            例:
+            [
+                {"type": "scalar", "name": "{result_prefix}_E", "index": 0, "unit_arg": "unit"},
+                {"type": "point", "name": "{result_prefix}_yield", "x_index": 1, "y_index": 2}
+            ]
+    """
+    def decorator(target_func):
+        @functools.wraps(target_func)
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            if not isinstance(collection, ColumnCollection):
+                return target_func(collection, *args, **kwargs)
+
+            func_kwargs = kwargs.copy()
+            # プレフィックス等の共通フォーマット引数を取得
+            result_prefix = func_kwargs.pop("result_prefix", "result")
+            
+            res_data = target_func(collection, *args, **func_kwargs)
+            
+            # 関数の戻り値がタプルでない場合はタプル化
+            if not isinstance(res_data, tuple):
+                res_data = (res_data,)
+                
+            result_collection = collection.clone()
+            
+            # メタデータの動的生成
+            extra_meta = {}
+            if inject_metadata:
+                try:
+                    extra_meta = inject_metadata(args, kwargs, res_data) or {}
+                except Exception as e:
+                    raise e
+            
+            for config in results:
+                res_type = config.get("type", "scalar")
+                
+                # 名前をフォーマット (引数の値を埋め込めるようにする)
+                raw_name = config.get("name", "result")
+                try:
+                    format_args = {"result_prefix": result_prefix}
+                    format_args.update(kwargs)
+                    name = raw_name.format(**format_args)
+                except KeyError:
+                    name = raw_name
+                
+                meta = config.get("metadata", {}).copy()
+                meta.update(extra_meta)
+                
+                # NaN チェック用のヘルパー
+                def is_valid_val(v):
+                    if isinstance(v, (int, float, np.number)):
+                        return not np.isnan(v)
+                    return v is not None
+
+                if res_type == "scalar":
+                    idx = config.get("index", 0)
+                    if idx < len(res_data):
+                        val = res_data[idx]
+                        if is_valid_val(val):
+                            s_res = ScalarResult(
+                                name=name,
+                                value=val,
+                                unit=config.get("unit"),
+                                metadata=meta
+                            )
+                            result_collection.add_result(s_res)
+                            
+                elif res_type == "point":
+                    x_idx = config.get("x_index", 0)
+                    y_idx = config.get("y_index", 1)
+                    if x_idx < len(res_data) and y_idx < len(res_data):
+                        x_val = res_data[x_idx]
+                        y_val = res_data[y_idx]
+                        if is_valid_val(x_val) and is_valid_val(y_val):
+                            p_res = PointResult(
+                                name=name,
+                                x=x_val,
+                                y=y_val,
+                                x_unit=config.get("x_unit") or config.get("unit"),
+                                y_unit=config.get("y_unit") or config.get("unit"),
+                                metadata=meta
+                            )
+                            result_collection.add_result(p_res)
+
+            return result_collection
+        return wrapper
+
+    if func is not None:
+        return decorator(func)
+    return decorator
+
+
+def process_by_group(
+    func: Optional[Callable] = None,
+    *,
+    group_column_arg: str = "group_column",
+    default_group_column: Optional[str] = None,
+    output_columns: List[Dict[str, Any]],
+    collection_cls: Optional[type] = None
+):
+    """
+    コレクションを指定カラムでグループ化し、各グループサブコレクションに対して
+    純粋関数を実行し、その結果（スカラー群）を新しいコレクションとして結合するデコレータ。
+    
+    Args:
+        group_column_arg: グループ化に使うカラム名を受け取るkwargsのキー名
+        default_group_column: defaultのグループカラム名
+        output_columns: 出力するカラムの定義リスト
+            例:
+            [
+                {"name": "cycle", "index": 0},
+                {"name": "energy", "index": 1, "unit": "J"}
+            ]
+        collection_cls: 返り値のコレクションクラス (None なら入力と同じ)
+    """
+    def decorator(target_func):
+        @functools.wraps(target_func)
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            if not isinstance(collection, ColumnCollection):
+                return target_func(collection, *args, **kwargs)
+                
+            group_col_name = kwargs.pop(group_column_arg, default_group_column)
+            
+            if group_col_name is None:
+                # サイクル列名の自動検出のフォールバック
+                for col_name in collection.columns:
+                    if "cycle" in col_name.lower():
+                        group_col_name = col_name
+                        break
+            
+            groups = []
+            if group_col_name and group_col_name in collection.columns:
+                group_vals = collection[group_col_name].values
+                # 順序を保ったUnique抽出
+                unique_keys = []
+                for v in group_vals:
+                    # np.nanではない、ハッシュ可能であることなどを確認
+                    try:
+                        if v not in unique_keys and not (isinstance(v, float) and np.isnan(v)):
+                            unique_keys.append(v)
+                    except:
+                        pass
+                
+                indices_dict = {k: [] for k in unique_keys}
+                for i, v in enumerate(group_vals):
+                    try:
+                        if v in indices_dict:
+                            indices_dict[v].append(i)
+                    except:
+                        pass
+                        
+                for k in unique_keys:
+                    idxs = indices_dict[k]
+                    sub_col = collection.clone()
+                    sub_col.step.values = [collection.step.values[i] for i in idxs]
+                    for name, col in collection.columns.items():
+                        new_col = col.__class__(col.ch, col.name, col.unit, [col.values[i] for i in idxs], dict(col.metadata))
+                        sub_col.columns[name] = new_col
+                    groups.append((k, sub_col))
+            else:
+                groups = [(1, collection)]
+            
+            # 各グループに対して処理
+            results_accum = [[] for _ in range(len(output_columns))]
+            step_accum = []
+            
+            for i, (group_key, sub_col) in enumerate(groups):
+                # 関数実行
+                res = target_func(sub_col, *args, **kwargs)
+                if not isinstance(res, tuple):
+                    res = (res,)
+                
+                step_accum.append(group_key)
+                
+                # 結果のアサイン
+                for j, out_config in enumerate(output_columns):
+                    idx = out_config.get("index", j)
+                    source_val = res[idx] if idx < len(res) else None
+                    results_accum[j].append(source_val)
+            
+            # 結果コレクションの生成
+            cls_to_use = collection_cls if collection_cls else collection.__class__
+            meta = collection.metadata.copy()
+            meta["grouped_by"] = group_col_name
+            
+            new_coll = cls_to_use(
+                step=step_accum,
+                columns={},
+                metadata=meta
+            )
+            
+            for j, out_config in enumerate(output_columns):
+                name = out_config.get("name", f"result_{j}")
+                unit = out_config.get("unit")
+                
+                if unit is None and "inherit_unit_from" in out_config:
+                    src_col = out_config["inherit_unit_from"]
+                    actual_src_col = src_col
+                    if src_col == "__load__":
+                         try:
+                             actual_src_col = collection.load_column
+                         except: pass
+                    elif src_col == "__disp__":
+                         try:
+                             actual_src_col = collection.displacement_column
+                         except: pass
+                         
+                    if actual_src_col and actual_src_col in collection.columns:
+                        unit = collection[actual_src_col].unit
+                
+                col_meta = out_config.get("metadata", {}).copy()
+                
+                # Columnの生成と追加
+                from ..core.column import detect_column_type
+                new_col = detect_column_type(None, name, unit, results_accum[j])
+                new_col.metadata.update(col_meta)
+                new_coll.add_column(name, new_col)
+                
+            # Add dynamic kwargs if LoadDisplacementCollection
+            if cls_to_use.__name__ == "LoadDisplacementCollection":
+                # Find best candidates for load/displacement columns
+                load_c = next((c.get("name") for c in output_columns if "load" in c.get("name", "").lower()), None)
+                disp_c = next((c.get("name") for c in output_columns if "disp" in c.get("name", "").lower()), None)
+                if load_c:
+                     new_coll.load_column = load_c
+                if disp_c:
+                     new_coll.displacement_column = disp_c
+                
+            return new_coll
+            
+        return wrapper
+        
+    if func is not None:
+        return decorator(func)
+    return decorator
+
 
 def transform_column(
     num_inputs: int = 1,

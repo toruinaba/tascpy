@@ -64,6 +64,7 @@ def find_nearest_neighbors(
     Raises:
         ValueError: 指定された列が存在しない場合、または座標情報がない場合
     """
+    from ...functional.coordinate.clustering import find_nearest_neighbors_logic
     result = collection.clone()
 
     if column not in collection.columns:
@@ -91,18 +92,15 @@ def find_nearest_neighbors(
             # 距離計算できない場合はスキップ
             continue
 
-    # 距離でソート
-    distances.sort(key=lambda x: x[1])
-
-    # n_neighborsを確認して調整
-    n_neighbors = min(n_neighbors, len(distances))
+    # functional層の純粋関数を呼び出し
+    nearest = find_nearest_neighbors_logic(distances, n_neighbors)
 
     # 近傍情報をメタデータに保存
     if "analysis" not in result.metadata:
         result.metadata["analysis"] = {}
 
     neighbors = [
-        {"column": col, "distance": dist} for col, dist in distances[:n_neighbors]
+        {"column": col, "distance": dist} for col, dist in nearest
     ]
 
     result.metadata["analysis"]["nearest_neighbors"] = {
