@@ -196,4 +196,17 @@ interpolate = register_functional(
     domain="core",
     name="interpolate",
 )
+interpolate.__doc__ = """指定した列の値を基準にしてデータを内挿（リスサンプリング）します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        base_column_name (str, optional): 新たな共有x軸として設定するカラム名. Defaults to "step".
+        x_values (List[float], optional): 明示的な新しいx軸の配列. Defaults to None.
+        point_count (int, optional): 自動生成時の内挿点数. Defaults to None.
+        method (str, optional): 補間方法 ("linear", "nearest" 等). Defaults to "linear".
+        columns (List[str], optional): 明示的に線形補間対象とするカラム名のリスト. 未指定時はすべて自動判定. Defaults to None.
+        
+    Returns:
+        ColumnCollection: 内挿後のデータを持つ新しいコレクション
+"""
 

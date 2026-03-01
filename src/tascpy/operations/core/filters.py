@@ -20,10 +20,20 @@ filter_by_value = register_functional(
     signature_override={
         "values": ("column", str),  # Map first arg 'values' to 'column' (str)
         # Preserve others
-        "value": (Any, inspect.Parameter.empty),
         "tolerance": (Optional[float], None),
     }
 )
+filter_by_value.__doc__ = """指定した列の値が条件に一致する行のみを抽出します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column (str): 条件判定の対象となるカラム名
+        value (Any): 一致するか比較する値
+        tolerance (float, optional): 数値比較時の許容誤差. Defaults to None.
+        
+    Returns:
+        ColumnCollection: 条件に一致した行のみを含む新しいコレクション
+"""
 
 
 filter_out_none = register_functional(
@@ -33,10 +43,19 @@ filter_out_none = register_functional(
     inject_columns={"columns_arg": "columns", "cast_to_numpy": True},
     filter_rows=True,
     signature_override={
-        "data": ("columns", Optional[List[str]]),
         "mode": (str, "any")
     }
 )
+filter_out_none.__doc__ = """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        columns (List[str], optional): 判定対象のカラム名リスト. 未指定時はすべて. Defaults to None.
+        mode (str, optional): 判定モード ("any": いずれかが欠損なら除外, "all": 全てが欠損なら除外). Defaults to "any".
+        
+    Returns:
+        ColumnCollection: 欠損値を含む行が除外された新しいコレクション
+"""
 
 
 remove_consecutive_duplicates_across = register_functional(
@@ -47,10 +66,20 @@ remove_consecutive_duplicates_across = register_functional(
     filter_rows=True,
     signature_override={
         "data": ("columns", Optional[List[str]]),
-        "mode": (str, "consecutive"),
         "dup_type": (str, "all")
     }
 )
+remove_consecutive_duplicates_across.__doc__ = """連続する重複行を検知し、最初の行だけを残して除外します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        columns (List[str], optional): 重複判定の対象となるカラム名リスト. 未指定時はすべて. Defaults to None.
+        mode (str, optional): 重複判定モード. Defaults to "consecutive".
+        dup_type (str, optional): どの重複を残すか. Defaults to "all".
+        
+    Returns:
+        ColumnCollection: 連続重複が排除された新しいコレクション
+"""
 
 
 
@@ -68,10 +97,23 @@ remove_outliers = register_pipeline(
         "window_size": (int, 3),
         "threshold": (float, 0.5),
         "edge_handling": (str, "asymmetric"),
-        "min_abs_value": (float, 1e-10),
         "scale_factor": (float, 1.0),
     }
 )
+remove_outliers.__doc__ = """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column (str): 外れ値判定の対象となるカラム名
+        window_size (int, optional): 移動窓のサイズ. Defaults to 3.
+        threshold (float, optional): 外れ値と判定する閾値. Defaults to 0.5.
+        edge_handling (str, optional): 端の処理手法. Defaults to "asymmetric".
+        min_abs_value (float, optional): 最小絶対値. Defaults to 1e-10.
+        scale_factor (float, optional): スケールファクター. Defaults to 1.0.
+
+    Returns:
+        ColumnCollection: 外れ値が除外された新しいコレクション
+"""
 
 
 filter_by_condition = register_functional(
@@ -84,6 +126,16 @@ filter_by_condition = register_functional(
         "vals": ("column", str)
     }
 )
+filter_by_condition.__doc__ = """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column (str): 条件判定の対象となるカラム名
+        condition (Callable[[np.ndarray], np.ndarray]): 真偽値配列を返す条件関数
+        
+    Returns:
+        ColumnCollection: 条件関数がTrueを返した行のみを含む新しいコレクション
+"""
 
 
 remove_steps = register_functional(
@@ -96,6 +148,15 @@ remove_steps = register_functional(
         # step_values injected, steps passed
     }
 )
+remove_steps.__doc__ = """指定されたステップ値のリストに一致する行を除外します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        steps (List[float] | np.ndarray): 除外したいステップ値のリスト
+        
+    Returns:
+        ColumnCollection: 指定したステップが除外された新しいコレクション
+"""
 
 
 # ---------------------------------------------------------
@@ -111,6 +172,17 @@ search_by_value = register_functional(
         "values": ("values", Any),
     }
 )
+search_by_value.__doc__ = """指定された値に一致するデータのインデックスリストを返します（抽出は行いません）
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str | np.ndarray): 検索対象のカラム名または配列
+        value (Any): 検索する値
+        tolerance (float, optional): 許容誤差. Defaults to None.
+        
+    Returns:
+        np.ndarray: 一致したインデックスの配列
+"""
 
 
 search_by_range = register_functional(
@@ -122,6 +194,18 @@ search_by_range = register_functional(
         "values": ("vals", Any),
     }
 )
+search_by_range.__doc__ = """指定したカラムの値が一定の範囲に収まるインデックスリストを返します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        vals (str | np.ndarray): 検索対象のカラム名または配列
+        min (float, optional): 最小値. Defaults to None.
+        max (float, optional): 最大値. Defaults to None.
+        inclusive (bool, optional): 境界値を含むか. Defaults to True.
+        
+    Returns:
+        np.ndarray: 範囲内に収まるインデックスの配列
+"""
 
 
 def _search_step_metadata(args, kwargs, result):
@@ -146,6 +230,19 @@ search_by_step_range = register_functional(
     inject_step_values={"cast_to_numpy": True},
     inject_metadata=_search_step_metadata,
 )
+search_by_step_range.__doc__ = """ステップ値が一定の範囲に収まるインデックスリストを返します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        min (float, optional): 最小ステップ値. Defaults to None.
+        max (float, optional): 最大ステップ値. Defaults to None.
+        inclusive (bool, optional): 境界値を含むか. Defaults to True.
+        compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
+        by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
+        
+    Returns:
+        np.ndarray: 条件に一致したインデックスの配列
+"""
 
 
 search_by_condition = register_functional(
@@ -157,6 +254,17 @@ search_by_condition = register_functional(
         "data": ("columns", Optional[List[str]])
     }
 )
+search_by_condition.__doc__ = """複数のカラムに対して、指定した条件関数を満たすインデックスリストを返します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        columns (List[str], optional): 検索対象のカラム名リスト. 未指定時はすべて. Defaults to None.
+        condition (Callable[[np.ndarray], np.ndarray]): 真偽値配列を返す条件関数
+        mode (str, optional): 判定モード ("any" または "all"). Defaults to "any".
+        
+    Returns:
+        np.ndarray: 一致したインデックスの配列
+"""
 
 
 search_missing_values = register_functional(
@@ -168,6 +276,16 @@ search_missing_values = register_functional(
         "data": ("columns", Optional[List[str]])
     }
 )
+search_missing_values.__doc__ = """欠損値（None/NaN）が含まれるインデックスリストを返します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        columns (List[str], optional): 検索対象のカラム名リスト. 未指定時はすべて. Defaults to None.
+        mode (str, optional): 判定モード ("any" または "all"). Defaults to "any".
+        
+    Returns:
+        np.ndarray: 欠損値を含むインデックスの配列
+"""
 
 
 search_top_n = register_functional(
@@ -179,5 +297,16 @@ search_top_n = register_functional(
         "values": ("vals", Any),
     }
 )
+search_top_n.__doc__ = """指定されたカラムから上位または下位N件のインデックスリストを返します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        vals (str | np.ndarray): 対象のカラム名または配列
+        n (int, optional): 取得件数. Defaults to 5.
+        largest (bool, optional): Trueなら大きい順、Falseなら小さい順. Defaults to True.
+        
+    Returns:
+        np.ndarray: 上位（下位）N件のインデックスの配列
+"""
 
 

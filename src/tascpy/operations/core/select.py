@@ -24,6 +24,19 @@ select = register_functional(
         # columns is handled by select_columns, but passed to pure func (ignored there but arg exists)
     }
 )
+select.__doc__ = """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        columns (str | List[str], optional): 抽出するカラム名. Defaults to None (全カラム).
+        start (int, optional): 抽出開始インデックス. Defaults to None.
+        end (int, optional): 抽出終了インデックス. Defaults to None.
+        step_min (float, optional): 最小ステップ値. Defaults to None.
+        step_max (float, optional): 最大ステップ値. Defaults to None.
+        
+    Returns:
+        ColumnCollection: 条件に一致するデータのみを含む新しいコレクション
+"""
 
 
 fetch_near_step = register_functional(
@@ -33,6 +46,15 @@ fetch_near_step = register_functional(
     inject_columns={"num_inputs": 1},
     filter_rows=True,
 )
+fetch_near_step.__doc__ = """指定ステップ値に最も近いデータ行を一つ抽出します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        target_step (float): 抽出したい基準ステップ値
+        
+    Returns:
+        ColumnCollection: ターゲットに最も近い1行のみを含む新しいコレクション（要素数1）
+"""
 
 
 # ---------------------------------------------------------

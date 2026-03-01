@@ -258,73 +258,60 @@ Returns:
     def filter_by_value(
         self,
         values: column = <class 'str'>,
-        value: Any,
         tolerance: Optional[float] = None,
         column: column = <class 'str'>,
         value: Any,
         tolerance: Optional[float] = None
     ) -> ndarray:
-        """値がターゲット値と等しいかどうかを判定します。
-
-浮動小数点数の比較には許容誤差 (tolerance) を指定できます。
+        """指定した列の値が条件に一致する行のみを抽出します
 
 Args:
-    values (Union[np.ndarray, list]): 判定対象の値の配列。
-    value (Any): 比較するターゲット値。
-    tolerance (float, optional): 許容誤差。指定された場合、`value - tolerance <= x <= value + tolerance` の範囲内であれば等しいとみなされます。
-
+    collection (ColumnCollection): データコレクション
+    column (str): 条件判定の対象となるカラム名
+    value (Any): 一致するか比較する値
+    tolerance (float, optional): 数値比較時の許容誤差. Defaults to None.
+    
 Returns:
-    np.ndarray: 条件を満たす要素がTrueとなるブール値配列。"""
+    ColumnCollection: 条件に一致した行のみを含む新しいコレクション"""
         ...
     
 
     def filter_out_none(
         self,
-        data: columns = typing.Optional[typing.List[str]],
         mode: str = 'any',
-        column: columns = typing.Optional[typing.List[str]],
+        column: str,
         mode: str = 'any'
     ) -> list[bool]:
-        """有効な行（欠損値を含まない行）を判定するマスクを返します。
+        """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します
 
 Args:
-    data (Dict[str, Union[np.ndarray, list]]): カラム名をキーとするデータ辞書。
-    mode (str, optional): 欠損値の扱い。
-        'any': 少なくとも1つのカラムが欠損している行を除外（すべて有効な場合に保持）。
-        'all': すべてのカラムが欠損している行を除外（少なくとも1つ有効なら保持）。デフォルトは "any"。
-
+    collection (ColumnCollection): データコレクション
+    columns (List[str], optional): 判定対象のカラム名リスト. 未指定時はすべて. Defaults to None.
+    mode (str, optional): 判定モード ("any": いずれかが欠損なら除外, "all": 全てが欠損なら除外). Defaults to "any".
+    
 Returns:
-    List[bool]: 有効な行に対応するブール値リスト。
-
-Raises:
-    ValueError: モードが 'any' または 'all' 以外の場合。"""
+    ColumnCollection: 欠損値を含む行が除外された新しいコレクション"""
         ...
     
 
     def remove_consecutive_duplicates_across(
         self,
         data: columns = typing.Optional[typing.List[str]],
-        mode: str = 'consecutive',
         dup_type: str = 'all',
         column: columns = typing.Optional[typing.List[str]],
         mode: str = 'consecutive',
         dup_type: str = 'all'
     ) -> list[int]:
-        """重複を除去した後の保持すべきインデックスを返します。
+        """連続する重複行を検知し、最初の行だけを残して除外します
 
 Args:
-    data (Dict[str, Union[np.ndarray, list]]): カラム名をキーとするデータ辞書。
-    mode (str, optional): 重複判定モード。'consecutive'（連続する重複のみ）または 'all'（全行での重複、未実装）。デフォルトは "consecutive"。
-    dup_type (str, optional): 重複判定の厳密さ。
-        'all': すべてのカラムが一致する場合に重複とみなす（標準）。
-        'any': いずれかのカラムが一致する場合に重複とみなす（厳密、またはテスト用）。デフォルトは "all"。
-
+    collection (ColumnCollection): データコレクション
+    columns (List[str], optional): 重複判定の対象となるカラム名リスト. 未指定時はすべて. Defaults to None.
+    mode (str, optional): 重複判定モード. Defaults to "consecutive".
+    dup_type (str, optional): どの重複を残すか. Defaults to "all".
+    
 Returns:
-    List[int]: 保持すべき行のインデックスリスト。
-
-Raises:
-    ValueError: dup_type が 'all' または 'any' 以外の場合。
-    NotImplementedError: mode が 'consecutive' 以外の場合。"""
+    ColumnCollection: 連続重複が排除された新しいコレクション"""
         ...
     
 
@@ -334,7 +321,19 @@ Raises:
         *args,
         **kwargs
     ) -> Any:
-        """"""
+        """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column (str): 外れ値判定の対象となるカラム名
+    window_size (int, optional): 移動窓のサイズ. Defaults to 3.
+    threshold (float, optional): 外れ値と判定する閾値. Defaults to 0.5.
+    edge_handling (str, optional): 端の処理手法. Defaults to "asymmetric".
+    min_abs_value (float, optional): 最小絶対値. Defaults to 1e-10.
+    scale_factor (float, optional): スケールファクター. Defaults to 1.0.
+
+Returns:
+    ColumnCollection: 外れ値が除外された新しいコレクション"""
         ...
     
 
@@ -344,14 +343,15 @@ Raises:
         column: column = <class 'str'>,
         condition: <built-in function callable>
     ) -> "CollectionListOperations[CoordinateCollectionOperations]":
-        """条件に基づいて値をフィルタリングするためのマスクを生成します。
+        """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します
 
 Args:
-    vals (Any): 入力値（リストまたは配列）。
-    condition (callable): 値を引数に取り、保持すべき場合に True を返す関数。
-
+    collection (ColumnCollection): データコレクション
+    column (str): 条件判定の対象となるカラム名
+    condition (Callable[[np.ndarray], np.ndarray]): 真偽値配列を返す条件関数
+    
 Returns:
-    List[bool]: 保持すべき値のブール値リスト。"""
+    ColumnCollection: 条件関数がTrueを返した行のみを含む新しいコレクション"""
         ...
     
 
@@ -360,17 +360,14 @@ Returns:
         steps: list[Any],
         tolerance: Optional[float] = None
     ) -> list[bool]:
-        """特定のステップを除去するためのマスクを生成します。
-
-指定されたステップに含まれない値に対して True を返します。
+        """指定されたステップ値のリストに一致する行を除外します
 
 Args:
-    step_values (Union[List[Any], np.ndarray]): 入力のステップ値リスト。
-    steps (List[Any]): 除去するステップのリスト。
-    tolerance (float, optional): ステップ一致判定の許容誤差。デフォルトは None（完全一致）。
-
+    collection (ColumnCollection): データコレクション
+    steps (List[float] | np.ndarray): 除外したいステップ値のリスト
+    
 Returns:
-    List[bool]: 保持すべきステップ（除去対象でない）のブール値リスト。"""
+    ColumnCollection: 指定したステップが除外された新しいコレクション"""
         ...
     
 
@@ -381,15 +378,16 @@ Returns:
         op_str: str,
         value: Any
     ) -> list[int]:
-        """演算子条件を満たす値のインデックスを返します。
+        """指定された値に一致するデータのインデックスリストを返します（抽出は行いません）
 
 Args:
-    values (Union[np.ndarray, list]): 判定対象の値の配列。
-    op_str (str): 比較演算子 ('>', '<', '>=', '<=', '==', '!=')。
-    value (Any): 比較するターゲット値。
-
+    collection (ColumnCollection): データコレクション
+    values (str | np.ndarray): 検索対象のカラム名または配列
+    value (Any): 検索する値
+    tolerance (float, optional): 許容誤差. Defaults to None.
+    
 Returns:
-    List[int]: 条件を満たす要素のインデックスリスト。"""
+    np.ndarray: 一致したインデックスの配列"""
         ...
     
 
@@ -401,16 +399,17 @@ Returns:
         max_value: Any,
         inclusive: bool = True
     ) -> list[int]:
-        """指定された範囲内の値のインデックスを返します。
+        """指定したカラムの値が一定の範囲に収まるインデックスリストを返します
 
 Args:
-    values (Union[np.ndarray, list]): 判定対象の値の配列。
-    min_value (Any): 範囲の下限。
-    max_value (Any): 範囲の上限。
-    inclusive (bool, optional): 端点を含めるかどうか。Trueの場合は [min, max]、Falseの場合は (min, max)。デフォルトは True。
-
+    collection (ColumnCollection): データコレクション
+    vals (str | np.ndarray): 検索対象のカラム名または配列
+    min (float, optional): 最小値. Defaults to None.
+    max (float, optional): 最大値. Defaults to None.
+    inclusive (bool, optional): 境界値を含むか. Defaults to True.
+    
 Returns:
-    List[int]: 範囲内の要素のインデックスリスト。"""
+    np.ndarray: 範囲内に収まるインデックスの配列"""
         ...
     
 
@@ -422,18 +421,18 @@ Returns:
         tolerance: Optional[float] = None,
         by_step_value: bool = True
     ) -> list[int]:
-        """ステップ値が指定された範囲内にあるインデックスを返します。
+        """ステップ値が一定の範囲に収まるインデックスリストを返します
 
 Args:
-    steps (Union[np.ndarray, list]): ステップ値の配列。
-    min (float): 範囲の下限。
-    max (float): 範囲の上限。
-    inclusive (bool, optional): 端点を含めるかどうか。デフォルトは True。
-    tolerance (float, optional): 許容誤差。デフォルトは None。
-    by_step_value (bool, optional): ステップ値に基づいて検索するかどうか。Falseの場合はインデックス自体を対象とします。デフォルトは True。
-
+    collection (ColumnCollection): データコレクション
+    min (float, optional): 最小ステップ値. Defaults to None.
+    max (float, optional): 最大ステップ値. Defaults to None.
+    inclusive (bool, optional): 境界値を含むか. Defaults to True.
+    compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
+    by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
+    
 Returns:
-    List[int]: 条件を満たすステップのインデックスリスト。"""
+    np.ndarray: 条件に一致したインデックスの配列"""
         ...
     
 
@@ -443,14 +442,16 @@ Returns:
         column: columns = typing.Optional[typing.List[str]],
         condition_func: Callable[[Dict[str, Any]], bool]
     ) -> list[int]:
-        """条件関数を満たす行のインデックスを検索します。
+        """複数のカラムに対して、指定した条件関数を満たすインデックスリストを返します
 
 Args:
-    data (Dict[str, Any]): カラム名をキーとするデータ辞書。
-    condition_func (Callable[[Dict[str, Any]], bool]): 行データ（辞書）を受け取り、boolを返す関数。
-
+    collection (ColumnCollection): データコレクション
+    columns (List[str], optional): 検索対象のカラム名リスト. 未指定時はすべて. Defaults to None.
+    condition (Callable[[np.ndarray], np.ndarray]): 真偽値配列を返す条件関数
+    mode (str, optional): 判定モード ("any" または "all"). Defaults to "any".
+    
 Returns:
-    List[int]: 条件を満たす行のインデックスリスト。"""
+    np.ndarray: 一致したインデックスの配列"""
         ...
     
 
@@ -459,13 +460,15 @@ Returns:
         data: columns = typing.Optional[typing.List[str]],
         column: columns = typing.Optional[typing.List[str]]
     ) -> list[int]:
-        """欠損値を含む行のインデックスを検索します。
+        """欠損値（None/NaN）が含まれるインデックスリストを返します
 
 Args:
-    data (Dict[str, Any]): カラム名をキーとするデータ辞書。
-
+    collection (ColumnCollection): データコレクション
+    columns (List[str], optional): 検索対象のカラム名リスト. 未指定時はすべて. Defaults to None.
+    mode (str, optional): 判定モード ("any" または "all"). Defaults to "any".
+    
 Returns:
-    List[int]: いずれかのカラムに欠損値を含む行のインデックスリスト。"""
+    np.ndarray: 欠損値を含むインデックスの配列"""
         ...
     
 
@@ -476,17 +479,16 @@ Returns:
         n: int,
         descending: bool = True
     ) -> list[int]:
-        """上位N個の値のインデックスを返します。
-
-NaNは除外されます。結果のインデックスは昇順にソートされて返されます。
+        """指定されたカラムから上位または下位N件のインデックスリストを返します
 
 Args:
-    values (Union[np.ndarray, list]): 値の配列。
-    n (int): 取得する要素数。
-    descending (bool, optional): 降順（大きい順）に選択するかどうか。Falseの場合は昇順（小さい順）。デフォルトは True。
-
+    collection (ColumnCollection): データコレクション
+    vals (str | np.ndarray): 対象のカラム名または配列
+    n (int, optional): 取得件数. Defaults to 5.
+    largest (bool, optional): Trueなら大きい順、Falseなら小さい順. Defaults to True.
+    
 Returns:
-    List[int]: 選択された要素のインデックスリスト（昇順ソート済み）。"""
+    np.ndarray: 上位（下位）N件のインデックスの配列"""
         ...
     
 
@@ -498,22 +500,18 @@ Returns:
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> tuple[list[int], dict[str, Any]]:
-        """指定されたステップまたはインデックスに基づいてデータを選択するためのインデックスを計算します。
+        """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します
 
 Args:
-    step_values (Union[List[Union[int, float]], np.ndarray]): ステップ値のリストまたは配列。
-    columns (Optional[List[str]], optional): 選択するカラム名のリスト（未使用、互換性のため維持）。デフォルトは None。
-    indices (Optional[List[int]], optional): 直接指定するインデックスのリスト。デフォルトは None。
-    steps (Optional[List[Union[int, float]]], optional): 選択するステップ値またはインデックスのリスト。デフォルトは None。
-    by_step_value (bool, optional): `steps` をステップ値として扱うかどうか。Falseの場合はインデックスとして扱います。デフォルトは True。
-    tolerance (float, optional): ステップ値一致判定の許容誤差。指定された場合、許容誤差内の最も近い値を選択します。デフォルトは None。
-
+    collection (ColumnCollection): データコレクション
+    columns (str | List[str], optional): 抽出するカラム名. Defaults to None (全カラム).
+    start (int, optional): 抽出開始インデックス. Defaults to None.
+    end (int, optional): 抽出終了インデックス. Defaults to None.
+    step_min (float, optional): 最小ステップ値. Defaults to None.
+    step_max (float, optional): 最大ステップ値. Defaults to None.
+    
 Returns:
-    Tuple[List[int], Dict[str, Any]]: 
-        (選択されたインデックスのリスト, 実行結果のメタデータ辞書) のタプル。
-
-Raises:
-    ValueError: indices と steps の両方が指定された場合。"""
+    ColumnCollection: 条件に一致するデータのみを含む新しいコレクション"""
         ...
     
 
@@ -523,19 +521,14 @@ Raises:
         value: float,
         **kwargs
     ) -> "CollectionListOperations[CoordinateCollectionOperations]":
-        """指定された値に最も近い要素のインデックスを検索します。
+        """指定ステップ値に最も近いデータ行を一つ抽出します
 
 Args:
-    values (np.ndarray): 検索対象の数値配列。
-    value (float): ターゲット値。
-    **kwargs: その他のオプション（未使用）。
-
+    collection (ColumnCollection): データコレクション
+    target_step (float): 抽出したい基準ステップ値
+    
 Returns:
-    List[int]: 最も近い値のインデックスを含むリスト（要素数1）。
-
-Raises:
-    TypeError: values が数値型でない場合。
-    ValueError: 有効なデータが見つからない場合（全てNaNなど）。"""
+    ColumnCollection: ターゲットに最も近い1行のみを含む新しいコレクション（要素数1）"""
         ...
     
 
@@ -589,22 +582,19 @@ Returns:
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> ndarray:
-        """ステップ値またはインデックスに基づいて2つの配列を切り替えます。
+        """特定のステップ値（またはインデックス）を境にして、2つのデータ列を切り替えます
 
 Args:
-    steps (np.ndarray): ステップ値の配列。
-    v1 (np.ndarray): 閾値未満の場合の値の配列。
-    v2 (np.ndarray): 閾値以上の場合の値の配列。
-    threshold (Union[int, float]): 切り替えの閾値。
-    compare_mode (str, optional): 比較モード ('value' または 'index')。デフォルトは "value"。
-    by_step_value (bool, optional): ステップ値で比較するかどうか。Falseの場合はインデックスを使用。デフォルトは True。
-    tolerance (float, optional): 閾値特定時の許容誤差（compare_mode='index' かつ by_step_value=True の場合に使用）。
-
+    collection (ColumnCollection): データコレクション
+    v1 (str | np.ndarray): 切り替え前のデータ（カラム名または配列）
+    v2 (str | np.ndarray): 切り替え後のデータ（カラム名または配列）
+    threshold (int | float): 切り替えを実行する境界となるステップ値（またはインデックス）
+    compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
+    by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
+    tolerance (float, optional): 比較の許容誤差. Defaults to None.
+    
 Returns:
-    np.ndarray: 切り替え後の配列。
-
-Raises:
-    ValueError: v1とv2の長さが異なる場合。"""
+    ColumnCollection: 切り替え済みのデータを持つ新しいコレクション"""
         ...
     
 
@@ -629,24 +619,21 @@ Raises:
         blend_method: str = 'linear',
         tolerance: Optional[float] = None
     ) -> ndarray:
-        """ステップ値またはインデックスに基づいて2つの配列を指定区間でブレンドします。
+        """特定のステップ区間において、2つのデータ列を滑らかにブレンド（合成）します
 
 Args:
-    steps (np.ndarray): ステップ値の配列。
-    v1 (np.ndarray): ブレンド開始前の値の配列。
-    v2 (np.ndarray): ブレンド終了後の値の配列。
-    start (Union[int, float]): ブレンド開始値。
-    end (Union[int, float]): ブレンド終了値。
-    compare_mode (str, optional): 比較モード ('value' または 'index')。デフォルトは "value"。
-    by_step_value (bool, optional): ステップ値で比較するかどうか。Falseの場合はインデックスを使用。デフォルトは True。
-    blend_method (str, optional): ブレンド方法 ('linear', 'smooth', 'log', 'exp')。デフォルトは "linear"。
-    tolerance (float, optional): 開始・終了値特定時の許容誤差（compare_mode='index' かつ by_step_value=True の場合に使用）。
+    collection (ColumnCollection): データコレクション
+    v1 (str | np.ndarray): ブレンド前のデータ（始端側）
+    v2 (str | np.ndarray): ブレンド後のデータ（終端側）
+    start (int | float): ブレンドを開始するステップ値（またはインデックス）
+    end (int | float): ブレンドを終了しv2に完全に以降するステップ値（またはインデックス）
+    compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
+    by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
+    blend_method (str, optional): ブレンド手法 ("linear", "cosine", "smoothstep"). Defaults to "linear".
+    tolerance (float, optional): 比較の許容誤差. Defaults to None.
 
 Returns:
-    np.ndarray: ブレンド後の配列。
-
-Raises:
-    ValueError: v1とv2の長さが異なる場合、終了値が開始値以下の場合、または無効なブレンドメソッドが指定された場合。"""
+    ColumnCollection: ブレンド済みのデータを持つ新しいコレクション"""
         ...
     
 
@@ -656,7 +643,14 @@ Raises:
         column: columns = typing.Optional[typing.List[str]],
         columns = None
     ) -> Any:
-        """"""
+        """指定された複数のカラムの要素ごとの合計を計算します
+
+Args:
+    collection (ColumnCollection): データコレクション
+    columns (List[str], optional): 合計するカラム名のリスト. 未指定時はすべて. Defaults to None.
+    
+Returns:
+    ColumnCollection: 合計値カラムが追加された新しいコレクション"""
         ...
     
 
@@ -666,7 +660,14 @@ Raises:
         column: columns = typing.Optional[typing.List[str]],
         columns = None
     ) -> Any:
-        """"""
+        """指定された複数のカラムの要素ごとの平均を計算します
+
+Args:
+    collection (ColumnCollection): データコレクション
+    columns (List[str], optional): 平均するカラム名のリスト. 未指定時はすべて. Defaults to None.
+    
+Returns:
+    ColumnCollection: 平均値カラムが追加された新しいコレクション"""
         ...
     
 
@@ -683,22 +684,18 @@ Raises:
         threshold: Union[int, float] = 0,
         compare: str = '>'
     ) -> ndarray:
-        """条件に基づいて2つの配列から値を選択します。
-
-cond_values が条件を満たす位置では v1 の値を、そうでない場合は v2 の値を選択します。
+        """条件列の値と閾値の比較結果に基づき、2つの列から値を選択します
 
 Args:
-    v1 (np.ndarray): 条件真の場合の値の配列。
-    v2 (np.ndarray): 条件偽の場合の値の配列。
-    cond_values (np.ndarray): 条件判定に使用する値の配列。
-    threshold (Union[int, float], optional): 比較の閾値。デフォルトは 0。
-    compare (str, optional): 比較演算子 ('>', '>=', '<', '<=', '==', '!=')。デフォルトは ">"。
-
+    collection (ColumnCollection): データコレクション
+    v1 (str | np.ndarray): 条件付き真(True)の時に選ばれるデータ
+    v2 (str | np.ndarray): 条件付き偽(False)の時に選ばれるデータ
+    cond_values (str | np.ndarray): 条件判定の基準となるデータ列
+    threshold (int | float, optional): 条件判定の閾値. Defaults to 0.
+    compare (str, optional): 比較演算子 (">", "<", ">=", "<=", "==", "!="). Defaults to ">".
+    
 Returns:
-    np.ndarray: 選択された値の配列。
-
-Raises:
-    ValueError: 無効な比較演算子が指定された場合。"""
+    ColumnCollection: 条件に基づいて選択されたデータを持つ新しいコレクション"""
         ...
     
 
@@ -712,16 +709,17 @@ Raises:
         combine_func: Callable[[Any, Any], Any],
         **kwargs
     ) -> "CollectionListOperations[CoordinateCollectionOperations]":
-        """カスタム関数を使用して2つの値または配列を結合します。
+        """ユーザー提供のカスタム関数を利用して2つの列を合成します
 
 Args:
-    v1 (Any): 最初の値または配列。
-    v2 (Any): 2番目の値または配列。
-    combine_func (Callable[[Any, Any], Any]): 2つの引数を取る結合関数。
-    **kwargs: 任意の追加引数（ここでは使用されません）。
-
+    collection (ColumnCollection): データコレクション
+    v1 (str | np.ndarray): 第一引数となるデータ列
+    v2 (str | np.ndarray): 第二引数となるデータ列
+    combine_func (Callable[[Any, Any], Any]): 合成処理を行うコールバック関数
+    func_name (str, optional): 関数の名前（結果のカラム名に使用）. Defaults to None.
+    
 Returns:
-    Any: 結合結果（配列またはリスト）。"""
+    ColumnCollection: カスタム加工されたデータを含む新しいコレクション"""
         ...
     
 
@@ -1122,7 +1120,18 @@ Returns:
         method: str = 'linear',
         columns: Optional[list[str]] = None
     ) -> "CoordinateCollectionOperations":
-        """指定した列の値に基づいてデータを内挿します"""
+        """指定した列の値を基準にしてデータを内挿（リスサンプリング）します
+
+Args:
+    collection (ColumnCollection): データコレクション
+    base_column_name (str, optional): 新たな共有x軸として設定するカラム名. Defaults to "step".
+    x_values (List[float], optional): 明示的な新しいx軸の配列. Defaults to None.
+    point_count (int, optional): 自動生成時の内挿点数. Defaults to None.
+    method (str, optional): 補間方法 ("linear", "nearest" 等). Defaults to "linear".
+    columns (List[str], optional): 明示的に線形補間対象とするカラム名のリスト. 未指定時はすべて自動判定. Defaults to None.
+    
+Returns:
+    ColumnCollection: 内挿後のデータを持つ新しいコレクション"""
         ...
     
 
