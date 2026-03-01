@@ -2,7 +2,7 @@ import pytest
 import math
 import numpy as np
 import builtins # ビルトイン関数をインポート
-from tascpy.operations.core.math import (
+from tascpy.analytics.operations.core.math import (
     sin,
     cos,
     tan,
@@ -17,7 +17,7 @@ from tascpy.operations.core.math import (
 )
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.proxy import CollectionOperations
 
 
 @pytest.fixture

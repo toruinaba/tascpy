@@ -185,7 +185,7 @@ class LoadDisplacementCollection(ColumnCollection):
     @property
     def ops(self):
         """操作プロキシクラスを返す"""
-        from ..operations.proxy import CollectionOperations
+        from tascpy.analytics.operations.proxy import CollectionOperations
 
         if TYPE_CHECKING:
             from ..typing.load_displacement import (
@@ -204,7 +204,7 @@ class LoadDisplacementCollection(ColumnCollection):
             LoadDisplacementPlotter: 荷重-変位用の可視化機能を提供するPlotter
         """
         if not hasattr(self, "_plotter"):
-            from tascpy.visualization.load_displacement.plotter import LoadDisplacementPlotter
+            from tascpy.visualization.plotters.load_displacement.plotter import LoadDisplacementPlotter
             
             self._plotter = LoadDisplacementPlotter(self)
         return self._plotter

@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from tascpy.core.step import Step
 from tascpy.core.collection import ColumnCollection
-from tascpy.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.proxy import CollectionOperations
 
 def test_arithmetic_metadata():
     print("\n[1] Preparing Data")

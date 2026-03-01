@@ -6,7 +6,7 @@ from tascpy.core.column import Column
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.step import Step
 from tascpy.core.row import Row
-from tascpy.operations.registry import operation, OperationRegistry
+from tascpy.analytics.operations.registry import operation, OperationRegistry
 from tascpy.domains.factory import DomainCollectionFactory
 
 

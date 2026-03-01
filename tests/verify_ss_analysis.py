@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from tascpy.domains.strain import create_strain_collection
 from tascpy.core.column import Column
-from tascpy.operations.strain.ss_analysis import calculate_stress, analyze_material_properties
+from tascpy.analytics.operations.strain.ss_analysis import calculate_stress, analyze_material_properties
 
 class TestSSAnalysis(unittest.TestCase):
     def setUp(self):

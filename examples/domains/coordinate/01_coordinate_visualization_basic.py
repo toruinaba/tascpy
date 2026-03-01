@@ -12,8 +12,8 @@ from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
 
 # 座標操作関連の機能をインポート
-from tascpy.operations.coordinate.basic import *
-from tascpy.operations.coordinate.plot import *
+from tascpy.analytics.operations.coordinate.basic import *
+from tascpy.analytics.operations.coordinate.plot import *
 
 # 出力画像用のディレクトリパスを設定
 IMGS_DIR = os.path.join(os.path.dirname(__file__), "imgs")

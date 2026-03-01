@@ -3,7 +3,7 @@ import sys
 import numpy as np
 from tascpy.core.column import Column
 from tascpy.core.collection import ColumnCollection
-from tascpy.operations.list_proxy import CollectionListOperations
+from tascpy.analytics.operations.list_proxy import CollectionListOperations
 
 def create_mock_collection(name, val):
     return ColumnCollection(

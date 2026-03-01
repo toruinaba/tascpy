@@ -10,8 +10,8 @@ import unittest
 import tempfile
 from typing import List
 
-from tascpy.operations.stub_generator import generate_stubs
-from tascpy.operations.registry import OperationRegistry
+from tascpy.analytics.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.registry import OperationRegistry
 
 
 class TestStubGenerator(unittest.TestCase):

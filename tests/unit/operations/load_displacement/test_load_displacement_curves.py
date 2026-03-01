@@ -5,11 +5,11 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column, NumberColumn
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.operations.load_displacement.curves import (
+from tascpy.analytics.operations.load_displacement.curves import (
     create_skeleton_curve,
     create_cumulative_curve,
 )
-from tascpy.operations.load_displacement.cycles import cycle_count
+from tascpy.analytics.operations.load_displacement.cycles import cycle_count
 
 
 class TestLoadDisplacementCurves:

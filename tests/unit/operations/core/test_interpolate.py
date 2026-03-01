@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn, StringColumn, Column
-from tascpy.operations.core.interpolate import interpolate
+from tascpy.analytics.operations.core.interpolate import interpolate
 
 
 class TestInterpolateBasic:

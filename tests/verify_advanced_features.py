@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from tascpy.core.collection import ColumnCollection, Column
 from tascpy.core.step import Step
-from tascpy.operations.core.combine import switch_by_step
-from tascpy.operations.core.filters import remove_outliers
+from tascpy.analytics.operations.core.combine import switch_by_step
+from tascpy.analytics.operations.core.filters import remove_outliers
 
 class TestAdvancedFeatures(unittest.TestCase):
     def setUp(self):

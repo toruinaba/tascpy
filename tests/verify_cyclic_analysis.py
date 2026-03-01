@@ -4,7 +4,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 from tascpy.core.column import Column
-from tascpy.operations.load_displacement.cycles import (
+from tascpy.analytics.operations.load_displacement.cycles import (
     find_peaks_and_valleys,
     analyze_hysteresis,
     analyze_stiffness_degradation,

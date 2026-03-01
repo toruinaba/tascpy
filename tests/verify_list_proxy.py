@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from tascpy.core.column import Column, NumberColumn
 from tascpy.core.step import Step
 from tascpy.core.collection import ColumnCollection
-from tascpy.operations.list_proxy import CollectionListOperations
+from tascpy.analytics.operations.list_proxy import CollectionListOperations
 
 def test_list_proxy_getattr():
     print("\n[1] Testing CollectionListOperations.__getattr__")

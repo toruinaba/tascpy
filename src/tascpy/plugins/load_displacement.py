@@ -300,7 +300,7 @@ def create_skeleton_curve(
     Returns:
         スケルトン曲線のデータ (x, y)
     """
-    from ..functional.select import split_list_by_integers
+    from tascpy.analytics.functional.select import split_list_by_integers
 
     p_ske = []
     d_ske = []
@@ -383,7 +383,7 @@ def create_cumulative_curve(displacements: List[float], loads: List[float]):
     Returns:
         Tuple[List[float], List[float]]: 累積荷重と累積変位のタプル
     """
-    from ..functional.select import split_list_by_integers, split_list_by_condition
+    from tascpy.analytics.functional.select import split_list_by_integers, split_list_by_condition
 
     markers = cycle_count(loads)
     splitted_loads = split_list_by_integers(loads, markers)

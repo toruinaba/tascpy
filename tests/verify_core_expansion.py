@@ -7,8 +7,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from tascpy.core.collection import ColumnCollection
 # Import modules to register operations
-import tascpy.operations.core.math
-import tascpy.operations.core.stats
+import tascpy.analytics.operations.core.math
+import tascpy.analytics.operations.core.stats
 
 def test_core_expansion():
     print("Testing Core Expansion...")
@@ -28,7 +28,7 @@ def test_core_expansion():
     # 1. Test diff (math.py)
     print("\n[1] Testing diff")
     try:
-        from tascpy.operations.core.math import diff
+        from tascpy.analytics.operations.core.math import diff
         res_diff = diff(col, "y", "x", result_column="dy_dx")
         print("SUCCESS: diff executed")
         # Check result (derivative of sin is cos)
@@ -43,7 +43,7 @@ def test_core_expansion():
     # 2. Test integrate (math.py)
     print("\n[2] Testing integrate")
     try:
-        from tascpy.operations.core.math import integrate
+        from tascpy.analytics.operations.core.math import integrate
         res_int = integrate(col, "y", "x", result_column="int_y")
         print("SUCCESS: integrate executed")
         if "int_y" in res_int.columns:
@@ -56,7 +56,7 @@ def test_core_expansion():
     # 3. Test smooth / gaussian_filter (stats.py)
     print("\n[3] Testing smooth (gaussian)")
     try:
-        from tascpy.operations.core.stats import smooth
+        from tascpy.analytics.operations.core.stats import smooth
         res_smooth = smooth(col, "y_noisy", method="gaussian", sigma=1.0, result_column="y_smooth")
         print("SUCCESS: smooth(gaussian) executed")
         if "y_smooth" in res_smooth.columns:

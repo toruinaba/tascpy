@@ -18,4 +18,4 @@ except ImportError:
 from .experiment import Experiment
 from .io.file_handlers import load_from_file, save_to_file
 from .core import ColumnCollection, Column
-from .operations.proxy import CollectionOperations
+from .analytics.operations.proxy import CollectionOperations

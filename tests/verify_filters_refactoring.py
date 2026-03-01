@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn, StringColumn
 from tascpy.core.step import Step
-from tascpy.operations.core.filters import (
+from tascpy.analytics.operations.core.filters import (
     filter_by_value,
     filter_out_none,
     remove_consecutive_duplicates_across,
@@ -98,7 +98,7 @@ def test_raw_input_remove_outliers():
 
 def test_raw_input_multicolumn():
     # Test filter_out_none with raw dict
-    from tascpy.operations.core.filters import filter_out_none, remove_consecutive_duplicates_across
+    from tascpy.analytics.operations.core.filters import filter_out_none, remove_consecutive_duplicates_across
     
     data = {
         "A": [1, 2, None, 4],

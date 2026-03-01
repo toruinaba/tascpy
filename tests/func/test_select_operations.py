@@ -10,7 +10,7 @@ import numpy as np
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.proxy import CollectionOperations
 
 
 

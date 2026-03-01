@@ -83,7 +83,7 @@ class TestColumnCollectionInvariants:
             columns={"col1": [10, 20, 30, 40]}
         )
         # filter_by_value
-        from tascpy.operations.core.filters import filter_by_value
+        from tascpy.analytics.operations.core.filters import filter_by_value
         res = filter_by_value(col, "col1", 20)
         
         assert len(res) == 1
@@ -96,7 +96,7 @@ class TestColumnCollectionInvariants:
             step=Step([1, 2, 3, 4]),
             columns={"col1": [10, 20, 30, 40]}
         )
-        from tascpy.operations.core.select import split_at_indices
+        from tascpy.analytics.operations.core.select import split_at_indices
         res_list = split_at_indices(col, indices=2)
         
         assert len(res_list) == 2
@@ -116,7 +116,7 @@ class TestColumnCollectionInvariants:
                 "meta": [1, 2, 3] # Non-number / treated as other
             }
         )
-        from tascpy.operations.core.interpolate import interpolate
+        from tascpy.analytics.operations.core.interpolate import interpolate
         
         # New axis: 1.5, 2.5 (2 points)
         res = interpolate(col, x_values=[1.5, 2.5])

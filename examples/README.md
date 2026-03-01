@@ -213,7 +213,7 @@ print(f"最大荷重: {analysis_result['MaxLoad'].values[0]:.2f} kN")
 import tascpy  # 初回インポート時に自動的にスタブファイルが生成されます
 
 # または手動で生成する場合：
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
@@ -323,7 +323,7 @@ print(f"降伏変位: {result['YieldPoint_Displacement'].values[0]:.2f} mm")
 tascpy のチェーンメソッドは動的に登録されるため、IDE の自動補完を有効にするにはスタブファイルの生成が必要です。初回インポート時に自動生成されますが、手動で実行することも可能です：
 
 ```python
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 

@@ -13,7 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src"
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn
 from tascpy.core.step import Step
-import tascpy.operations.core.plot # Register operations
+import tascpy.analytics.operations.core.plot # Register operations
 
 
 def create_collection():

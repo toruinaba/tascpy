@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column, NumberColumn
 from tascpy.core.step import Step
-from tascpy.operations.core.select import select, fetch_near_step
+from tascpy.analytics.operations.core.select import select, fetch_near_step
 
 def test_select_abstraction():
     print("Testing Select Abstraction...")

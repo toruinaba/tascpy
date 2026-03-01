@@ -10,11 +10,11 @@ from tascpy.domains.coordinate import CoordinateCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 
 # Import modules to register operations
-import tascpy.operations.coordinate.distance
-import tascpy.operations.coordinate.interpolation
-import tascpy.operations.core.stats
-import tascpy.operations.core.filters
-import tascpy.operations.load_displacement.analysis
+import tascpy.analytics.operations.coordinate.distance
+import tascpy.analytics.operations.coordinate.interpolation
+import tascpy.analytics.operations.core.stats
+import tascpy.analytics.operations.core.filters
+import tascpy.analytics.operations.load_displacement.analysis
 
 def test_standardization():
     print("Testing Operation Standardization (Aliases)...")
@@ -22,8 +22,8 @@ def test_standardization():
     # 1. Coordinate Aliases
     print("\n[1] Testing Coordinate Aliases")
     try:
-        from tascpy.operations.coordinate.distance import distance, nearest_neighbors, cluster
-        from tascpy.operations.coordinate.interpolation import interp_point, interp_grid
+        from tascpy.analytics.operations.coordinate.distance import distance, nearest_neighbors, cluster
+        from tascpy.analytics.operations.coordinate.interpolation import interp_point, interp_grid
         
         print("SUCCESS: Imported coordinate aliases (distance, nearest_neighbors, cluster, interp_point, interp_grid)")
         
@@ -47,8 +47,8 @@ def test_standardization():
     # 2. Core Aliases
     print("\n[2] Testing Core Aliases")
     try:
-        from tascpy.operations.core.stats import ma, outliers
-        from tascpy.operations.core.filters import filter_val, filter_cond, rm_outliers
+        from tascpy.analytics.operations.core.stats import ma, outliers
+        from tascpy.analytics.operations.core.filters import filter_val, filter_cond, rm_outliers
         
         print("SUCCESS: Imported core aliases (ma, outliers, filter_val, filter_cond, rm_outliers)")
         
@@ -68,7 +68,7 @@ def test_standardization():
     # 3. Load Displacement Aliases
     print("\n[3] Testing Load Displacement Aliases")
     try:
-        from tascpy.operations.load_displacement.analysis import stiffness, yield_point
+        from tascpy.analytics.operations.load_displacement.analysis import stiffness, yield_point
         # Note: 'energy' alias was skipped as calculate_energy was missing
         
         print("SUCCESS: Imported load_displacement aliases (stiffness, yield_point)")

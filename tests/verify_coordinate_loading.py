@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from tascpy.core.step import Step
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.coordinate import CoordinateCollection
-from tascpy.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.proxy import CollectionOperations
 
 def test_coordinate_loading():
     print("\n[1] Preparing Data")

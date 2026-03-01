@@ -3,8 +3,8 @@ import numpy as np
 import math
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.operations.core import math as tasc_math
-from tascpy.operations.core import stats as tasc_stats
+from tascpy.analytics.operations.core import math as tasc_math
+from tascpy.analytics.operations.core import stats as tasc_stats
 
 class TestNumericalRefactoring:
     @pytest.fixture

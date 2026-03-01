@@ -16,8 +16,8 @@ from matplotlib.collections import PathCollection
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.operations.load_displacement.analysis import find_yield_point
-from tascpy.operations.load_displacement.curves import (
+from tascpy.analytics.operations.load_displacement.analysis import find_yield_point
+from tascpy.analytics.operations.load_displacement.curves import (
     create_skeleton_curve,
     create_cumulative_curve,
 )

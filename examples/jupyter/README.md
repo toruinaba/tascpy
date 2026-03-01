@@ -27,7 +27,7 @@ Jupyter での自動補完を有効にするには、最初のセルでスタブ
 
 ```python
 # スタブファイルの生成（初回実行時に必要）
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 

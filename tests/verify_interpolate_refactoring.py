@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src"
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn, StringColumn
 from tascpy.core.step import Step
-import tascpy.operations.core.interpolate # Register operations
+import tascpy.analytics.operations.core.interpolate # Register operations
 
 def create_test_collection():
     c = ColumnCollection(step=[], columns={})

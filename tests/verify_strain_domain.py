@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from tascpy.domains.strain import StrainCollection, create_strain_collection
 from tascpy.core.column import Column
-from tascpy.operations.strain.rosette import calculate_rosette_strains
+from tascpy.analytics.operations.strain.rosette import calculate_rosette_strains
 
 class TestStrainDomain(unittest.TestCase):
     def setUp(self):

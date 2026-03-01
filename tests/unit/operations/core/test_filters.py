@@ -1,5 +1,5 @@
 import pytest
-from tascpy.operations.core.filters import (
+from tascpy.analytics.operations.core.filters import (
     filter_by_value,
     filter_out_none,
     remove_consecutive_duplicates_across,
@@ -355,7 +355,7 @@ class TestRemoveOutliers:
 
     def test_method_chain(self, outlier_collection):
         """メソッドチェーンでの使用を確認"""
-        from tascpy.operations.core.stats import moving_average
+        from tascpy.analytics.operations.core.stats import moving_average
 
         # メソッドチェーンで異常値除去と移動平均を組み合わせる
         result = (

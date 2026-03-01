@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
-from tascpy.operations.coordinate.interpolation import (
+from tascpy.analytics.operations.coordinate.interpolation import (
     interpolate_at_point,
     interpolate_grid,
     spatial_interpolation_to_points,

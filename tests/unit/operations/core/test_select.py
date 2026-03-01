@@ -6,8 +6,8 @@ import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.operations.proxy import CollectionOperations
-from tascpy.operations.core.select import select
+from tascpy.analytics.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.core.select import select
 
 
 @pytest.fixture
@@ -157,8 +157,8 @@ class TestSelect:
             select(sample_collection, indices=[0, 1], steps=[2, 3])
 
 # --- split operations tests ---
-from tascpy.operations.core.select import split_by_integers, split_at_indices
-from tascpy.operations.list_proxy import CollectionListOperations
+from tascpy.analytics.operations.core.select import split_by_integers, split_at_indices
+from tascpy.analytics.operations.list_proxy import CollectionListOperations
 
 def test_split_by_integers_basic(sample_collection):
     """split_by_integersの基本機能をテスト"""
@@ -238,7 +238,7 @@ def test_split_by_integers_with_proxy(sample_collection):
 
     # 個々のコレクションにアクセス
     first_group = result[0]
-    from tascpy.operations.proxy import CollectionOperations
+    from tascpy.analytics.operations.proxy import CollectionOperations
     assert isinstance(first_group, CollectionOperations)
     np.testing.assert_array_equal(first_group.end().step.values, [1, 3])
     np.testing.assert_array_equal(first_group.end().columns["A"].values, [10, 30])
@@ -256,7 +256,7 @@ def test_split_by_integers_and_method_chain(sample_collection):
 
     # 最初の要素だけを取得（インデックス付きアクセス）
     first_group = sample_collection.ops.split_by_integers(markers)[0]
-    from tascpy.operations.proxy import CollectionOperations
+    from tascpy.analytics.operations.proxy import CollectionOperations
     assert isinstance(first_group, CollectionOperations)
 
     # 分割した結果に個別にアクセスして操作

@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn
 from tascpy.core.step import Step
-from tascpy.operations.core.select import select, fetch_near_step
+from tascpy.analytics.operations.core.select import select, fetch_near_step
 
 def create_test_collection():
     # Steps: 0.0, 0.1, 0.2, ... 0.9

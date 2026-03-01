@@ -140,7 +140,7 @@ print()
 
 print("4. 値の範囲による検索")
 # 値の範囲で検索 - チェーンメソッド使用
-indices = ops.search_by_range("Displacement1", min=0.1, max=0.5)
+indices = ops.search_by_range("Displacement1", min_val=0.1, max_val=0.5)
 result = ops.select(indices=indices).end()
 print(f"Displacement1が0.1～0.5の範囲の行: {len(result)}行")
 print(f"  Displacement1値: {result['Displacement1'].values}")
@@ -149,7 +149,7 @@ print()
 
 print("5. ステップ値の範囲による検索")
 # ステップ値の範囲で検索 - チェーンメソッド使用
-indices = ops.search_by_step_range(min=3, max=6)
+indices = ops.search_by_step_range(min=3, max_val=6)
 result = ops.select(indices=indices).end()
 print(f"ステップ3～6の行: {len(result)}行")
 print(f"  ステップ値: {result.step.values}")

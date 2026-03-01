@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.coordinate import CoordinateCollection
-from tascpy.operations.validation import requires_domain, requires_coordinates
+from tascpy.analytics.operations.validation import requires_domain, requires_coordinates
 
 def test_coordinate_validation():
     print("Testing coordinate validation...")
@@ -15,7 +15,7 @@ def test_coordinate_validation():
     print("\n[1] Testing requires_domain failure")
     col = ColumnCollection(step=[1, 2], columns={"A": [1, 2]})
     try:
-        from tascpy.operations.coordinate.basic import get_column_coordinates
+        from tascpy.analytics.operations.coordinate.basic import get_column_coordinates
         get_column_coordinates(col, "A")
         print("ERROR: Should have failed domain check")
     except ValueError as e:
@@ -27,7 +27,7 @@ def test_coordinate_validation():
     # "A" has no coordinates yet
     
     try:
-        from tascpy.operations.coordinate.distance import find_nearest_neighbors
+        from tascpy.analytics.operations.coordinate.distance import find_nearest_neighbors
         find_nearest_neighbors(coord_col, "A")
         print("ERROR: Should have failed coordinate check")
     except ValueError as e:
@@ -40,7 +40,7 @@ def test_coordinate_validation():
     coord_col.set_column_coordinates("B", x=3, y=4)
     
     try:
-        from tascpy.operations.coordinate.distance import find_nearest_neighbors
+        from tascpy.analytics.operations.coordinate.distance import find_nearest_neighbors
         find_nearest_neighbors(coord_col, "A", n_neighbors=1)
         print("SUCCESS: find_nearest_neighbors executed")
     except Exception as e:

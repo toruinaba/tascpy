@@ -62,7 +62,7 @@ class ColumnCollection:
         @property
         def ops(self) -> "CoreCollectionOperations": ...
         
-        from tascpy.visualization.core.plotter import CorePlotter
+        from tascpy.visualization.plotters.core.plotter import CorePlotter
         @property
         def plot(self) -> "CorePlotter": ...
 

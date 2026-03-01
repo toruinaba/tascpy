@@ -33,7 +33,7 @@ class Step(DataHolder):
              # np.isclose は全要素チェックになるので遅い可能性があるが、ループよりは早い
              # 公差がある場合は where で条件に合う最初のインデックスを探す
              
-             from tascpy.functional.filters import find_index_with_tolerance
+             from tascpy.analytics.functional.filters import find_index_with_tolerance
              return find_index_with_tolerance(self.values, value, tolerance, default)
                  
         else:

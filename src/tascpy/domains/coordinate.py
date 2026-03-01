@@ -145,7 +145,7 @@ class CoordinateCollection(ColumnCollection):
     @property
     def ops(self):
         """操作プロキシクラスを返す"""
-        from ..operations.proxy import CollectionOperations
+        from tascpy.analytics.operations.proxy import CollectionOperations
 
         if TYPE_CHECKING:
             from ..typing.coordinate import CoordinateCollectionOperations

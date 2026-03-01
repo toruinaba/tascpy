@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 from tascpy.core.column import Column
-from tascpy.operations.load_displacement.analysis import (
+from tascpy.analytics.operations.load_displacement.analysis import (
     calculate_slopes,
     calculate_stiffness,
     find_yield_point,

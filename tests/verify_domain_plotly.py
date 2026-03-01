@@ -2,7 +2,7 @@ import numpy as np
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 from tascpy.domains.strain import StrainCollection
 from tascpy.core.column import Column
-import tascpy.operations # Force load
+import tascpy.analytics.operations # Force load
 
 # 1. Verify LoadDisplacement iplot
 print("Verifying LoadDisplacement iplot...")

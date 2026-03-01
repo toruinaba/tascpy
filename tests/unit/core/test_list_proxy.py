@@ -2,9 +2,9 @@ import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.operations.core.select import split_by_integers
-from tascpy.operations.proxy import CollectionOperations
-from tascpy.operations.list_proxy import CollectionListOperations
+from tascpy.analytics.operations.core.select import split_by_integers
+from tascpy.analytics.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.list_proxy import CollectionListOperations
 
 
 @pytest.fixture

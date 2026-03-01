@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from tascpy.core.column import Column
 from tascpy.core.step import Step
 from tascpy.core.collection import ColumnCollection
-from tascpy.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.proxy import CollectionOperations
 
 def test_aggregation_chaining_dict():
     print("\n[1] Testing chaining after dict-returning aggregation (max)")

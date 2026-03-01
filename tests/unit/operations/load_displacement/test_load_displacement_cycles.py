@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.operations.load_displacement.cycles import cycle_count, split_by_cycles
+from tascpy.analytics.operations.load_displacement.cycles import cycle_count, split_by_cycles
 
 
 class TestLoadDisplacementCycles:

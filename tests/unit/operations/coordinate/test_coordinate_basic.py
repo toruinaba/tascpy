@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
-from tascpy.operations.coordinate.basic import extract_coordinates
+from tascpy.analytics.operations.coordinate.basic import extract_coordinates
 
 
 class TestCoordinateBasic:

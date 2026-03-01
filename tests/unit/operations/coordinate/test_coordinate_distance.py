@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
-from tascpy.operations.coordinate.distance import (
+from tascpy.analytics.operations.coordinate.distance import (
     calculate_distance,
     find_nearest_neighbors,
     spatial_clustering,

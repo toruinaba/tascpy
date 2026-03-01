@@ -7,7 +7,7 @@ import numpy as np
 sys.path.append(str(Path(__file__).resolve().parent.parent / "src"))
 
 from tascpy.domains.load_displacement import create_load_displacement_collection
-from tascpy.operations.load_displacement.analysis import find_yield_point
+from tascpy.analytics.operations.load_displacement.analysis import find_yield_point
 from tascpy.core.result import PointResult
 
 def test_yield_point_refactoring():

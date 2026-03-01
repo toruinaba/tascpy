@@ -7,7 +7,7 @@ import numpy as np
 sys.path.append(str(Path(__file__).resolve().parent.parent / "src"))
 
 from tascpy.domains.load_displacement import create_load_displacement_collection
-from tascpy.operations.load_displacement.curves import create_skeleton_curve, create_cumulative_curve
+from tascpy.analytics.operations.load_displacement.curves import create_skeleton_curve, create_cumulative_curve
 from tascpy.core.result import XYSeriesResult, Curve
 from tascpy.core.column import Column
 
