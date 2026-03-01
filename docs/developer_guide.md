@@ -36,6 +36,43 @@ tascpy/
 - **OperationRegistry**: 操作関数を登録・管理
 - **Functional Modules**: 状態を持たない純粋な計算ロジックの実装層
 
+### 将来のアーキテクチャ展望 (プラグイン登録モデル)
+
+現在のアーキテクチャでは、`ColumnCollection` などのコアデータ構造が利便性（メソッドチェーン）のために `.ops` や `.plot` プロパティを定義し、内部で間接的に `operations` や `visualization` パッケージを参照しています。
+
+しかし、長期的にはコア層（`core`）を外部パッケージ（`operations`, `visualization`, `io` 等）から完全に独立させる**ヘキサゴナル・アーキテクチャ（プラグイン登録モデル）**への移行が推奨されます。
+
+#### 理想的な依存関係（コアの完全独立）
+
+```text
+# 依存の方向性（外側から内側へ）
+io (CSVの読込等)       ──> core (純粋なメモリ空間)
+operations (計算の実行) ──> core
+visualization (描画)     ──> core
+```
+
+#### 実現アプローチ：アクセサの動的マウント
+
+Pandasの `Extension API` のように、「メソッドチェーンの起点は維持しつつ、コアには一切の依存を持たせない」構成です。
+
+1. **`core` 層は口だけを開けておく:**
+   `ColumnCollection` には `register_accessor()` メソッドのみを定義し、`.ops` や `.plot` といった特定の名前やその実体は一切知らなくてよい状態にします。
+
+2. **外部パッケージインポート時の自動注入:**
+   `operations` や `visualization` パッケージの `__init__.py` が呼び出された瞬間に、自分自身を `ColumnCollection` のプロパティとして動的登録（マウント）します。
+
+```python
+# 例: tascpy/operations/__init__.py
+from tascpy.core.collection import ColumnCollection
+from tascpy.operations.proxy import CollectionOperations
+
+# コアクラスに対して、後から拡張機能 `.ops` として接続する
+ColumnCollection.register_accessor("ops", CollectionOperations)
+```
+
+このアーキテクチャに向けたリファクタリングを進めることで、**「一切の外部ライブラリ（matplotlib等）に依存せずピュアに動く `core`」** と **「直感的で強力なメソッドチェーン（DX）」** を高い次元で両立させることが可能になります。
+
+
 ## 開発環境のセットアップ
 
 ### 前提条件
