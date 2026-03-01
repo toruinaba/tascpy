@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn
+import tascpy
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -24,8 +25,8 @@ print("-- NumberColumnの統計関数の使用例 --\n")
 
 # CSVファイルからデータを読み込む
 try:
-    collection = ColumnCollection.from_file(
-        filepath=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
+    collection = tascpy.io.load(
+        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
     )
 except FileNotFoundError:
     # サンプルデータが存在しない場合はダミーデータを作成

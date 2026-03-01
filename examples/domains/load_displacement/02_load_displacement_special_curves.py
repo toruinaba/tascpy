@@ -33,7 +33,7 @@ print("■ 荷重-変位データの特殊曲線プロットサンプル")
 
 # 1. サンプルデータの読み込みを行います
 print("1. サンプルデータの読み込み")
-collection = ColumnCollection.from_file(
+collection = tascpy.io.load(
     str(DATA_PATH),
     format_name="csv",
     delimiter=",",

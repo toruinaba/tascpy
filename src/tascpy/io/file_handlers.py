@@ -20,7 +20,8 @@ def load_from_file(file_path: Union[str, Path], format_name: str = "tasc", **kwa
     Returns:
         ColumnCollection: 読み込んだデータを含むColumnCollectionオブジェクト
     """
-    return ColumnCollection.from_file(file_path, format_name, **kwargs)
+    import tascpy
+    return tascpy.io.load(file_path, format_name=format_name, **kwargs)
 
 
 def save_to_file(
@@ -37,7 +38,7 @@ def save_to_file(
         format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
         **kwargs: フォーマット設定を上書きするためのキーワード引数
     """
-    collection.to_file(file_path, format_name, **kwargs)
+    collection.io.save(file_path, format_name=format_name, **kwargs)
 
 
 def load_tasc_file(file_path: Union[str, Path], **kwargs):
@@ -50,4 +51,5 @@ def load_tasc_file(file_path: Union[str, Path], **kwargs):
     Returns:
         ColumnCollection: 読み込んだTASCデータを含むColumnCollectionオブジェクト
     """
-    return load_from_file(file_path, format_name="tasc", **kwargs)
+    import tascpy
+    return tascpy.io.load(file_path, format_name="tasc", **kwargs)

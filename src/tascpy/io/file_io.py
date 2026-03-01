@@ -1,6 +1,6 @@
 from typing import Union, TextIO, List, Any, Optional, TYPE_CHECKING
 from pathlib import Path
-from ..core.io_formats import get_format
+from .formats import get_format
 from ..core.step import Step
 from ..core.column import Column, detect_column_type
 

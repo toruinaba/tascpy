@@ -20,6 +20,7 @@ from tascpy.analytics.operations.load_displacement.curves import (
     create_skeleton_curve,
     create_cumulative_curve,
 )
+import tascpy
 
 
 @pytest.fixture
@@ -37,7 +38,7 @@ def csv_file_info(sample_data_path):
         pytest.skip(f"サンプルデータファイル {sample_data_path} が見つかりません")
 
     # CSVファイルを読み込み - ファイル構造に合わせて設定
-    collection = ColumnCollection.from_file(
+    collection = tascpy.io.load(
         str(sample_data_path), format_name="csv", auto_detect_types=True
     )
 
@@ -75,7 +76,7 @@ def load_displacement_data(sample_data_path, csv_file_info):
     force_col, disp_col = csv_file_info
 
     # CSVファイルを読み込み - 修正した設定
-    collection = ColumnCollection.from_file(
+    collection = tascpy.io.load(
         str(sample_data_path),
         format_name="csv",
         delimiter=",",

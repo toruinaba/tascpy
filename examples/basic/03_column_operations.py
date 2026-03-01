@@ -6,6 +6,7 @@ ColumnCollectionの列操作を示すサンプルコード
 import os
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn, StringColumn
+import tascpy
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -16,8 +17,8 @@ print("-- ColumnCollectionの列操作 --\n")
 # サンプルデータの読み込み
 try:
     # CSVファイルからデータを読み込む
-    collection = ColumnCollection.from_file(
-        filepath=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
+    collection = tascpy.io.load(
+        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
     )
 except FileNotFoundError:
     print(f"ファイル '{SAMPLE_CSV_PATH}' が見つかりません。模擬データを作成します。")

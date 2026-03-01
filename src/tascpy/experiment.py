@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .core.collection import ColumnCollection
 from .core.column import Column
-from .core.io_formats import get_format, FILE_FORMATS
+from .io.formats import get_format, FILE_FORMATS
 
 
 class Experiment(ColumnCollection):
@@ -33,8 +33,9 @@ class Experiment(ColumnCollection):
         Returns:
             Experiment: 読み込んだデータを含む新しいExperimentオブジェクト
         """
-        # ColumnCollectionの読み込み機能を使用
-        collection = super().from_file(filepath, format_name, **kwargs)
+        # tascpy.io.load機能を使用
+        import tascpy
+        collection = tascpy.io.load(filepath, format_name=format_name, **kwargs)
 
         # Experimentオブジェクトに変換して返す
         experiment = cls(

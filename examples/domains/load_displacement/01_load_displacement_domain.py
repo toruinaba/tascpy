@@ -26,8 +26,8 @@ sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 print(f"CSVファイルパス: {sample_csv_path}")
 
 # CSVファイルからColumnCollectionを作成
-collection = ColumnCollection.from_file(
-    filepath=sample_csv_path, format_name="csv", auto_detect_types=True
+collection = tascpy.io.load(
+    filepath_or_stream=sample_csv_path, format_name="csv", auto_detect_types=True
 )
 
 print(f"読み込んだデータの形状: {len(collection)} 行 × {len(collection.columns)} 列")

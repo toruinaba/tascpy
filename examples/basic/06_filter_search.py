@@ -4,6 +4,7 @@ ColumnCollectionのフィルタリングと検索を示すサンプルコード
 
 import os
 from tascpy.core.collection import ColumnCollection
+import tascpy
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -14,8 +15,8 @@ print("-- ColumnCollectionのフィルタリングと検索 --\n")
 # サンプルデータの読み込みと拡張
 try:
     # CSVファイルからデータを読み込む
-    collection = ColumnCollection.from_file(
-        filepath=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
+    collection = tascpy.io.load(
+        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
     )
 
     # サンプルデータに追加の行を追加して拡張

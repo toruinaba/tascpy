@@ -5,6 +5,7 @@ ColumnCollectionのデータ補間を示すサンプルコード
 import os
 import numpy as np
 from tascpy.core.collection import ColumnCollection
+import tascpy
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -15,8 +16,8 @@ print("-- ColumnCollectionのデータ補間 --\n")
 # サンプルデータの読み込みと前処理
 try:
     # CSVファイルからデータを読み込む
-    collection = ColumnCollection.from_file(
-        filepath=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
+    collection = tascpy.io.load(
+        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
     )
 
     # Noneデータを含まない行だけを抽出（補間に影響するため）

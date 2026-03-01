@@ -6,6 +6,7 @@ import os
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import NumberColumn, StringColumn
+import tascpy
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -115,8 +116,8 @@ print("方法3: ファイルからの読み込み")
 
 try:
     # ファイルからコレクションを作成（CSVフォーマット）
-    col3 = ColumnCollection.from_file(
-        filepath=SAMPLE_CSV_PATH,
+    col3 = tascpy.io.load(
+        filepath_or_stream=SAMPLE_CSV_PATH,
         format_name="csv",  # CSVフォーマットを指定
         auto_detect_types=True,
     )

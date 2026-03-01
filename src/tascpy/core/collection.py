@@ -19,7 +19,6 @@ from .column import (
     InvalidColumn,
     detect_column_type,
 )
-from ..core.io_formats import get_format, FILE_FORMATS
 from .result import AnalysisResult
 
 if TYPE_CHECKING:
@@ -434,115 +433,6 @@ class ColumnCollection:
                 self.columns[name] = new_column
         return self
 
-    @classmethod
-    def from_file(
-        cls,
-        filepath: Union[str, Path],
-        format_name: str = "tasc_txt",
-        auto_detect_types=False,
-        **kwargs,
-    ) -> "ColumnCollection":
-        """ファイルからColumnCollectionを作成する
-
-        Args:
-            filepath: 読み込むファイルパス
-            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
-            auto_detect_types: カラム型を自動判定するかどうか
-            **kwargs: フォーマット設定を上書きするためのキーワード引数
-
-        Returns:
-            ColumnCollection: 読み込んだデータを含む新しいColumnCollectionオブジェクト
-
-        Raises:
-            FileNotFoundError: ファイルが見つからない場合
-            KeyError: 指定されたフォーマット名が登録されていない場合
-        """
-        from ..io.file_io import load_collection
-        return load_collection(
-            filepath, 
-            format_name=format_name, 
-            auto_detect_types=auto_detect_types, 
-            collection_cls=cls,
-            **kwargs
-        )
-
-    @classmethod
-    def from_stream(
-        cls,
-        file_stream: TextIO,
-        format_name: str = "tasc_txt",
-        auto_detect_types=False,
-        **kwargs,
-    ) -> "ColumnCollection":
-        """テキストストリームからColumnCollectionを作成する
-
-        Args:
-            file_stream: 読み込むテキストストリーム
-            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
-            auto_detect_types: カラム型を自動判定するかどうか
-            **kwargs: フォーマット設定を上書きするためのキーワード引数
-                selected_columns: 読み込む列名またはチャンネル名のリスト。指定された列のみ読み込む
-
-        Returns:
-            ColumnCollection: 読み込んだデータを含む新しいColumnCollectionオブジェクト
-
-        Raises:
-            KeyError: 指定されたフォーマット名が登録されていない場合
-        """
-        from ..io.file_io import load_collection
-        return load_collection(
-            file_stream, 
-            format_name=format_name, 
-            auto_detect_types=auto_detect_types, 
-            collection_cls=cls,
-            **kwargs
-        )
-
-    def to_file(
-        self, output_path: Union[str, Path], format_name: str = "tasc_txt", **kwargs
-    ) -> None:
-        """ColumnCollectionをファイルに出力する
-
-        Args:
-            output_path: 出力先ファイルパス
-            format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
-            **kwargs: フォーマット設定を上書きするためのキーワード引数
-
-        Raises:
-            KeyError: 指定されたフォーマット名が登録されていない場合
-        """
-        from ..io.file_io import save_collection
-        save_collection(
-            self, 
-            output_path, 
-            format_name=format_name, 
-            **kwargs
-        )
-
-    def to_csv(self, path: Union[str, Path], **kwargs) -> None:
-        """CSVファイルに保存
-        
-        Args:
-            path: 出力先パス
-            **kwargs: to_fileに渡す引数
-        """
-        # CSVフォーマットがサポートされているか確認し、なければ簡易実装
-        try:
-            self.to_file(path, format_name="csv", **kwargs)
-        except (KeyError, ValueError):
-            # 簡易実装
-            import pandas as pd
-            
-            data = {}
-            # Stepを追加
-            data["Step"] = self.step.values
-            
-            # Columnを追加
-            for name, col in self.columns.items():
-                data[name] = col.values
-                
-            df = pd.DataFrame(data)
-            df.to_csv(path, index=False, **kwargs)
 
     @property
     def steps(self) -> List[Any]:

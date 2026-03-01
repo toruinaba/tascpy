@@ -30,7 +30,7 @@ class Test_results:
 
         extracted = ops.select(columns=req_names, steps=req_steps)
         output_file = tmp_path / "extracted_W-N.csv"
-        extracted.to_csv(str(output_file))
+        extracted.io.to_csv(str(output_file))
         ref_load1 = 200.0
         ref_load2 = 600.0
         fetched_step1 = extracted.fetch_near_step("P_total", ref_load1)

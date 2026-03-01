@@ -12,8 +12,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.core.io_formats import register_format
+from tascpy.io.formats import register_format
 from tascpy.io.file_handlers import load_from_file, save_to_file, load_tasc_file
+import tascpy
 
 # テストデータパスの設定
 TEST_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))
@@ -62,7 +63,7 @@ UNIT,,,kN,mm,°C
             # Pathオブジェクトの存在チェックをパッチ
             with patch.object(Path, "exists", return_value=True):
                 # ダミーのファイルパスでテスト - 明示的に標準フォーマットを指定
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.txt", format_name="standard"
                 )
 
@@ -112,7 +113,7 @@ UNIT,,,kN,mm,°C
             # Pathオブジェクトの存在チェックをパッチ
             with patch.object(Path, "exists", return_value=True):
                 # CSVフォーマット指定でテスト
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.csv", format_name="csv"
                 )
 
@@ -130,7 +131,7 @@ UNIT,,,kN,mm,°C
             # Pathオブジェクトの存在チェックをパッチ
             with patch.object(Path, "exists", return_value=True):
                 # TASC形式指定でテスト
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.txt", format_name="tasc"
                 )
 
@@ -200,7 +201,7 @@ UNIT,,,kN,mm,°C
         with patch("builtins.open", mock_open(read_data=custom_data)):
             with patch.object(Path, "exists", return_value=True):
                 # カスタムフォーマットで読み込み
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.txt", format_name="custom_test"
                 )
 
@@ -232,7 +233,7 @@ UNIT,,,kN,mm,°C
         m = mock_open()
         with patch("builtins.open", m):
             # 標準フォーマット明示的に指定
-            collection.to_file("output.txt", format_name="standard")
+            collection.io.save("output.txt", format_name="standard")
 
             # 書き込み呼び出しの検証
             m.assert_called_once_with(Path("output.txt"), "w", encoding="utf-8")
@@ -257,24 +258,28 @@ UNIT,,,kN,mm,°C
         collection = ColumnCollection(steps, columns)
 
         # load_from_fileのテスト - モックパスを修正
+        # file_handlers.py内でインポートされたtascpyをパッチする
         with patch(
-            "tascpy.core.collection.ColumnCollection.from_file"
-        ) as mock_from_file:
-            load_from_file("test.txt")
-            mock_from_file.assert_called_once()
+            "tascpy.io.load"
+        ) as mock_load:
+            with patch.object(Path, "exists", return_value=True):
+                with patch("builtins.open", mock_open(read_data="dummy")):
+                    load_from_file("test.txt")
+                    mock_load.assert_called_once()
 
         # save_to_fileのテスト
         with patch(
-            "tascpy.core.collection.ColumnCollection.to_file"
-        ) as mock_to_file:
-            save_to_file(collection, "test.txt")
-            mock_to_file.assert_called_once()
+            "tascpy.io.file_io.save_collection"
+        ) as mock_save:
+            with patch.object(Path, "exists", return_value=True):
+                save_to_file(collection, "test.txt")
+                mock_save.assert_called_once()
 
     def test_nonexistent_file(self):
         """存在しないファイルの読み込み時の例外テスト"""
         with patch.object(Path, "exists", return_value=False):
             with pytest.raises(FileNotFoundError):
-                ColumnCollection.from_file("nonexistent.txt")
+                tascpy.io.load("nonexistent.txt")
 
     def test_invalid_format(self):
         """無効なフォーマット指定時の例外テスト"""
@@ -283,14 +288,14 @@ UNIT,,,kN,mm,°C
         with patch("builtins.open", mock_open(read_data=mock_data)):
             with patch.object(Path, "exists", return_value=True):
                 with pytest.raises(KeyError):
-                    ColumnCollection.from_file("test.txt", format_name="invalid_format")
+                    tascpy.io.load("test.txt", format_name="invalid_format")
 
     def test_date_time_properties(self):
         """日付・時間プロパティのテスト"""
         # mock_openを使用してファイル読み込みをモック
         with patch("builtins.open", mock_open(read_data=self.TEST_FILE_CONTENT)):
             with patch.object(Path, "exists", return_value=True):
-                collection = ColumnCollection.from_file("dummy_path.txt")
+                collection = tascpy.io.load("dummy_path.txt")
 
                 # 日付・時間プロパティの検証
                 assert collection.date == collection.metadata["date"]
@@ -441,7 +446,7 @@ UNIT,,,kN,mm,°C
                     "tascpy.core.collection.open", mock_file
                 ) as mock_open_func:
                     # ここでは実際にファイルを読み込む必要はない、エンコーディング設定が正しく渡されたかだけを確認
-                    ColumnCollection.from_file("dummy_path.txt", format_name="tasc")
+                    tascpy.io.load("dummy_path.txt", format_name="tasc")
                     # openが呼び出されたか確認
                     mock_file.assert_called()
                     # 引数をチェック（エンコーディングがshift_jisかどうか）
@@ -453,7 +458,7 @@ UNIT,,,kN,mm,°C
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
                 with patch("tascpy.core.collection.open", mock_file):
-                    ColumnCollection.from_file("dummy_path.txt", format_name="standard")
+                    tascpy.io.load("dummy_path.txt", format_name="standard")
                     # 引数をチェック
                     call_args = mock_file.call_args_list[0]
                     assert call_args[1]["encoding"] == "utf-8"
@@ -463,7 +468,7 @@ UNIT,,,kN,mm,°C
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
                 with patch("tascpy.core.collection.open", mock_file):
-                    ColumnCollection.from_file(
+                    tascpy.io.load(
                         "dummy_path.txt",
                         format_name="tasc",
                         encoding="euc-jp",  # エンコーディングを上書き
@@ -481,7 +486,7 @@ UNIT,,,kN,mm,°C
 
         # TASCフォーマットでの保存（Shift-JIS）
         with patch("builtins.open") as mock_open_func:
-            collection.to_file("output.txt")  # デフォルトはtasc
+            collection.io.save("output.txt")  # デフォルトはtasc
             # 適切なエンコーディングが使われているか確認
             mock_open_func.assert_called_with(
                 Path("output.txt"), "w", encoding="shift_jis"
@@ -489,13 +494,13 @@ UNIT,,,kN,mm,°C
 
         # 標準フォーマットでの保存（UTF-8）
         with patch("builtins.open") as mock_open_func:
-            collection.to_file("output.txt", format_name="standard")
+            collection.io.save("output.txt", format_name="standard")
             # 適切なエンコーディングが使われているか確認
             mock_open_func.assert_called_with(Path("output.txt"), "w", encoding="utf-8")
 
         # カスタムエンコーディングでの保存
         with patch("builtins.open") as mock_open_func:
-            collection.to_file("output.txt", encoding="euc-jp")
+            collection.io.save("output.txt", encoding="euc-jp")
             # 指定したエンコーディングが使われているか確認
             mock_open_func.assert_called_with(
                 Path("output.txt"), "w", encoding="euc-jp"

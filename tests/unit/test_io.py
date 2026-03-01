@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.io.file_io import load_collection, save_collection
+import tascpy
 
 @pytest.fixture
 def sample_data_path(tmp_path):
@@ -55,14 +56,14 @@ def test_save_collection(tmp_path):
 def test_legacy_compatibility(sample_data_path, tmp_path):
     """ColumnCollectionのクラスメソッド経由での互換性テスト"""
     # from_file
-    collection = ColumnCollection.from_file(sample_data_path)
+    collection = tascpy.io.load(sample_data_path)
     assert len(collection) == 5
     
     # to_file
     output_path = tmp_path / "legacy_output.txt"
-    collection.to_file(output_path)
+    collection.io.save(output_path)
     assert output_path.exists()
     
     # 確認
-    reloaded = ColumnCollection.from_file(output_path)
+    reloaded = tascpy.io.load(output_path)
     assert len(reloaded) == 5

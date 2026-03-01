@@ -10,6 +10,7 @@ from tascpy.core.column import (
 )
 from tascpy.core.collection import ColumnCollection
 import unittest.mock as mock
+import tascpy
 
 
 class TestColumnTypes:
@@ -312,19 +313,20 @@ class TestColumnCollectionAutoDetection:
 
     def test_column_collection_from_file_with_auto_detect(self):
         """from_fileメソッドでの自動判定フラグの伝播テスト"""
-        # load_collectionをモック
-        with mock.patch("tascpy.io.file_io.load_collection") as mock_load:
+        # loadをモック (__init__.pyでloadとして公開されているため)
+        with mock.patch("tascpy.io.file_io._load_from_file") as mock_load:
             # モックの戻り値を設定
             mock_collection = ColumnCollection([1, 2, 3], {})
             mock_load.return_value = mock_collection
 
             # auto_detect_typesをTrueにして呼び出し
-            result = ColumnCollection.from_file("dummy.csv", auto_detect_types=True)
+            result = tascpy.io.load("dummy.csv", auto_detect_types=True)
 
             # load_collectionが正しい引数で呼ばれたか確認
             mock_load.assert_called_once()
-            _, kwargs = mock_load.call_args
-            assert kwargs["auto_detect_types"] is True
+            args, kwargs = mock_load.call_args
+            assert args[0] == "dummy.csv"
+            assert args[2] is True  # auto_detect_types is the 3rd positional argument now
             assert result is mock_collection
 
 

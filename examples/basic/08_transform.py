@@ -8,6 +8,7 @@ ColumnCollectionのデータ変換を示すサンプルコード
 import os
 import math
 from tascpy.core.collection import ColumnCollection
+import tascpy
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -22,8 +23,8 @@ print("-- ColumnCollectionのデータ変換 --\n")
 
 # CSVファイルからデータを読み込む
 try:
-    collection = ColumnCollection.from_file(
-        filepath=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
+    collection = tascpy.io.load(
+        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
     )
     print("CSVファイルからデータを読み込みました")
 except FileNotFoundError:

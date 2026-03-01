@@ -34,8 +34,8 @@ data_dir = os.path.join(
 sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 
 # CSVファイルからColumnCollectionを作成します
-collection = ColumnCollection.from_file(
-    filepath=sample_csv_path, format_name="csv", auto_detect_types=True
+collection = tascpy.io.load(
+    filepath_or_stream=sample_csv_path, format_name="csv", auto_detect_types=True
 )
 
 # 荷重-変位ドメインに変換します
