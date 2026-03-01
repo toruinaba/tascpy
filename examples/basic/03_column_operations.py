@@ -121,7 +121,7 @@ result = (
     collection.ops.select(
         columns=["Force1", "Force2", "Displacement1"]
     )  # 特定の列を選択
-    .search_by_value("Displacement1", ">", 0)  # Displacement1が0より大きい行だけを選択
+    .filter_by_condition("Displacement1", lambda x: x > 0)  # Displacement1が0より大きい行だけを選択
     .multiply("Force1", 2, result_column="Force1_x2")  # 荷重1を2倍
     .multiply(
         "Force2", 0.5, result_column="Force2_x0_5"

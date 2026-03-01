@@ -31,21 +31,21 @@ try:
     new_times = ["09:15:00", "10:30:00", "14:45:00", "08:20:00", "09:00:00"]
 
     # 新しいコレクションを作成（既存のデータと新しいデータを結合）
-    extended_steps = collection.step.values + new_steps
+    extended_steps = list(collection.step.values) + new_steps
 
     extended_columns = {}
     for col_name in collection.columns.keys():
         col = collection.columns[col_name]
         if col_name == "Force1":
-            new_values = col.values + new_force1
+            new_values = list(col.values) + new_force1
         elif col_name == "Force2":
-            new_values = col.values + new_force2
+            new_values = list(col.values) + new_force2
         elif col_name == "Displacement1":
-            new_values = col.values + new_disp1
+            new_values = list(col.values) + new_disp1
         elif col_name == "Displacement2":
-            new_values = col.values + new_disp2
+            new_values = list(col.values) + new_disp2
         else:
-            new_values = col.values + [None] * len(new_steps)
+            new_values = list(col.values) + [None] * len(new_steps)
 
         # 同じ型のカラムを作成
         new_col = col.clone()
@@ -55,9 +55,9 @@ try:
     # メタデータも更新
     extended_metadata = collection.metadata.copy()
     if "date" in extended_metadata:
-        extended_metadata["date"] = extended_metadata["date"] + new_dates
+        extended_metadata["date"] = list(extended_metadata["date"]) + new_dates
     if "time" in extended_metadata:
-        extended_metadata["time"] = extended_metadata["time"] + new_times
+        extended_metadata["time"] = list(extended_metadata["time"]) + new_times
 
     # 拡張されたコレクションを作成
     collection = ColumnCollection(extended_steps, extended_columns, extended_metadata)
@@ -132,7 +132,7 @@ print()
 
 print("3. 比較演算子による検索")
 # 値での比較検索 - チェーンメソッド使用
-result = ops.search_by_value("Force1", ">", 5.0).end()
+result = ops.filter_by_condition("Force1", lambda x: x > 5.0).end()
 print(f"Force1が5.0より大きい行: {len(result)}行")
 print(f"  Force1値: {result['Force1'].values}")
 print(f"  対応するステップ: {result.step.values}")
@@ -140,7 +140,8 @@ print()
 
 print("4. 値の範囲による検索")
 # 値の範囲で検索 - チェーンメソッド使用
-result = ops.search_by_range("Displacement1", 0.1, 0.5).end()
+indices = ops.search_by_range("Displacement1", min=0.1, max=0.5)
+result = ops.select(indices=indices).end()
 print(f"Displacement1が0.1～0.5の範囲の行: {len(result)}行")
 print(f"  Displacement1値: {result['Displacement1'].values}")
 print(f"  Force1値: {result['Force1'].values}")
@@ -148,7 +149,8 @@ print()
 
 print("5. ステップ値の範囲による検索")
 # ステップ値の範囲で検索 - チェーンメソッド使用
-result = ops.search_by_step_range(3, 6).end()
+indices = ops.search_by_step_range(min=3, max=6)
+result = ops.select(indices=indices).end()
 print(f"ステップ3～6の行: {len(result)}行")
 print(f"  ステップ値: {result.step.values}")
 print(f"  Force1値: {result['Force1'].values}")
@@ -177,7 +179,8 @@ def condition_func(row):
 
 
 # 条件関数を使用したチェーンメソッド
-result = ops.search_by_condition(condition_func).end()
+indices = ops.search_by_condition(condition=condition_func)
+result = ops.select(indices=indices).end()
 print(f"Force1>2.0かつDisplacement1<0.5の行: {len(result)}行")
 print(f"  Force1値: {result['Force1'].values}")
 print(f"  Displacement1値: {result['Displacement1'].values}")
@@ -204,9 +207,10 @@ def date_condition(row):
 
 
 # 複数の操作を一つのチェーンメソッドで実行
+indices = ops.search_by_condition(condition=date_condition)
 result = (
-    ops.select(steps=list(range(3, 11)))  # ステップ3から10を選択
-    .search_by_condition(date_condition)  # 日付条件で検索
+    ops.select(indices=indices)
+    .select(steps=list(range(3, 11)))  # ステップ3から10を選択
     .end()
 )
 
@@ -217,7 +221,8 @@ print()
 
 print("9. 上位N件の検索")
 # Force1の上位3件を検索 - チェーンメソッド使用
-result = ops.search_top_n("Force1", 3).end()
+indices = ops.search_top_n("Force1", n=3)
+result = ops.select(indices=indices).end()
 print(f"Force1が最大の上位3件:")
 for i in range(len(result)):
     step = result.step.values[i]
@@ -228,7 +233,8 @@ print()
 
 print("10. Noneの処理と複合検索の組み合わせ")
 # Noneを含む行を検索し、別の操作と組み合わせる
-result = ops.search_missing_values(["Force1"]).end()  # Force1がNoneの行を検索
+indices = ops.search_missing_values(["Force1"])
+result = ops.select(indices=indices).end()  # Force1がNoneの行を検索
 print(f"Force1がNoneの行: {len(result)}行")
 print(f"  ステップ値: {result.step.values}")
 print(f"  日付: {result.date}")
@@ -237,9 +243,9 @@ print()
 print("11. 複数の検索条件を組み合わせた高度なチェーンメソッド")
 # 複数の検索とフィルタリング操作を組み合わせたチェーンメソッド
 advanced_result = (
-    ops.search_by_value("Force1", ">", 2.0)  # Force1が2.0より大きい行を選択
-    .search_by_range(
-        "Displacement1", 0.0, 0.5
+    ops.filter_by_condition("Force1", lambda x: x > 2.0)  # Force1が2.0より大きい行を選択
+    .filter_by_condition(
+        "Displacement1", lambda x: 0.0 <= x <= 0.5
     )  # その中からDisplacement1が0～0.5の行を選択
     .select(columns=["Force1", "Displacement1", "Force2"])  # 必要な列のみ選択
     .evaluate("Force1 / Displacement1", result_column="Stiffness")  # 剛性を計算
@@ -255,7 +261,7 @@ print()
 
 print("12. データのカテゴリ分析")
 # 有効なデータのみ選択（Force1が値を持ち、0より大きい）
-valid_data = ops.search_by_value("Force1", ">", 0.0).end()
+valid_data = ops.filter_by_condition("Force1", lambda x: x is not None and x > 0.0).end()
 
 # 日付ごとにデータを分類して表示
 print("日付ごとのデータ分析:")

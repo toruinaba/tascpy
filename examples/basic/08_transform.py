@@ -186,7 +186,7 @@ print("\n3. 特定ステップの選択と処理")
 # 特定のステップだけを選択し、その後チェーンで変換処理
 step_indices = list(range(3, 8))  # 3から7のステップを選択
 step_result = (
-    preprocessed.ops.select_step(steps=step_indices)
+    preprocessed.ops.select(steps=step_indices)
     .multiply("Force1", 1000, result_column="Force1_N")  # kN -> N
     .multiply("Displacement1", 0.001, result_column="Displacement1_m")  # mm -> m
     .end()
@@ -238,8 +238,8 @@ print("\n5. 特定データの対数変換")
 # 微分計算などの演算のために有効なデータポイントに限定する
 important_steps = [6, 7, 8, 9, 10]  # 重要なステップ
 log_result = (
-    physical_result.ops.select_step(steps=important_steps)
-    .search_by_value("Strain", ">", 0.0)  # 対数計算のため正の値のみ選択
+    physical_result.ops.select(steps=important_steps)
+    .filter_by_condition("Strain", lambda x: x > 0.0)  # 対数計算のため正の値のみ選択
     .log("Strain", base=math.e, result_column="LogStrain")
     .log("Stress_Pa", base=10, result_column="LogStress")
     .end()
@@ -256,8 +256,8 @@ print(f"  対数応力: {log_result['LogStress'].values}")
 print("\n6. データの正規化")
 
 # 正規化計算のために十分なデータを確保（初期のNone値を変換済み）
-norm_data = preprocessed.ops.select_step(
-    steps=range(3, 15)
+norm_data = preprocessed.ops.select(
+    steps=list(range(3, 15))
 ).end()  # 有効なデータのみを選択
 
 # 単一のチェーンでデータ正規化の複数の手法を適用
@@ -313,8 +313,8 @@ try:
     # 微分計算のために有効なデータポイントを確保
     # Force1とDisplacement1の値が有意であるデータのみを選択
     calc_data = (
-        norm_data.ops.search_by_value("Force1", ">", 0)
-        .search_by_value("Displacement1", ">", 0)
+        norm_data.ops.filter_by_condition("Force1", lambda x: x > 0)
+        .filter_by_condition("Displacement1", lambda x: x > 0)
         .end()
     )
 
@@ -359,7 +359,7 @@ try:
         .divide("Force1_N", area_m2, result_column="Stress_Pa")
         .divide("Displacement1_m", length_m, result_column="Strain")
         # 特定の値でフィルタリング（エラー防止のため緩い条件に）
-        .search_by_value("Stress_Pa", ">=", 0)
+        .filter_by_condition("Stress_Pa", lambda x: x >= 0)
         # 追加演算
         .multiply("Stress_Pa", 0.000001, result_column="Stress_MPa")
         .end()
@@ -369,7 +369,7 @@ try:
     if len(complex_result) > 0 and any(s > 0 for s in complex_result["Strain"].values):
         # 正の値のみを対象にして対数変換
         positive_strain = (
-            complex_result.ops.search_by_value("Strain", ">", 0.0)
+            complex_result.ops.filter_by_condition("Strain", lambda x: x > 0.0)
             .log("Strain", base=math.e, result_column="LogStrain")
             .end()
         )

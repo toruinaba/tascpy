@@ -20,6 +20,9 @@ def _switch_core(
     Returns:
         np.ndarray: 切り替え後の配列。
     """
+    v1 = np.asarray(v1)
+    v2 = np.asarray(v2)
+    comp_arr = np.asarray(comp_arr)
     mask = comp_arr < threshold
     return np.where(mask, v1, v2)
 
@@ -44,6 +47,10 @@ def _blend_core(
     Returns:
         np.ndarray: ブレンド後の配列。
     """
+    v1 = np.asarray(v1)
+    v2 = np.asarray(v2)
+    comp_arr = np.asarray(comp_arr)
+
     # Create masks
     mask_before = comp_arr < start
     mask_after = comp_arr > end
@@ -269,6 +276,10 @@ def conditional_select(
         raise ValueError(
             f"無効な比較演算子: {compare}。有効なオプション: {', '.join(compare_ops.keys())}"
         )
+        
+    v1 = np.asarray(v1)
+    v2 = np.asarray(v2)
+    cond_values = np.asarray(cond_values)
 
     with np.errstate(invalid='ignore'):
          condition_mask = compare_ops[compare](cond_values, threshold)

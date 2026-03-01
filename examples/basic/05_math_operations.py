@@ -166,7 +166,7 @@ print("8. 複合的なデータ解析パイプライン")
 # より実践的なチェーンメソッド活用例：データのフィルタリング、変換、新しい指標の計算を一連の流れで行う
 advanced_result = (
     ops.select(columns=["Force1", "Force2", "Displacement1", "Displacement2"])
-    .search_by_value("Force1", ">", 0)  # 荷重が正の値のデータのみを選択
+    .filter_by_condition("Force1", lambda x: x > 0)  # 荷重が正の値のデータのみを選択
     .add("Force1", "Force2", result_column="TotalForce")  # 合計荷重
     .divide(
         "TotalForce",

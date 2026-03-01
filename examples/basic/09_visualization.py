@@ -205,7 +205,6 @@ fig, ax = plt.subplots(figsize=(8, 5))
         label="試験体1",
         ax=ax,
     )
-    .end()
 )
 
 # グラフの装飾
@@ -244,7 +243,6 @@ fig, ax = plt.subplots(figsize=(8, 5))
         linewidth=2,
         ax=ax,
     )
-    .end()
 )
 
 # グラフの装飾
@@ -276,7 +274,7 @@ fig, ax = plt.subplots(figsize=(10, 6))
 # 前半データを選択してプロット（メソッドチェーンで操作）
 # axを渡すことでplt.showは呼び出されない
 (
-    collection.ops.select_step(steps=step_first_half)
+    collection.ops.select(steps=step_first_half)
     .plot(
         x_column="Displacement1",
         y_column="Force1",
@@ -286,13 +284,12 @@ fig, ax = plt.subplots(figsize=(10, 6))
         marker="o",
         ax=ax,
     )
-    .end()
 )
 
 # 後半データを選択してプロット（メソッドチェーンで操作）
 # axを渡すことでplt.showは呼び出されない
 (
-    collection.ops.select_step(steps=step_second_half)
+    collection.ops.select(steps=step_second_half)
     .plot(
         x_column="Displacement1",
         y_column="Force1",
@@ -302,7 +299,6 @@ fig, ax = plt.subplots(figsize=(10, 6))
         marker="s",
         ax=ax,
     )
-    .end()
 )
 
 # 試験体2の全データをプロット（メソッドチェーンで操作）
@@ -317,7 +313,7 @@ if "Force2" in collection.columns and "Displacement2" in collection.columns:
             label="試験体2 (全体)",
             marker="^",
             ax=ax,
-        ).end()
+        )
     )
 
 # グラフの装飾
@@ -350,7 +346,6 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
         label="試験体1",
         ax=ax1,
     )
-    .end()
 )
 
 # 試験体2のデータが存在する場合はチェーンメソッドでプロット
@@ -366,7 +361,6 @@ if "Force2" in collection.columns and "Displacement2" in collection.columns:
             label="試験体2",
             ax=ax1,
         )
-        .end()
     )
 
 # 上部サブプロットの装飾
@@ -505,7 +499,7 @@ fig, ax = plt.subplots(figsize=(10, 6))
 # 複数の変換操作を一連のチェーンとして実行
 # axを渡すことでplt.showは呼び出されない
 (
-    collection.ops.select_step(steps=step_middle)  # まず特定ステップのデータを選択
+    collection.ops.select(steps=step_middle)  # まず特定ステップのデータを選択
     .multiply("Force1", 1000)  # kN -> N に変換
     .divide("Force1*1000", area_mm2, result_column="Stress_MPa")  # N/mm² = MPa に変換
     .multiply("Displacement1", 100)  # mm -> 0.1mm に変換（分かりやすくするため）
@@ -523,7 +517,6 @@ fig, ax = plt.subplots(figsize=(10, 6))
         linewidth=2,
         ax=ax,
     )
-    .end()
 )
 
 # グラフの装飾
@@ -556,7 +549,7 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
         marker="o",
         linestyle="-",
         ax=ax1,
-    ).end()
+    )
 )
 
 # 装飾（上のプロット）

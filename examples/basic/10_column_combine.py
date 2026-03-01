@@ -41,8 +41,8 @@ print("\n1. ステップによるカラム切り替え")
 
 # ステップ値5.0を境に2つのカラムを切り替え
 step_switch_result = collection.ops.switch_by_step(
-    column1="sin_wave",
-    column2="cos_wave",
+    "sin_wave",
+    "cos_wave",
     threshold=5.0,  # step_thresholdではなくthresholdが正しいパラメータ名
     compare_mode="value",
     result_column="switch_at_5",
@@ -61,8 +61,8 @@ blend_result = (
     collection.ops
     # 線形ブレンド（ステップ4.0〜6.0の間で徐々に切り替え）
     .blend_by_step(
-        column1="sin_wave",
-        column2="cos_wave",
+        "sin_wave",
+        "cos_wave",
         start=4.0,  # step_startではなくstartが正しいパラメータ名
         end=6.0,  # step_endではなくendが正しいパラメータ名
         compare_mode="value",
@@ -71,8 +71,8 @@ blend_result = (
     )
     # S字カーブブレンド（同じステップ範囲でよりスムーズな切り替え）
     .blend_by_step(
-        column1="sin_wave",
-        column2="cos_wave",
+        "sin_wave",
+        "cos_wave",
         start=4.0,
         end=6.0,
         compare_mode="value",
@@ -92,9 +92,9 @@ print("\n3. 条件カラムによる選択処理")
 
 # 条件カラムの値に基づいて、2つのカラムを動的に切り替え
 conditional_result = collection.ops.conditional_select(
-    column1="sin_wave",
-    column2="cos_wave",
-    condition_column="condition",
+    "sin_wave",
+    "cos_wave",
+    "condition",
     threshold=0.0,
     compare=">",  # 条件波形が0より大きい場合
     result_column="conditional",
@@ -111,8 +111,8 @@ print("\n4. カスタム関数による合成処理")
 
 # カスタム関数を用いて複数のカラムを組み合わせる
 custom_result = collection.ops.custom_combine(
-    column1="sin_wave",
-    column2="cos_wave",
+    "sin_wave",
+    "cos_wave",
     combine_func=lambda x, y: np.sqrt(x**2 + y**2),  # ベクトル長さ計算
     func_name="vector_magnitude",
     result_column="magnitude",
@@ -132,17 +132,17 @@ complex_chain_result = (
     collection.ops
     # まず条件による選択
     .conditional_select(
-        column1="sin_wave",
-        column2="cos_wave",
-        condition_column="condition",
+        "sin_wave",
+        "cos_wave",
+        "condition",
         threshold=0.5,  # 条件を0.5に変更
         compare=">",
         result_column="temp1",
     )
     # 続いてカスタム関数による加重平均
     .custom_combine(
-        column1="temp1",
-        column2="cos_wave",
+        "temp1",
+        "cos_wave",
         combine_func=lambda x, y: 0.7 * x + 0.3 * y,  # 加重平均
         func_name="weighted_avg",
         result_column="weighted",

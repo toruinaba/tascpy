@@ -118,7 +118,7 @@ print()
 print("7. 複数のチェーンメソッドを使った高度な分析")
 # Force1とDisplacement1の関係を分析する例
 analysis_result = (
-    result.ops.search_by_value("Force1", ">", 1.0)  # Force1が1.0より大きい行を選択
+    result.ops.filter_by_condition("Force1", lambda x: x > 1.0)  # Force1が1.0より大きい行を選択
     .multiply("Force1", 10, result_column="Force1_kgf")  # 単位変換 (kN→kgf)
     .divide("Force1_kgf", "Displacement1", result_column="Stiffness")  # 剛性を計算
     .end()

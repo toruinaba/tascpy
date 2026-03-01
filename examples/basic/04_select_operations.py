@@ -33,21 +33,21 @@ try:
     new_times = ["09:15:00", "10:30:00", "14:45:00", "08:20:00", "09:00:00"]
 
     # 新しいコレクションを作成（既存のデータと新しいデータを結合）
-    extended_steps = collection.step.values + new_steps
+    extended_steps = list(collection.step.values) + new_steps
 
     extended_columns = {}
     for col_name in collection.columns.keys():
         col = collection.columns[col_name]
         if col_name == "Force1":
-            new_values = col.values + new_force1
+            new_values = list(col.values) + new_force1
         elif col_name == "Force2":
-            new_values = col.values + new_force2
+            new_values = list(col.values) + new_force2
         elif col_name == "Displacement1":
-            new_values = col.values + new_disp1
+            new_values = list(col.values) + new_disp1
         elif col_name == "Displacement2":
-            new_values = col.values + new_disp2
+            new_values = list(col.values) + new_disp2
         else:
-            new_values = col.values + [None] * len(new_steps)
+            new_values = list(col.values) + [None] * len(new_steps)
 
         # 同じ型のカラムを作成
         new_col = col.clone()
@@ -57,9 +57,9 @@ try:
     # メタデータも更新
     extended_metadata = collection.metadata.copy()
     if "date" in extended_metadata:
-        extended_metadata["date"] = extended_metadata["date"] + new_dates
+        extended_metadata["date"] = list(extended_metadata["date"]) + new_dates
     if "time" in extended_metadata:
-        extended_metadata["time"] = extended_metadata["time"] + new_times
+        extended_metadata["time"] = list(extended_metadata["time"]) + new_times
 
     # 拡張されたコレクションを作成
     collection = ColumnCollection(extended_steps, extended_columns, extended_metadata)
@@ -173,7 +173,7 @@ print("8. 統合されたselectを使った操作チェーン")
 # 一度に列とステップを選択し、その後に演算を適用
 result = (
     ops.select(columns=["Force1", "Displacement1"], steps=[4, 6, 8, 10])
-    .search_by_value("Displacement1", ">", 0)  # ゼロ除算を回避するためのフィルタリング
+    .filter_by_condition("Displacement1", lambda x: x > 0)  # ゼロ除算を回避するためのフィルタリング
     .divide("Force1", "Displacement1", result_column="Stiffness")
     .end()
 )
@@ -201,7 +201,7 @@ print()
 print("10. 複数の選択操作を組み合わせたチェーンメソッド")
 # 複数のフィルタリングと選択を組み合わせたチェーンメソッドの例
 advanced_result = (
-    collection.ops.search_by_value("Force1", ">", 2.0)  # Force1が2.0より大きい行を選択
+    collection.ops.filter_by_condition("Force1", lambda x: x > 2.0)  # Force1が2.0より大きい行を選択
     .select(columns=["Force1", "Force2", "Displacement1"])  # 必要な列のみ選択
     .select(indices=[0, 2, 4])  # 選択された結果からさらに特定の行を選択
     .multiply("Force1", 2, result_column="Force1_Double")  # 力を2倍に
