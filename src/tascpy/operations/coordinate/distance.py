@@ -5,20 +5,32 @@
 
 from typing import Dict, Optional, List, Any, Tuple, Union
 import numpy as np
-from ...operations.registry import operation
+
+from ...operations.registry import register_functional
 from ...domains.coordinate import CoordinateCollection
 from ...core.column import Column
 from ...operations.validation import requires_domain, requires_coordinates
-from ...functional.coordinate.clustering import simple_kmeans
+from ...functional.coordinate.clustering import find_nearest_neighbors_logic, simple_kmeans
+from ...functional.coordinate.distance import compute_euclidean_distance
+from .abstraction import (
+    inject_coordinate_matrix, 
+    store_clustering_result, 
+    resolve_nearest_neighbors,
+    resolve_distance
+)
 
-
-@operation(domain="coordinate", shared_with=["strain"])
-@requires_domain(["coordinate", "strain"])
-def calculate_distance(
-
-    collection: CoordinateCollection, column1: str, column2: str
-) -> float:
-    """2つの列の座標間の距離を計算します
+calculate_distance = register_functional(
+    compute_euclidean_distance,
+    domain="coordinate",
+    name="calculate_distance",
+    shared_with=["strain"],
+    extra_decorators=[
+        resolve_distance(),
+        requires_coordinates(),
+        requires_domain(["coordinate", "strain"]),
+    ]
+)
+calculate_distance.__doc__ = """2つの列の座標間の距離を計算します
 
     指定された2つの列の座標位置間のユークリッド距離を計算します。
     2次元または3次元座標に対応しています。
@@ -33,21 +45,20 @@ def calculate_distance(
 
     Raises:
         ValueError: 座標情報がない場合
-    """
-    return collection.calculate_distance(column1, column2)
+"""
 
-
-@operation(domain="coordinate", shared_with=["strain"])
-@requires_domain(["coordinate", "strain"])
-@requires_coordinates()
-def find_nearest_neighbors(
-    collection: CoordinateCollection,
-    column: str,
-    n_neighbors: int = 3,
-    result_column: Optional[str] = None,
-) -> CoordinateCollection:
-
-    """指定した列に最も近い座標を持つ近傍列を探します
+find_nearest_neighbors = register_functional(
+    find_nearest_neighbors_logic,
+    domain="coordinate",
+    name="find_nearest_neighbors",
+    shared_with=["strain"],
+    extra_decorators=[
+        resolve_nearest_neighbors(),
+        requires_coordinates(),
+        requires_domain(["coordinate", "strain"])
+    ]
+)
+find_nearest_neighbors.__doc__ = """指定した列に最も近い座標を持つ近傍列を探します
 
     指定された列を基準として、座標空間上で最も近い n 個の列を探索します。
     結果はメタデータに保存され、近傍情報も新しい列として追加されます。
@@ -55,241 +66,78 @@ def find_nearest_neighbors(
     Args:
         collection: 座標コレクション
         column: 基準となる列名
-        n_neighbors: 取得する近傍の数
+        n_neighbors: 取得する近傍の数 (デフォルト: 3)
         result_column: 結果列名（None の場合、自動生成）
 
     Returns:
         CoordinateCollection: 近傍情報を含むコレクション
+"""
 
-    Raises:
-        ValueError: 指定された列が存在しない場合、または座標情報がない場合
-    """
-    from ...functional.coordinate.clustering import find_nearest_neighbors_logic
-    result = collection.clone()
-
-    if column not in collection.columns:
-        raise ValueError(f"列 '{column}' が見つかりません")
-
-    # 座標が設定されている列を取得
-    columns_with_coords = collection.get_columns_with_coordinates()
-
-    if column not in columns_with_coords:
-        raise ValueError(f"列 '{column}' には座標情報がありません")
-
-    if len(columns_with_coords) <= 1:
-        raise ValueError("近傍検索には少なくとも2つの座標情報が必要です")
-
-    # 基準列を除外
-    other_columns = [c for c in columns_with_coords if c != column]
-
-    # 各列との距離を計算
-    distances = []
-    for other_col in other_columns:
-        try:
-            dist = collection.calculate_distance(column, other_col)
-            distances.append((other_col, dist))
-        except ValueError:
-            # 距離計算できない場合はスキップ
-            continue
-
-    # functional層の純粋関数を呼び出し
-    nearest = find_nearest_neighbors_logic(distances, n_neighbors)
-
-    # 近傍情報をメタデータに保存
-    if "analysis" not in result.metadata:
-        result.metadata["analysis"] = {}
-
-    neighbors = [
-        {"column": col, "distance": dist} for col, dist in nearest
+spatial_clustering = register_functional(
+    simple_kmeans,
+    domain="coordinate",
+    name="spatial_clustering",
+    shared_with=["strain"],
+    extra_decorators=[
+        inject_coordinate_matrix(include_z=True),
+        store_clustering_result(algorithm_key="algorithm"),
+        requires_coordinates(),
+        requires_domain(["coordinate", "strain"])
     ]
-
-    result.metadata["analysis"]["nearest_neighbors"] = {
-        "reference_column": column,
-        "neighbors": neighbors,
-    }
-
-    # 結果列名の決定
-    if result_column is None:
-        result_column = f"neighbors_of_{column}"
-
-    # 近傍情報を文字列として列に追加
-    neighbor_str = ", ".join(
-        [f"{n['column']}({n['distance']:.4f}m)" for n in neighbors]
-    )
-    result.columns[result_column] = Column(
-        ch=None,
-        name=result_column,
-        unit=None,
-        values=[neighbor_str] * len(collection.step),
-        metadata={
-            "description": f"Nearest neighbors of {column}",
-            "type": "nearest_neighbors",
-            "reference_column": column,
-            "neighbors": neighbors,
-        },
-    )
-
-    return result
-
-
-@operation(domain="coordinate", shared_with=["strain"])
-@requires_domain(["coordinate", "strain"])
-@requires_coordinates()
-def spatial_clustering(
-    collection: CoordinateCollection,
-    n_clusters: int = 2,
-    columns: Optional[List[str]] = None,
-    result_column: str = "cluster",
-    algorithm: str = "kmeans",
-) -> CoordinateCollection:
-
-    """座標情報に基づいてクラスタリングを行います
+)
+spatial_clustering.__doc__ = """座標情報に基づいてクラスタリングを行います
 
     列の座標位置に基づいて、類似した位置にある列をグループ化します。
     クラスタリング結果はメタデータに保存され、各列のクラスタ情報も追加されます。
 
     Args:
         collection: 座標コレクション
-        n_clusters: クラスタ数
+        n_clusters: クラスタ数 (デフォルト: 2)
         columns: クラスタリング対象の列名リスト（None の場合は座標を持つ全列）
-        result_column: 結果列名
-        algorithm: クラスタリングアルゴリズム（"kmeans"）
+        result_column: 結果列名 (デフォルト: "cluster")
+        algorithm: クラスタリングアルゴリズム (デフォルト: "kmeans")
 
     Returns:
         CoordinateCollection: クラスタリング結果を含むコレクション
+"""
 
-    Raises:
-        ValueError: クラスタ数が列数より多い場合、または有効な座標データがない場合
-    """
-    result = collection.clone()
+distance = register_functional(
+    compute_euclidean_distance,
+    domain="coordinate",
+    name="distance",
+    shared_with=["strain"],
+    extra_decorators=[
+        resolve_distance(),
+        requires_coordinates(),
+        requires_domain(["coordinate", "strain"]),
+    ]
+)
+distance.__doc__ = "calculate_distance のエイリアス"
 
-    if columns is None:
-        columns = collection.get_columns_with_coordinates()
+nearest_neighbors = register_functional(
+    find_nearest_neighbors_logic,
+    domain="coordinate",
+    name="nearest_neighbors",
+    shared_with=["strain"],
+    extra_decorators=[
+        resolve_nearest_neighbors(),
+        requires_coordinates(),
+        requires_domain(["coordinate", "strain"])
+    ]
+)
+nearest_neighbors.__doc__ = "find_nearest_neighbors のエイリアス"
 
-    if len(columns) < n_clusters:
-        raise ValueError(
-            f"クラスタ数({n_clusters})は座標列数({len(columns)})より少なくする必要があります"
-        )
-
-    # 座標データの収集
-    coord_data = []
-    valid_columns = []
-
-    for col in columns:
-        try:
-            x, y, z = collection.get_column_coordinates(col)
-
-            # 必要な座標情報があるか確認
-            if x is None or y is None:
-                continue
-
-            # 2D or 3D座標として追加
-            if z is None:
-                coord_data.append([x, y])
-            else:
-                coord_data.append([x, y, z])
-
-            valid_columns.append(col)
-        except ValueError:
-            continue
-
-    if not coord_data:
-        raise ValueError("有効な座標データがありません")
-
-    # 座標データをnumpy配列に変換
-    X = np.array(coord_data)
-
-    if algorithm == "kmeans":
-        labels = simple_kmeans(X, n_clusters)
-    else:
-        raise ValueError(f"不明なアルゴリズム: {algorithm}")
-
-    # クラスタリング結果をメタデータに保存
-    if "analysis" not in result.metadata:
-        result.metadata["analysis"] = {}
-
-    cluster_info = {}
-    for i, col in enumerate(valid_columns):
-        cluster_id = int(labels[i])
-        if cluster_id not in cluster_info:
-            cluster_info[cluster_id] = []
-        cluster_info[cluster_id].append(col)
-
-    result.metadata["analysis"]["clustering"] = {
-        "algorithm": algorithm,
-        "n_clusters": n_clusters,
-        "clusters": cluster_info,
-    }
-
-    # 結果のメタデータを各列に追加
-    for i, col in enumerate(valid_columns):
-        cluster_id = int(labels[i])
-
-        if not hasattr(result.columns[col], "metadata"):
-            result.columns[col].metadata = {}
-
-        if "analysis" not in result.columns[col].metadata:
-            result.columns[col].metadata["analysis"] = {}
-
-        result.columns[col].metadata["analysis"]["cluster"] = cluster_id
-
-    # クラスタ情報を新しい列として追加（オプション）
-    cluster_map = {col: int(labels[i]) for i, col in enumerate(valid_columns)}
-
-    result.columns[result_column] = Column(
-        ch=None,
-        name=result_column,
-        unit=None,
-        values=[str(cluster_map)] * len(collection.step),
-        metadata={
-            "description": f"Clustering results using {algorithm}",
-            "type": "clustering",
-            "clusters": cluster_info,
-        },
-    )
-
-    return result
-
-@operation(domain="coordinate", shared_with=["strain"])
-@requires_domain(["coordinate", "strain"])
-def distance(
-    collection: CoordinateCollection, column1: str, column2: str
-) -> float:
-    """calculate_distance のエイリアス"""
-    return calculate_distance(collection, column1, column2)
-
-
-@operation(domain="coordinate", shared_with=["strain"])
-@requires_domain(["coordinate", "strain"])
-@requires_coordinates()
-def nearest_neighbors(
-    collection: CoordinateCollection,
-    column: str,
-    n_neighbors: int = 3,
-    result_column: Optional[str] = None,
-) -> CoordinateCollection:
-    """find_nearest_neighbors のエイリアス"""
-    return find_nearest_neighbors(
-        collection, column, n_neighbors=n_neighbors, result_column=result_column
-    )
-
-
-@operation(domain="coordinate", shared_with=["strain"])
-@requires_domain(["coordinate", "strain"])
-@requires_coordinates()
-def cluster(
-    collection: CoordinateCollection,
-    n_clusters: int = 2,
-    columns: Optional[List[str]] = None,
-    result_column: str = "cluster",
-    algorithm: str = "kmeans",
-) -> CoordinateCollection:
-    """spatial_clustering のエイリアス"""
-    return spatial_clustering(
-        collection,
-        n_clusters=n_clusters,
-        columns=columns,
-        result_column=result_column,
-        algorithm=algorithm,
-    )
+cluster = register_functional(
+    simple_kmeans,
+    domain="coordinate",
+    name="cluster",
+    shared_with=["strain"],
+    extra_decorators=[
+        inject_coordinate_matrix(include_z=True),
+        store_clustering_result(algorithm_key="algorithm"),
+        requires_coordinates(),
+        requires_domain(["coordinate", "strain"])
+    ]
+)
+cluster.__doc__ = "spatial_clustering のエイリアス"
 

@@ -46,3 +46,33 @@ def compute_rosette_strains(
     final_theta = theta_deg + angle_offset
     
     return e_max, e_min, gamma_max, final_theta
+
+def compute_rosette_vectors(
+    val_e1: float,
+    val_e2: float,
+    val_theta: float,
+    scale: float = 1.0
+) -> Tuple[float, float, float, float]:
+    """主ひずみと角度から、スケーリングされたベクトルのXY成分を計算します。
+    
+    Args:
+        val_e1: 最大主ひずみ
+        val_e2: 最小主ひずみ
+        val_theta: 主ひずみ方向の角度（度）
+        scale: ベクトルのスケーリング係数
+
+    Returns:
+        Tuple[float, float, float, float]: (v1_x, v1_y, v2_x, v2_y)
+    """
+    theta_rad = np.radians(val_theta)
+    
+    # 主ひずみ1 (最大) のベクトル成分
+    v1_x = val_e1 * np.cos(theta_rad) * scale
+    v1_y = val_e1 * np.sin(theta_rad) * scale
+    
+    # 主ひずみ2 (最小) のベクトル成分 (theta + 90deg)
+    v2_x = val_e2 * np.cos(theta_rad + np.pi/2) * scale
+    v2_y = val_e2 * np.sin(theta_rad + np.pi/2) * scale
+
+    return v1_x, v1_y, v2_x, v2_y
+

@@ -675,8 +675,8 @@ Raises:
 
     def evaluate(
         self,
-        collection: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
-        column: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
+        collection: collection = <class 'tascpy.core.collection.ColumnCollection'>,
+        column: collection = <class 'tascpy.core.collection.ColumnCollection'>,
         expression: str,
         **kwargs
     ) -> Union[list[Optional[float]], ndarray]:
@@ -1016,6 +1016,24 @@ Returns:
         columns: Optional[list[str]] = None
     ) -> "CoreCollectionOperations":
         """指定した列の値に基づいてデータを内挿します"""
+        ...
+    
+
+    def test_filter(
+        self,
+        column_name,
+        value
+    ) -> Any:
+        """テスト用フィルタリング操作"""
+        ...
+    
+
+    def add_derived_column(
+        self,
+        formula,
+        output_column
+    ) -> Any:
+        """数式に基づいて派生列を追加"""
         ...
     
 

@@ -1,14 +1,10 @@
-"""座標ドメインの基本操作関数のテスト"""
+"""座標ドメインの基本操作関数およびコレクションメソッドのテスト"""
 
 import pytest
 import numpy as np
 from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
-from tascpy.operations.coordinate.basic import (
-    get_column_coordinates,
-    set_column_coordinates,
-    get_columns_with_coordinates,
-)
+from tascpy.operations.coordinate.basic import extract_coordinates
 
 
 class TestCoordinateBasic:
@@ -38,64 +34,101 @@ class TestCoordinateBasic:
         self.collection.set_column_coordinates("sensor2", x=4.0, y=5.0)  # zは未設定
 
     def test_get_column_coordinates(self):
-        """get_column_coordinates関数のテスト"""
+        """get_column_coordinatesメソッドのテスト"""
         # 完全な座標を持つセンサー
-        coords = get_column_coordinates(self.collection, "sensor1")
-        assert coords["x"] == 1.0
-        assert coords["y"] == 2.0
-        assert coords["z"] == 3.0
+        x, y, z = self.collection.get_column_coordinates("sensor1")
+        assert x == 1.0
+        assert y == 2.0
+        assert z == 3.0
 
         # 部分的な座標を持つセンサー
-        coords = get_column_coordinates(self.collection, "sensor2")
-        assert coords["x"] == 4.0
-        assert coords["y"] == 5.0
-        assert coords["z"] is None
+        x, y, z = self.collection.get_column_coordinates("sensor2")
+        assert x == 4.0
+        assert y == 5.0
+        assert z is None
 
         # 座標が未設定のセンサー
-        coords = get_column_coordinates(self.collection, "sensor3")
-        assert coords["x"] is None
-        assert coords["y"] is None
-        assert coords["z"] is None
+        x, y, z = self.collection.get_column_coordinates("sensor3")
+        assert x is None
+        assert y is None
+        assert z is None
 
     def test_set_column_coordinates(self):
-        """set_column_coordinates関数のテスト"""
+        """set_column_coordinatesメソッドのテスト"""
         # 座標を新規設定
-        result = set_column_coordinates(self.collection, "sensor3", x=7.0, y=8.0, z=9.0)
-
-        # 結果が新しいオブジェクトであることを確認
-        assert result is not self.collection
-        assert isinstance(result, CoordinateCollection)
+        self.collection.set_column_coordinates("sensor3", x=7.0, y=8.0, z=9.0)
 
         # 座標が正しく設定されていることを確認
-        coords = get_column_coordinates(result, "sensor3")
-        assert coords["x"] == 7.0
-        assert coords["y"] == 8.0
-        assert coords["z"] == 9.0
-
-        # 元のオブジェクトは変更されていないことを確認
-        coords = get_column_coordinates(self.collection, "sensor3")
-        assert coords["x"] is None
-        assert coords["y"] is None
-        assert coords["z"] is None
+        x, y, z = self.collection.get_column_coordinates("sensor3")
+        assert x == 7.0
+        assert y == 8.0
+        assert z == 9.0
 
         # 座標の一部を更新
-        updated = set_column_coordinates(result, "sensor1", y=20.0)
-        coords = get_column_coordinates(updated, "sensor1")
-        assert coords["x"] == 1.0  # 変更なし
-        assert coords["y"] == 20.0  # 更新された
-        assert coords["z"] == 3.0  # 変更なし
+        self.collection.set_column_coordinates("sensor1", y=20.0)
+        x, y, z = self.collection.get_column_coordinates("sensor1")
+        assert x == 1.0  # 変更なし
+        assert y == 20.0  # 更新された
+        assert z == 3.0  # 変更なし
 
     def test_get_columns_with_coordinates(self):
-        """get_columns_with_coordinates関数のテスト"""
+        """get_columns_with_coordinatesメソッドのテスト"""
         # 初期状態では2つの列に座標がある
-        columns = get_columns_with_coordinates(self.collection)
+        columns = self.collection.get_columns_with_coordinates()
         assert len(columns) == 2
         assert "sensor1" in columns
         assert "sensor2" in columns
         assert "sensor3" not in columns
 
         # 3つ目の列に座標を設定
-        updated = set_column_coordinates(self.collection, "sensor3", x=1.0)
-        columns = get_columns_with_coordinates(updated)
+        self.collection.set_column_coordinates("sensor3", x=1.0)
+        columns = self.collection.get_columns_with_coordinates()
         assert len(columns) == 3
         assert "sensor3" in columns
+
+    def test_extract_coordinates(self):
+        """extract_coordinates関数のテスト"""
+        # 座標を抽出
+        result = extract_coordinates(self.collection)
+
+        # 結果のコレクションには元の列と新しい座標列が含まれるべき
+        assert "sensor1" in result.columns
+        assert "coord_sensor1_x" in result.columns
+        assert "coord_sensor1_y" in result.columns
+        assert "coord_sensor1_z" in result.columns
+
+        assert "sensor2" in result.columns
+        assert "coord_sensor2_x" in result.columns
+        assert "coord_sensor2_y" in result.columns
+        assert "coord_sensor2_z" not in result.columns  # zは未設定だったため含まれない
+
+        # 座標が抽出されていない列（元のまま）
+        assert "sensor3" in result.columns
+        assert "coord_sensor3_x" not in result.columns
+
+        # 新しい列の値を確認
+        np.testing.assert_array_equal(
+            result.columns["coord_sensor1_x"].values,
+            np.array([1.0, 1.0, 1.0, 1.0, 1.0]),
+        )
+        np.testing.assert_array_equal(
+            result.columns["coord_sensor1_y"].values,
+            np.array([2.0, 2.0, 2.0, 2.0, 2.0]),
+        )
+        np.testing.assert_array_equal(
+            result.columns["coord_sensor1_z"].values,
+            np.array([3.0, 3.0, 3.0, 3.0, 3.0]),
+        )
+
+        np.testing.assert_array_equal(
+            result.columns["coord_sensor2_x"].values,
+            np.array([4.0, 4.0, 4.0, 4.0, 4.0]),
+        )
+        np.testing.assert_array_equal(
+            result.columns["coord_sensor2_y"].values,
+            np.array([5.0, 5.0, 5.0, 5.0, 5.0]),
+        )
+
+        # カスタム接頭辞のテスト
+        result2 = extract_coordinates(self.collection, result_prefix="my_prefix_")
+        assert "my_prefix_sensor1_x" in result2.columns

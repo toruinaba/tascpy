@@ -60,27 +60,13 @@ def plot_rosette_vectors(
     except IndexError:
         raise ValueError(f"Step index {step_index} is out of range.")
 
-    if x is None or y is None:
-        raise ValueError(f"Coordinate data not found for rosette '{rosette_name}'.")
-
-    # プロット準備
-    # backend_mpl doesn't strictly abstract everything yet, so we use it for basic setup
+    # 描画準備
     if ax is None:
         ax = backend_mpl.plot(x_values=[], y_values=[], title=f"Rosette: {rosette_name} (Step: {step_index})")
     
-    # arrowはまだbackendにないので直接呼ぶか、追加したdraw_arrowを使う
-    # backend_mpl.draw_arrow を使う
-    
-    # 角度をラジアンに
-    theta_rad = np.radians(val_theta)
-    
-    # 主ひずみ1 (最大) のベクトル成分
-    v1_x = val_e1 * np.cos(theta_rad) * scale
-    v1_y = val_e1 * np.sin(theta_rad) * scale
-    
-    # 主ひずみ2 (最小) のベクトル成分 (theta + 90deg)
-    v2_x = val_e2 * np.cos(theta_rad + np.pi/2) * scale
-    v2_y = val_e2 * np.sin(theta_rad + np.pi/2) * scale
+    # 纯粋関数を呼び出してベクトル成分を取得
+    from ...functional.strain.rosette import compute_rosette_vectors
+    v1_x, v1_y, v2_x, v2_y = compute_rosette_vectors(val_e1, val_e2, val_theta, scale)
     
     # 描画
     # e1: Red arrows
@@ -136,23 +122,13 @@ def iplot_rosette_vectors(
         # エラーハンドリングは簡易的に
         raise ValueError(f"Data extraction failed for rosette '{rosette_name}' at step {step_index}")
 
-    if x is None or y is None:
-        raise ValueError(f"Coordinate data not found for rosette '{rosette_name}'.")
-
     if fig is None:
         fig = plotly_backend.create_figure()
         plotly_backend.set_labels(fig, title=f"Rosette: {rosette_name} (Step: {step_index})")
 
-    # 角度をラジアンに
-    theta_rad = np.radians(val_theta)
-    
-    # 主ひずみ1 (最大) のベクトル成分
-    v1_x = val_e1 * np.cos(theta_rad) * scale
-    v1_y = val_e1 * np.sin(theta_rad) * scale
-    
-    # 主ひずみ2 (最小) のベクトル成分 (theta + 90deg)
-    v2_x = val_e2 * np.cos(theta_rad + np.pi/2) * scale
-    v2_y = val_e2 * np.sin(theta_rad + np.pi/2) * scale
+    # 纯粋関数を呼び出してベクトル成分を取得
+    from ...functional.strain.rosette import compute_rosette_vectors
+    v1_x, v1_y, v2_x, v2_y = compute_rosette_vectors(val_e1, val_e2, val_theta, scale)
     
     # 描画 (Arrows)
     # e1: Red arrows

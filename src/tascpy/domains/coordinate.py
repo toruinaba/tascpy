@@ -292,6 +292,58 @@ class CoordinateCollection(ColumnCollection):
 
         return result
 
+    def get_coordinate_matrix(
+        self, columns: Optional[List[str]] = None, include_z: bool = False
+    ) -> Tuple[np.ndarray, List[str]]:
+        """指定したカラムの座標をNumPy行列として取得する
+
+        指定された列群の座標情報(x, y, [z])を抽出して N x D の行列を生成し、
+        実際に抽出に成功した列名のリストと共に返します。
+        一部の座標が欠損している列はスキップされます。
+
+        Args:
+            columns: 対象カラム名のリスト。Noneの場合は全ての座標付き列が対象。
+            include_z: Trueの場合は Z 座標を含める（3次元）。Falseの場合は 2D座標。
+
+        Returns:
+            Tuple[np.ndarray, List[str]]: 
+                - N x D の座標行列 (Nは有効な列数、Dは2または3)
+                - 有効な座標が抽出できたカラム名のリスト
+
+        Raises:
+            ValueError: 有効な座標データが1つも抽出できなかった場合
+        """
+        if columns is None:
+            columns = self.get_columns_with_coordinates()
+
+        coord_data = []
+        valid_columns = []
+
+        for col in columns:
+            try:
+                x, y, z = self.get_column_coordinates(col)
+                
+                # 必須のx,yがあるか確認
+                if x is None or y is None:
+                    continue
+
+                if include_z:
+                    if z is None:
+                        continue # zが要求されたのに無い場合はスキップ
+                    coord_data.append([x, y, z])
+                else:
+                    coord_data.append([x, y])
+                
+                valid_columns.append(col)
+            except ValueError:
+                continue
+
+        if not coord_data:
+            raise ValueError("有効な座標データが見つかりません")
+
+        return np.array(coord_data), valid_columns
+
+
     def calculate_distance(self, column1: str, column2: str) -> float:
         """2つのカラムの座標間の距離を計算する
 

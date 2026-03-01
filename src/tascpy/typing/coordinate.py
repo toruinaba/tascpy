@@ -35,67 +35,12 @@ class CoordinateCollectionOperations(CollectionOperationsBase[CoordinateCollecti
         ...
 
 
-    def get_column_coordinates(
-        self,
-        column: str
-    ) -> dict[str, Optional[float]]:
-        """列の座標情報を取得します
-
-指定された列に設定されている座標情報（x, y, z）を取得します。
-
-Args:
-    collection: 座標コレクション
-    column: 列名
-
-Returns:
-    Dict[str, Optional[float]]: 座標情報を含む辞書"""
-        ...
-    
-
-    def set_column_coordinates(
-        self,
-        column: str,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None
-    ) -> "CoordinateCollectionOperations":
-        """指定した列の座標値を設定します
-
-列に対して x、y、z の各座標値を設定します。
-設定しない座標はそのままの値が維持されます。
-
-Args:
-    collection: 座標コレクション
-    column: 列名
-    x: X 座標
-    y: Y 座標
-    z: Z 座標
-
-Returns:
-    CoordinateCollection: 更新されたコレクション"""
-        ...
-    
-
-    def get_columns_with_coordinates(
-        self,
-        
-    ) -> list[str]:
-        """座標情報が設定されている列のリストを取得します
-
-コレクション内で座標情報が設定されている全ての列名のリストを返します。
-
-Args:
-    collection: 座標コレクション
-
-Returns:
-    List[str]: 座標情報を持つ列名のリスト"""
-        ...
-    
-
     def extract_coordinates(
         self,
-        result_prefix: str = 'coord_'
-    ) -> "CoordinateCollectionOperations":
+        y_array: Optional[ndarray] = None,
+        z_array: Optional[ndarray] = None,
+        length: int = 1
+    ) -> dict[str, ndarray]:
         """各列の座標値を新しい列としてコレクションに追加します
 
 座標情報が設定されている列の x、y、z 座標値を取得し、それぞれを独立した列として
@@ -103,7 +48,7 @@ Returns:
 
 Args:
     collection: 座標コレクション
-    result_prefix: 結果列の接頭辞
+    result_prefix: 結果列の接頭辞 (デフォルト: "coord_")
 
 Returns:
     CoordinateCollection: 座標列を追加したコレクション"""
@@ -112,8 +57,11 @@ Returns:
 
     def calculate_distance(
         self,
-        column1: str,
-        column2: str
+        p1_y: float,
+        p2_x: float,
+        p2_y: float,
+        p1_z: float = None,
+        p2_z: float = None
     ) -> float:
         """2つの列の座標間の距離を計算します
 
@@ -135,10 +83,8 @@ Raises:
 
     def find_nearest_neighbors(
         self,
-        column: str,
-        n_neighbors: int = 3,
-        result_column: Optional[str] = None
-    ) -> "CoordinateCollectionOperations":
+        n_neighbors: int
+    ) -> list[tuple[str, float]]:
         """指定した列に最も近い座標を持つ近傍列を探します
 
 指定された列を基準として、座標空間上で最も近い n 個の列を探索します。
@@ -147,24 +93,19 @@ Raises:
 Args:
     collection: 座標コレクション
     column: 基準となる列名
-    n_neighbors: 取得する近傍の数
+    n_neighbors: 取得する近傍の数 (デフォルト: 3)
     result_column: 結果列名（None の場合、自動生成）
 
 Returns:
-    CoordinateCollection: 近傍情報を含むコレクション
-
-Raises:
-    ValueError: 指定された列が存在しない場合、または座標情報がない場合"""
+    CoordinateCollection: 近傍情報を含むコレクション"""
         ...
     
 
     def spatial_clustering(
         self,
-        n_clusters: int = 2,
-        columns: Optional[list[str]] = None,
-        result_column: str = 'cluster',
-        algorithm: str = 'kmeans'
-    ) -> "CoordinateCollectionOperations":
+        n_clusters: int,
+        max_iter: int = 100
+    ) -> ndarray:
         """座標情報に基づいてクラスタリングを行います
 
 列の座標位置に基づいて、類似した位置にある列をグループ化します。
@@ -172,23 +113,23 @@ Raises:
 
 Args:
     collection: 座標コレクション
-    n_clusters: クラスタ数
+    n_clusters: クラスタ数 (デフォルト: 2)
     columns: クラスタリング対象の列名リスト（None の場合は座標を持つ全列）
-    result_column: 結果列名
-    algorithm: クラスタリングアルゴリズム（"kmeans"）
+    result_column: 結果列名 (デフォルト: "cluster")
+    algorithm: クラスタリングアルゴリズム (デフォルト: "kmeans")
 
 Returns:
-    CoordinateCollection: クラスタリング結果を含むコレクション
-
-Raises:
-    ValueError: クラスタ数が列数より多い場合、または有効な座標データがない場合"""
+    CoordinateCollection: クラスタリング結果を含むコレクション"""
         ...
     
 
     def distance(
         self,
-        column1: str,
-        column2: str
+        p1_y: float,
+        p2_x: float,
+        p2_y: float,
+        p1_z: float = None,
+        p2_z: float = None
     ) -> float:
         """calculate_distance のエイリアス"""
         ...
@@ -196,21 +137,17 @@ Raises:
 
     def nearest_neighbors(
         self,
-        column: str,
-        n_neighbors: int = 3,
-        result_column: Optional[str] = None
-    ) -> "CoordinateCollectionOperations":
+        n_neighbors: int
+    ) -> list[tuple[str, float]]:
         """find_nearest_neighbors のエイリアス"""
         ...
     
 
     def cluster(
         self,
-        n_clusters: int = 2,
-        columns: Optional[list[str]] = None,
-        result_column: str = 'cluster',
-        algorithm: str = 'kmeans'
-    ) -> "CoordinateCollectionOperations":
+        n_clusters: int,
+        max_iter: int = 100
+    ) -> ndarray:
         """spatial_clustering のエイリアス"""
         ...
     
@@ -219,12 +156,10 @@ Raises:
         self,
         x: float,
         y: float,
-        z: Optional[float] = None,
-        target_columns: Optional[list[str]] = None,
-        method: str = 'inverse_distance',
-        power: float = 2.0,
-        result_prefix: str = 'interp_'
-    ) -> "CoordinateCollectionOperations":
+        z: Optional[float],
+        method: str,
+        power: float
+    ) -> "CollectionListOperations[CoordinateCollectionOperations]":
         """座標点での値を補間して計算します
 
 指定された座標点 (x, y, z) において、既存の座標値に基づいて値を補間します。
@@ -241,23 +176,17 @@ Args:
     result_prefix: 結果列の接頭辞
 
 Returns:
-    CoordinateCollection: 補間結果を含むコレクション
-
-Raises:
-    ValueError: 補間に使用できる座標付き列がない場合"""
+    CoordinateCollection: 補間結果を含むコレクション"""
         ...
     
 
     def interpolate_grid(
         self,
-        x_range: tuple[float, float],
-        y_range: tuple[float, float],
-        grid_size: tuple[int, int] = (10, 10),
-        target_column: Optional[str] = None,
-        method: str = 'inverse_distance',
-        power: float = 2.0,
-        result_prefix: str = 'grid_'
-    ) -> "CoordinateCollectionOperations":
+        x_grid: ndarray,
+        y_grid: ndarray,
+        method: str,
+        power: float
+    ) -> ndarray:
         """指定した領域のグリッド上で値を補間します
 
 指定された x-y 平面上の矩形領域をグリッドに分割し、各グリッド点での値を補間します。
@@ -267,28 +196,24 @@ Args:
     collection: 座標コレクション
     x_range: X 座標の範囲 (min, max)
     y_range: Y 座標の範囲 (min, max)
-    grid_size: グリッドサイズ (nx, ny)
+    grid_size: グリッドサイズ (nx, ny) (デフォルト: (10, 10))
     target_column: 補間対象の列名
     method: 補間方法 ("inverse_distance", "nearest", "linear")
     power: 逆距離加重法のパワーパラメータ
     result_prefix: 結果列の接頭辞
 
 Returns:
-    CoordinateCollection: グリッド補間結果を含むコレクション
-
-Raises:
-    ValueError: 有効な座標情報がない場合、または指定した列が存在しない場合"""
+    CoordinateCollection: グリッド補間結果を含むコレクション"""
         ...
     
 
     def spatial_interpolation_to_points(
         self,
-        source_columns: Optional[list[str]] = None,
-        target_columns: Optional[list[str]] = None,
-        method: str = 'inverse_distance',
-        power: float = 2.0,
-        result_prefix: str = 'interp_'
-    ) -> "CoordinateCollectionOperations":
+        target_coords: list[dict[str, Any]],
+        is_3d: bool,
+        method: str,
+        power: float
+    ) -> list[float]:
         """ソース列からターゲット列の座標位置に値を補間します
 
 指定されたソース列の座標位置の値を使用して、ターゲット列の座標位置における
@@ -303,10 +228,7 @@ Args:
     result_prefix: 結果列の接頭辞
 
 Returns:
-    CoordinateCollection: 補間結果を含むコレクション
-
-Raises:
-    ValueError: 補間元または補間先の座標付き列がない場合"""
+    CoordinateCollection: 補間結果を含むコレクション"""
         ...
     
 
@@ -314,26 +236,21 @@ Raises:
         self,
         x: float,
         y: float,
-        z: Optional[float] = None,
-        target_columns: Optional[list[str]] = None,
-        method: str = 'inverse_distance',
-        power: float = 2.0,
-        result_prefix: str = 'interp_'
-    ) -> "CoordinateCollectionOperations":
+        z: Optional[float],
+        method: str,
+        power: float
+    ) -> "CollectionListOperations[CoordinateCollectionOperations]":
         """interpolate_at_point のエイリアス"""
         ...
     
 
     def interp_grid(
         self,
-        x_range: tuple[float, float],
-        y_range: tuple[float, float],
-        grid_size: tuple[int, int] = (10, 10),
-        target_column: Optional[str] = None,
-        method: str = 'inverse_distance',
-        power: float = 2.0,
-        result_prefix: str = 'grid_'
-    ) -> "CoordinateCollectionOperations":
+        x_grid: ndarray,
+        y_grid: ndarray,
+        method: str,
+        power: float
+    ) -> ndarray:
         """interpolate_grid のエイリアス"""
         ...
     
@@ -982,8 +899,8 @@ Raises:
 
     def evaluate(
         self,
-        collection: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
-        column: collection = <class 'src.tascpy.core.collection.ColumnCollection'>,
+        collection: collection = <class 'tascpy.core.collection.ColumnCollection'>,
+        column: collection = <class 'tascpy.core.collection.ColumnCollection'>,
         expression: str,
         **kwargs
     ) -> Union[list[Optional[float]], ndarray]:
@@ -1323,6 +1240,24 @@ Returns:
         columns: Optional[list[str]] = None
     ) -> "CoordinateCollectionOperations":
         """指定した列の値に基づいてデータを内挿します"""
+        ...
+    
+
+    def test_filter(
+        self,
+        column_name,
+        value
+    ) -> Any:
+        """テスト用フィルタリング操作"""
+        ...
+    
+
+    def add_derived_column(
+        self,
+        formula,
+        output_column
+    ) -> Any:
+        """数式に基づいて派生列を追加"""
         ...
     
 
