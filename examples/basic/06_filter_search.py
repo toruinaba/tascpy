@@ -141,7 +141,8 @@ print()
 
 print("4. 値の範囲による検索")
 # 値の範囲で検索 - チェーンメソッド使用
-indices = ops.search_by_range("Displacement1", min_val=0.1, max_val=0.5)
+indices = ops.search_by_range("Displacement1", min_value=0.1, max_value=0.5)
+if isinstance(indices, tuple): indices = indices[0]
 result = ops.select(indices=indices).end()
 print(f"Displacement1が0.1～0.5の範囲の行: {len(result)}行")
 print(f"  Displacement1値: {result['Displacement1'].values}")
@@ -150,7 +151,8 @@ print()
 
 print("5. ステップ値の範囲による検索")
 # ステップ値の範囲で検索 - チェーンメソッド使用
-indices = ops.search_by_step_range(min=3, max_val=6)
+indices = ops.search_by_step_range(min=3, max=6)
+if isinstance(indices, tuple): indices = indices[0]
 result = ops.select(indices=indices).end()
 print(f"ステップ3～6の行: {len(result)}行")
 print(f"  ステップ値: {result.step.values}")
@@ -180,7 +182,8 @@ def condition_func(row):
 
 
 # 条件関数を使用したチェーンメソッド
-indices = ops.search_by_condition(condition=condition_func)
+indices = ops.search_by_condition(condition_func=condition_func)
+if isinstance(indices, tuple): indices = indices[0]
 result = ops.select(indices=indices).end()
 print(f"Force1>2.0かつDisplacement1<0.5の行: {len(result)}行")
 print(f"  Force1値: {result['Force1'].values}")
@@ -208,7 +211,8 @@ def date_condition(row):
 
 
 # 複数の操作を一つのチェーンメソッドで実行
-indices = ops.search_by_condition(condition=date_condition)
+indices = ops.search_by_condition(condition_func=date_condition)
+if isinstance(indices, tuple): indices = indices[0]
 result = (
     ops.select(indices=indices)
     .select(steps=list(range(3, 11)))  # ステップ3から10を選択
@@ -223,6 +227,7 @@ print()
 print("9. 上位N件の検索")
 # Force1の上位3件を検索 - チェーンメソッド使用
 indices = ops.search_top_n("Force1", n=3)
+if isinstance(indices, tuple): indices = indices[0]
 result = ops.select(indices=indices).end()
 print(f"Force1が最大の上位3件:")
 for i in range(len(result)):
@@ -234,7 +239,8 @@ print()
 
 print("10. Noneの処理と複合検索の組み合わせ")
 # Noneを含む行を検索し、別の操作と組み合わせる
-indices = ops.search_missing_values(["Force1"])
+indices = ops.search_missing_values(columns=["Force1"])
+if isinstance(indices, tuple): indices = indices[0]
 result = ops.select(indices=indices).end()  # Force1がNoneの行を検索
 print(f"Force1がNoneの行: {len(result)}行")
 print(f"  ステップ値: {result.step.values}")
