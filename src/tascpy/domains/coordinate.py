@@ -153,6 +153,11 @@ class CoordinateCollection(ColumnCollection):
             return CoordinateCollectionOperations(self, domain="coordinate")  # type: ignore
         else:
             return CollectionOperations(self, domain=self.domain)
+    @property
+    def plot(self):
+        """可視化プロキシクラスを返す"""
+        from ..visualization.coordinate.plotter import CoordinatePlotter
+        return CoordinatePlotter(self)
 
     @property
     def coordinate_metadata_key(self) -> str:

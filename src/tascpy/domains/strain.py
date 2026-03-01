@@ -80,6 +80,12 @@ class StrainCollection(CoordinateCollection):
              return CollectionOperations(self, domain=self.domain)
 
     @property
+    def plot(self):
+        """可視化プロキシクラスを返す"""
+        from ..visualization.strain.plotter import StrainPlotter
+        return StrainPlotter(self)
+
+    @property
     def rosette_metadata_key(self) -> str:
         """ロゼットデータが格納されるメタデータのキーを返す"""
         return self.metadata.get("strain_domain", {}).get(

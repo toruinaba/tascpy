@@ -2,7 +2,6 @@ from .registry import operation, OperationRegistry
 
 from .core import filters
 from .core import math
-from .core import plot
 from .core import interpolate
 from .core import stats  # 統計処理機能を追加
 

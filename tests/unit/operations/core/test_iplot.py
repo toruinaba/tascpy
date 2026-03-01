@@ -2,7 +2,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import numpy as np
-from tascpy.operations.core.plot import iplot
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 
@@ -29,7 +28,7 @@ class TestIPlot:
         mock_plotly_plot.return_value = mock_fig
         
         # iplot呼び出し
-        result = iplot(sample_collection, y_column="y1", x_column="x")
+        result = sample_collection.plot.iplot(y_column="y1", x_column="x")
         
         # 検証
         mock_plotly_plot.assert_called_once()
@@ -54,7 +53,7 @@ class TestIPlot:
     @patch("tascpy.visualization.backend_plotly.plot")
     def test_iplot_kwargs(self, mock_plotly_plot, sample_collection):
         """キーワード引数がbackend_plotly.plotに渡されることを確認"""
-        iplot(sample_collection, y_column="y1", x_column="x", plot_type="line", color="red")
+        sample_collection.plot.iplot(y_column="y1", x_column="x", plot_type="line", color="red")
         
         args, kwargs = mock_plotly_plot.call_args
         assert kwargs.get("plot_type") == "line"
@@ -66,11 +65,11 @@ class TestIPlot:
         # 1. 自動抽出 (Y1 Values [kg] -> Y1 Values)
         # Note: functional_plot may extract name, but here we just check if it gets passed.
         # functional_plot.iplot extracts name from y_label if not provided. This is in functional layer.
-        iplot(sample_collection, y_column="y1", x_column="x")
+        sample_collection.plot.iplot(y_column="y1", x_column="x")
         args, kwargs = mock_plotly_plot.call_args
         assert kwargs.get("name") == "Y1 Values"
         
         # 2. 明示的指定
-        iplot(sample_collection, y_column="y1", x_column="x", name="Custom Name")
+        sample_collection.plot.iplot(y_column="y1", x_column="x", name="Custom Name")
         args, kwargs = mock_plotly_plot.call_args
         assert kwargs.get("name") == "Custom Name"

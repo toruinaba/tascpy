@@ -195,6 +195,19 @@ class LoadDisplacementCollection(ColumnCollection):
             return LoadDisplacementCollectionOperations(self, domain="load_displacement")  # type: ignore
         else:
             return CollectionOperations(self, domain=self.domain)
+            
+    @property
+    def plot(self):
+        """荷重-変位データの可視化プロキシクラスを返す
+        
+        Returns:
+            LoadDisplacementPlotter: 荷重-変位用の可視化機能を提供するPlotter
+        """
+        if not hasattr(self, "_plotter"):
+            from tascpy.visualization.load_displacement.plotter import LoadDisplacementPlotter
+            
+            self._plotter = LoadDisplacementPlotter(self)
+        return self._plotter
 
     @property
     def load_column(self) -> str:

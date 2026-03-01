@@ -16,14 +16,6 @@ from matplotlib.collections import PathCollection
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.operations.load_displacement.plot import (
-    plot_load_displacement,
-    plot_yield_point,
-    plot_yield_analysis_details,
-    compare_yield_methods,
-    plot_skeleton_curve,
-    plot_cumulative_curve,
-)
 from tascpy.operations.load_displacement.analysis import find_yield_point
 from tascpy.operations.load_displacement.curves import (
     create_skeleton_curve,
@@ -151,7 +143,7 @@ class TestPlotLoadDisplacement:
     def test_basic_plot(self, sample_load_displacement_data):
         """基本的なプロット機能のテスト"""
         # 関数の戻り値は LoadDisplacementCollection のみ
-        result_collection = plot_load_displacement(sample_load_displacement_data)
+        result_collection = sample_load_displacement_data.plot()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -170,9 +162,7 @@ class TestPlotLoadDisplacement:
     def test_custom_axis(self, sample_load_displacement_data):
         """カスタム軸へのプロット機能のテスト"""
         custom_fig, custom_ax = plt.subplots()
-        result_collection = plot_load_displacement(
-            sample_load_displacement_data, ax=custom_ax
-        )
+        result_collection = sample_load_displacement_data.plot(ax=custom_ax)
 
         fig = custom_ax.figure
         ax = custom_ax
@@ -184,8 +174,7 @@ class TestPlotLoadDisplacement:
 
     def test_with_kwargs(self, sample_load_displacement_data):
         """追加のキーワード引数が適用されるかのテスト"""
-        result_collection = plot_load_displacement(
-            sample_load_displacement_data,
+        result_collection = sample_load_displacement_data.plot(
             color="red",
             linestyle="--",
             marker="o",
@@ -210,7 +199,7 @@ class TestPlotSkeletonCurve:
 
     def test_skeleton_curve_from_columns(self, sample_with_skeleton_curve_columns):
         """列からスケルトン曲線をプロットするテスト（旧形式）"""
-        result_collection = plot_skeleton_curve(sample_with_skeleton_curve_columns)
+        result_collection = sample_with_skeleton_curve_columns.plot.plot_skeleton_curve()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -234,7 +223,7 @@ class TestPlotSkeletonCurve:
 
     def test_skeleton_curve_from_metadata(self, sample_with_skeleton_curve_metadata):
         """メタデータからスケルトン曲線をプロットするテスト（新形式）"""
-        result_collection = plot_skeleton_curve(sample_with_skeleton_curve_metadata)
+        result_collection = sample_with_skeleton_curve_metadata.plot.plot_skeleton_curve()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -257,8 +246,8 @@ class TestPlotSkeletonCurve:
 
     def test_skeleton_curve_without_original(self, sample_with_skeleton_curve_metadata):
         """元データなしでスケルトン曲線のみをプロットするテスト"""
-        result_collection = plot_skeleton_curve(
-            sample_with_skeleton_curve_metadata, plot_original=False
+        result_collection = sample_with_skeleton_curve_metadata.plot.plot_skeleton_curve(
+            plot_original=False
         )
 
         # 現在のaxとfigureを取得
@@ -279,8 +268,8 @@ class TestPlotSkeletonCurve:
             "label": "Custom Skeleton",
         }
 
-        result_collection = plot_skeleton_curve(
-            sample_with_skeleton_curve_metadata, skeleton_kwargs=skeleton_kwargs
+        result_collection = sample_with_skeleton_curve_metadata.plot.plot_skeleton_curve(
+            skeleton_kwargs=skeleton_kwargs
         )
 
         # 現在のaxとfigureを取得
@@ -303,7 +292,7 @@ class TestPlotCumulativeCurve:
 
     def test_cumulative_curve_from_columns(self, sample_with_cumulative_curve_columns):
         """列から累積曲線をプロットするテスト（旧形式）"""
-        result_collection = plot_cumulative_curve(sample_with_cumulative_curve_columns)
+        result_collection = sample_with_cumulative_curve_columns.plot.plot_cumulative_curve()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -329,7 +318,7 @@ class TestPlotCumulativeCurve:
         self, sample_with_cumulative_curve_metadata
     ):
         """メタデータから累積曲線をプロットするテスト（新形式）"""
-        result_collection = plot_cumulative_curve(sample_with_cumulative_curve_metadata)
+        result_collection = sample_with_cumulative_curve_metadata.plot.plot_cumulative_curve()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -354,8 +343,8 @@ class TestPlotCumulativeCurve:
         self, sample_with_cumulative_curve_metadata
     ):
         """元データなしで累積曲線のみをプロットするテスト"""
-        result_collection = plot_cumulative_curve(
-            sample_with_cumulative_curve_metadata, plot_original=False
+        result_collection = sample_with_cumulative_curve_metadata.plot.plot_cumulative_curve(
+            plot_original=False
         )
 
         # 現在のaxとfigureを取得
@@ -376,8 +365,8 @@ class TestPlotCumulativeCurve:
             "label": "Custom Cumulative",
         }
 
-        result_collection = plot_cumulative_curve(
-            sample_with_cumulative_curve_metadata, cumulative_kwargs=cumulative_kwargs
+        result_collection = sample_with_cumulative_curve_metadata.plot.plot_cumulative_curve(
+            cumulative_kwargs=cumulative_kwargs
         )
 
         # 現在のaxとfigureを取得
@@ -400,7 +389,7 @@ class TestPlotYieldPoint:
 
     def test_yield_point_visualization(self, sample_with_yield_point):
         """降伏点の可視化テスト"""
-        result_collection = plot_yield_point(sample_with_yield_point)
+        result_collection = sample_with_yield_point.plot.plot_yield_point()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -421,8 +410,8 @@ class TestPlotYieldPoint:
 
     def test_without_original_data(self, sample_with_yield_point):
         """元データをプロットせずに降伏点のみ表示するテスト"""
-        result_collection = plot_yield_point(
-            sample_with_yield_point, plot_original_data=False
+        result_collection = sample_with_yield_point.plot.plot_yield_point(
+            plot_original_data=False
         )
 
         # 現在のaxとfigureを取得
@@ -450,7 +439,7 @@ class TestPlotYieldPoint:
             sample_load_displacement_data, method="general", factor=0.33
         )
 
-        result_collection = plot_yield_point(general_result)
+        result_collection = general_result.plot.plot_yield_point()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -472,7 +461,7 @@ class TestPlotYieldAnalysisDetails:
 
     def test_analysis_details(self, sample_with_yield_point):
         """降伏点解析詳細表示のテスト"""
-        result_collection = plot_yield_analysis_details(sample_with_yield_point)
+        result_collection = sample_with_yield_point.plot.plot_yield_analysis_details()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -502,7 +491,7 @@ class TestPlotYieldAnalysisDetails:
         with pytest.raises(
             ValueError, match="コレクションに降伏点の解析結果が含まれていません"
         ):
-            plot_yield_analysis_details(sample_load_displacement_data)
+            sample_load_displacement_data.plot.plot_yield_analysis_details()
 
 
 class TestCompareYieldMethods:
@@ -524,8 +513,8 @@ class TestCompareYieldMethods:
             {"method": "general", "factor": 0.33, "result_prefix": "yield_general"},
         ]
 
-        result_collection = compare_yield_methods(
-            sample_load_displacement_data, methods=methods
+        result_collection = sample_load_displacement_data.plot.compare_yield_methods(
+            methods=methods
         )
 
         # 現在のaxとfigureを取得
@@ -547,7 +536,7 @@ class TestCompareYieldMethods:
 
     def test_default_methods(self, sample_load_displacement_data):
         """デフォルトメソッドを使用したテスト"""
-        result_collection = compare_yield_methods(sample_load_displacement_data)
+        result_collection = sample_load_displacement_data.plot.compare_yield_methods()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()

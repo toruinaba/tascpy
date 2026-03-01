@@ -19,9 +19,18 @@ cycle_count = resolve_load_column(register_functional(
     store_result={"result_naming": "{0}_cycle"},
     signature_override={
         "data": ("column", float),
-        "step": (float, 0.5)
     }
 ))
+cycle_count.__doc__ = """荷重データの符号反転に基づいてサイクルをカウントします
+
+    Args:
+        collection (LoadDisplacementCollection): 荷重-変位コレクション
+        data (str, optional): 荷重データのカラム名（None時はメタデータから解決）
+        step (float, optional): ノイズ除去のための変化判定ステップ幅. Defaults to 0.5.
+        
+    Returns:
+        LoadDisplacementCollection: サイクル番号が追加された新しいコレクション
+"""
 
 
 @operation(domain="load_displacement")
@@ -102,6 +111,18 @@ analyze_hysteresis = register_functional(
         "cycle_marker_column": (str, None)
     }
 )
+analyze_hysteresis.__doc__ = """各サイクルのヒステリシスエネルギー（面積）と最大/最小荷重・変位を計算します
+
+    Args:
+        collection (LoadDisplacementCollection): 荷重-変位コレクション
+        cycle_column (str, optional): サイクル番号のカラム名（None時は自動解決）
+        load_column (str, optional): 荷重データのカラム名（None時は自動解決）
+        displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
+        cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
+        
+    Returns:
+        LoadDisplacementCollection: サイクルごとの統計量を持つ新しいコレクション
+"""
 
 analyze_stiffness_degradation = register_functional(
     compute_stiffness_degradation_stats,
@@ -123,6 +144,18 @@ analyze_stiffness_degradation = register_functional(
         "cycle_marker_column": (str, None)
     }
 )
+analyze_stiffness_degradation.__doc__ = """各サイクルの割線剛性（剛性低下）を評価します
+
+    Args:
+        collection (LoadDisplacementCollection): 荷重-変位コレクション
+        cycle_column (str, optional): サイクル番号のカラム名（None時は自動解決）
+        load_column (str, optional): 荷重データのカラム名（None時は自動解決）
+        displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
+        cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
+        
+    Returns:
+        LoadDisplacementCollection: サイクルごとの割線剛性を持つ新しいコレクション
+"""
 
 
 from ...functional.load_displacement.cycles import compute_peaks_and_valleys
@@ -139,3 +172,15 @@ find_peaks_and_valleys = resolve_load_column(register_functional(
         "prominence": (float, None),
     }
 ))
+find_peaks_and_valleys.__doc__ = """荷重データのピーク（極大値）とバレー（極小値）を検出します
+
+    Args:
+        collection (LoadDisplacementCollection): 荷重-変位コレクション
+        data (str, optional): 荷重データのカラム名（None時は自動解決）
+        distance (int, optional): 隣接するピーク間の最小距離. Defaults to 1.
+        threshold (float, optional): ピークとして認識するための閾値
+        prominence (float, optional): 周囲からの最低の突出度
+        
+    Returns:
+        LoadDisplacementCollection: ピーク（1）、バレー（-1）、その他（0）を示すマーカーカラムが追加された新しいコレクション
+"""

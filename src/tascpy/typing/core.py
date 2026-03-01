@@ -266,61 +266,6 @@ Returns:
         ...
     
 
-    def plot(
-        self,
-        y_column: str,
-        x_column: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """基本的なプロットを行います"""
-        ...
-    
-
-    def visualize_outliers(
-        self,
-        column: str,
-        x_column: Optional[str] = None,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        highlight_color: str = 'red',
-        plot_type: str = 'scatter',
-        show_normal: bool = True,
-        normal_color: str = 'blue',
-        normal_alpha: float = 0.5,
-        outlier_marker: str = 'o',
-        outlier_size: int = 50,
-        ax: Optional[Axes] = None,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0,
-        **kwargs
-    ) -> Axes:
-        """異常値を検出し可視化します"""
-        ...
-    
-
-    def plot_const_x(
-        self,
-        x_values: list[float],
-        y_columns: list[str],
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """共通のX軸に対して複数のY列をプロットします"""
-        ...
-    
-
-    def iplot(
-        self,
-        y_column: str,
-        x_column: Optional[str] = None,
-        **kwargs
-    ) -> Any:
-        """インタラクティブなプロットを行います（Jupyter用）"""
-        ...
-    
-
     def select(
         self,
         columns: Optional[list[str]] = None,
@@ -561,14 +506,7 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """2つの値または配列を加算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 最初の値または配列。
-    v2 (Union[np.ndarray, float]): 2番目の値または配列。
-
-Returns:
-    np.ndarray: 加算結果。"""
+        """複数カラムの要素ごとの和を計算します"""
         ...
     
 
@@ -577,14 +515,7 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """v1 から v2 を減算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 最初の値または配列。
-    v2 (Union[np.ndarray, float]): 引く値または配列。
-
-Returns:
-    np.ndarray: 減算結果。"""
+        """第一カラムから第二カラムの要素ごとの差を計算します"""
         ...
     
 
@@ -593,14 +524,7 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """2つの値または配列を乗算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 最初の値または配列。
-    v2 (Union[np.ndarray, float]): 2番目の値または配列。
-
-Returns:
-    np.ndarray: 乗算結果。"""
+        """複数カラムの要素ごとの積を計算します"""
         ...
     
 
@@ -610,15 +534,7 @@ Returns:
         v2: Union[ndarray, float],
         **kwargs
     ) -> ndarray:
-        """v1 を v2 で除算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 分子となる値または配列。
-    v2 (Union[np.ndarray, float]): 分母となる値または配列。
-    **kwargs: 任意の追加引数。
-
-Returns:
-    np.ndarray: 除算結果。"""
+        """第一カラムを第二カラムで要素ごとに除算します"""
         ...
     
 
@@ -631,18 +547,16 @@ Returns:
         x: Union[ndarray, list[float]],
         method: str = 'central'
     ) -> ndarray:
-        """x, y座標から微分係数を計算します。
+        """データ系列の離散微分 (dy/dx) を計算します
 
 Args:
-    y (Union[np.ndarray, List[float]]): y座標の配列。
-    x (Union[np.ndarray, List[float]]): x座標の配列。
-    method (str, optional): 微分方法 ('central', 'forward', 'backward')。デフォルトは "central"。
-
+    collection (ColumnCollection): データコレクション
+    y_column (str): Y軸データとなるカラム名
+    x_column (str): X軸データとなるカラム名
+    method (str, optional): 微分手法 ("forward", "backward", "central"). Defaults to "central".
+    
 Returns:
-    np.ndarray: 計算された微分係数の配列。
-
-Raises:
-    ValueError: xとyの長さが異なる場合、またはデータ点が2点未満の場合、または無効なメソッドが指定された場合。"""
+    ColumnCollection: 微分値カラムが追加された新しいコレクション"""
         ...
     
 
@@ -650,26 +564,24 @@ Raises:
         self,
         y: y_values = <class 'numpy.ndarray'>,
         x: x_values = <class 'numpy.ndarray'>,
-        method: str = 'trapezoid',
+        method: str = 'trapezoidal',
         initial_value: float = 0.0,
         column: y_values = <class 'numpy.ndarray'>,
         x: Union[ndarray, list[float]],
         method: str = 'trapezoid',
         initial_value: float = 0.0
     ) -> ndarray:
-        """xに対するyの積分を計算します。
+        """データ系列の離散積分 (∫ y dx) を計算します
 
 Args:
-    y (Union[np.ndarray, List[float]]): y座標の配列。
-    x (Union[np.ndarray, List[float]]): x座標の配列。
-    method (str, optional): 積分方法。現在は "trapezoid" (台形則) のみサポート。デフォルトは "trapezoid"。
-    initial_value (float, optional): 積分初期値。デフォルトは 0.0。
-
+    collection (ColumnCollection): データコレクション
+    y_column (str): Y軸データとなるカラム名
+    x_column (str): X軸データとなるカラム名
+    method (str, optional): 積分手法 ("trapezoidal", "cumulative_sum"). Defaults to "trapezoidal".
+    initial_value (float, optional): 積分定数 (初期値). Defaults to 0.0.
+    
 Returns:
-    np.ndarray: 計算された積分の配列（累積和）。
-
-Raises:
-    ValueError: サポートされていないメソッドが指定された場合、またはxとyの長さが異なる場合。"""
+    ColumnCollection: 積分値カラムが追加された新しいコレクション"""
         ...
     
 
@@ -872,7 +784,16 @@ Raises:
         window_size: int = 3,
         edge_handling = 'asymmetric'
     ) -> "CollectionListOperations[CoreCollectionOperations]":
-        """"""
+        """指定されたウィンドウサイズで移動平均を計算します
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    window_size (int, optional): 移動平均のウィンドウサイズ. Defaults to 3.
+    edge_handling (str, optional): 端の処理方法 ("asymmetric", "symmetric", "constant", "mirror", "wrap"). Defaults to "asymmetric".
+    
+Returns:
+    ColumnCollection: 移動平均値が追加された新しいコレクション"""
         ...
     
 
@@ -891,23 +812,19 @@ Raises:
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
     ) -> list[int]:
-        """移動平均を使用して外れ値を検出します。
-
-移動平均からの偏差率が閾値を超える場合を外れ値とみなします。
+        """異常値を検出します
 
 Args:
-    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
-    window_size (int, optional): 移動平均のウィンドウサイズ。デフォルトは 3。
-    threshold (float, optional): 外れ値判定の閾値（偏差率）。デフォルトは 0.5。
-    edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
-    min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
-    scale_factor (float, optional): 基準値（標準偏差等）のスケーリング係数。デフォルトは 1.0。
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    window_size (int, optional): 移動平均などのウィンドウサイズ. Defaults to 3.
+    threshold (float, optional): 異常と判定する閾値. Defaults to 0.5.
+    edge_handling (str, optional): 端の処理方法. Defaults to "asymmetric".
+    min_abs_value (float, optional): ゼロ除算を防ぐための最小絶対値. Defaults to 1e-10.
+    scale_factor (float, optional): スケールファクタ. Defaults to 1.0.
 
 Returns:
-    List[int]: 外れ値フラグのリスト（0: 正常, 1: 外れ値）。
-
-Raises:
-    ValueError: 無効な引数、または有効なデータが存在しない場合。"""
+    ColumnCollection: 異常値フラグが追加された新しいコレクション"""
         ...
     
 
@@ -920,20 +837,16 @@ Raises:
         sigma: float = 1.0,
         window_size: Optional[int] = None
     ) -> Any:
-        """ガウシアンフィルタを適用して平滑化を行います。
-
-欠損値は無視して畳み込み計算を行います。
+        """ガウシアンフィルターを適用します
 
 Args:
-    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
-    sigma (float, optional): ガウス分布の標準偏差。デフォルトは 1.0。
-    window_size (Optional[int], optional): フィルタのウィンドウサイズ。指定しない場合は sigma から自動計算されます。
-
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    sigma (float, optional): ガウス関数の標準偏差. Defaults to 1.0.
+    window_size (Optional[int], optional): ウィンドウサイズ. Defaults to None.
+    
 Returns:
-    Any: 平滑化後の配列（NumPy配列）。
-
-Raises:
-    ValueError: ウィンドウサイズが1未満の場合。"""
+    ColumnCollection: フィルター処理後の値が追加された新しいコレクション"""
         ...
     
 
@@ -941,13 +854,7 @@ Raises:
         self,
         column: str
     ) -> float:
-        """最大値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 最大値。"""
+        """カラムの最大値を計算します"""
         ...
     
 
@@ -955,13 +862,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """最小値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 最小値。"""
+        """カラムの最小値を計算します"""
         ...
     
 
@@ -969,13 +870,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """平均値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 平均値。"""
+        """カラムの平均値を計算します"""
         ...
     
 
@@ -983,13 +878,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """標準偏差を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 標準偏差。"""
+        """カラムの標準偏差を計算します"""
         ...
     
 
@@ -997,13 +886,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """合計値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 合計値。"""
+        """カラムの合計値を計算します"""
         ...
     
 

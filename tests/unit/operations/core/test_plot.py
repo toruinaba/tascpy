@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import patch, MagicMock
 import matplotlib.pyplot as plt
 
-from tascpy.operations.core.plot import plot, visualize_outliers
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 import numpy as np
@@ -37,7 +36,7 @@ class TestPlot:
         # plot関数を呼び出す
         # backend_mpl.plot defaults to "line" unless plot_type="scatter" is passed.
         # But this test expects scatter.
-        result = plot(sample_collection, y_column="y1", x_column="x", plot_type="scatter")
+        result = sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="scatter")
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         mock_ax.scatter.assert_called_once()
@@ -59,7 +58,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す
-        result = plot(sample_collection, y_column="y1", x_column="x", plot_type="line")
+        result = sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="line")
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         mock_ax.plot.assert_called_once()
@@ -78,7 +77,7 @@ class TestPlot:
         mock_ax = MagicMock()
 
         # plot関数を呼び出す
-        result = plot(sample_collection, y_column="y1", x_column="x", ax=mock_ax, plot_type="scatter")
+        result = sample_collection.plot.plot(y_column="y1", x_column="x", ax=mock_ax, plot_type="scatter")
 
         # 検証: 新しいサブプロットを作らず、既存のaxesオブジェクトが使用されるか
         mock_ax.scatter.assert_called_once()
@@ -89,16 +88,6 @@ class TestPlot:
 
         # Axesオブジェクトが返されることを確認
         assert result is mock_ax
-        """既存のAxesオブジェクトを使用する機能が正しく動作することを確認"""
-        # 既存のAxesオブジェクトをモックで作成
-        mock_ax = MagicMock()
-
-        # plot関数を呼び出す
-        result = plot(sample_collection, y_column="y1", x_column="x", ax=mock_ax, plot_type="scatter")
-
-        # 検証: 新しいサブプロットを作らず、既存のaxesオブジェクトが使用されるか
-        mock_ax.scatter.assert_called_once()
-        mock_ax.set_xlabel.assert_called_with("X Values [m]")
         mock_ax.set_ylabel.assert_called_with("Y1 Values [kg]")
         # 既存のAxesオブジェクトを使用する場合はplt.showは呼ばれない
         mock_show.assert_not_called()
@@ -116,7 +105,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # 追加のキーワード引数を持つplot関数の呼び出し
-        plot(sample_collection, y_column="y1", x_column="x", plot_type="scatter", color="red", marker="o", s=100)
+        sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="scatter", color="red", marker="o", s=100)
 
         # 検証: キーワード引数が正しく渡されたか
         args, kwargs = mock_ax.scatter.call_args
@@ -128,11 +117,11 @@ class TestPlot:
         """存在しない列名を指定した場合にKeyErrorが発生することを確認"""
         # 存在しないx列
         with pytest.raises(KeyError, match="列 'nonexistent_x' は存在しません"):
-            plot(sample_collection, y_column="y1", x_column="nonexistent_x")
+            sample_collection.plot.plot(y_column="y1", x_column="nonexistent_x")
 
         # 存在しないy列
         with pytest.raises(KeyError, match="列 'nonexistent_y' は存在しません"):
-            plot(sample_collection, y_column="nonexistent_y", x_column="x")
+            sample_collection.plot.plot(y_column="nonexistent_y", x_column="x")
 
     @patch("matplotlib.pyplot.subplots")
     def test_invalid_plot_type(self, mock_subplots, sample_collection):
@@ -143,7 +132,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # 無効なプロットタイプでの呼び出し - エラーにならずline plotとして描画される
-        plot(sample_collection, y_column="y1", x_column="x", plot_type="invalid_type")
+        sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="invalid_type")
         
         # エラーが発生しなければOK、かつplotが呼ばれているはず
         mock_ax.plot.assert_called()
@@ -158,14 +147,14 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す
-        plot(sample_collection, y_column="y1", x_column="x", plot_type="scatter")
+        sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="scatter")
 
         # 検証: タイトルが正しく設定されたか
         mock_ax.set_title.assert_called_with("Y1 Values vs X Values")
 
         # 線グラフでも確認
         mock_ax.reset_mock()
-        plot(sample_collection, y_column="y2", x_column="x", plot_type="line")
+        sample_collection.plot.plot(y_column="y2", x_column="x", plot_type="line")
         mock_ax.set_title.assert_called_with("Y2 Values vs X Values")
 
     @patch("matplotlib.pyplot.show")
@@ -178,7 +167,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す（x_column=None）
-        result = plot(sample_collection, y_column="y1", x_column=None, plot_type="scatter")
+        result = sample_collection.plot.plot(y_column="y1", x_column=None, plot_type="scatter")
 
         # 検証: stepがx軸として使われ、適切なラベルが設定されるか
         mock_ax.scatter.assert_called_once()
@@ -204,7 +193,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す（y_column=None）
-        result = plot(sample_collection, y_column=None, x_column="x", plot_type="scatter")
+        result = sample_collection.plot.plot(y_column=None, x_column="x", plot_type="scatter")
 
         # 検証: stepがy軸として使われ、適切なラベルが設定されるか
         mock_ax.scatter.assert_called_once()
@@ -230,7 +219,7 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す（x_column=None, y_column=None）
-        result = plot(sample_collection, y_column=None, x_column=None, plot_type="scatter")
+        result = sample_collection.plot.plot(y_column=None, x_column=None, plot_type="scatter")
 
         # 検証: 両軸にstepが使われ、適切なラベルが設定されるか
         mock_ax.scatter.assert_called_once()
@@ -267,7 +256,7 @@ class TestVisualizeOutliers:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # visualize_outliers関数を呼び出す
-        result = visualize_outliers(sample_collection, "y1")
+        result = sample_collection.plot.visualize_outliers(column="y1")
 
         # 検証: detect_outliers が呼ばれたか
         mock_detect_outliers.assert_called_once()
@@ -304,7 +293,7 @@ class TestVisualizeOutliers:
         mock_ax = MagicMock()
 
         # visualize_outliers関数を呼び出す
-        result = visualize_outliers(sample_collection, "y1", ax=mock_ax)
+        result = sample_collection.plot.visualize_outliers(column="y1", ax=mock_ax)
 
         # 検証: 既存のaxesオブジェクトが使用されるか
         assert mock_ax.scatter.call_count >= 1
@@ -334,7 +323,7 @@ class TestVisualizeOutliers:
 
         # visualize_outliers関数を呼び出す（異常値なし）
         with patch("builtins.print") as mock_print:
-            result = visualize_outliers(sample_collection, "y1")
+            result = sample_collection.plot.visualize_outliers(column="y1")
 
             # 検証: 異常値がない旨のメッセージが出力されたか
             mock_print.assert_any_call("visualize_outliers: 異常値は検出されませんでした")
@@ -361,9 +350,8 @@ class TestVisualizeOutliers:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # カスタムパラメータを指定してvisualize_outliers関数を呼び出す
-        result = visualize_outliers(
-            sample_collection,
-            "y1",
+        result = sample_collection.plot.visualize_outliers(
+            column="y1",
             window_size=5,
             threshold=0.3,
             highlight_color="red",
@@ -385,7 +373,7 @@ class TestVisualizeOutliers:
         assert result is mock_ax
 
 
-from tascpy.operations.core.plot import plot_const_x
+
 
 class TestPlotConstX:
     """plot_const_x関数のテスト"""
@@ -402,7 +390,7 @@ class TestPlotConstX:
         # y1[0]=10, y2[0]=100
 
         # Call
-        result = plot_const_x(sample_collection, x_values=x_values, y_columns=y_columns)
+        result = sample_collection.plot.plot_const_x(x_values=x_values, y_columns=y_columns)
 
         # Verify inject_columns extracted values passed to plot
         mock_plot.assert_called_once()
@@ -424,4 +412,4 @@ class TestPlotConstX:
         y_columns = ["y1", "y2"] # len 2
         
         with pytest.raises(ValueError, match="一致しません"):
-             plot_const_x(sample_collection, x_values=x_values, y_columns=y_columns)
+             sample_collection.plot.plot_const_x(x_values=x_values, y_columns=y_columns)

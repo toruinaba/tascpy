@@ -20,15 +20,6 @@ from tascpy.operations.load_displacement.curves import (
     create_skeleton_curve,
     create_cumulative_curve,
 )
-from tascpy.operations.load_displacement.plot import (
-    plot_load_displacement,
-    plot_yield_point,
-    plot_yield_analysis_details,
-    compare_yield_methods,
-    plot_skeleton_curve,
-    plot_cumulative_curve,
-    plot_multiple_curves,
-)
 
 
 @pytest.fixture
@@ -149,28 +140,49 @@ class TestLoadDisplacementPlotFunctional:
         )
 
         # 基本的な荷重-変位プロット
-        plot_load_displacement(load_displacement_data)
+        load_displacement_data.plot()
         fig1 = plt.gcf()
         basic_plot_path = Path(self.temp_dir) / "basic_plot.png"
         fig1.savefig(basic_plot_path)
         plt.close(fig1)
 
         # オフセット法による降伏点プロット
-        plot_yield_point(offset_result)
+        # 解析結果から値を抽出して渡す
+        offset_yp = offset_result.results["yield_point"]
+        load_displacement_data.plot.plot_yield_point(
+            yield_disp=offset_yp.x,
+            yield_load=offset_yp.y,
+            yield_method=offset_yp.metadata["method"],
+            initial_slope=offset_yp.metadata["initial_slope"],
+            yield_parameters=offset_yp.metadata.get("parameters", {})
+        )
         fig2 = plt.gcf()
         offset_plot_path = Path(self.temp_dir) / "offset_yield_plot.png"
         fig2.savefig(offset_plot_path)
         plt.close(fig2)
 
         # 一般降伏法による降伏点プロット
-        plot_yield_point(general_result)
+        general_yp = general_result.results["yield_point"]
+        load_displacement_data.plot.plot_yield_point(
+            yield_disp=general_yp.x,
+            yield_load=general_yp.y,
+            yield_method=general_yp.metadata["method"],
+            initial_slope=general_yp.metadata["initial_slope"],
+            yield_parameters=general_yp.metadata.get("parameters", {})
+        )
         fig3 = plt.gcf()
         general_plot_path = Path(self.temp_dir) / "general_yield_plot.png"
         fig3.savefig(general_plot_path)
         plt.close(fig3)
 
         # 詳細解析情報プロット
-        plot_yield_analysis_details(offset_result)
+        load_displacement_data.plot.plot_yield_analysis_details(
+            yield_disp=offset_yp.x,
+            yield_load=offset_yp.y,
+            yield_method=offset_yp.metadata["method"],
+            initial_slope=offset_yp.metadata["initial_slope"],
+            yield_parameters=offset_yp.metadata.get("parameters", {})
+        )
         fig4 = plt.gcf()
         details_plot_path = Path(self.temp_dir) / "yield_analysis_details.png"
         fig4.savefig(details_plot_path)
@@ -191,7 +203,7 @@ class TestLoadDisplacementPlotFunctional:
             {"method": "general", "factor": 0.33, "result_prefix": "yield_general"},
         ]
 
-        compare_yield_methods(load_displacement_data, methods=methods)
+        load_displacement_data.plot.compare_yield_methods(methods=methods)
         fig5 = plt.gcf()
         comparison_plot_path = Path(self.temp_dir) / "yield_methods_comparison.png"
         fig5.savefig(comparison_plot_path)
@@ -218,8 +230,7 @@ class TestLoadDisplacementPlotFunctional:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
         # 基本的な荷重-変位プロットをカスタマイズ
-        plot_load_displacement(
-            load_displacement_data,
+        load_displacement_data.plot(
             ax=ax1,
             color="blue",
             marker="o",
@@ -241,8 +252,14 @@ class TestLoadDisplacementPlotFunctional:
         )
 
         # カスタマイズされた降伏点プロット
-        plot_yield_analysis_details(
-            custom_result, ax=ax2, color="green", marker="s", linestyle="-."
+        custom_yp = custom_result.results["yield_point"]
+        load_displacement_data.plot.plot_yield_analysis_details(
+            yield_disp=custom_yp.x,
+            yield_load=custom_yp.y,
+            yield_method=custom_yp.metadata["method"],
+            initial_slope=custom_yp.metadata["initial_slope"],
+            yield_parameters=custom_yp.metadata.get("parameters", {}),
+            ax=ax2, color="green", marker="s", linestyle="-."
         )
         ax2.set_title("Custom Yield Analysis")
 
@@ -295,16 +312,40 @@ class TestLoadDisplacementPlotFunctional:
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
         # 基本プロットと各降伏点解析の表示
-        plot_load_displacement(load_displacement_data, ax=axs[0, 0])
+        load_displacement_data.plot(ax=axs[0, 0])
         axs[0, 0].set_title("Raw Load-Displacement Data")
 
-        plot_yield_analysis_details(offset_small, ax=axs[0, 1])
+        offset_small_yp = offset_small.results["yield_point"]
+        load_displacement_data.plot.plot_yield_analysis_details(
+            yield_disp=offset_small_yp.x,
+            yield_load=offset_small_yp.y,
+            yield_method=offset_small_yp.metadata["method"],
+            initial_slope=offset_small_yp.metadata["initial_slope"],
+            yield_parameters=offset_small_yp.metadata.get("parameters", {}),
+            ax=axs[0, 1]
+        )
         axs[0, 1].set_title("Offset Method (0.1% Strain)")
 
-        plot_yield_analysis_details(offset_standard, ax=axs[1, 0])
+        offset_std_yp = offset_standard.results["yield_point"]
+        load_displacement_data.plot.plot_yield_analysis_details(
+            yield_disp=offset_std_yp.x,
+            yield_load=offset_std_yp.y,
+            yield_method=offset_std_yp.metadata["method"],
+            initial_slope=offset_std_yp.metadata["initial_slope"],
+            yield_parameters=offset_std_yp.metadata.get("parameters", {}),
+            ax=axs[1, 0]
+        )
         axs[1, 0].set_title("Offset Method (0.2% Strain)")
 
-        plot_yield_analysis_details(general, ax=axs[1, 1])
+        general_yp_int = general.results["yield_point"]
+        load_displacement_data.plot.plot_yield_analysis_details(
+            yield_disp=general_yp_int.x,
+            yield_load=general_yp_int.y,
+            yield_method=general_yp_int.metadata["method"],
+            initial_slope=general_yp_int.metadata["initial_slope"],
+            yield_parameters=general_yp_int.metadata.get("parameters", {}),
+            ax=axs[1, 1]
+        )
         axs[1, 1].set_title("General Yield Method (33% Slope)")
 
         # 全体タイトルの設定
@@ -349,7 +390,12 @@ class TestLoadDisplacementPlotFunctional:
         skeleton_result = create_skeleton_curve(load_displacement_data)
 
         # スケルトン曲線をプロット
-        plot_skeleton_curve(skeleton_result)
+        skeleton_x_data = np.array(skeleton_result.results["skeleton_curve"].to_dict()["data"]["x"])
+        skeleton_y_data = np.array(skeleton_result.results["skeleton_curve"].to_dict()["data"]["y"])
+        skeleton_result.plot.plot_skeleton_curve(
+            skeleton_x=skeleton_x_data,
+            skeleton_y=skeleton_y_data
+        )
         fig1 = plt.gcf()
 
         # プロット結果を保存
@@ -357,8 +403,15 @@ class TestLoadDisplacementPlotFunctional:
         fig1.savefig(skeleton_plot_path)
         plt.close(fig1)
 
-        # 元データを表示せずにプロット
-        plot_skeleton_curve(skeleton_result, plot_original=False)
+        # 元データを表示せずにプロット (plot_originalは廃止されたため複数曲線を駆使する)
+        skeleton_curve_x = skeleton_result.results["skeleton_curve"].to_dict()["data"]["x"]
+        skeleton_curve_y = skeleton_result.results["skeleton_curve"].to_dict()["data"]["y"]
+        # plot_original=False を渡す形式へ
+        skeleton_result.plot.plot_skeleton_curve(
+            skeleton_x=np.array(skeleton_curve_x),
+            skeleton_y=np.array(skeleton_curve_y),
+            plot_original=False
+        )
         fig2 = plt.gcf()
         no_original_path = Path(self.temp_dir) / "skeleton_only_curve.png"
         fig2.savefig(no_original_path)
@@ -379,8 +432,9 @@ class TestLoadDisplacementPlotFunctional:
             "label": "スケルトン曲線",
         }
 
-        plot_skeleton_curve(
-            skeleton_result,
+        skeleton_result.plot.plot_skeleton_curve(
+            skeleton_x=skeleton_x_data,
+            skeleton_y=skeleton_y_data,
             original_kwargs=original_kwargs,
             skeleton_kwargs=skeleton_kwargs,
         )
@@ -408,7 +462,12 @@ class TestLoadDisplacementPlotFunctional:
         cumulative_result = create_cumulative_curve(load_displacement_data)
 
         # 累積曲線をプロット
-        plot_cumulative_curve(cumulative_result)
+        cumulative_x_data = np.array(cumulative_result.results["cumulative_curve"].to_dict()["data"]["x"])
+        cumulative_y_data = np.array(cumulative_result.results["cumulative_curve"].to_dict()["data"]["y"])
+        cumulative_result.plot.plot_cumulative_curve(
+            cumulative_x=cumulative_x_data,
+            cumulative_y=cumulative_y_data
+        )
         fig1 = plt.gcf()
 
         # プロット結果を保存
@@ -416,8 +475,15 @@ class TestLoadDisplacementPlotFunctional:
         fig1.savefig(cumulative_plot_path)
         plt.close(fig1)
 
-        # 元データを表示せずにプロット
-        plot_cumulative_curve(cumulative_result, plot_original=False)
+        # 元データを表示せずにプロット (plot_originalは廃止されたため複数曲線を駆使する)
+        cumulative_curve_x = cumulative_result.results["cumulative_curve"].to_dict()["data"]["x"]
+        cumulative_curve_y = cumulative_result.results["cumulative_curve"].to_dict()["data"]["y"]
+        # plot_original=False を渡す形式へ
+        cumulative_result.plot.plot_cumulative_curve(
+            cumulative_x=np.array(cumulative_curve_x),
+            cumulative_y=np.array(cumulative_curve_y),
+            plot_original=False
+        )
         fig2 = plt.gcf()
         no_original_path = Path(self.temp_dir) / "cumulative_only_curve.png"
         fig2.savefig(no_original_path)
@@ -438,8 +504,9 @@ class TestLoadDisplacementPlotFunctional:
             "label": "累積曲線",
         }
 
-        plot_cumulative_curve(
-            cumulative_result,
+        cumulative_result.plot.plot_cumulative_curve(
+            cumulative_x=cumulative_x_data,
+            cumulative_y=cumulative_y_data,
             original_kwargs=original_kwargs,
             cumulative_kwargs=cumulative_kwargs,
         )
@@ -483,7 +550,7 @@ class TestLoadDisplacementPlotFunctional:
             },
         ]
 
-        plot_multiple_curves(with_both, curves=curves)
+        with_both.plot.plot_multiple_curves(curves=curves)
         fig1 = plt.gcf()
 
         # プロット結果を保存
@@ -503,7 +570,7 @@ class TestLoadDisplacementPlotFunctional:
             },
         ]
 
-        plot_multiple_curves(with_both, curves=selected_curves)
+        with_both.plot.plot_multiple_curves(curves=selected_curves)
         fig2 = plt.gcf()
         selected_plot_path = Path(self.temp_dir) / "selected_curves.png"
         fig2.savefig(selected_plot_path)
@@ -517,7 +584,7 @@ class TestLoadDisplacementPlotFunctional:
             {"type": "original", "kwargs": {"color": "gray", "alpha": 0.3}},
             {"type": "skeleton", "kwargs": {"color": "red", "linewidth": 2}},
         ]
-        plot_multiple_curves(with_both, curves=skeleton_curves, ax=ax3)
+        with_both.plot.plot_multiple_curves(curves=skeleton_curves, ax=ax3)
         ax3.set_title("スケルトン曲線")
 
         # 右側のプロット：累積曲線のみ
@@ -525,7 +592,7 @@ class TestLoadDisplacementPlotFunctional:
             {"type": "original", "kwargs": {"color": "gray", "alpha": 0.3}},
             {"type": "cumulative", "kwargs": {"color": "blue", "linewidth": 2}},
         ]
-        plot_multiple_curves(with_both, curves=cumulative_curves, ax=ax4)
+        with_both.plot.plot_multiple_curves(curves=cumulative_curves, ax=ax4)
         ax4.set_title("累積曲線")
 
         # プロット結果を保存
@@ -564,11 +631,14 @@ class TestLoadDisplacementPlotFunctional:
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
         # 元データの荷重-変位曲線
-        plot_load_displacement(load_displacement_data, ax=axs[0, 0])
+        load_displacement_data.plot(ax=axs[0, 0])
         axs[0, 0].set_title("元の荷重-変位曲線")
 
-        # スケルトン曲線
-        plot_skeleton_curve(skeleton_result, ax=axs[0, 1], plot_original=False)
+        # スケルトン曲線 (複数曲線としてplotする方式に変更)
+        skeleton_curves = [
+            {"type": "skeleton", "kwargs": {"color": "red"}}
+        ]
+        skeleton_result.plot.plot_multiple_curves(curves=skeleton_curves, ax=axs[0, 1])
         axs[0, 1].set_title("スケルトン曲線")
 
         # 元データに対する降伏点解析
@@ -577,11 +647,27 @@ class TestLoadDisplacementPlotFunctional:
             method="offset",
             offset_value=0.002,  # 元データには0.002を使用
         )
-        plot_yield_point(original_yield, ax=axs[1, 0])
+        orig_yp = original_yield.results["yield_point"]
+        load_displacement_data.plot.plot_yield_point(
+            yield_disp=orig_yp.x,
+            yield_load=orig_yp.y,
+            yield_method=orig_yp.metadata["method"],
+            initial_slope=orig_yp.metadata["initial_slope"],
+            yield_parameters=orig_yp.metadata.get("parameters", {}),
+            ax=axs[1, 0]
+        )
         axs[1, 0].set_title("元データの降伏点")
 
         # スケルトン曲線に対する降伏点解析
-        plot_yield_point(yield_result, ax=axs[1, 1])
+        skel_yp = yield_result.results["yield_point"]
+        skeleton_result.plot.plot_yield_point(
+            yield_disp=skel_yp.x,
+            yield_load=skel_yp.y,
+            yield_method=skel_yp.metadata["method"],
+            initial_slope=skel_yp.metadata["initial_slope"],
+            yield_parameters=skel_yp.metadata.get("parameters", {}),
+            ax=axs[1, 1]
+        )
         axs[1, 1].set_title("スケルトン曲線の降伏点")
 
         # 全体タイトルの設定
@@ -650,25 +736,27 @@ class TestLoadDisplacementPlotFunctional:
             {
                 "method": "offset",
                 "offset_value": 0.001,
-                "result_prefix": "yield_offset_small",
             },
             {
                 "method": "offset",
                 "offset_value": 0.002,
-                "result_prefix": "yield_offset_std",
             },
             {
                 "method": "offset",
                 "offset_value": 0.005,
-                "result_prefix": "yield_offset_large",
             },
-            {"method": "general", "factor": 0.33, "result_prefix": "yield_general"},
+            {"method": "general", "factor": 0.33},
         ]
 
         # プロット表示
-        compare_yield_methods(load_displacement_data, methods=methods)
-        plt.show()  # 手動実行時のみ表示される
+        load_displacement_data.plot.compare_yield_methods(methods=methods)
+        fig = plt.gcf()
+
+        # 保存場所
+        visual_path = Path(self.temp_dir) / "visual_yield_inspection.png"
+        fig.savefig(visual_path)
+        plt.close(fig)  # 手動実行時のみ表示される
 
         # 詳細解析プロット
-        plot_yield_analysis_details(offset_result)
+        offset_result.plot.plot_yield_analysis_details()
         plt.show()  # 手動実行時のみ表示される

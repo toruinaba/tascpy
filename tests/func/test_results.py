@@ -56,10 +56,10 @@ class Test_results:
         distance = [0.0, 50.0, 100.0, 200.0, 300.0]
         plot_list1 = ["b11", "b21", "b31", "b41", "b51"]
         plot_list2 = ["b12", "b22", "b32", "b42", "b52"]
-        fetched_step1.plot_const_x(distance, plot_list1, ax=ax2, marker="o", color="r")
-        fetched_step2.plot_const_x(distance, plot_list1, ax=ax2, marker="^", color="b")
-        fetched_step1.plot_const_x(distance, plot_list2, ax=ax3, marker="o", color="r")
-        fetched_step2.plot_const_x(distance, plot_list2, ax=ax3, marker="^", color="b")
+        fetched_step1.data.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="o", color="r")
+        fetched_step2.data.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="^", color="b")
+        fetched_step1.data.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="o", color="r")
+        fetched_step2.data.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="^", color="b")
         ax2.set_xlim(0, 300.0)
         ax2.set_ylim(50, 110.0)
         ax3.set_xlim(0, 300.0)

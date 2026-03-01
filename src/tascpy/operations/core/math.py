@@ -25,6 +25,7 @@ add = register_functional(
     name="add",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("+")},
 )
+add.__doc__ = """複数カラムの要素ごとの和を計算します"""
 
 subtract = register_functional(
     functional_math.subtract,
@@ -32,6 +33,7 @@ subtract = register_functional(
     name="subtract",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("-")},
 )
+subtract.__doc__ = """第一カラムから第二カラムの要素ごとの差を計算します"""
 
 multiply = register_functional(
     functional_math.multiply,
@@ -39,6 +41,7 @@ multiply = register_functional(
     name="multiply",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("*")},
 )
+multiply.__doc__ = """複数カラムの要素ごとの積を計算します"""
 
 divide = register_functional(
     functional_math.divide,
@@ -47,6 +50,7 @@ divide = register_functional(
     transform_column={"num_inputs": 2, "result_naming": infix_naming("/")},
     extra_decorators=[handle_zero_division(numerator_idx=0, denominator_idx=1)]
 )
+divide.__doc__ = """第一カラムを第二カラムで要素ごとに除算します"""
 
 # 微分と積分の関数を定義
 
@@ -83,6 +87,17 @@ diff = register_functional(
         "method": (str, "central")
     }
 )
+diff.__doc__ = """データ系列の離散微分 (dy/dx) を計算します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        y_column (str): Y軸データとなるカラム名
+        x_column (str): X軸データとなるカラム名
+        method (str, optional): 微分手法 ("forward", "backward", "central"). Defaults to "central".
+        
+    Returns:
+        ColumnCollection: 微分値カラムが追加された新しいコレクション
+"""
 
 
 integrate = register_functional(
@@ -98,10 +113,22 @@ integrate = register_functional(
     signature_override={
         "y": ("y_values", np.ndarray),
         "x": ("x_values", np.ndarray),
-        "method": (str, "trapezoid"),
+        "method": (str, "trapezoidal"),
         "initial_value": (float, 0.0)
     }
 )
+integrate.__doc__ = """データ系列の離散積分 (∫ y dx) を計算します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        y_column (str): Y軸データとなるカラム名
+        x_column (str): X軸データとなるカラム名
+        method (str, optional): 積分手法 ("trapezoidal", "cumulative_sum"). Defaults to "trapezoidal".
+        initial_value (float, optional): 積分定数 (初期値). Defaults to 0.0.
+        
+    Returns:
+        ColumnCollection: 積分値カラムが追加された新しいコレクション
+"""
 
 
 def _evaluate_unit_inference(collection, expression, **kwargs):

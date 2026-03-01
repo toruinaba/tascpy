@@ -19,74 +19,77 @@ except ImportError:
     )
 
 from ...domains.load_displacement import LoadDisplacementCollection
-from ...operations.registry import operation
-from ...operations.core.plot import plot as core_plot
+from ...visualization.core.plot import plot as core_plot
 from ...visualization import backend_mpl as mpl_backend
 
 
-@operation(domain="load_displacement")
 def plot_load_displacement(
-    collection: LoadDisplacementCollection, ax: Optional[Axes] = None, **kwargs
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    x_label: str = "Displacement",
+    y_label: str = "Load",
+    title: Optional[str] = None,
+    ax: Optional[Axes] = None,
+    **kwargs
 ) -> Axes:
     """荷重-変位曲線をプロットします
 
-    荷重-変位データを二次元グラフとしてプロットします。
-    既存の軸オブジェクトを指定することも、新しく作成することもできます。
+    荷重-変位データを二次元グラフとしてプロットします.
+    既存の軸オブジェクトを指定することも、新しく作成することもできます.
 
     Args:
         collection: 荷重-変位コレクション
-        ax: プロット先の軸（None の場合は新規作成）
+        ax: プロット先の軸(None の場合は新規作成)
         **kwargs: matplotlib の plot 関数に渡す追加引数
 
     Returns:
         Axes: プロットされた軸オブジェクト
     """
-    # 荷重と変位のカラムを取得
-    disp_column = collection.displacement_column
-    load_column = collection.load_column
-
-    # コアモジュールのplot関数を使用
+    if title is None:
+        title = "Load-Displacement Curve"
+        
     plot_kwargs = kwargs.copy()
-    plot_kwargs.setdefault("plot_type", "line")  # デフォルトで線グラフ
+    plot_kwargs.setdefault("plot_type", "line")
 
-    # core_plotを呼び出す
     return core_plot(
-        collection, x_column=disp_column, y_column=load_column, ax=ax, **plot_kwargs
+        x_values=x_values, y_values=y_values, x_label=x_label, y_label=y_label, title=title, ax=ax, **plot_kwargs
     )
 
 
-@operation(domain="load_displacement")
 def plot_skeleton_curve(
-    collection: LoadDisplacementCollection,
-    plot_original: bool = True,
-    skeleton_load_column: Optional[str] = None,
-    skeleton_disp_column: Optional[str] = None,
+    skeleton_x: np.ndarray,
+    skeleton_y: np.ndarray,
+    x_values: Optional[np.ndarray] = None,
+    y_values: Optional[np.ndarray] = None,
+    x_label: str = "Displacement",
+    y_label: str = "Load",
     ax: Optional[Axes] = None,
     original_kwargs: Optional[Dict[str, Any]] = None,
     skeleton_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Axes:
     """スケルトン曲線をプロットします
 
-    create_skeleton_curve 関数で作成したスケルトン曲線をプロットします。
-    元の荷重-変位データと比較して表示することも可能です。
+    create_skeleton_curve 関数で作成したスケルトン曲線をプロットします.
+    元の荷重-変位データと比較して表示することも可能です.
 
-    スケルトン曲線データは、列または metadata["curves"]["skeleton_curve"] から取得します。
-    メタデータに格納されている場合はそちらが優先されます。
+    スケルトン曲線データは、列または metadata["curves"]["skeleton_curve"] から取得します.
+    メタデータに格納されている場合はそちらが優先されます.
+
+    # スケルトン曲線の配列と、オプションで元データをプロットします.
 
     Args:
-        collection: スケルトン曲線を含む荷重-変位コレクション
-        plot_original: 元の荷重-変位データもプロットするかどうか
-        skeleton_load_column: スケルトン曲線の荷重列名（None の場合は自動検出）
-        skeleton_disp_column: スケルトン曲線の変位列名（None の場合は自動検出）
-        ax: プロット先の軸（None の場合は新規作成）
+        skeleton_x: スケルトン曲線の変位配列
+        skeleton_y: スケルトン曲線の荷重配列
+        # x_values: 元データの変位配列(None の場合はプロットしない)
+        # y_values: 元データの荷重配列(None の場合はプロットしない)
+        x_label: X軸ラベル
+        y_label: Y軸ラベル
+        ax: プロット先の軸(None の場合は新規作成)
         original_kwargs: 元データプロット用の追加引数
         skeleton_kwargs: スケルトン曲線プロット用の追加引数
 
     Returns:
         Axes: プロットされた軸オブジェクト
-
-    Raises:
-        ValueError: スケルトン曲線データが列にもメタデータにも見つからない場合
     """
     # デフォルト引数の設定
     if original_kwargs is None:
@@ -102,23 +105,16 @@ def plot_skeleton_curve(
         fig = ax.figure
         created_new_figure = False
 
-    # 元のデータの列名
-    orig_load_column = collection.load_column
-    orig_disp_column = collection.displacement_column
-
-    curve_data = collection.results["skeleton_curve"].to_dict()["data"]
-    skeleton_x = curve_data["x"]
-    skeleton_y = curve_data["y"]
-
     # 元のデータをプロット
-    if plot_original:
+    if x_values is not None and y_values is not None:
         # core_plotを使用して元データをプロット
         plot_kwargs = original_kwargs.copy()
         plot_kwargs.setdefault("plot_type", "line")
         core_plot(
-            collection,
-            x_column=orig_disp_column,
-            y_column=orig_load_column,
+            x_values=x_values,
+            y_values=y_values,
+            x_label=x_label,
+            y_label=y_label,
             ax=ax,
             **plot_kwargs,
         )
@@ -138,38 +134,34 @@ def plot_skeleton_curve(
     return ax
 
 
-@operation(domain="load_displacement")
 def plot_cumulative_curve(
-    collection: LoadDisplacementCollection,
-    plot_original: bool = True,
-    cumulative_load_column: Optional[str] = None,
-    cumulative_disp_column: Optional[str] = None,
+    cumulative_x: np.ndarray,
+    cumulative_y: np.ndarray,
+    x_values: Optional[np.ndarray] = None,
+    y_values: Optional[np.ndarray] = None,
+    x_label: str = "Displacement",
+    y_label: str = "Load",
     ax: Optional[Axes] = None,
     original_kwargs: Optional[Dict[str, Any]] = None,
     cumulative_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Axes:
     """累積曲線をプロットします
 
-    create_cumulative_curve 関数で作成した累積曲線をプロットします。
-    元の荷重-変位データと比較して表示することも可能です。
-
-    累積曲線データは、列または metadata["curves"]["cumulative_curve"] から取得します。
-    メタデータに格納されている場合はそちらが優先されます。
+    # 累積曲線の配列と、オプションで元データをプロットします.
 
     Args:
-        collection: 累積曲線を含む荷重-変位コレクション
-        plot_original: 元の荷重-変位データもプロットするかどうか
-        cumulative_load_column: 累積曲線の荷重列名（None の場合は自動検出）
-        cumulative_disp_column: 累積曲線の変位列名（None の場合は自動検出）
-        ax: プロット先の軸（None の場合は新規作成）
+        cumulative_x: 累積曲線の変位配列
+        cumulative_y: 累積曲線の荷重配列
+        x_values: 元データの変位配列(None の場合はプロットしない)
+        y_values: 元データの荷重配列(None の場合はプロットしない)
+        x_label: X軸ラベル
+        y_label: Y軸ラベル
+        ax: プロット先の軸(None の場合は新規作成)
         original_kwargs: 元データプロット用の追加引数
         cumulative_kwargs: 累積曲線プロット用の追加引数
 
     Returns:
         Axes: プロットされた軸オブジェクト
-
-    Raises:
-        ValueError: 累積曲線データが列にもメタデータにも見つからない場合
     """
     # デフォルト引数の設定
     if original_kwargs is None:
@@ -189,24 +181,16 @@ def plot_cumulative_curve(
         fig = ax.figure
         created_new_figure = False
 
-    # 元のデータの列名
-    orig_load_column = collection.load_column
-    orig_disp_column = collection.displacement_column
-
-    # collection.results から曲線データを取得
-    curve_data = collection.results["cumulative_curve"].to_dict()["data"]
-    cumulative_x = curve_data["x"]
-    cumulative_y = curve_data["y"]
-
     # 元のデータをプロット
-    if plot_original:
+    if x_values is not None and y_values is not None:
         # core_plotを使用して元データをプロット
         plot_kwargs = original_kwargs.copy()
         plot_kwargs.setdefault("plot_type", "line")
         core_plot(
-            collection,
-            x_column=orig_disp_column,
-            y_column=orig_load_column,
+            x_values=x_values,
+            y_values=y_values,
+            x_label=x_label,
+            y_label=y_label,
             ax=ax,
             **plot_kwargs,
         )
@@ -226,9 +210,16 @@ def plot_cumulative_curve(
     return ax
 
 
-@operation(domain="load_displacement")
 def plot_yield_point(
-    collection: LoadDisplacementCollection,
+    yield_disp: float,
+    yield_load: float,
+    yield_method: str = "unknown",
+    initial_slope: float = 1.0,
+    yield_parameters: Optional[Dict[str, Any]] = None,
+    x_values: Optional[np.ndarray] = None,
+    y_values: Optional[np.ndarray] = None,
+    x_label: str = "Displacement",
+    y_label: str = "Load",
     ax: Optional[Axes] = None,
     plot_original_data: bool = True,
     plot_initial_slope: bool = True,
@@ -238,29 +229,31 @@ def plot_yield_point(
 ) -> Axes:
     """降伏点解析結果をプロットします
 
-    find_yield_point 関数で解析した降伏点情報をビジュアル化します。
-    元データ、初期勾配線、オフセット線などを表示できます。
+    find_yield_point 関数で解析した降伏点情報をビジュアル化します.
+    元データ、初期勾配線、オフセット線などを表示できます.
 
     Args:
-        collection: 降伏点情報を含む荷重-変位コレクション
-        ax: プロット先の軸（None の場合は新規作成）
+        yield_disp: 降伏点の変位
+        yield_load: 降伏点の荷重
+        yield_method: 降伏点決定の手法
+        initial_slope: 初期勾配
+        yield_parameters: 分析のパラメータ(オフセット値や係数など)
+        x_values: 元の変位データ配列(Noneならプロットしない)
+        y_values: 元の荷重データ配列(Noneならプロットしない)
+        x_label: X軸ラベル
+        y_label: Y軸ラベル
+        ax: プロット先の軸(None の場合は新規作成)
         plot_original_data: 元の荷重-変位データもプロットするかどうか
         plot_initial_slope: 初期勾配線をプロットするかどうか
-        plot_offset_line: オフセット線をプロットするかどうか（オフセット法の場合）
+        plot_offset_line: オフセット線をプロットするかどうか(オフセット法の場合)
         result_prefix: 降伏点データの接頭辞
         **kwargs: matplotlib の plot 関数に渡す追加引数
 
     Returns:
         Axes: プロットされた軸オブジェクト
     """
-    # 降伏点の存在確認
-    if "yield_point" not in collection.results:
-        raise ValueError("コレクションに降伏点の解析結果が含まれていません")
-
-    yield_point = collection.results["yield_point"]
-    yield_data = yield_point.metadata
-    method = yield_data.get("method", "unknown")
-    initial_slope = yield_data.get("initial_slope", 1.0)
+    if yield_parameters is None:
+        yield_parameters = {}
 
     # 軸が指定されていない場合は新規作成
     created_new_figure = False
@@ -271,21 +264,10 @@ def plot_yield_point(
         fig = ax.figure
 
     # 元の荷重変位データをプロット
-    if plot_original_data:
+    if plot_original_data and x_values is not None and y_values is not None:
         plot_load_displacement(
-            collection, ax=ax, label="Load-Displacement Data", **kwargs
+            x_values=x_values, y_values=y_values, x_label=x_label, y_label=y_label, ax=ax, **kwargs
         )
-    else:
-        # プロットしない場合でも、後続の処理のためにaxをcollectionに関連付けるなどの処理が必要な場合はここで行う
-        # ただし、現在の実装では単にプロットするだけなので、何もしなくて良い
-        pass
-
-    # 荷重と変位データの取得
-    disp_data, load_data = collection.valid_data
-
-    # 降伏点のプロット
-    yield_disp = yield_point.x
-    yield_load = yield_point.y
 
     mpl_backend.scatter_points(
         [yield_disp],
@@ -294,7 +276,7 @@ def plot_yield_point(
         color="red",
         s=80,
         marker="o",
-        label=f"Yield Point ({method})",
+        label=f"Yield Point ({yield_method})",
         zorder=5,
     )
 
@@ -310,16 +292,16 @@ def plot_yield_point(
         )
 
     # オフセット法の場合はオフセット線も表示
-    if method == "offset" and plot_offset_line:
-        offset_value = yield_data["parameters"]["offset_value"]
+    if yield_method == "offset" and plot_offset_line and "offset_value" in yield_parameters:
+        offset_value = yield_parameters["offset_value"]
         mpl_backend.draw_axline(
             ax=ax,
             xy1=(offset_value, 0), slope=initial_slope, color="blue", linestyle="--"
         )
 
     # 一般降伏法の場合は勾配変化点の視覚化
-    if method == "general":
-        factor = yield_data["parameters"]["factor"]
+    if yield_method == "general" and "factor" in yield_parameters:
+        factor = yield_parameters["factor"]
         # 接線を表示
         tangent_length = yield_disp * 0.5
         x_vals = np.array([yield_disp - tangent_length, yield_disp + tangent_length])
@@ -340,33 +322,57 @@ def plot_yield_point(
 
 
 
-@operation(domain="load_displacement")
 def plot_yield_analysis_details(
-    collection: LoadDisplacementCollection, ax: Optional[Axes] = None, **kwargs
+    yield_disp: float,
+    yield_load: float,
+    yield_method: str = "unknown",
+    initial_slope: float = 1.0,
+    yield_parameters: Optional[Dict[str, Any]] = None,
+    x_values: Optional[np.ndarray] = None,
+    y_values: Optional[np.ndarray] = None,
+    x_label: str = "Displacement",
+    y_label: str = "Load",
+    ax: Optional[Axes] = None,
+    **kwargs
 ) -> Axes:
     """降伏点解析の詳細情報をプロットします
 
-    find_yield_point 関数で解析した降伏点情報の詳細をビジュアル化します。
-    初期勾配の計算範囲などの追加情報も表示します。
+    find_yield_point 関数で解析した降伏点情報の詳細をビジュアル化します.
+    初期勾配の計算範囲などの追加情報も表示します.
 
     Args:
-        collection: 降伏点情報を含む荷重-変位コレクション
-        ax: プロット先の軸（None の場合は新規作成）
+        yield_disp: 降伏点の変位
+        yield_load: 降伏点の荷重
+        yield_method: 降伏点決定の手法
+        initial_slope: 初期勾配
+        yield_parameters: 分析のパラメータ
+        # x_values: 元の変位データ配列
+        # y_values: 元の荷重データ配列
+        x_label: X軸ラベル
+        y_label: Y軸ラベル
+        ax: プロット先の軸(None の場合は新規作成)
         **kwargs: matplotlib の plot 関数に渡す追加引数
 
     Returns:
         Axes: プロットされた軸オブジェクト
     """
-    # 降伏点の確認
-    if "yield_point" not in collection.results:
-        raise ValueError("コレクションに降伏点の解析結果が含まれていません")
+    if yield_parameters is None:
+        yield_parameters = {}
 
-    yield_point = collection.results["yield_point"]
-    yield_data = yield_point.metadata
-    method = yield_data.get("method", "unknown")
-
-    # プロット作成
-    plot_yield_point(collection, ax=ax, **kwargs)
+    # 基本の降伏点プロット作成(委譲)
+    plot_yield_point(
+        yield_disp=yield_disp,
+        yield_load=yield_load,
+        yield_method=yield_method,
+        initial_slope=initial_slope,
+        yield_parameters=yield_parameters,
+        x_values=x_values,
+        y_values=y_values,
+        x_label=x_label,
+        y_label=y_label,
+        ax=ax,
+        **kwargs
+    )
 
     # 使用されたaxオブジェクトを取得
     created_new_figure = False
@@ -388,18 +394,17 @@ def plot_yield_analysis_details(
         created_new_figure = False
 
     # 初期勾配計算に使用した範囲をハイライト
-    disp_data, load_data = collection.valid_data
+    if x_values is not None and y_values is not None and "range_start" in yield_parameters and "range_end" in yield_parameters:
+        range_start = yield_parameters["range_start"]
+        range_end = yield_parameters["range_end"]
+        max_load = np.max(y_values)
 
-    range_start = yield_data["parameters"]["range_start"]
-    range_end = yield_data["parameters"]["range_end"]
-    max_load = np.max(load_data)
+        lower_bound = max_load * range_start
+        upper_bound = max_load * range_end
 
-    lower_bound = max_load * range_start
-    upper_bound = max_load * range_end
-
-    range_mask = (load_data >= lower_bound) & (load_data <= upper_bound)
-    range_disps = disp_data[range_mask]
-    range_loads = load_data[range_mask]
+        range_mask = (y_values >= lower_bound) & (y_values <= upper_bound)
+        range_disps = x_values[range_mask]
+        range_loads = y_values[range_mask]
 
     mpl_backend.scatter_points(
         range_disps,
@@ -413,15 +418,15 @@ def plot_yield_analysis_details(
     )
 
     # 方法に応じた追加情報の表示
-    title_text = f"Yield Point Analysis ({method.capitalize()} Method)"
+    title_text = f"Yield Point Analysis ({yield_method.capitalize()} Method)"
     mpl_backend.set_labels(ax, title=title_text)
 
     # 降伏点情報のテキスト表示
     info_text = (
         f"Yield Point:\n"
-        f"  Displacement: {yield_point.x:.4f}\n"
-        f"  Load: {yield_point.y:.4f}\n"
-        f"  Initial Slope: {yield_data.get('initial_slope', 0):.4f}"
+        f"  Displacement: {yield_disp:.4f}\n"
+        f"  Load: {yield_load:.4f}\n"
+        f"  Initial Slope: {initial_slope:.4f}"
     )
 
     # テキストボックスで情報表示
@@ -445,82 +450,75 @@ def plot_yield_analysis_details(
 
 
 
-@operation(domain="load_displacement")
 def compare_yield_methods(
-    collection: LoadDisplacementCollection,
-    methods: List[Dict[str, Any]] = None,
+    yield_results: List[Dict[str, Any]],
+    x_values: Optional[np.ndarray] = None,
+    y_values: Optional[np.ndarray] = None,
+    x_label: str = "Displacement",
+    y_label: str = "Load",
     ax: Optional[Axes] = None,
     **kwargs,
 ) -> Axes:
-    """複数の降伏点計算方法を比較してプロットします
+    """複数の降伏点計算結果を比較してプロットします
 
-    異なるパラメータや手法で計算した複数の降伏点を
-    一つのグラフ上に表示して比較できます。
+    異なる手法で計算した複数の降伏点データ(配列情報)を
+    一つのグラフ上に表示して比較できます.
 
     Args:
-        collection: 荷重-変位コレクション
-        methods: 計算方法とパラメータのリスト。例:
-                 [{"method": "offset", "offset_value": 0.002},
-                  {"method": "general", "factor": 0.33}]
+        yield_results: 降伏点データとパラメータのリスト.例:
+            [
+              {
+    Args:
+        yield_results: 各降伏点メソッドの結果を含む辞書のリスト
+        # x_values: 元の変位データ配列（Noneならプロットしない）
+        # y_values: 元の荷重データ配列（Noneならプロットしない）
+        x_label: X軸ラベル
+        y_label: Y軸ラベル
         ax: プロット先の軸（None の場合は新規作成）
-        **kwargs: プロット関数に渡す追加引数
-
-    Returns:
-        Axes: プロットされた軸オブジェクト
+        **kwargs: 基礎となる荷重-変位プロットへの追加引数
     """
-    from ...operations.load_displacement.analysis import find_yield_point
 
-    if methods is None:
-        methods = [
-            {
-                "method": "offset",
-                "offset_value": 0.002,
-            },
-            {"method": "general", "factor": 0.33},
-        ]
+    if not yield_results:
+        return ax
 
     # 軸が指定されていない場合は新規作成
     created_new_figure = False
     if ax is None:
-        ax = mpl_backend.create_figure(figsize=(10, 8))
+        ax = mpl_backend.create_figure(figsize=(10, 6))
         created_new_figure = True
     else:
         fig = ax.figure
 
-    # 元データプロット
-    plot_load_displacement(
-        collection,
-        ax=ax,
-        label="Load-Displacement Data",
-        color="black",
-        alpha=0.7,
-        **kwargs,
-    )
+    # 元データが提供されている場合のみプロットする
+    if x_values is not None and y_values is not None:
+        plot_load_displacement(
+            x_values=x_values,
+            y_values=y_values,
+            x_label=x_label,
+            y_label=y_label,
+            ax=ax,
+            label="Load-Displacement Data",
+            color="black",
+            alpha=0.7,
+            **kwargs,
+        )
 
-    # 各方法で降伏点を計算してプロット
     colors = ["red", "blue", "green", "purple", "orange"]
 
-    for i, params in enumerate(methods):
+    for i, yield_data in enumerate(yield_results):
         color = colors[i % len(colors)]
-        params_copy = params.copy()  # パラメータのコピーを作成して変更
-
-        if "result_prefix" in params_copy:
-            del params_copy["result_prefix"]
-
-        # 降伏点計算
-        result = find_yield_point(collection, **params_copy)
-
-        # 降伏点のプロット
-        yield_point = result.results.get("yield_point")
-        if not yield_point:
+        
+        yield_disp = yield_data.get("yield_disp")
+        yield_load = yield_data.get("yield_load")
+        if yield_disp is None or yield_load is None:
             continue
             
-        yield_data = yield_point.metadata
-        yield_disp = yield_point.x
-        yield_load = yield_point.y
+        method = yield_data.get("method", "unknown")
+        params = yield_data.get("parameters", {})
+        initial_slope = yield_data.get("initial_slope", 1.0)
 
-        method_name = params["method"].capitalize()
-        if params["method"] == "offset":
+        method_name = method.capitalize()
+        if method == "offset":
             method_label = f"{method_name} ({params.get('offset_value', 0.002)})"
         else:
             method_label = f"{method_name} (factor={params.get('factor', 0.33)})"
@@ -537,11 +535,14 @@ def compare_yield_methods(
         )
 
         # 初期勾配線
-        initial_slope = yield_data.get("initial_slope", 1.0)
-        max_disp = np.max(collection[collection.displacement_column].values)
+        if x_values is not None:
+            max_disp = np.max(x_values)
+        else:
+            max_disp = yield_disp * 2.0
+            
         x_vals = np.array([0, max_disp])
 
-        if params["method"] == "offset":
+        if method == "offset":
             # オフセット線も表示
             offset_value = params.get("offset_value", 0.002)
             y_vals = initial_slope * x_vals - initial_slope * offset_value
@@ -567,24 +568,29 @@ def compare_yield_methods(
     return ax
 
 
-@operation(domain="load_displacement")
 def plot_multiple_curves(
-    collection: LoadDisplacementCollection,
-    curves: List[Dict[str, Any]],
+    curves_data: List[Dict[str, Any]],
+    x_label: str = "Displacement",
+    y_label: str = "Load",
     ax: Optional[Axes] = None,
     **kwargs,
 ) -> Axes:
     """複数の曲線を指定してプロットします
 
     Args:
-        collection: 荷重-変位コレクション
-        curves: プロットする曲線の設定リスト
+        curves_data: プロットする曲線の配列情報リスト.例:
                 [
-                    {"type": "original", "kwargs": {...}},
-                    {"type": "skeleton", "kwargs": {...}},
-                    {"type": "cumulative", "kwargs": {...}}
+                    {
+                        "type": "original", 
+                        "x": np.ndarray, 
+                        "y": np.ndarray, 
+                        "kwargs": {...}
+                    },
+                    ...
                 ]
-        ax: プロット先の軸（None の場合は新規作成）
+        x_label: X軸ラベル
+        y_label: Y軸ラベル
+        ax: プロット先の軸(None の場合は新規作成)
         **kwargs: その他のオプション
 
     Returns:
@@ -599,38 +605,31 @@ def plot_multiple_curves(
         fig = ax.figure
 
     # 各曲線をプロット
-    for curve_config in curves:
-        curve_type = curve_config.get("type")
+    for curve_config in curves_data:
+        curve_type = curve_config.get("type", "unknown")
         plot_kwargs = curve_config.get("kwargs", {}).copy()
+        
+        x_arr = curve_config.get("x")
+        y_arr = curve_config.get("y")
+        
+        if x_arr is None or y_arr is None:
+            print(f"Warning: Data for {curve_type} curve not found.")
+            continue
 
         if curve_type == "original":
             # 元データのプロット
-            orig_load_column = collection.load_column
-            orig_disp_column = collection.displacement_column
             plot_kwargs.setdefault("plot_type", "line")
             core_plot(
-                collection,
-                x_column=orig_disp_column,
-                y_column=orig_load_column,
+                x_values=x_arr,
+                y_values=y_arr,
+                x_label=x_label,
+                y_label=y_label,
                 ax=ax,
                 **plot_kwargs,
             )
-
-        elif curve_type == "skeleton":
-            # スケルトン曲線のプロット
-            if "skeleton_curve" in collection.results:
-                curve_data = collection.results["skeleton_curve"].to_dict()["data"]
-                mpl_backend.draw_line(curve_data["x"], curve_data["y"], ax=ax, **plot_kwargs)
-            else:
-                print("Warning: Skeleton curve data not found.")
-
-        elif curve_type == "cumulative":
-            # 累積曲線のプロット
-            if "cumulative_curve" in collection.results:
-                curve_data = collection.results["cumulative_curve"].to_dict()["data"]
-                mpl_backend.draw_line(curve_data["x"], curve_data["y"], ax=ax, **plot_kwargs)
-            else:
-                print("Warning: Cumulative curve data not found.")
+        else:
+            # その他の曲線(スケルトン、累積など)のプロット
+            mpl_backend.draw_line(x_arr, y_arr, ax=ax, **plot_kwargs)
 
     mpl_backend.add_legend(ax)
     mpl_backend.add_grid(ax, linestyle="--", alpha=0.7)

@@ -281,6 +281,18 @@ class ColumnCollection:
             return CoreCollectionOperations(self, domain="core")  # type: ignore
         else:
             return CollectionOperations(self, domain=self.domain)
+            
+    @property
+    def plot(self):
+        """可視化操作プロキシを返す
+        Returns:
+            Plotter object (CorePlotter or domain-specific Plotter)
+        """
+        if not hasattr(self, "_plotter"):
+            from tascpy.visualization.core.plotter import CorePlotter
+            
+            self._plotter = CorePlotter(self)
+        return self._plotter
 
     def keys(self) -> List[str]:
         """利用可能なキーのリストを返す"""

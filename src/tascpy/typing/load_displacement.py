@@ -38,7 +38,6 @@ class LoadDisplacementCollectionOperations(CollectionOperationsBase[LoadDisplace
     def calculate_slopes(
         self,
         disp_data: column = <class 'float'>,
-        load_data: column = <class 'float'>,
         column: column = <class 'float'>,
         load_data: ndarray
     ) -> ndarray:
@@ -117,17 +116,18 @@ Returns:
         *args,
         **kwargs
     ) -> tuple[list[float], list[float]]:
-        """荷重-変位データからスケルトン曲線を計算します。
+        """荷重-変位データからスケルトン曲線（包絡線）を生成します
 
 Args:
-    loads: 荷重データ
-    displacements: 変位データ
-    markers: サイクルマーカー
-    has_decrease: 減少部分も含めるか
-    decrease_type: 減少部分の処理方法 ('envelope', 'continuous_only', 'both')
+    collection (LoadDisplacementCollection): 荷重-変位コレクション
+    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
+    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
+    cycle_marker_column (str, optional): サイクルマーカーカラム名（None時は自動解決）
+    has_decrease (bool, optional): 剛性低下を考慮するかどうか. Defaults to False.
+    decrease_type (str, optional): 剛性低下の計算手法. Defaults to "envelope".
     
 Returns:
-    Tuple[List[float], List[float]]: スケルトン曲線の(変位, 荷重)リスト"""
+    LoadDisplacementCollection: スケルトン曲線データが結果として追加された新しいコレクション"""
         ...
     
 
@@ -138,22 +138,22 @@ Returns:
         *args,
         **kwargs
     ) -> tuple[list[float], list[float]]:
-        """荷重-変位データから累積曲線を計算します。
+        """荷重-変位データから累積塑性変形-荷重曲線を生成します
 
 Args:
-    loads: 荷重データ
-    displacements: 変位データ
-    markers: サイクルマーカー
+    collection (LoadDisplacementCollection): 荷重-変位コレクション
+    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
+    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
+    cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
     
 Returns:
-    Tuple[List[float], List[float]]: 累積曲線の(変位, 荷重)リスト"""
+    LoadDisplacementCollection: 累積曲線データが結果として追加された新しいコレクション"""
         ...
     
 
     def cycle_count(
         self,
         data: column = <class 'float'>,
-        step: float = 0.5,
         column: column = <class 'float'>,
         step: float = 0.5
     ) -> ndarray:
@@ -194,15 +194,17 @@ Returns:
         *args,
         **kwargs
     ) -> tuple[float, float, float, float, float, float]:
-        """1サイクルのヒステリシス解析結果と各種統計情報をまとめて計算します。
+        """各サイクルのヒステリシスエネルギー（面積）と最大/最小荷重・変位を計算します
 
 Args:
-    loads: 荷重データ配列
-    disps: 変位データ配列
-    markers: サイクルマーカーの配列。先頭要素をサイクル番号として抽出します。
+    collection (LoadDisplacementCollection): 荷重-変位コレクション
+    cycle_column (str, optional): サイクル番号のカラム名（None時は自動解決）
+    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
+    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
+    cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
     
 Returns:
-    Tuple: (サイクル番号, エネルギー, 最大荷重, 最小荷重, 最大変位, 最小変位)"""
+    LoadDisplacementCollection: サイクルごとの統計量を持つ新しいコレクション"""
         ...
     
 
@@ -214,15 +216,17 @@ Returns:
         *args,
         **kwargs
     ) -> tuple[float, float]:
-        """1サイクルの剛性推移（割線剛性）を計算します。
+        """各サイクルの割線剛性（剛性低下）を評価します
 
 Args:
-    loads: 荷重データ配列
-    disps: 変位データ配列
-    markers: サイクルマーカーの配列。先頭要素をサイクル番号として抽出します。
+    collection (LoadDisplacementCollection): 荷重-変位コレクション
+    cycle_column (str, optional): サイクル番号のカラム名（None時は自動解決）
+    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
+    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
+    cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
     
 Returns:
-    Tuple: (サイクル番号, 割線剛性)"""
+    LoadDisplacementCollection: サイクルごとの割線剛性を持つ新しいコレクション"""
         ...
     
 
@@ -244,190 +248,6 @@ Args:
     
 Returns:
     np.ndarray: ピーク(1)、バレー(-1)、その他(0)のフラグ配列"""
-        ...
-    
-
-    def plot_load_displacement(
-        self,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """荷重-変位曲線をプロットします
-
-荷重-変位データを二次元グラフとしてプロットします。
-既存の軸オブジェクトを指定することも、新しく作成することもできます。
-
-Args:
-    collection: 荷重-変位コレクション
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: matplotlib の plot 関数に渡す追加引数
-
-Returns:
-    Axes: プロットされた軸オブジェクト"""
-        ...
-    
-
-    def plot_skeleton_curve(
-        self,
-        plot_original: bool = True,
-        skeleton_load_column: Optional[str] = None,
-        skeleton_disp_column: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        original_kwargs: Optional[dict[str, Any]] = None,
-        skeleton_kwargs: Optional[dict[str, Any]] = None
-    ) -> Axes:
-        """スケルトン曲線をプロットします
-
-create_skeleton_curve 関数で作成したスケルトン曲線をプロットします。
-元の荷重-変位データと比較して表示することも可能です。
-
-スケルトン曲線データは、列または metadata["curves"]["skeleton_curve"] から取得します。
-メタデータに格納されている場合はそちらが優先されます。
-
-Args:
-    collection: スケルトン曲線を含む荷重-変位コレクション
-    plot_original: 元の荷重-変位データもプロットするかどうか
-    skeleton_load_column: スケルトン曲線の荷重列名（None の場合は自動検出）
-    skeleton_disp_column: スケルトン曲線の変位列名（None の場合は自動検出）
-    ax: プロット先の軸（None の場合は新規作成）
-    original_kwargs: 元データプロット用の追加引数
-    skeleton_kwargs: スケルトン曲線プロット用の追加引数
-
-Returns:
-    Axes: プロットされた軸オブジェクト
-
-Raises:
-    ValueError: スケルトン曲線データが列にもメタデータにも見つからない場合"""
-        ...
-    
-
-    def plot_cumulative_curve(
-        self,
-        plot_original: bool = True,
-        cumulative_load_column: Optional[str] = None,
-        cumulative_disp_column: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        original_kwargs: Optional[dict[str, Any]] = None,
-        cumulative_kwargs: Optional[dict[str, Any]] = None
-    ) -> Axes:
-        """累積曲線をプロットします
-
-create_cumulative_curve 関数で作成した累積曲線をプロットします。
-元の荷重-変位データと比較して表示することも可能です。
-
-累積曲線データは、列または metadata["curves"]["cumulative_curve"] から取得します。
-メタデータに格納されている場合はそちらが優先されます。
-
-Args:
-    collection: 累積曲線を含む荷重-変位コレクション
-    plot_original: 元の荷重-変位データもプロットするかどうか
-    cumulative_load_column: 累積曲線の荷重列名（None の場合は自動検出）
-    cumulative_disp_column: 累積曲線の変位列名（None の場合は自動検出）
-    ax: プロット先の軸（None の場合は新規作成）
-    original_kwargs: 元データプロット用の追加引数
-    cumulative_kwargs: 累積曲線プロット用の追加引数
-
-Returns:
-    Axes: プロットされた軸オブジェクト
-
-Raises:
-    ValueError: 累積曲線データが列にもメタデータにも見つからない場合"""
-        ...
-    
-
-    def plot_yield_point(
-        self,
-        ax: Optional[Axes] = None,
-        plot_original_data: bool = True,
-        plot_initial_slope: bool = True,
-        plot_offset_line: bool = True,
-        result_prefix: str = 'yield',
-        **kwargs
-    ) -> Axes:
-        """降伏点解析結果をプロットします
-
-find_yield_point 関数で解析した降伏点情報をビジュアル化します。
-元データ、初期勾配線、オフセット線などを表示できます。
-
-Args:
-    collection: 降伏点情報を含む荷重-変位コレクション
-    ax: プロット先の軸（None の場合は新規作成）
-    plot_original_data: 元の荷重-変位データもプロットするかどうか
-    plot_initial_slope: 初期勾配線をプロットするかどうか
-    plot_offset_line: オフセット線をプロットするかどうか（オフセット法の場合）
-    result_prefix: 降伏点データの接頭辞
-    **kwargs: matplotlib の plot 関数に渡す追加引数
-
-Returns:
-    Axes: プロットされた軸オブジェクト"""
-        ...
-    
-
-    def plot_yield_analysis_details(
-        self,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """降伏点解析の詳細情報をプロットします
-
-find_yield_point 関数で解析した降伏点情報の詳細をビジュアル化します。
-初期勾配の計算範囲などの追加情報も表示します。
-
-Args:
-    collection: 降伏点情報を含む荷重-変位コレクション
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: matplotlib の plot 関数に渡す追加引数
-
-Returns:
-    Axes: プロットされた軸オブジェクト"""
-        ...
-    
-
-    def compare_yield_methods(
-        self,
-        methods: list[dict[str, Any]] = None,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """複数の降伏点計算方法を比較してプロットします
-
-異なるパラメータや手法で計算した複数の降伏点を
-一つのグラフ上に表示して比較できます。
-
-Args:
-    collection: 荷重-変位コレクション
-    methods: 計算方法とパラメータのリスト。例:
-             [{"method": "offset", "offset_value": 0.002},
-              {"method": "general", "factor": 0.33}]
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: プロット関数に渡す追加引数
-
-Returns:
-    Axes: プロットされた軸オブジェクト"""
-        ...
-    
-
-    def plot_multiple_curves(
-        self,
-        curves: list[dict[str, Any]],
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """複数の曲線を指定してプロットします
-
-Args:
-    collection: 荷重-変位コレクション
-    curves: プロットする曲線の設定リスト
-            [
-                {"type": "original", "kwargs": {...}},
-                {"type": "skeleton", "kwargs": {...}},
-                {"type": "cumulative", "kwargs": {...}}
-            ]
-    ax: プロット先の軸（None の場合は新規作成）
-    **kwargs: その他のオプション
-
-Returns:
-    Axes: プロットされた軸オブジェクト"""
         ...
     
 
@@ -663,61 +483,6 @@ Args:
 
 Returns:
     List[int]: 選択された要素のインデックスリスト（昇順ソート済み）。"""
-        ...
-    
-
-    def plot(
-        self,
-        y_column: str,
-        x_column: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """基本的なプロットを行います"""
-        ...
-    
-
-    def visualize_outliers(
-        self,
-        column: str,
-        x_column: Optional[str] = None,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        highlight_color: str = 'red',
-        plot_type: str = 'scatter',
-        show_normal: bool = True,
-        normal_color: str = 'blue',
-        normal_alpha: float = 0.5,
-        outlier_marker: str = 'o',
-        outlier_size: int = 50,
-        ax: Optional[Axes] = None,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0,
-        **kwargs
-    ) -> Axes:
-        """異常値を検出し可視化します"""
-        ...
-    
-
-    def plot_const_x(
-        self,
-        x_values: list[float],
-        y_columns: list[str],
-        ax: Optional[Axes] = None,
-        **kwargs
-    ) -> Axes:
-        """共通のX軸に対して複数のY列をプロットします"""
-        ...
-    
-
-    def iplot(
-        self,
-        y_column: str,
-        x_column: Optional[str] = None,
-        **kwargs
-    ) -> Any:
-        """インタラクティブなプロットを行います（Jupyter用）"""
         ...
     
 
@@ -961,14 +726,7 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """2つの値または配列を加算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 最初の値または配列。
-    v2 (Union[np.ndarray, float]): 2番目の値または配列。
-
-Returns:
-    np.ndarray: 加算結果。"""
+        """複数カラムの要素ごとの和を計算します"""
         ...
     
 
@@ -977,14 +735,7 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """v1 から v2 を減算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 最初の値または配列。
-    v2 (Union[np.ndarray, float]): 引く値または配列。
-
-Returns:
-    np.ndarray: 減算結果。"""
+        """第一カラムから第二カラムの要素ごとの差を計算します"""
         ...
     
 
@@ -993,14 +744,7 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """2つの値または配列を乗算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 最初の値または配列。
-    v2 (Union[np.ndarray, float]): 2番目の値または配列。
-
-Returns:
-    np.ndarray: 乗算結果。"""
+        """複数カラムの要素ごとの積を計算します"""
         ...
     
 
@@ -1010,15 +754,7 @@ Returns:
         v2: Union[ndarray, float],
         **kwargs
     ) -> ndarray:
-        """v1 を v2 で除算します。
-
-Args:
-    v1 (Union[np.ndarray, float]): 分子となる値または配列。
-    v2 (Union[np.ndarray, float]): 分母となる値または配列。
-    **kwargs: 任意の追加引数。
-
-Returns:
-    np.ndarray: 除算結果。"""
+        """第一カラムを第二カラムで要素ごとに除算します"""
         ...
     
 
@@ -1031,18 +767,16 @@ Returns:
         x: Union[ndarray, list[float]],
         method: str = 'central'
     ) -> ndarray:
-        """x, y座標から微分係数を計算します。
+        """データ系列の離散微分 (dy/dx) を計算します
 
 Args:
-    y (Union[np.ndarray, List[float]]): y座標の配列。
-    x (Union[np.ndarray, List[float]]): x座標の配列。
-    method (str, optional): 微分方法 ('central', 'forward', 'backward')。デフォルトは "central"。
-
+    collection (ColumnCollection): データコレクション
+    y_column (str): Y軸データとなるカラム名
+    x_column (str): X軸データとなるカラム名
+    method (str, optional): 微分手法 ("forward", "backward", "central"). Defaults to "central".
+    
 Returns:
-    np.ndarray: 計算された微分係数の配列。
-
-Raises:
-    ValueError: xとyの長さが異なる場合、またはデータ点が2点未満の場合、または無効なメソッドが指定された場合。"""
+    ColumnCollection: 微分値カラムが追加された新しいコレクション"""
         ...
     
 
@@ -1050,26 +784,24 @@ Raises:
         self,
         y: y_values = <class 'numpy.ndarray'>,
         x: x_values = <class 'numpy.ndarray'>,
-        method: str = 'trapezoid',
+        method: str = 'trapezoidal',
         initial_value: float = 0.0,
         column: y_values = <class 'numpy.ndarray'>,
         x: Union[ndarray, list[float]],
         method: str = 'trapezoid',
         initial_value: float = 0.0
     ) -> ndarray:
-        """xに対するyの積分を計算します。
+        """データ系列の離散積分 (∫ y dx) を計算します
 
 Args:
-    y (Union[np.ndarray, List[float]]): y座標の配列。
-    x (Union[np.ndarray, List[float]]): x座標の配列。
-    method (str, optional): 積分方法。現在は "trapezoid" (台形則) のみサポート。デフォルトは "trapezoid"。
-    initial_value (float, optional): 積分初期値。デフォルトは 0.0。
-
+    collection (ColumnCollection): データコレクション
+    y_column (str): Y軸データとなるカラム名
+    x_column (str): X軸データとなるカラム名
+    method (str, optional): 積分手法 ("trapezoidal", "cumulative_sum"). Defaults to "trapezoidal".
+    initial_value (float, optional): 積分定数 (初期値). Defaults to 0.0.
+    
 Returns:
-    np.ndarray: 計算された積分の配列（累積和）。
-
-Raises:
-    ValueError: サポートされていないメソッドが指定された場合、またはxとyの長さが異なる場合。"""
+    ColumnCollection: 積分値カラムが追加された新しいコレクション"""
         ...
     
 
@@ -1272,7 +1004,16 @@ Raises:
         window_size: int = 3,
         edge_handling = 'asymmetric'
     ) -> "CollectionListOperations[LoadDisplacementCollectionOperations]":
-        """"""
+        """指定されたウィンドウサイズで移動平均を計算します
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    window_size (int, optional): 移動平均のウィンドウサイズ. Defaults to 3.
+    edge_handling (str, optional): 端の処理方法 ("asymmetric", "symmetric", "constant", "mirror", "wrap"). Defaults to "asymmetric".
+    
+Returns:
+    ColumnCollection: 移動平均値が追加された新しいコレクション"""
         ...
     
 
@@ -1291,23 +1032,19 @@ Raises:
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
     ) -> list[int]:
-        """移動平均を使用して外れ値を検出します。
-
-移動平均からの偏差率が閾値を超える場合を外れ値とみなします。
+        """異常値を検出します
 
 Args:
-    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
-    window_size (int, optional): 移動平均のウィンドウサイズ。デフォルトは 3。
-    threshold (float, optional): 外れ値判定の閾値（偏差率）。デフォルトは 0.5。
-    edge_handling (str, optional): 境界処理の方法。デフォルトは "asymmetric"。
-    min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）。デフォルトは 1e-10。
-    scale_factor (float, optional): 基準値（標準偏差等）のスケーリング係数。デフォルトは 1.0。
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    window_size (int, optional): 移動平均などのウィンドウサイズ. Defaults to 3.
+    threshold (float, optional): 異常と判定する閾値. Defaults to 0.5.
+    edge_handling (str, optional): 端の処理方法. Defaults to "asymmetric".
+    min_abs_value (float, optional): ゼロ除算を防ぐための最小絶対値. Defaults to 1e-10.
+    scale_factor (float, optional): スケールファクタ. Defaults to 1.0.
 
 Returns:
-    List[int]: 外れ値フラグのリスト（0: 正常, 1: 外れ値）。
-
-Raises:
-    ValueError: 無効な引数、または有効なデータが存在しない場合。"""
+    ColumnCollection: 異常値フラグが追加された新しいコレクション"""
         ...
     
 
@@ -1320,20 +1057,16 @@ Raises:
         sigma: float = 1.0,
         window_size: Optional[int] = None
     ) -> Any:
-        """ガウシアンフィルタを適用して平滑化を行います。
-
-欠損値は無視して畳み込み計算を行います。
+        """ガウシアンフィルターを適用します
 
 Args:
-    vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
-    sigma (float, optional): ガウス分布の標準偏差。デフォルトは 1.0。
-    window_size (Optional[int], optional): フィルタのウィンドウサイズ。指定しない場合は sigma から自動計算されます。
-
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    sigma (float, optional): ガウス関数の標準偏差. Defaults to 1.0.
+    window_size (Optional[int], optional): ウィンドウサイズ. Defaults to None.
+    
 Returns:
-    Any: 平滑化後の配列（NumPy配列）。
-
-Raises:
-    ValueError: ウィンドウサイズが1未満の場合。"""
+    ColumnCollection: フィルター処理後の値が追加された新しいコレクション"""
         ...
     
 
@@ -1341,13 +1074,7 @@ Raises:
         self,
         column: str
     ) -> float:
-        """最大値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 最大値。"""
+        """カラムの最大値を計算します"""
         ...
     
 
@@ -1355,13 +1082,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """最小値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 最小値。"""
+        """カラムの最小値を計算します"""
         ...
     
 
@@ -1369,13 +1090,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """平均値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 平均値。"""
+        """カラムの平均値を計算します"""
         ...
     
 
@@ -1383,13 +1098,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """標準偏差を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 標準偏差。"""
+        """カラムの標準偏差を計算します"""
         ...
     
 
@@ -1397,13 +1106,7 @@ Returns:
         self,
         column: str
     ) -> float:
-        """合計値を計算します（NaNは無視されます）。
-
-Args:
-    vals (Any): 入力値の配列またはリスト。
-
-Returns:
-    float: 合計値。"""
+        """カラムの合計値を計算します"""
         ...
     
 
