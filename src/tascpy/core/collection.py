@@ -33,6 +33,39 @@ class ColumnCollection:
 
     domain: str = "core"
 
+    _accessors: Dict[str, Any] = {}
+
+    @classmethod
+    def register_accessor(cls, name: str, accessor_cls: Any) -> None:
+        """動的なプロパティ（アクセサ）を登録する
+        
+        Args:
+            name: プロパティ名（例: 'ops', 'plot'）
+            accessor_cls: プロパティとして呼び出されるクラス
+        """
+        cls._accessors[name] = accessor_cls
+
+    def __getattr__(self, name: str) -> Any:
+        """登録されたアクセサを動的に解決する"""
+        if name in self.__class__._accessors:
+            accessor_cls = self.__class__._accessors[name]
+            # plotterのようなキャッシュが必要なオブジェクトのためにインスタンスに保存
+            # opsのように毎回作っても軽いものはよいが、plotterはステータスを持つためキャッシュする
+            if name == "plot":
+                if not hasattr(self, f"_{name}_accessor"):
+                    setattr(self, f"_{name}_accessor", accessor_cls(self))
+                return getattr(self, f"_{name}_accessor")
+            return accessor_cls(self)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    if TYPE_CHECKING:
+        @property
+        def ops(self) -> "CoreCollectionOperations": ...
+        
+        from tascpy.visualization.core.plotter import CorePlotter
+        @property
+        def plot(self) -> "CorePlotter": ...
+
     def __init__(
         self,
         step: Step,
@@ -269,30 +302,7 @@ class ColumnCollection:
             raise KeyError(f"結果 '{name}' は存在しません")
         return self._results[name]
 
-    @property
-    def ops(self):
-        """操作プロキシクラスを返す"""
-        from ..operations.proxy import CollectionOperations
 
-        if TYPE_CHECKING:
-            # ColumnCollectionのドメインはcoreなので、CoreCollectionOperationsのみを返す
-            from ..typing.core import CoreCollectionOperations
-
-            return CoreCollectionOperations(self, domain="core")  # type: ignore
-        else:
-            return CollectionOperations(self, domain=self.domain)
-            
-    @property
-    def plot(self):
-        """可視化操作プロキシを返す
-        Returns:
-            Plotter object (CorePlotter or domain-specific Plotter)
-        """
-        if not hasattr(self, "_plotter"):
-            from tascpy.visualization.core.plotter import CorePlotter
-            
-            self._plotter = CorePlotter(self)
-        return self._plotter
 
     def keys(self) -> List[str]:
         """利用可能なキーのリストを返す"""

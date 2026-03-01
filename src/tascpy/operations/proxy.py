@@ -26,22 +26,22 @@ T = TypeVar("T", bound=ColumnCollection)
 class CollectionOperations(Generic[T]):
     """ColumnCollectionの操作プロキシクラス, デコレーターパターンを使用"""
 
-    def __init__(self, collection: T, domain: str = "core"):
+    def __init__(self, collection: T, domain: Optional[str] = None):
         """
         Args:
             collection: ColumnCollectionオブジェクト
-            domain: 操作のドメイン（デフォルトは"core"）
+            domain: 操作のドメイン（指定がない場合はコレクションのdomainを使用）
         """
         if isinstance(collection, type(self)):
             self._collection = collection._collection
-            # ドメインがデフォルト("core")の場合、元のプロキシのドメインを継承する
-            if domain == "core":
-                 self._domain = collection._domain
-            else:
+            # ドメインが指定された場合はそれを優先、それ以外は元のプロキシのドメインを継承する
+            if domain is not None:
                  self._domain = domain
+            else:
+                 self._domain = collection._domain
         else:
             self._collection = collection
-            self._domain = domain
+            self._domain = domain if domain is not None else getattr(collection, "domain", "core")
 
         # スタブファイルが生成されていない場合、生成を試みる
         if TYPE_CHECKING:

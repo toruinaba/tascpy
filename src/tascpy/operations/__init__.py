@@ -5,6 +5,11 @@ from .core import math
 from .core import interpolate
 from .core import stats  # 統計処理機能を追加
 
+# アクセサ（拡張プロパティ）の登録
+from .proxy import CollectionOperations
+from ..core.collection import ColumnCollection
+ColumnCollection.register_accessor("ops", CollectionOperations)
+
 # ドメイン特化モジュールのインポート
 from . import coordinate  # 座標ドメインの操作
 from . import load_displacement  # 荷重変位ドメインの操作
