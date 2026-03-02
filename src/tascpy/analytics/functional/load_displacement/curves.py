@@ -25,13 +25,13 @@ def extend_data_edge(
     """
     if extend_position == "end":
         if len(x_data) < 2 or len(y_data) < 2:
-            return target, y_data[-1] if target_type == "x" else x_data[-1]
+            return (target, y_data[-1]) if target_type == "x" else (x_data[-1], target)
 
         x1, y1 = x_data[-2], y_data[-2]
         x2, y2 = x_data[-1], y_data[-1]
     else:  # start
         if len(x_data) < 2 or len(y_data) < 2:
-            return target, y_data[0] if target_type == "x" else x_data[0]
+            return (target, y_data[0]) if target_type == "x" else (x_data[0], target)
 
         x1, y1 = x_data[0], y_data[0]
         x2, y2 = x_data[1], y_data[1]
