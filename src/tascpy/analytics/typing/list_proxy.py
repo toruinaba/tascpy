@@ -355,8 +355,7 @@ Returns:
 
     def fetch_near_step(
         self,
-        value: float,
-        **kwargs
+        value: float
     ) -> "CollectionListOperations[C]":
         """指定ステップ値に最も近いデータ行を一つ抽出します
 

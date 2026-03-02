@@ -35,10 +35,6 @@ class LoadDisplacementPlotter(CorePlotter):
 
         return x_col, y_col
 
-    def __call__(self, *args, **kwargs) -> Axes:
-        """PlotProxyとの互換性のため直接呼び出し時はplot_load_displacementを実行します"""
-        return self.plot_load_displacement(*args, **kwargs)
-
     def plot_load_displacement(
         self,
         x_column: Optional[str] = None,

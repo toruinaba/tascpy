@@ -588,8 +588,7 @@ Returns:
     def fetch_near_step(
         self,
         column: str,
-        value: float,
-        **kwargs
+        value: float
     ) -> "CollectionListOperations[StrainCollectionOperations]":
         """指定ステップ値に最も近いデータ行を一つ抽出します
 

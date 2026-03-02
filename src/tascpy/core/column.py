@@ -12,11 +12,6 @@ class Column(DataHolder):
         self.ch = ch
         self.unit = unit
 
-    @property
-    def data(self):
-        """valuesのエイリアス（互換性のため）"""
-        return self.values
-
     def clone(self):
         from copy import deepcopy
 

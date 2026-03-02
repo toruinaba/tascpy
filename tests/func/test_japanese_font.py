@@ -76,8 +76,7 @@ class TestJapaneseFont:
 
     def test_japanese_operation_plot(self, japanese_sample_collection):
         """operations.core.plot を使用した日本語表示テスト"""
-        # 日本語カラム名を使用したプロット
-        result = japanese_sample_collection.plot(
+        result = japanese_sample_collection.plot.plot(
             "変位",
             "荷重",
             plot_type="scatter",

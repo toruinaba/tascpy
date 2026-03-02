@@ -8,10 +8,10 @@ from tascpy.plugins.load_displacement import cycle_count
 class Test_results:
     def test_01(self, tasc_file, tmp_path):
         path = str(tasc_file)
-        res = tp.Experiment.from_file(path, format_name="tasc")
+        res = tp.io.load(path, format_name="tasc")
         ops = tp.CollectionOperations(res)
-        ops.plot(y_column="P_total")
-        ops.plot(x_column="梁変位", y_column="P_total")
+        ops.end().plot.plot(y_column="P_total")
+        ops.end().plot.plot(x_column="梁変位", y_column="P_total")
         req_steps = list(range(1, 400))
         req_names = [
             "P_total",
@@ -38,16 +38,16 @@ class Test_results:
         fig = plt.figure(figsize=(10, 3))
         ax1 = fig.add_subplot(1, 3, 1)
         # Create explicit axes for tests
-        extracted.plot(x_column="梁変位", y_column="P_total", ax=ax1, linewidth=0.5)
+        extracted.plot.plot(x_column="梁変位", y_column="P_total", ax=ax1, linewidth=0.5)
         ax1.scatter(
-            [fetched_step1["梁変位"].data],
-            [fetched_step1["P_total"].data],
+            [fetched_step1["梁変位"].values],
+            [fetched_step1["P_total"].values],
             marker="o",
             color="r",
         )
         ax1.scatter(
-            [fetched_step2["梁変位"].data],
-            [fetched_step2["P_total"].data],
+            [fetched_step2["梁変位"].values],
+            [fetched_step2["P_total"].values],
             marker="^",
             color="b",
         )
@@ -56,10 +56,10 @@ class Test_results:
         distance = [0.0, 50.0, 100.0, 200.0, 300.0]
         plot_list1 = ["b11", "b21", "b31", "b41", "b51"]
         plot_list2 = ["b12", "b22", "b32", "b42", "b52"]
-        fetched_step1.data.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="o", color="r")
-        fetched_step2.data.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="^", color="b")
-        fetched_step1.data.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="o", color="r")
-        fetched_step2.data.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="^", color="b")
+        fetched_step1.end().plot.plot_const_x(distance, plot_list1, ax=ax2, marker="o", color="r")
+        fetched_step2.end().plot.plot_const_x(distance, plot_list1, ax=ax2, marker="^", color="b")
+        fetched_step1.end().plot.plot_const_x(distance, plot_list2, ax=ax3, marker="o", color="r")
+        fetched_step2.end().plot.plot_const_x(distance, plot_list2, ax=ax3, marker="^", color="b")
         ax2.set_xlim(0, 300.0)
         ax2.set_ylim(50, 110.0)
         ax3.set_xlim(0, 300.0)
@@ -68,7 +68,7 @@ class Test_results:
 
     def test_02(self, tasc_file):
         path = str(tasc_file)
-        res = tp.Experiment.from_file(path, format_name="tasc")
+        res = tp.io.load(path, format_name="tasc")
 
         ops = tp.CollectionOperations(res)
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
@@ -93,10 +93,10 @@ class Test_results:
             splitted = d_removed_outliers.split_at_indices(max_index + 1)
             # Check if split was successful
             if len(splitted) >= 2:
-                splitted[0].plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax)
-                splitted[1].plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax)
+                splitted[0].plot.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax)
+                splitted[1].plot.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax)
             elif len(splitted) == 1:
-                splitted[0].plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax)
+                splitted[0].plot.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax)
                 
             ax.set_title(f"step {count}")
 
@@ -106,8 +106,8 @@ class Test_results:
             )
 
             if len(splitted) > 0:
-                p = splitted[0]["P_total"].data
-                d_val = splitted[0]["梁変位ﾜｲﾔ"].data
+                p = splitted[0]["P_total"].values
+                d_val = splitted[0]["梁変位ﾜｲﾔ"].values
                 # Removed smooth_data usage
                 
                 # ax.plot(d_smooth, p_smooth, label="smoothed")
@@ -124,7 +124,7 @@ class Test_results:
             
     def test_03(self, tasc_file):
         path = str(tasc_file)
-        res = tp.Experiment.from_file(path, format_name="tasc")
+        res = tp.io.load(path, format_name="tasc")
         ops = tp.CollectionOperations(res)
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()
@@ -137,17 +137,17 @@ class Test_results:
         
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        pd_removed_outliers.plot(
+        pd_removed_outliers.plot.plot(
             x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax, linewidth=0.5, label="removed outliers"
         )
 
-        pd_rmdup.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax, linewidth=0.5, label="original")
+        pd_rmdup.plot.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax, linewidth=0.5, label="original")
         # plt.show()
 
         from tascpy.plugins.load_displacement import create_skeleton_curve
 
-        p_cyc = pd_removed_outliers["P_total"].data
-        d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].data
+        p_cyc = pd_removed_outliers["P_total"].values
+        d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].values
         p_ske, d_ske = create_skeleton_curve(
             d_cyc, p_cyc, has_decrease=True, decrease_type="envelope"
         )
@@ -186,7 +186,7 @@ class Test_results:
 
     def test_04(self, tasc_file):
         path = str(tasc_file)
-        res = tp.Experiment.from_file(path, format_name="tasc")
+        res = tp.io.load(path, format_name="tasc")
         ops = tp.CollectionOperations(res)
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()

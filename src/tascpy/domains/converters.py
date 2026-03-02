@@ -58,24 +58,14 @@ def prepare_for_domain_conversion(
         result, mod_kwargs = _DOMAIN_CONVERTERS[converter_key](result, **kwargs)
         return result, mod_kwargs
 
-    # 従来の変換関数で対応（後方互換性のため）
-    if target_domain == "timeseries":
-        mod_kwargs = _prepare_for_timeseries(result, **kwargs)
-        return result, mod_kwargs
-    elif target_domain == "signal":
-        mod_kwargs = _prepare_for_signal(result, **kwargs)
-        return result, mod_kwargs
-    elif target_domain == "load_displacement":
-        mod_kwargs = _prepare_for_load_displacement(result, **kwargs)
-        return result, mod_kwargs
-
     # 対応する変換関数がない場合は、そのまま返す
     return result, kwargs
 
 
-def _prepare_for_timeseries(
+@register_domain_converter(source_domain="core", target_domain="timeseries")
+def prepare_for_timeseries(
     collection: ColumnCollection, **kwargs: Any
-) -> Dict[str, Any]:
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
     """時系列ドメインへの変換前処理
 
     Args:
@@ -138,11 +128,12 @@ def _prepare_for_timeseries(
 
         # 使用済みのキーをkwargsから削除
         kwargs.pop("start_date", None)
-        return kwargs
-    return kwargs
+        return collection, kwargs
+    return collection, kwargs
 
 
-def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> Dict[str, Any]:
+@register_domain_converter(source_domain="core", target_domain="signal")
+def prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> Tuple[ColumnCollection, Dict[str, Any]]:
     """信号処理ドメインへの変換前処理
 
     Args:
@@ -181,13 +172,14 @@ def _prepare_for_signal(collection: ColumnCollection, **kwargs: Any) -> Dict[str
             collection.metadata["signal_warning"] = (
                 "非等間隔データです。信号処理前にリサンプリングを検討してください。"
             )
-        return kwargs
-    return kwargs
+        return collection, kwargs
+    return collection, kwargs
 
 
-def _prepare_for_load_displacement(
+@register_domain_converter(source_domain="core", target_domain="load_displacement")
+def prepare_for_load_displacement(
     collection: ColumnCollection, **kwargs: Any
-) -> Dict[str, Any]:
+) -> Tuple[ColumnCollection, Dict[str, Any]]:
     """一般コレクションから荷重-変位コレクションへの変換準備を行う
 
     Args:
@@ -251,26 +243,7 @@ def _prepare_for_load_displacement(
     # 更新されたkwargsを返す
     kwargs.update({"load_column": load_column, "displacement_column": disp_column})
 
-    return kwargs
-
-
-@register_domain_converter(source_domain="core", target_domain="load_displacement")
-def prepare_for_load_displacement(
-    collection: ColumnCollection, **kwargs: Any
-) -> Tuple[ColumnCollection, Dict[str, Any]]:
-    """一般コレクションから荷重-変位コレクションへの変換準備を行う
-
-    Args:
-        collection: 変換元のコレクション
-        **kwargs: 追加のパラメータ
-
-    Returns:
-        Tuple[ColumnCollection, Dict[str, Any]]:
-            (変換用に準備されたコレクション, 更新されたkwargs)
-    """
-    # 従来の関数を利用して処理
-    modified_kwargs = _prepare_for_load_displacement(collection, **kwargs)
-    return collection, modified_kwargs
+    return collection, kwargs
 
 
 @register_domain_converter(source_domain="core", target_domain="coordinate")

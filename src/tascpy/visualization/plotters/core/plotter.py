@@ -33,10 +33,6 @@ class CorePlotter:
         label = f"{name} [{unit}]" if unit else name
         return np.array(val_list), label
 
-    def __call__(self, *args, **kwargs) -> Axes:
-        """PlotProxyとの互換性のため直接呼び出し時はplotを実行します"""
-        return self.plot(*args, **kwargs)
-
     def plot(
         self,
         y_column: str,
@@ -136,12 +132,6 @@ class CorePlotter:
             x_vals = np.arange(len(y_vals))
             auto_x_label = "Index"
 
-        # 古いシグネチャからの互換性を処理
-        if "method" in kwargs:
-            del kwargs["method"]
-        if "multiplier" in kwargs:
-            kwargs["threshold"] = kwargs.pop("multiplier")
-            
         return core_plot.visualize_outliers(
             x_values=x_vals,
             y_values=y_vals,

@@ -4,7 +4,6 @@ import numpy as np
 
 def select_indices(
     step_values: Union[List[Union[int, float]], np.ndarray],
-    columns: Optional[List[str]] = None,
     indices: Optional[List[int]] = None,
     steps: Optional[List[Union[int, float]]] = None,
     by_step_value: bool = True,
@@ -14,7 +13,6 @@ def select_indices(
 
     Args:
         step_values (Union[List[Union[int, float]], np.ndarray]): ステップ値のリストまたは配列。
-        columns (Optional[List[str]], optional): 選択するカラム名のリスト（未使用、互換性のため維持）。デフォルトは None。
         indices (Optional[List[int]], optional): 直接指定するインデックスのリスト。デフォルトは None。
         steps (Optional[List[Union[int, float]]], optional): 選択するステップ値またはインデックスのリスト。デフォルトは None。
         by_step_value (bool, optional): `steps` をステップ値として扱うかどうか。Falseの場合はインデックスとして扱います。デフォルトは True。
@@ -119,14 +117,13 @@ def select_indices(
     return final_indices, metadata_update
 
 def fetch_near_step(
-    values: np.ndarray, value: float, **kwargs
+    values: np.ndarray, value: float
 ) -> List[int]:
     """指定された値に最も近い要素のインデックスを検索します。
 
     Args:
         values (np.ndarray): 検索対象の数値配列。
         value (float): ターゲット値。
-        **kwargs: その他のオプション（未使用）。
 
     Returns:
         List[int]: 最も近い値のインデックスを含むリスト（要素数1）。

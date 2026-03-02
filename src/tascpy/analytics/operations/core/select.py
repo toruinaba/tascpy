@@ -12,17 +12,30 @@ from ..registry import operation, register_functional
 from ..abstraction import filter_rows, select_columns, inject_columns, inject_step_values
 from ...functional import select as functional_select
 
+def _select_indices_wrapper(
+    step_values: Union[List[Union[int, float]], np.ndarray],
+    columns: Optional[List[str]] = None,
+    indices: Optional[List[int]] = None,
+    steps: Optional[List[Union[int, float]]] = None,
+    by_step_value: bool = True,
+    tolerance: Optional[float] = None,
+) -> Tuple[List[int], Dict[str, Any]]:
+    return functional_select.select_indices(
+        step_values=step_values,
+        indices=indices,
+        steps=steps,
+        by_step_value=by_step_value,
+        tolerance=tolerance,
+    )
 
 select = register_functional(
-    functional_select.select_indices,
+    _select_indices_wrapper,
     domain="core",
     name="select",
     select_columns={"arg_name": "columns"},
     filter_rows=True,
     inject_step_values={},
-    signature_override={
-        # columns is handled by select_columns, but passed to pure func (ignored there but arg exists)
-    }
+    signature_override={}
 )
 select.__doc__ = """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します
 

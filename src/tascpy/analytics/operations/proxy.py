@@ -183,11 +183,6 @@ class CollectionOperations(Generic[T]):
     def metadata(self) -> Dict[str, Any]:
         return self._collection.metadata
 
-    @property
-    def data(self):
-        """互換性のためのエイリアス"""
-        return self._collection
-
     def __getattr__(self, name: str) -> Any:
         """その他の属性やメソッドをCollectionに委譲"""
         attr = getattr(self._collection, name)

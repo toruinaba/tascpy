@@ -141,7 +141,7 @@ class TestLoadDisplacementPlotFunctional:
         )
 
         # 基本的な荷重-変位プロット
-        load_displacement_data.plot()
+        load_displacement_data.plot.plot_load_displacement()
         fig1 = plt.gcf()
         basic_plot_path = Path(self.temp_dir) / "basic_plot.png"
         fig1.savefig(basic_plot_path)
@@ -231,7 +231,7 @@ class TestLoadDisplacementPlotFunctional:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
         # 基本的な荷重-変位プロットをカスタマイズ
-        load_displacement_data.plot(
+        load_displacement_data.plot.plot_load_displacement(
             ax=ax1,
             color="blue",
             marker="o",
@@ -313,7 +313,7 @@ class TestLoadDisplacementPlotFunctional:
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
         # 基本プロットと各降伏点解析の表示
-        load_displacement_data.plot(ax=axs[0, 0])
+        load_displacement_data.plot.plot_load_displacement(ax=axs[0, 0])
         axs[0, 0].set_title("Raw Load-Displacement Data")
 
         offset_small_yp = offset_small.results["yield_point"]
@@ -632,7 +632,7 @@ class TestLoadDisplacementPlotFunctional:
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
         # 元データの荷重-変位曲線
-        load_displacement_data.plot(ax=axs[0, 0])
+        load_displacement_data.plot.plot_load_displacement(ax=axs[0, 0])
         axs[0, 0].set_title("元の荷重-変位曲線")
 
         # スケルトン曲線 (複数曲線としてplotする方式に変更)

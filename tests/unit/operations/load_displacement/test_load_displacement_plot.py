@@ -143,7 +143,7 @@ class TestPlotLoadDisplacement:
     def test_basic_plot(self, sample_load_displacement_data):
         """基本的なプロット機能のテスト"""
         # 関数の戻り値は LoadDisplacementCollection のみ
-        result_collection = sample_load_displacement_data.plot()
+        result_collection = sample_load_displacement_data.plot.plot_load_displacement()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -162,7 +162,7 @@ class TestPlotLoadDisplacement:
     def test_custom_axis(self, sample_load_displacement_data):
         """カスタム軸へのプロット機能のテスト"""
         custom_fig, custom_ax = plt.subplots()
-        result_collection = sample_load_displacement_data.plot(ax=custom_ax)
+        result_collection = sample_load_displacement_data.plot.plot_load_displacement(ax=custom_ax)
 
         fig = custom_ax.figure
         ax = custom_ax
@@ -174,7 +174,7 @@ class TestPlotLoadDisplacement:
 
     def test_with_kwargs(self, sample_load_displacement_data):
         """追加のキーワード引数が適用されるかのテスト"""
-        result_collection = sample_load_displacement_data.plot(
+        result_collection = sample_load_displacement_data.plot.plot_load_displacement(
             color="red",
             linestyle="--",
             marker="o",

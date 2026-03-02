@@ -4,7 +4,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.core.step import Step
-from tascpy.domains.converters import _prepare_for_timeseries, _prepare_for_load_displacement, _prepare_for_signal
+from tascpy.domains.converters import prepare_for_timeseries, prepare_for_load_displacement, prepare_for_signal
 
 class TestDomainConverters:
     """ドメイン変換ヘルパー関数のテスト"""
@@ -24,7 +24,7 @@ class TestDomainConverters:
         start_date = datetime(2023, 1, 1)
         
         # 2時間ごとのデータ
-        kwargs = _prepare_for_timeseries(
+        col, kwargs = prepare_for_timeseries(
             basic_collection, 
             start_date=start_date, 
             frequency="2H"
@@ -36,7 +36,7 @@ class TestDomainConverters:
 
         # 30分ごとのデータ (リセットしてテスト)
         basic_collection.step = Step(values=[0, 1, 2])
-        kwargs = _prepare_for_timeseries(
+        col, kwargs = prepare_for_timeseries(
             basic_collection, 
             start_date=start_date, 
             frequency="30min"
@@ -62,7 +62,7 @@ class TestDomainConverters:
                 "Temp": Column("3", "Temp", "C", [25.0])
             }
         )
-        kwargs = _prepare_for_load_displacement(c1)
+        col, kwargs = prepare_for_load_displacement(c1)
         assert kwargs["load_column"] == "Force [N]"
         assert kwargs["displacement_column"] == "Displacement [mm]"
 
@@ -75,7 +75,7 @@ class TestDomainConverters:
                 "ColC": Column("3", "C", "", ["str"]) # 文字列
             }
         )
-        kwargs = _prepare_for_load_displacement(c2)
+        col, kwargs = prepare_for_load_displacement(c2)
         assert kwargs["load_column"] == "ColA" # 最初の数値カラム
         assert kwargs["displacement_column"] == "ColB" # 2番目の数値カラム
 
@@ -87,7 +87,7 @@ class TestDomainConverters:
             }
         )
         with pytest.raises(ValueError):
-            _prepare_for_load_displacement(c3)
+            prepare_for_load_displacement(c3)
 
     def test_prepare_for_signal_warnings(self, basic_collection):
         """信号処理変換時の警告テスト"""
@@ -98,7 +98,7 @@ class TestDomainConverters:
             datetime(2023, 1, 1, 10, 0, 3)  # +2s (gap)
         ])
         
-        _prepare_for_signal(basic_collection)
+        prepare_for_signal(basic_collection)
         
         assert "original_timestamps" in basic_collection.metadata
         assert "signal_warning" in basic_collection.metadata
