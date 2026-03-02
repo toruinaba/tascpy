@@ -4,7 +4,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import detect_column_type, NumberColumn
 from tascpy.core.step import Step
-from tascpy.core.result import XYSeriesResult, PointResult
+from tascpy.core.result import XYSeriesResult, PointResult, ScalarResult
 
 
 def inject_columns(

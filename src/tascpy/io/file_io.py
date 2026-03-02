@@ -82,7 +82,7 @@ def _load_from_stream(
 
     # ファイル内容を行単位で読み込み
     all_lines = file_stream.readlines()
-    rows = [line.rstrip() for line in all_lines]
+    rows = [line.rstrip('\r\n') for line in all_lines]
 
     # フォーマット設定から行と列のインデックスを取得
     delimiter = format_config["delimiter"]
