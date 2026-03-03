@@ -28,6 +28,20 @@ moving_average = register_functional(
         "edge_handling": (str, "asymmetric")
     }
 )
+"""指定されたウィンドウサイズで移動平均を計算します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        window_size (int, optional): 移動平均のウィンドウサイズ. Defaults to 3.
+        edge_handling (str, optional): 端の処理方法 ("asymmetric", "symmetric", "constant", "mirror", "wrap"). Defaults to "asymmetric".
+        
+    Returns:
+        ColumnCollection: 移動平均値が追加された新しいコレクション
+        
+    Examples:
+        >>> smoothed_col = col.ops.moving_average("荷重", window_size=5)
+"""
 moving_average.__doc__ = """指定されたウィンドウサイズで移動平均を計算します
 
     Args:
@@ -58,6 +72,23 @@ detect_outliers = register_functional(
         "scale_factor": (float, 1.0)
     }
 )
+"""異常値を検出します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        window_size (int, optional): 移動平均などのウィンドウサイズ. Defaults to 3.
+        threshold (float, optional): 異常と判定する閾値. Defaults to 0.5.
+        edge_handling (str, optional): 端の処理方法. Defaults to "asymmetric".
+        min_abs_value (float, optional): ゼロ除算を防ぐための最小絶対値. Defaults to 1e-10.
+        scale_factor (float, optional): スケールファクタ. Defaults to 1.0.
+
+    Returns:
+        ColumnCollection: 異常値フラグが追加された新しいコレクション
+        
+    Examples:
+        >>> flagged_col = col.ops.detect_outliers("変位", threshold=3.0)
+"""
 detect_outliers.__doc__ = """異常値を検出します
 
     Args:
@@ -91,6 +122,20 @@ gaussian_filter = register_functional(
         "window_size": (Optional[int], None)
     }
 )
+"""ガウシアンフィルターを適用します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        sigma (float, optional): ガウス関数の標準偏差. Defaults to 1.0.
+        window_size (Optional[int], optional): ウィンドウサイズ. Defaults to None.
+        
+    Returns:
+        ColumnCollection: フィルター処理後の値が追加された新しいコレクション
+        
+    Examples:
+        >>> filtered_col = col.ops.gaussian_filter("荷重", sigma=2.0)
+"""
 gaussian_filter.__doc__ = """ガウシアンフィルターを適用します
 
     Args:
@@ -120,6 +165,19 @@ max = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
+"""指定されたカラムの最大値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として最大値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.max("荷重")
+        >>> max_val = col.results["max(荷重)"].value
+"""
 max.__doc__ = """指定されたカラムの最大値を計算します。
 
     Args:
@@ -141,6 +199,18 @@ min = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
+"""指定されたカラムの最小値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として最小値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.min("変位")
+"""
 min.__doc__ = """指定されたカラムの最小値を計算します。
 
     Args:
@@ -161,6 +231,18 @@ mean = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
+"""指定されたカラムの平均値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として平均値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.mean("変位")
+"""
 mean.__doc__ = """指定されたカラムの平均値を計算します。
 
     Args:
@@ -181,6 +263,18 @@ std = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
+"""指定されたカラムの標準偏差を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として標準偏差が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.std("荷重")
+"""
 std.__doc__ = """指定されたカラムの標準偏差を計算します。
 
     Args:
@@ -201,6 +295,19 @@ sum = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
+"""指定されたカラムの合計値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として合計値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.sum("エネルギー")
+        >>> total_energy = col.results["sum(エネルギー)"].value
+"""
 sum.__doc__ = """指定されたカラムの合計値を計算します。
 
     Args:

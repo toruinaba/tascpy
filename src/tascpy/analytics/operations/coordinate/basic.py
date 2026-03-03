@@ -24,6 +24,22 @@ extract_coordinates = register_functional(
         requires_domain(["coordinate", "strain"]),
     ]
 )
+"""各列の座標値を新しい列としてコレクションに追加します
+
+    座標情報が設定されている列の x、y、z 座標値を取得し、それぞれを独立した列として
+    コレクションに追加します。新しい列名には指定された接頭辞が付与されます。
+
+    Args:
+        collection: 座標コレクション
+        result_prefix: 結果列の接頭辞 (デフォルト: "coord_")
+
+    Returns:
+        CoordinateCollection: 座標列を追加したコレクション
+        
+    Examples:
+        >>> col = col.ops.extract_coordinates(result_prefix="coord_")
+        >>> x_coords = col["coord_x"].values
+"""
 extract_coordinates.__doc__ = """各列の座標値を新しい列としてコレクションに追加します
 
     座標情報が設定されている列の x、y、z 座標値を取得し、それぞれを独立した列として

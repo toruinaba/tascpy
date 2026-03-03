@@ -21,6 +21,19 @@ calculate_slopes = operation(domain="load_displacement")(resolve_ld_columns(regi
         "disp_data": ("column", float),
     }
 )))
+"""荷重-変位データから区間ごとの傾き（スロープ）を計算します。
+
+    Args:
+        collection (LoadDisplacementCollection): 荷重-変位コレクション
+        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
+        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
+        
+    Returns:
+        LoadDisplacementCollection: 算出された傾きデータが追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.calculate_slopes()
+"""
 calculate_slopes.__doc__ = """荷重-変位データから区間ごとの傾き（スロープ）を計算します。
 
     Args:
@@ -48,6 +61,22 @@ calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(r
         "method": (str, "linear_regression"),
     }
 )))
+"""指定された範囲のデータから剛性（代表スロープ）を計算します。
+
+    Args:
+        collection (LoadDisplacementCollection): 荷重-変位コレクション
+        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
+        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
+        range_start (float, optional): 計算対象範囲の開始比率（最大値に対する比率）. Defaults to 0.2.
+        range_end (float, optional): 計算対象範囲の終了比率（最大値に対する比率）. Defaults to 0.8.
+        method (str, optional): 計算手法 ("linear_regression", "secant"). Defaults to "linear_regression".
+        
+    Returns:
+        LoadDisplacementCollection: 剛性の計算結果がメタデータとして追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.calculate_stiffness(range_start=0.1, range_end=0.4, method="linear_regression")
+"""
 calculate_stiffness.__doc__ = """指定された範囲のデータから剛性（代表スロープ）を計算します。
 
     Args:
@@ -83,6 +112,27 @@ find_yield_point = operation(domain="load_displacement")(resolve_ld_columns(regi
         "fail_silently": (bool, False),
     }
 )))
+"""荷重-変位データから降伏点（Yield Point）を検出します。
+
+    Args:
+        collection (LoadDisplacementCollection): 荷重-変位コレクション
+        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
+        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
+        method (str, optional): 降伏点判定手法 ("offset", "max_load"). Defaults to "offset".
+        offset_value (float, optional): オフセット法におけるオフセットひずみ等. Defaults to 0.002.
+        range_start (float, optional): 剛性計算の開始比率. Defaults to 0.1.
+        range_end (float, optional): 剛性計算の終了比率. Defaults to 0.3.
+        factor (float, optional): 特定手法での係数. Defaults to 0.33.
+        debug_mode (bool, optional): デバッグ情報を表示するか. Defaults to False.
+        fail_silently (bool, optional): 検出失敗時に例外を投げず無視するか. Defaults to False.
+        
+    Returns:
+        LoadDisplacementCollection: 降伏点情報が結果として追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.find_yield_point(method="offset", offset_value=0.002)
+        >>> yield_pt = col.results["yield_point"].value
+"""
 find_yield_point.__doc__ = """荷重-変位データから降伏点（Yield Point）を検出します。
 
     Args:

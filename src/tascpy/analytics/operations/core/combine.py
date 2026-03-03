@@ -54,6 +54,23 @@ switch_by_step = register_functional(
         "tolerance": (Optional[float], None)
     }
 )
+"""特定のステップ値（またはインデックス）を境にして、2つのデータ列を切り替えます
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        v1 (str | np.ndarray): 切り替え前のデータ（カラム名または配列）
+        v2 (str | np.ndarray): 切り替え後のデータ（カラム名または配列）
+        threshold (int | float): 切り替えを実行する境界となるステップ値（またはインデックス）
+        compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
+        by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
+        tolerance (float, optional): 比較の許容誤差. Defaults to None.
+        
+    Returns:
+        ColumnCollection: 切り替え済みのデータを持つ新しいコレクション
+        
+    Examples:
+        >>> switched_col = col.ops.switch_by_step("Phase1", "Phase2", threshold=5.0)
+"""
 switch_by_step.__doc__ = """特定のステップ値（またはインデックス）を境にして、2つのデータ列を切り替えます
 
     Args:
@@ -117,6 +134,25 @@ blend_by_step = register_functional(
         "tolerance": (Optional[float], None),
     }
 )
+"""特定のステップ区間において、2つのデータ列を滑らかにブレンド（合成）します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        v1 (str | np.ndarray): ブレンド前のデータ（始端側）
+        v2 (str | np.ndarray): ブレンド後のデータ（終端側）
+        start (int | float): ブレンドを開始するステップ値（またはインデックス）
+        end (int | float): ブレンドを終了しv2に完全に以降するステップ値（またはインデックス）
+        compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
+        by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
+        blend_method (str, optional): ブレンド手法 ("linear", "cosine", "smoothstep"). Defaults to "linear".
+        tolerance (float, optional): 比較の許容誤差. Defaults to None.
+
+    Returns:
+        ColumnCollection: ブレンド済みのデータを持つ新しいコレクション
+        
+    Examples:
+        >>> blended_col = col.ops.blend_by_step("Phase1", "Phase2", start=4.0, end=6.0, blend_method="smoothstep")
+"""
 blend_by_step.__doc__ = """特定のステップ区間において、2つのデータ列を滑らかにブレンド（合成）します
 
     Args:
@@ -148,6 +184,18 @@ sum_columns = register_functional(
         "data": ("columns", Optional[List[str]]),
     }
 )
+"""指定された複数のカラムの要素ごとの合計を計算します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        columns (List[str], optional): 合計するカラム名のリスト. 未指定時はすべて. Defaults to None.
+        
+    Returns:
+        ColumnCollection: 合計値カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> sum_col = col.ops.sum_columns(columns=["CH1", "CH2", "CH3"])
+"""
 sum_columns.__doc__ = """指定された複数のカラムの要素ごとの合計を計算します
 
     Args:
@@ -172,6 +220,18 @@ average_columns = register_functional(
         "data": ("columns", Optional[List[str]]),
     }
 )
+"""指定された複数のカラムの要素ごとの平均を計算します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        columns (List[str], optional): 平均するカラム名のリスト. 未指定時はすべて. Defaults to None.
+        
+    Returns:
+        ColumnCollection: 平均値カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> avg_col = col.ops.average_columns(columns=["CH1", "CH2", "CH3"])
+"""
 average_columns.__doc__ = """指定された複数のカラムの要素ごとの平均を計算します
 
     Args:
@@ -200,6 +260,22 @@ conditional_select = register_functional(
         "compare": (str, ">")
     }
 )
+"""条件列の値と閾値の比較結果に基づき、2つの列から値を選択します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        v1 (str | np.ndarray): 条件付き真(True)の時に選ばれるデータ
+        v2 (str | np.ndarray): 条件付き偽(False)の時に選ばれるデータ
+        cond_values (str | np.ndarray): 条件判定の基準となるデータ列
+        threshold (int | float, optional): 条件判定の閾値. Defaults to 0.
+        compare (str, optional): 比較演算子 (">", "<", ">=", "<=", "==", "!="). Defaults to ">".
+        
+    Returns:
+        ColumnCollection: 条件に基づいて選択されたデータを持つ新しいコレクション
+        
+    Examples:
+        >>> selected_col = col.ops.conditional_select("CH_High", "CH_Low", cond_values="Temperature", threshold=50, compare=">")
+"""
 conditional_select.__doc__ = """条件列の値と閾値の比較結果に基づき、2つの列から値を選択します
 
     Args:
@@ -234,6 +310,21 @@ custom_combine = register_functional(
         "func_name": (Optional[str], None)
     }
 )
+"""ユーザー提供のカスタム関数を利用して2つの列を合成します
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        v1 (str | np.ndarray): 第一引数となるデータ列
+        v2 (str | np.ndarray): 第二引数となるデータ列
+        combine_func (Callable[[Any, Any], Any]): 合成処理を行うコールバック関数
+        func_name (str, optional): 関数の名前（結果のカラム名に使用）. Defaults to None.
+        
+    Returns:
+        ColumnCollection: カスタム加工されたデータを含む新しいコレクション
+        
+    Examples:
+        >>> custom_col = col.ops.custom_combine("CH1", "CH2", combine_func=lambda x, y: x**2 + y**2, func_name="sum_squares")
+"""
 custom_combine.__doc__ = """ユーザー提供のカスタム関数を利用して2つの列を合成します
 
     Args:
