@@ -4,7 +4,14 @@ import numpy as np
 
 
 class Step(DataHolder):
-    """インデックス列を表す専用クラス"""
+    """インデックス列を表す専用クラス
+    
+    Examples:
+        >>> from tascpy.core.step import Step
+        >>> step = Step(values=[0.0, 1.0, 2.0])
+        >>> step.find_nearest_index(1.2)
+        1
+    """
 
     def __init__(self, values=None, metadata=None):
         super().__init__("Step", values, metadata)
@@ -22,7 +29,14 @@ class Step(DataHolder):
     def find_step_index(
         self, value: Any, tolerance: Optional[float] = None, default: Any = None
     ) -> Union[int, Any]:
-        """値を検索してインデックスを返却する"""
+        """値を検索してインデックスを返却する
+        
+        Examples:
+            >>> from tascpy.core.step import Step
+            >>> step = Step(values=[0.0, 1.0, 2.0])
+            >>> step.find_step_index(1.0)
+            1
+        """
         if len(self.values) == 0:
             return default
 
@@ -54,6 +68,12 @@ class Step(DataHolder):
             
         Returns:
             int: 最も近い要素のインデックス。配列が空の場合は-1
+            
+        Examples:
+            >>> from tascpy.core.step import Step
+            >>> step = Step(values=[0.0, 10.0, 20.0])
+            >>> step.find_nearest_index(12.0)
+            1
         """
         if len(self.values) == 0:
             return -1

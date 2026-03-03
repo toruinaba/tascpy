@@ -1,7 +1,14 @@
 import numpy as np
 
 class DataHolder:
-    """データ値とメタデータを保持する基本クラス"""
+    """データ値とメタデータを保持する基本クラス
+    
+    Examples:
+        >>> from tascpy.core.data_holder import DataHolder
+        >>> dh = DataHolder(name="Sample", values=[1, 2, 3])
+        >>> len(dh)
+        3
+    """
 
     def __init__(self, name, values=None, metadata=None):
         self.name = name

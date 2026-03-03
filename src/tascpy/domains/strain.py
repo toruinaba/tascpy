@@ -13,6 +13,15 @@ class StrainCollection(CoordinateCollection):
     
     CoordinateCollectionを継承し、各ゲージの座標情報に加えて、
     ロゼットゲージ（3軸ゲージなど）のグルーピング情報を管理します。
+    
+    Examples:
+        >>> from tascpy.domains.strain import StrainCollection
+        >>> from tascpy.core.column import NumberColumn
+        >>> cols = {"CH1": NumberColumn("CH1", "Strain", "ue", [100.0])}
+        >>> ros = {"Rosette1": {"columns": ["CH1", "CH2", "CH3"], "type": "rectangular", "orientation": 0.0}}
+        >>> col = StrainCollection(columns=cols, rosettes=ros)
+        >>> col.get_rosette("Rosette1")["type"]
+        'rectangular'
     """
 
     def __init__(

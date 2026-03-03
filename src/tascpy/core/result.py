@@ -19,7 +19,17 @@ class AnalysisResult(ABC):
 
 
 class XYSeriesResult(AnalysisResult):
-    """Represents a generic 2D series (curve) with X and Y columns."""
+    """Represents a generic 2D series (curve) with X and Y columns.
+    
+    Examples:
+        >>> from tascpy.core.result import XYSeriesResult
+        >>> from tascpy.core.column import NumberColumn
+        >>> x = NumberColumn("X", "X-Axis", "mm", [0, 1])
+        >>> y = NumberColumn("Y", "Y-Axis", "N", [0, 10])
+        >>> res = XYSeriesResult("Curve", x, y)
+        >>> res.x.name
+        'X-Axis'
+    """
     
     def __init__(
         self, 
@@ -69,7 +79,14 @@ Curve = XYSeriesResult
 
 
 class ScalarResult(AnalysisResult):
-    """Represents a single scalar result (e.g. Stiffness, Max Load)."""
+    """Represents a single scalar result (e.g. Stiffness, Max Load).
+    
+    Examples:
+        >>> from tascpy.core.result import ScalarResult
+        >>> res = ScalarResult("MaxLoad", 100.0, "N")
+        >>> res.value
+        100.0
+    """
     
     def __init__(
         self, 
@@ -99,7 +116,14 @@ class ScalarResult(AnalysisResult):
 
 
 class PointResult(AnalysisResult):
-    """Represents a specific point (x, y) with optional units."""
+    """Represents a specific point (x, y) with optional units.
+    
+    Examples:
+        >>> from tascpy.core.result import PointResult
+        >>> res = PointResult("YieldPoint", 1.0, 10.0, "mm", "kN")
+        >>> res.y
+        10.0
+    """
     
     def __init__(
         self, 

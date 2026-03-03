@@ -37,6 +37,12 @@ class ColumnCollection:
         step (Step): 全データ行のインデックス（X軸・時間軸など）となるステップ列
         columns (dict[str, Column]): カラム名をキー、Columnオブジェクトを値とする辞書
         metadata (dict): 解析情報や日付などを格納する辞書
+        
+    Examples:
+        >>> from tascpy.core.collection import ColumnCollection
+        >>> col = ColumnCollection(step=[0.0, 1.0, 2.0], columns={"CH1": [10.0, 20.0, 30.0]})
+        >>> col.head(2)
+        <ColumnCollection shape=(2, 1) columns=['CH1']>
     """
 
     domain: str = "core"
@@ -170,6 +176,13 @@ class ColumnCollection:
         Raises:
             KeyError: 指定された列名/チャンネル名が存在しない場合
             TypeError: キーが文字列または整数/スライスでない場合
+            
+        Examples:
+            >>> col = ColumnCollection(step=[0.0], columns={"CH1": [10.0]})
+            >>> col["CH1"].values
+            [10.0]
+            >>> type(col[0]).__name__
+            'Row'
         """
         if isinstance(key, str):
             # 列名によるアクセス
@@ -383,6 +396,11 @@ class ColumnCollection:
 
         Returns:
             辞書: 各列の情報を含む辞書
+            
+        Examples:
+            >>> col = ColumnCollection(step=[0.0, 1.0, 2.0], columns={"CH1": [10.0, 20.0, 30.0]})
+            >>> col.describe()["CH1"]["count"]
+            3
         """
         stats = {}
         for name, column in self.columns.items():
@@ -432,6 +450,12 @@ class ColumnCollection:
             func: 適用する関数
         Returns:
             ColumnCollection: 新しいColumnCollection
+            
+        Examples:
+            >>> col = ColumnCollection(step=[0.0, 1.0], columns={"CH1": [1.0, 2.0]})
+            >>> new_col = col.apply(lambda x: [v * 10 for v in x])
+            >>> new_col["CH1"].values
+            [10.0, 20.0]
         """
         new_columns = {}
         for name, column in self.columns.items():
@@ -490,6 +514,11 @@ class ColumnCollection:
         Returns:
             tuple: (インデックス, ステップ値)
                    見つからない場合は (-1, None)
+                   
+        Examples:
+            >>> col = ColumnCollection(step=[0.0, 1.0, 2.0], columns={"CH1": [10.0, 20.0, 30.0]})
+            >>> col.find_nearest_step(1.2)
+            (1, 1.0)
         """
         idx = self.step.find_nearest_index(value)
         if idx == -1:
@@ -521,7 +550,14 @@ class ColumnCollection:
         return {name: col.first_invalid_index for name, col in self.columns.items()}
 
     def to_numeric(self, errors: str = "raise") -> "ColumnCollection":
-        """全列を数値列に変換を試みる（新しいCollectionを返す）"""
+        """全列を数値列に変換を試みる（新しいCollectionを返す）
+        
+        Examples:
+            >>> col = ColumnCollection(step=[0.0], columns={"CH1": ["10.0"]})
+            >>> num_col = col.to_numeric()
+            >>> type(num_col["CH1"]).__name__
+            'NumberColumn'
+        """
         new_columns = {}
         for name, col in self.columns.items():
             new_columns[name] = col.to_numeric(errors=errors)

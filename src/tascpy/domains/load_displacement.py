@@ -11,7 +11,16 @@ if TYPE_CHECKING:
 
 
 class LoadDisplacementCollection(ColumnCollection):
-    """荷重と変形のデータセットを扱うための特化コレクションクラス"""
+    """荷重と変形のデータセットを扱うための特化コレクションクラス
+    
+    Examples:
+        >>> from tascpy.domains.load_displacement import LoadDisplacementCollection
+        >>> from tascpy.core.column import NumberColumn
+        >>> cols = {"load": NumberColumn("load", "Load", "kN", [0.0, 10.0]), "disp": NumberColumn("disp", "Disp", "mm", [0.0, 1.0])}
+        >>> col = LoadDisplacementCollection(columns=cols, load_column="load", displacement_column="disp")
+        >>> col["load"].values
+        [0.0, 10.0]
+    """
 
     def __init__(
         self,
@@ -318,7 +327,14 @@ class LoadDisplacementCollection(ColumnCollection):
 
 # ファクトリ関数の定義
 def create_load_displacement_collection(**kwargs: Any) -> LoadDisplacementCollection:
-    """荷重-変形コレクションを作成するファクトリ関数"""
+    """荷重-変形コレクションを作成するファクトリ関数
+    
+    Examples:
+        >>> from tascpy.domains.load_displacement import create_load_displacement_collection
+        >>> col = create_load_displacement_collection()
+        >>> type(col).__name__
+        'LoadDisplacementCollection'
+    """
     return LoadDisplacementCollection(**kwargs)
 
 

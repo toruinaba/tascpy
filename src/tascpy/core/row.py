@@ -4,7 +4,14 @@ from typing import Any, Dict
 
 @dataclass
 class Row:
-    """ColumnCollectionの1行を表現するクラス"""
+    """ColumnCollectionの1行を表現するクラス
+    
+    Examples:
+        >>> from tascpy.core.row import Row
+        >>> row = Row(step=0.0, values={"CH1": 10.0, "CH2": 20.0})
+        >>> row["CH1"]
+        10.0
+    """
 
     step: Any
     values: Dict[str, Any]
@@ -16,7 +23,14 @@ class Row:
         return f"<Row step={self.step} values={vals}>"
 
     def __getitem__(self, key: str) -> Any:
-        """列名による値へのアクセス"""
+        """列名による値へのアクセス
+        
+        Examples:
+            >>> from tascpy.core.row import Row
+            >>> row = Row(step=0.0, values={"CH1": 10.0})
+            >>> row["CH1"]
+            10.0
+        """
         if key == "step":
             return self.step
         if key in self.values:

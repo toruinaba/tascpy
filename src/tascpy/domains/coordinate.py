@@ -14,6 +14,14 @@ class CoordinateCollection(ColumnCollection):
 
     各カラムに対して座標値(x, y, z)を関連付け、
     座標ベースの計算を可能にします。
+    
+    Examples:
+        >>> from tascpy.domains.coordinate import CoordinateCollection
+        >>> from tascpy.core.column import NumberColumn
+        >>> cols = {"CH1": NumberColumn("CH1", "Strain", "ue", [100.0])}
+        >>> col = CoordinateCollection(columns=cols, coordinates={"CH1": {"x": 10.0, "y": 20.0}})
+        >>> col.get_column_coordinates("CH1")
+        (10.0, 20.0, None)
     """
 
     def __init__(

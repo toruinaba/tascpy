@@ -8,7 +8,17 @@ T = TypeVar("T", bound=ColumnCollection)
 
 
 class CollectionListOperations(Generic[T]):
-    """複数のColumnCollectionを一度に操作するためのプロキシクラス"""
+    """複数のColumnCollectionを一度に操作するためのプロキシクラス
+    
+    Examples:
+        >>> from tascpy.core.collection import ColumnCollection
+        >>> from tascpy.analytics.operations.list_proxy import CollectionListOperations
+        >>> col1 = ColumnCollection(step=[1, 2], columns={"A": [10, 20]})
+        >>> col2 = ColumnCollection(step=[3, 4], columns={"A": [30, 40]})
+        >>> clo = CollectionListOperations([col1, col2])
+        >>> clo.map("max")
+        [{'A': 20}, {'A': 40}]
+    """
 
     def __init__(self, collections: List[T], domain: str = "core"):
         """

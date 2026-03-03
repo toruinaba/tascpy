@@ -16,6 +16,14 @@ class Column(DataHolder):
         unit (str): データの単位（例: "kN", "mm"）
         values (np.ndarray): 実際のデータ配列
         metadata (dict): その他付随するメタデータ
+        
+    Examples:
+        >>> from tascpy.core.column import Column
+        >>> col = Column(ch="CH01", name="Disp_X", unit="mm", values=[1.0, 2.0, None])
+        >>> col.count_nones()
+        1
+        >>> col.n_valid
+        2
     """
 
     def __init__(self, ch, name, unit, values=None, metadata=None):
@@ -318,7 +326,7 @@ class Column(DataHolder):
         return int(np.argmin(valid_mask))
 
     def to_numeric(self, errors: str = "raise") -> "NumberColumn":
-        """数値を格納するColumnに変換する
+        """Columnを数値型データのみを格納するNumberColumnに変換する
         
         Args:
             errors: エラー処理の方法 ('raise', 'coerce', 'ignore')
@@ -328,6 +336,13 @@ class Column(DataHolder):
                 
         Returns:
             NumberColumn: 変換後の新しいカラム
+            
+        Examples:
+            >>> from tascpy.core.column import Column
+            >>> col = Column("CH1", "Data", "ms", ["1.0", "2.0"])
+            >>> num_col = col.to_numeric()
+            >>> num_col.sum()
+            3.0
         """
         values = self.values
         new_values = []
@@ -468,7 +483,16 @@ class Column(DataHolder):
 
 
 class NumberColumn(Column):
-    """数値型データのみを格納するカラムクラス"""
+    """数値型データのみを格納するカラムクラス
+    
+    Examples:
+        >>> from tascpy.core.column import NumberColumn
+        >>> col = NumberColumn(ch="CH01", name="荷重", unit="kN", values=[1.0, 2.0, 3.0])
+        >>> col.sum()
+        6.0
+        >>> col.mean()
+        2.0
+    """
 
     def __init__(self, ch, name, unit, values=None, metadata=None):
         # 値が数値型かどうか検証
@@ -582,7 +606,12 @@ class NumberColumn(Column):
 
 
 class StringColumn(Column):
-    """文字列型データのみを格納するカラムクラス"""
+    """文字列型データのみを格納するカラムクラス
+    
+    Examples:
+        >>> from tascpy.core.column import StringColumn
+        >>> col = StringColumn("CH1", "Status", "", ["OK", "NG"])
+    """
 
     def __init__(self, ch, name, unit, values=None, metadata=None):
         # 値が文字列型かどうか検証
@@ -612,7 +641,14 @@ class StringColumn(Column):
 
 
 class InvalidColumn(Column):
-    """全ての値がNoneである無効な列を表すクラス"""
+    """全ての値がNoneである無効な列を表すクラス
+    
+    Examples:
+        >>> from tascpy.core.column import InvalidColumn
+        >>> col = InvalidColumn("CH1", "Empty", "", [None, None])
+        >>> col.count_nones()
+        2
+    """
 
     def __init__(self, ch, name, unit, values=None, metadata=None):
         # 値がすべてNoneであることを確認
@@ -650,6 +686,12 @@ def detect_column_type(ch, name, unit, values=None, metadata=None) -> Column:
 
     Returns:
         Column: 適切なColumnサブクラスのインスタンス
+        
+    Examples:
+        >>> from tascpy.core.column import detect_column_type
+        >>> col = detect_column_type("CH1", "Data", "N", [1.0, 2.0])
+        >>> type(col).__name__
+        'NumberColumn'
     """
     # 値がNoneまたは空の場合は標準のColumnを返す
     if values is None or len(values) == 0:
@@ -695,6 +737,12 @@ def create_column_from_values(
 
     Returns:
         Column: 生成されたColumnインスタンス
+        
+    Examples:
+        >>> from tascpy.core.column import create_column_from_values
+        >>> col = create_column_from_values("CH1", "Data", "N", [1.0, 2.0], column_type="number")
+        >>> type(col).__name__
+        'NumberColumn'
     """
     # 型が指定されている場合はその型でカラムを生成
     if column_type is not None:
