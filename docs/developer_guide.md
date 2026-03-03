@@ -17,12 +17,18 @@ tascpy/
 │   ├── converters.py   # ドメイン間変換
 │   ├── coordinate/     # 座標ドメイン
 │   ├── load_displacement/ # 荷重-変位ドメイン
-├── functional/         # 純粋な計算ロジック（ステートレス関数）
-│   ├── math.py         # 数学演算・評価・正規化
-│   ├── filters.py      # 条件判定・マスキング・検索
-│   ├── stats.py        # 統計計算・平滑化
-│   └── select.py       # インデックス／ステップベースの抽出・分割
-├── operations/         # データ処理操作・メソッドチェーンのラッパー
+├── analytics/          # データ分析・処理機能（旧 functional / operations）
+│   ├── functional/     # 純粋な計算ロジック（ステートレス関数）
+│   │   ├── core/       # コア機能（数学演算、フィルタ等）
+│   │   │   ├── math.py
+│   │   │   ├── filters.py
+│   │   │   ├── stats.py 
+│   │   │   └── combine.py
+│   │   └── load_displacement/ # 荷重-変位特化機能
+│   └── operations/     # データ処理操作・メソッドチェーンのラッパー
+│       ├── registry.py     # 操作の登録システム
+│       ├── core/           # コアドメイン操作（functionalのラッパー）
+│       └── load_displacement/ # 荷重-変位ドメイン操作
 │   ├── registry.py     # 操作の登録システム
 │   ├── core/           # コアドメイン操作（functionalのラッパー）
 │   ├── load_displacement/ # 荷重-変位ドメイン操作
@@ -62,9 +68,9 @@ Pandasの `Extension API` のように、「メソッドチェーンの起点は
    `operations` や `visualization` パッケージの `__init__.py` が呼び出された瞬間に、自分自身を `ColumnCollection` のプロパティとして動的登録（マウント）します。
 
 ```python
-# 例: tascpy/operations/__init__.py
+# 例: tascpy/analytics/operations/__init__.py
 from tascpy.core.collection import ColumnCollection
-from tascpy.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.proxy import CollectionOperations
 
 # コアクラスに対して、後から拡張機能 `.ops` として接続する
 ColumnCollection.register_accessor("ops", CollectionOperations)
@@ -109,11 +115,11 @@ pip install -r requirements-dev.txt
 ### 1. 操作関数の実装
 
 ```python
-# src/tascpy/operations/core/custom_ops.py
+# src/tascpy/analytics/operations/core/custom_ops.py
 from typing import Optional, Union, Dict, Any
 
 from tascpy.core.collection import ColumnCollection
-from tascpy.operations.registry import operation
+from tascpy.analytics.operations.registry import operation
 
 @operation  # デコレータを使用して操作を登録
 def custom_function(
@@ -172,7 +178,7 @@ def custom_ld_operation(
 新しい操作に対するテストを作成します：
 
 ```python
-# tests/unit/operations/core/test_custom_ops.py
+# tests/unit/analytics/operations/core/test_custom_ops.py
 import pytest
 from tascpy.core.collection import ColumnCollection
 
@@ -320,11 +326,11 @@ def prepare_for_custom_domain(
 ### 5. ドメイン特化操作の実装
 
 ```python
-# src/tascpy/operations/custom_domain/analysis.py
+# src/tascpy/analytics/operations/custom_domain/analysis.py
 from typing import Optional, Any
 
 from tascpy.domains.custom_domain.collection import CustomDomainCollection
-from tascpy.operations.registry import operation
+from tascpy.analytics.operations.registry import operation
 
 @operation(domain="custom_domain")
 def special_analysis(
@@ -466,7 +472,7 @@ python scripts/generate_stubs.py
 ```
 
 ```python
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
@@ -478,7 +484,7 @@ generate_stubs()
 2. 必要に応じて `stub_generator.py` をカスタマイズ：
 
 ```python
-# src/tascpy/operations/stub_generator.py
+# src/tascpy/analytics/operations/stub_generator.py
 # カスタムドメイン用のスタブテンプレートを追加
 DOMAIN_STUB_TEMPLATES = {
     # 既存のテンプレート...
@@ -543,11 +549,11 @@ python scripts/generate_stubs.py
 あるいは、Python コードから直接生成することも可能です。
 
 ```python
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
-スタブファイルは `src/tascpy/operations/stubs/` ディレクトリに生成され、これにより VS Code / Pylance での自動補完が有効になります。
+スタブファイルは `src/tascpy/typing/stubs/` または適宜設定されたディレクトリに生成され、これにより VS Code / Pylance での自動補完が有効になります。
 
 ### スタブファイルの更新
 
@@ -592,6 +598,6 @@ T = TypeVar('T', bound='CollectionOperationsBase')
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```

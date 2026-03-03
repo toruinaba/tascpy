@@ -17,10 +17,8 @@ from tascpy.core.collection import ColumnCollection
 # ===== CSVファイルからデータを読み込み =====
 print("===== CSVファイルからデータを読み込み =====")
 
-# プロジェクトルートからの相対パスでデータファイルを取得
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../../../"))
-data_dir = os.path.join(project_root, "examples/data")
+data_dir = os.path.abspath(os.path.join(current_dir, "../../data"))
 sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 
 print(f"CSVファイルパス: {sample_csv_path}")
@@ -71,7 +69,7 @@ print("\n===== 荷重-変位曲線の基本可視化 =====")
 fig, ax = plt.subplots(figsize=(10, 6))
 
 # チェーンメソッドを使用した基本プロット - .end()を呼び出さない
-ld_collection.ops.plot_load_displacement(ax=ax)
+ld_collection.plot.plot_load_displacement(ax=ax)
 
 # プロットの詳細設定
 ax.set_title("荷重-変位曲線 (基本)")
@@ -138,16 +136,14 @@ yield_offset_result = ld_collection.ops.find_yield_point(
     method="offset",
     range_start=0.05,  # 荷重の5%から (より初期部分を使用)
     range_end=0.25,  # 荷重の25%まで (非線形になる前の範囲)
-    offset_value=1.0,  # 1.0%オフセット（荷重変形関係のスケールに合わせて調整）
-    result_prefix="yield_offset",
+    offset_value=0.01,  # 1.0%オフセット（引数はひずみに合わせ0.01などが入る想定ですが、計算しやすいよう適宜調整してください）
 ).end()
 
 # 結果を取得
-yield_disp_offset = yield_offset_result["yield_offset_displacement"].values[0]
-yield_load_offset = yield_offset_result["yield_offset_load"].values[0]
-initial_slope_offset = yield_offset_result.metadata["analysis"]["yield_point"][
-    "initial_slope"
-]
+yield_pt_offset = yield_offset_result.get_result("yield_point")
+yield_disp_offset = yield_pt_offset.x
+yield_load_offset = yield_pt_offset.y
+initial_slope_offset = yield_pt_offset.metadata.get("initial_slope", 0.0)
 
 print(f"オフセット法による降伏点:")
 print(
@@ -164,13 +160,13 @@ yield_general_result = ld_collection.ops.find_yield_point(
     range_start=0.05,  # オフセット法と同じ設定です
     range_end=0.25,  # オフセット法と同じ設定です
     factor=0.25,  # 初期勾配の25%を降伏点と定義します
-    result_prefix="yield_general",
 ).end()
 
-# ドット記法を使って結果を取得します（__getitem__メソッド活用）
-yield_disp_general = yield_general_result["yield_general_displacement"].values[0]
-yield_load_general = yield_general_result["yield_general_load"].values[0]
-initial_slope_general = yield_general_result["analysis.yield_point.initial_slope"]
+# 結果を取得
+yield_pt_general = yield_general_result.get_result("yield_point")
+yield_disp_general = yield_pt_general.x
+yield_load_general = yield_pt_general.y
+initial_slope_general = yield_pt_general.metadata.get("initial_slope", 0.0)
 
 print(f"一般降伏法による降伏点:")
 print(
@@ -189,7 +185,7 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 9))
 
 # 荷重-変位曲線と降伏点のプロット (ax1)
 # チェーンメソッドとして扱わず、直接プロット結果を受け取る
-ld_collection.ops.plot_load_displacement(ax=ax1)
+ld_collection.plot.plot_load_displacement(ax=ax1)
 
 # 降伏点をプロット
 ax1.plot(
@@ -219,9 +215,7 @@ ax1.plot(
 )
 
 # オフセットラインの表示
-offset_value = yield_offset_result.metadata["analysis"]["yield_point"]["parameters"][
-    "offset_value"
-]
+offset_value = yield_pt_offset.metadata.get("parameters", {}).get("offset_value", 0.01)
 ax1.plot(
     x_vals,
     initial_slope_offset * x_vals
@@ -231,9 +225,7 @@ ax1.plot(
 )
 
 # 一般降伏法のラインの表示
-factor = yield_general_result.metadata["analysis"]["yield_point"]["parameters"][
-    "factor"
-]
+factor = yield_pt_general.metadata.get("parameters", {}).get("factor", 0.25)
 ax1.plot(
     x_vals,
     initial_slope_general * factor * x_vals,
@@ -302,7 +294,7 @@ methods = [
 
 # チェーンメソッドで降伏点比較分析を実行
 fig, ax = plt.subplots(figsize=(10, 7))
-ld_collection.ops.compare_yield_methods(methods=methods, ax=ax)
+ld_collection.plot.compare_yield_methods(methods=methods, ax=ax)
 
 plt.title("様々な降伏点定義方法の比較")
 plt.tight_layout()
@@ -323,7 +315,7 @@ print("\n===== 実用的なレポート用プロット - チェーンメソッ�
 report_collection = (
     ld_collection.ops
     # 前処理: 異常値の除去と平滑化
-    .search_by_value(force_column, ">", 0)  # 正の荷重値のみ抽出
+    .filter_by_condition(force_column, lambda x: x > 0)  # 正の荷重値のみ抽出
     .moving_average(
         column=disp_column, window_size=3, result_column="Disp_Smooth"
     )  # 変位データの平滑化
@@ -337,26 +329,31 @@ report_collection = (
         displacement_column="Disp_Smooth",
     )
     # 複数の降伏点解析を実行
-    .find_yield_point(
-        method="offset",
-        offset_value=1.0,  # 1.0%オフセット（荷重変形関係のスケールに合わせて調整）
-        result_prefix="yield_offset_std",
-    )
-    .find_yield_point(
-        method="general", factor=0.33, result_prefix="yield_general_std"  # 33%勾配低下
-    )
-    .end()
+    # 注: PointResultは "yield_point" という名前で上書きされますが、
+    # 直前の結果取得デモのため、それぞれ別々に実行してから表示します
 )
+
+# 前処理結果に対するオフセット法
+report_offset = report_collection.ops.find_yield_point(
+    method="offset", offset_value=0.01
+).end()
+yield_pt_std_offset = report_offset.get_result("yield_point")
+
+# 前処理結果に対する一般降伏法
+report_general = report_collection.ops.find_yield_point(
+    method="general", factor=0.33
+).end()
+yield_pt_std_general = report_general.get_result("yield_point")
 
 # 結果データから降伏点の情報を取得
 offset_yield_point = {
-    "displacement": report_collection["yield_offset_std_displacement"].values[0],
-    "load": report_collection["yield_offset_std_load"].values[0],
+    "displacement": yield_pt_std_offset.x,
+    "load": yield_pt_std_offset.y,
 }
 
 general_yield_point = {
-    "displacement": report_collection["yield_general_std_displacement"].values[0],
-    "load": report_collection["yield_general_std_load"].values[0],
+    "displacement": yield_pt_std_general.x,
+    "load": yield_pt_std_general.y,
 }
 
 print("前処理と降伏点解析の結果:")
@@ -372,12 +369,12 @@ fig, axs = plt.subplots(2, 2, figsize=(14, 10))
 plt.suptitle("荷重-変位解析レポート", fontsize=16)
 
 # 1. 基本的な荷重-変位曲線 (左上)
-report_collection.ops.plot_load_displacement(ax=axs[0, 0])
+report_collection.plot.plot_load_displacement(ax=axs[0, 0])
 axs[0, 0].set_title("荷重-変位曲線 (平滑化済み)")
 
 # 2. オフセット法の降伏点詳細 (右上)
 # パラメータとプロットパラメータを分離して渡す
-report_collection.ops.plot_load_displacement(ax=axs[0, 1])
+report_collection.plot.plot_load_displacement(ax=axs[0, 1])
 axs[0, 1].scatter(
     offset_yield_point["displacement"],
     offset_yield_point["load"],
@@ -390,7 +387,7 @@ axs[0, 1].set_title("0.2%オフセット降伏解析")
 
 # 3. 一般降伏法の降伏点詳細 (左下)
 # 同様にパラメータを分離
-report_collection.ops.plot_load_displacement(ax=axs[1, 0])
+report_collection.plot.plot_load_displacement(ax=axs[1, 0])
 axs[1, 0].scatter(
     general_yield_point["displacement"],
     general_yield_point["load"],

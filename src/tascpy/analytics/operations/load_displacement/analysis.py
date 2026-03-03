@@ -11,7 +11,7 @@ from ...operations.registry import register_functional
 from .abstraction import resolve_ld_columns
 from ...functional.load_displacement.analysis import compute_slopes, compute_stiffness, compute_yield_point
 
-calculate_slopes = resolve_ld_columns(register_functional(
+calculate_slopes = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
     compute_slopes,
     domain="load_displacement",
     name="calculate_slopes",
@@ -20,7 +20,7 @@ calculate_slopes = resolve_ld_columns(register_functional(
     signature_override={
         "disp_data": ("column", float),
     }
-))
+)))
 calculate_slopes.__doc__ = """荷重-変位データから区間ごとの傾き（スロープ）を計算します
 
     Args:
@@ -32,7 +32,7 @@ calculate_slopes.__doc__ = """荷重-変位データから区間ごとの傾き�
         LoadDisplacementCollection: 算出された傾きデータが追加された新しいコレクション
 """
 
-calculate_stiffness = resolve_ld_columns(register_functional(
+calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
     compute_stiffness,
     domain="load_displacement",
     name="calculate_stiffness",
@@ -44,7 +44,7 @@ calculate_stiffness = resolve_ld_columns(register_functional(
         "range_end": (float, 0.8),
         "method": (str, "linear_regression"),
     }
-))
+)))
 calculate_stiffness.__doc__ = """指定された範囲のデータから剛性（代表スロープ）を計算します
 
     Args:
@@ -59,7 +59,7 @@ calculate_stiffness.__doc__ = """指定された範囲のデータから剛性�
         LoadDisplacementCollection: 剛性の計算結果がメタデータとして追加された新しいコレクション
 """
 
-find_yield_point = resolve_ld_columns(register_functional(
+find_yield_point = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
     compute_yield_point,
     domain="load_displacement",
     name="find_yield_point",
@@ -76,7 +76,7 @@ find_yield_point = resolve_ld_columns(register_functional(
         "debug_mode": (bool, False),
         "fail_silently": (bool, False),
     }
-))
+)))
 find_yield_point.__doc__ = """荷重-変位データから降伏点（Yield Point）を検出します
 
     Args:

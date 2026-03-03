@@ -239,13 +239,15 @@ class LoadDisplacementCollection(ColumnCollection):
         """
         ld_info = self.metadata.get("load_displacement_domain", {})
 
-        return LoadDisplacementCollection(
+        new_collection = LoadDisplacementCollection(
             step=self.step.clone() if self.step else None,
             columns={name: column.clone() for name, column in self.columns.items()},
             metadata=self.metadata.copy(),
             load_column=ld_info.get("load_column", "load"),
             displacement_column=ld_info.get("displacement_column", "displacement"),
         )
+        new_collection._results = self._results.copy()
+        return new_collection
 
     def keys(self) -> list[str]:
         """利用可能なキーのリストを返す

@@ -11,7 +11,7 @@ from ...operations.registry import register_functional
 from ...functional.load_displacement.cycles import compute_cycle_markers
 from .abstraction import resolve_load_column, resolve_ld_and_cycle_columns
 
-cycle_count = resolve_load_column(register_functional(
+cycle_count = operation(domain="load_displacement")(resolve_load_column(register_functional(
     compute_cycle_markers,
     domain="load_displacement",
     name="cycle_count",
@@ -20,7 +20,7 @@ cycle_count = resolve_load_column(register_functional(
     signature_override={
         "data": ("column", float),
     }
-))
+)))
 cycle_count.__doc__ = """荷重データの符号反転に基づいてサイクルをカウントします
 
     Args:
@@ -159,7 +159,7 @@ analyze_stiffness_degradation.__doc__ = """各サイクルの割線剛性（剛�
 
 
 from ...functional.load_displacement.cycles import compute_peaks_and_valleys
-find_peaks_and_valleys = resolve_load_column(register_functional(
+find_peaks_and_valleys = operation(domain="load_displacement")(resolve_load_column(register_functional(
     compute_peaks_and_valleys,
     domain="load_displacement",
     name="find_peaks_and_valleys",
@@ -171,7 +171,7 @@ find_peaks_and_valleys = resolve_load_column(register_functional(
         "threshold": (float, None),
         "prominence": (float, None),
     }
-))
+)))
 find_peaks_and_valleys.__doc__ = """荷重データのピーク（極大値）とバレー（極小値）を検出します
 
     Args:

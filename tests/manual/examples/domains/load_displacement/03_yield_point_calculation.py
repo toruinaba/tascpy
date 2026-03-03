@@ -69,54 +69,34 @@ offset_result = ld_collection.ops.find_yield_point(
 print("✅ 降伏点が正常に計算されました")
 
 # メタデータから降伏点情報を取得します
-# ドット記法でメタデータにアクセスします
-yield_info = offset_result["analysis.yield_point"]
-debug_info = offset_result["analysis.yield_point_calculation.debug_info"]
+# メタデータから降伏点情報を取得します
+# 新しいAPIでは、get_result() を使って PointResult オブジェクトを取得します
+yield_pt = offset_result.get_result("yield_point")
+debug_info = yield_pt.metadata
 
 # 基本情報を表示します
 print("\n【基本情報】")
-print(f"使用メソッド: {yield_info['method']}")
+print(f"使用メソッド: {debug_info['method']}")
 print(
-    f"降伏変位: {yield_info['displacement']:.5f} {ld_collection[ld_collection.displacement_column].unit}"
+    f"降伏変位: {yield_pt.x:.5f} {ld_collection[ld_collection.displacement_column].unit}"
 )
 print(
-    f"降伏荷重: {yield_info['load']:.3f} {ld_collection[ld_collection.load_column].unit}"
+    f"降伏荷重: {yield_pt.y:.3f} {ld_collection[ld_collection.load_column].unit}"
 )
-print(f"初期勾配: {yield_info['initial_slope']:.3f}")
+print(f"初期勾配: {debug_info['initial_slope']:.3f}")
 
-# 計算過程の情報を表示します
-print("\n【計算過程の情報】")
-print(f"データ点数: {debug_info['data_stats']['data_points']}")
-print(
-    f"荷重範囲: {debug_info['data_stats']['min_load']:.3f} - {debug_info['data_stats']['max_load']:.3f}"
-)
-print(
-    f"変位範囲: {debug_info['data_stats']['min_disp']:.5f} - {debug_info['data_stats']['max_disp']:.5f}"
-)
-print(
-    f"計算範囲: {debug_info['data_range']['range_start']*100}% - {debug_info['data_range']['range_end']*100}%"
-)
-print(f"計算範囲の点数: {debug_info['data_range']['num_points_in_range']}")
-print(f"初期勾配の品質 (R²): {debug_info['r_squared']:.3f}")
+# データの統計やR^2等の詳細情報は新しいAPIでは省略されています
 
 # オフセット法の詳細情報を表示します
 print("\n【オフセット法の詳細】")
-offset_info = debug_info["offset_method"]
-print(f"オフセット値: {offset_info['offset_value']}")
-print(f"オフセット量: {offset_info['offset_amount']:.5f}")
+print(f"オフセット値: {debug_info['offset_value']}")
+print(f"オフセット量: {debug_info['offset_amount']:.5f}")
 print(
-    f"差分統計: 最小={offset_info['diff_stats']['min']:.3f}, "
-    + f"最大={offset_info['diff_stats']['max']:.3f}, "
-    + f"平均={offset_info['diff_stats']['mean']:.3f}"
+    f"差分統計: 最小={debug_info['diff_stats']['min']:.3f}, "
+    + f"最大={debug_info['diff_stats']['max']:.3f}, "
+    + f"平均={debug_info['diff_stats']['mean']:.3f}"
 )
-print(f"符号変化: {'あり' if offset_info['diff_stats']['has_sign_change'] else 'なし'}")
-
-# 交点情報を表示します
-if "yield_point" in debug_info and debug_info["yield_point"]["found"]:
-    yield_point = debug_info["yield_point"]
-    print("\n【交点の詳細】")
-    print(f"交点インデックス: {yield_point['intersection_indices']}")
-    print(f"補間比率: {yield_point['intersection_ratio']:.3f}")
+print(f"符号変化: {'あり' if debug_info['diff_stats']['has_sign_change'] else 'なし'}")
 
 # オフセット法の結果を可視化します
 fig1, ax1 = plt.subplots(figsize=(10, 6))
@@ -130,18 +110,18 @@ ax1.plot(
 )
 
 # 初期勾配線をプロットします
-initial_slope = yield_info["initial_slope"]
+initial_slope = debug_info["initial_slope"]
 disp_data = ld_collection[ld_collection.displacement_column].values
 x_vals = np.linspace(0, max(disp_data), 100)
 ax1.plot(x_vals, initial_slope * x_vals, "k--", label=f"初期勾配 ({initial_slope:.1f})")
 
 # 降伏点をプロットします
-yield_disp = yield_info["displacement"]
-yield_load = yield_info["load"]
+yield_disp = yield_pt.x
+yield_load = yield_pt.y
 ax1.plot(yield_disp, yield_load, "ro", markersize=8, label="降伏点")
 
 # オフセット線をプロットします
-offset_value = yield_info["parameters"]["offset_value"]
+offset_value = debug_info["parameters"]["offset_value"]
 offset_line = initial_slope * x_vals - initial_slope * offset_value * max(disp_data)
 ax1.plot(x_vals, offset_line, "r--", label=f"オフセット線 ({offset_value*100:.1f}%)")
 
@@ -172,37 +152,29 @@ general_result = ld_collection.ops.find_yield_point(
 print("✅ 降伏点が正常に計算されました")
 
 # メタデータから降伏点情報を取得します
-yield_info_general = general_result["analysis.yield_point"]
-debug_info_general = general_result["analysis.yield_point_calculation.debug_info"]
+yield_pt_general = general_result.get_result("yield_point")
+debug_info_general = yield_pt_general.metadata
 
 # 基本情報を表示します
 print("\n【基本情報】")
-print(f"使用メソッド: {yield_info_general['method']}")
+print(f"使用メソッド: {debug_info_general['method']}")
 print(
-    f"降伏変位: {yield_info_general['displacement']:.5f} {ld_collection[ld_collection.displacement_column].unit}"
+    f"降伏変位: {yield_pt_general.x:.5f} {ld_collection[ld_collection.displacement_column].unit}"
 )
 print(
-    f"降伏荷重: {yield_info_general['load']:.3f} {ld_collection[ld_collection.load_column].unit}"
+    f"降伏荷重: {yield_pt_general.y:.3f} {ld_collection[ld_collection.load_column].unit}"
 )
-print(f"初期勾配: {yield_info_general['initial_slope']:.3f}")
+print(f"初期勾配: {debug_info_general['initial_slope']:.3f}")
 
 # 一般降伏法の詳細情報を表示します
 print("\n【一般降伏法の詳細】")
-general_info = debug_info_general["general_method"]
-print(f"係数: {general_info['factor']}")
-print(f"閾値: {general_info['threshold']:.3f}")
+print(f"係数: {debug_info_general['factor']}")
+print(f"閾値: {debug_info_general['threshold']:.3f}")
 print(
-    f"勾配統計: 最小={general_info['slopes_stats']['min']:.3f}, "
-    + f"最大={general_info['slopes_stats']['max']:.3f}, "
-    + f"平均={general_info['slopes_stats']['mean']:.3f}"
+    f"勾配統計: 最小={debug_info_general['slopes_stats']['min']:.3f}, "
+    + f"最大={debug_info_general['slopes_stats']['max']:.3f}, "
+    + f"平均={debug_info_general['slopes_stats']['mean']:.3f}"
 )
-
-# 降伏点情報を表示します
-if "yield_point" in debug_info_general and debug_info_general["yield_point"]["found"]:
-    yield_point = debug_info_general["yield_point"]
-    print("\n【降伏点の詳細】")
-    print(f"降伏点インデックス: {yield_point['index']}")
-    print(f"降伏点での勾配: {yield_point['slope_at_point']:.3f}")
 
 # 一般降伏法の結果を可視化します
 fig2, ax2 = plt.subplots(figsize=(10, 6))
@@ -216,17 +188,17 @@ ax2.plot(
 )
 
 # 初期勾配線をプロットします
-initial_slope = yield_info_general["initial_slope"]
+initial_slope = debug_info_general["initial_slope"]
 x_vals = np.linspace(0, max(disp_data), 100)
 ax2.plot(x_vals, initial_slope * x_vals, "k--", label=f"初期勾配 ({initial_slope:.1f})")
 
 # 降伏点をプロットします
-yield_disp = yield_info_general["displacement"]
-yield_load = yield_info_general["load"]
+yield_disp = yield_pt_general.x
+yield_load = yield_pt_general.y
 ax2.plot(yield_disp, yield_load, "go", markersize=8, label="降伏点")
 
 # 係数線をプロットします
-factor = yield_info_general["parameters"]["factor"]
+factor = debug_info_general["parameters"]["factor"]
 ax2.plot(
     x_vals,
     initial_slope * factor * x_vals,
@@ -294,45 +266,34 @@ linear_offset_result = linear_data.ops.find_yield_point(
 ).end()
 
 # 計算が失敗した場合の詳細情報を表示します
-calc_info = linear_offset_result["analysis.yield_point_calculation"]
-debug_info = calc_info["debug_info"]
+# エラーで結果がない場合も、PointResultとして返され、is_valid フラグなどが metadata に入る
+yield_pt_linear = linear_offset_result.get_result("yield_point")
+debug_info = yield_pt_linear.metadata
 
 print("\n【計算失敗の詳細情報】")
-print(f"失敗理由: {calc_info['reason']}")
-print(f"使用メソッド: {debug_info['method']}")
+print(f"使用メソッド: {debug_info.get('method', 'unknown')}")
 
-print("\n【計算過程の情報】")
-print(f"データ点数: {debug_info['data_stats']['data_points']}")
-print(
-    f"荷重範囲: {debug_info['data_stats']['min_load']:.3f} - {debug_info['data_stats']['max_load']:.3f}"
-)
-print(
-    f"変位範囲: {debug_info['data_stats']['min_disp']:.5f} - {debug_info['data_stats']['max_disp']:.5f}"
-)
+print(f"初期勾配: {debug_info['initial_slope']:.3f}")
 
-if "initial_slope" in debug_info:
-    print(f"初期勾配: {debug_info['initial_slope']:.3f}")
-    print(f"初期勾配の品質 (R²): {debug_info['r_squared']:.3f}")
-
-    # オフセット法の詳細情報を表示します
-    print("\n【オフセット法の詳細】")
-    offset_info = debug_info["offset_method"]
-    print(f"オフセット値: {offset_info['offset_value']}")
-    print(f"オフセット量: {offset_info['offset_amount']:.5f}")
+# オフセット法の詳細情報を表示します
+print("\n【オフセット法の詳細】")
+if "offset_value" in debug_info:
+    print(f"オフセット値: {debug_info['offset_value']}")
+    print(f"オフセット量: {debug_info['offset_amount']:.5f}")
     print(
-        f"差分統計: 最小={offset_info['diff_stats']['min']:.3f}, "
-        + f"最大={offset_info['diff_stats']['max']:.3f}, "
-        + f"平均={offset_info['diff_stats']['mean']:.3f}"
+        f"差分統計: 最小={debug_info['diff_stats']['min']:.3f}, "
+        + f"最大={debug_info['diff_stats']['max']:.3f}, "
+        + f"平均={debug_info['diff_stats']['mean']:.3f}"
     )
     print(
-        f"符号変化: {'あり' if offset_info['diff_stats']['has_sign_change'] else 'なし'}"
+        f"符号変化: {'あり' if debug_info['diff_stats']['has_sign_change'] else 'なし'}"
     )
 
     # 交点がない場合の理由分析を表示します
-    if not offset_info["diff_stats"]["has_sign_change"]:
-        if offset_info["diff_stats"]["min"] > 0:
+    if not debug_info["diff_stats"]["has_sign_change"]:
+        if debug_info["diff_stats"]["min"] > 0:
             print("※ すべての点がオフセット線より上にあるため交点がありません")
-        elif offset_info["diff_stats"]["max"] < 0:
+        elif debug_info["diff_stats"]["max"] < 0:
             print("※ すべての点がオフセット線より下にあるため交点がありません")
 
 # 線形データの結果を可視化します
@@ -358,13 +319,7 @@ offset_line = initial_slope * x_vals - initial_slope * offset_value * max(disp_d
 ax3.plot(x_vals, offset_line, "r--", label=f"オフセット線 ({offset_value*100:.1f}%)")
 
 # サンプルポイントを表示します
-if "evaluation_points" in debug_info["offset_method"]:
-    points = debug_info["offset_method"]["evaluation_points"]
-    sample_disps = [p["displacement"] for p in points]
-    sample_loads = [p["load"] for p in points]
-    ax3.scatter(
-        sample_disps, sample_loads, color="cyan", s=30, alpha=0.6, label="評価ポイント"
-    )
+# 新しいAPIでは評価ポイントはデバッグ情報に含まれません
 
 # グラフを装飾します
 ax3.set_title("線形データでのオフセット降伏点計算 (失敗例)")
@@ -427,12 +382,11 @@ no_int_result = no_intersection_data.ops.find_yield_point(
 ).end()
 
 # 計算が失敗した場合の詳細情報を表示します
-calc_info = no_int_result["analysis.yield_point_calculation"]
-debug_info = calc_info["debug_info"]
+yield_pt_no_int = no_int_result.get_result("yield_point")
+debug_info = yield_pt_no_int.metadata
 
 print("\n【計算失敗の詳細情報】")
-print(f"失敗理由: {calc_info['reason']}")
-print(f"使用メソッド: {debug_info['method']}")
+print(f"使用メソッド: {debug_info.get('method', 'unknown')}")
 
 # 交点なしデータの結果を可視化します
 fig4, ax4 = plt.subplots(figsize=(10, 6))
@@ -526,14 +480,12 @@ small_offset_result = elastic_data.ops.find_yield_point(
 ).end()
 
 # 計算結果を取得します
-if "yield_point" in small_offset_result["analysis"]:
+if "yield_point" in small_offset_result.results and small_offset_result.get_result("yield_point").metadata.get("is_valid", False):
     print("✅ 降伏点が正常に計算されました")
-    yield_info = small_offset_result["analysis.yield_point"]
+    yield_pt_small = small_offset_result.get_result("yield_point")
     success = True
 else:
     print("❌ 降伏点計算に失敗しました")
-    calc_info = small_offset_result["analysis.yield_point_calculation"]
-    print(f"失敗理由: {calc_info['reason']}")
     success = False
 
 # 小さなオフセット値の結果を可視化します
@@ -548,10 +500,10 @@ ax5.plot(
 )
 
 # デバッグ情報を取得します
-if success:
-    debug_info = small_offset_result["analysis.yield_point_calculation.debug_info"]
+if "yield_point" in small_offset_result.results:
+    debug_info = small_offset_result.get_result("yield_point").metadata
 else:
-    debug_info = small_offset_result["analysis.yield_point_calculation.debug_info"]
+    debug_info = {}
 
 # 初期勾配線をプロットします
 if "initial_slope" in debug_info:
@@ -571,8 +523,8 @@ if "initial_slope" in debug_info:
 
 # 降伏点をプロットします（成功した場合）
 if success:
-    yield_disp = yield_info["displacement"]
-    yield_load = yield_info["load"]
+    yield_disp = yield_pt_small.x
+    yield_load = yield_pt_small.y
     ax5.plot(yield_disp, yield_load, "ro", markersize=8, label="降伏点")
 
 # グラフを装飾します
@@ -602,25 +554,32 @@ large_offset_result = elastic_data.ops.find_yield_point(
 ).end()
 
 # 計算結果を取得します
-if "yield_point" in large_offset_result["analysis"]:
+if "yield_point" in large_offset_result.results and large_offset_result.get_result("yield_point").metadata.get("is_valid", False):
     print("✅ 降伏点が正常に計算されました")
-    yield_info = large_offset_result["analysis.yield_point"]
+    yield_pt_large = large_offset_result.get_result("yield_point")
+    debug_info = yield_pt_large.metadata
     success = True
 
     # 基本情報を表示します
     print("\n【基本情報】")
-    print(f"使用メソッド: {yield_info['method']}")
+    print(f"使用メソッド: {debug_info.get('method', 'unknown')}")
     print(
-        f"降伏変位: {yield_info['displacement']:.5f} {elastic_data[elastic_data.displacement_column].unit}"
+        f"降伏変位: {yield_pt_large.x:.5f} {elastic_data[elastic_data.displacement_column].unit}"
     )
     print(
-        f"降伏荷重: {yield_info['load']:.3f} {elastic_data[elastic_data.load_column].unit}"
+        f"降伏荷重: {yield_pt_large.y:.3f} {elastic_data[elastic_data.load_column].unit}"
     )
-    print(f"初期勾配: {yield_info['initial_slope']:.3f}")
+    print(f"初期勾配: {debug_info.get('initial_slope', 0.0):.3f}")
 else:
     print("❌ 降伏点計算に失敗しました")
-    calc_info = large_offset_result["analysis.yield_point_calculation"]
-    print(f"失敗理由: {calc_info['reason']}")
+    
+    if "yield_point" in large_offset_result.results:
+        yield_pt_large = large_offset_result.get_result("yield_point")
+        debug_info = yield_pt_large.metadata
+        print(f"失敗理由: {debug_info.get('reason', 'Unknown reason')}")
+    else:
+        debug_info = {}
+        
     success = False
 
 # 大きなオフセット値の結果を可視化します
@@ -635,10 +594,7 @@ ax6.plot(
 )
 
 # デバッグ情報を取得します
-if success:
-    debug_info = large_offset_result["analysis.yield_point_calculation.debug_info"]
-else:
-    debug_info = large_offset_result["analysis.yield_point_calculation.debug_info"]
+# (すでに上で取得済みのため何もしない)
 
 # 初期勾配線をプロットします
 if "initial_slope" in debug_info:
@@ -658,8 +614,8 @@ if "initial_slope" in debug_info:
 
 # 降伏点をプロットします（成功した場合）
 if success:
-    yield_disp = yield_info["displacement"]
-    yield_load = yield_info["load"]
+    yield_disp = yield_pt_large.x
+    yield_load = yield_pt_large.y
     ax6.plot(yield_disp, yield_load, "ro", markersize=8, label="降伏点")
 
 # グラフを装飾します

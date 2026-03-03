@@ -142,7 +142,7 @@ tascpy のチェーンメソッドは動的に登録されるため、IDE の自
 
 ```python
 # スタブファイルの手動生成
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
@@ -163,7 +163,8 @@ tascpy/
 │       ├── core/         # 基本データ構造
 │       ├── domains/      # ドメイン特化コレクション
 │       ├── functional/   # 計算ロジック・アルゴリズム層
-│       ├── operations/   # メソッドチェーンの操作ラッパー
+│       ├── analytics/    # operations / functional などの分析パッケージ群
+│       │   └── operations/   # メソッドチェーンの操作ラッパー
 │       └── plugins/      # プラグイン
 ├── tests/                # テストコード
 ├── examples/             # サンプルコード

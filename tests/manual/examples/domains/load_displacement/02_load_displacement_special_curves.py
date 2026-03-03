@@ -59,7 +59,7 @@ print("3. 基本的な荷重-変位曲線のプロット")
 fig1, ax1 = plt.subplots(figsize=(8, 6))
 
 # メソッドチェーンでプロットします
-ld_collection.ops.plot_load_displacement(
+ld_collection.plot.plot_load_displacement(
     ax=ax1, color="black", linewidth=1.5, label="荷重-変位データ"
 )
 
@@ -82,7 +82,7 @@ print("5. スケルトン曲線のプロット")
 fig2, ax2 = plt.subplots(figsize=(8, 6))
 
 # メソッドチェーンでスケルトン曲線をプロットします
-skeleton_data.ops.plot_skeleton_curve(
+skeleton_data.plot.plot_skeleton_curve(
     ax=ax2,
     plot_original=True,
     original_kwargs={"color": "gray", "alpha": 0.5, "label": "元データ"},
@@ -108,7 +108,7 @@ print("7. 累積曲線のプロット")
 fig3, ax3 = plt.subplots(figsize=(8, 6))
 
 # メソッドチェーンで累積曲線をプロットします
-cumulative_data.ops.plot_cumulative_curve(
+cumulative_data.plot.plot_cumulative_curve(
     ax=ax3,
     plot_original=True,
     original_kwargs={"color": "gray", "alpha": 0.5, "label": "元データ"},
@@ -137,25 +137,25 @@ combined_data = (
 fig4, ax4 = plt.subplots(figsize=(8, 6))
 
 # 元データをプロットします
-combined_data.ops.plot_load_displacement(
+combined_data.plot.plot_load_displacement(
     ax=ax4, color="gray", alpha=0.4, label="元データ"
 )
 
-# __getitem__メソッドを使用して曲線データにアクセスします
-skeleton_curve = combined_data["curves.skeleton_curve"]
+# get_resultメソッドを使用して曲線データにアクセスします
+skeleton_curve = combined_data.get_result("skeleton_curve")
 ax4.plot(
-    skeleton_curve["x"],
-    skeleton_curve["y"],
+    skeleton_curve.x.values,
+    skeleton_curve.y.values,
     color="red",
     linewidth=2,
     label="スケルトン曲線",
 )
 
-# __getitem__メソッドを使用して累積曲線データにアクセスします
-cumulative_curve = combined_data["curves.cumulative_curve"]
+# get_resultメソッドを使用して累積曲線データにアクセスします
+cumulative_curve = combined_data.get_result("cumulative_curve")
 ax4.plot(
-    cumulative_curve["x"],
-    cumulative_curve["y"],
+    cumulative_curve.x.values,
+    cumulative_curve.y.values,
     color="blue",
     linewidth=2,
     label="累積曲線",
@@ -175,12 +175,12 @@ print("9. カスタマイズしたサブプロット表示")
 fig5, axs = plt.subplots(2, 2, figsize=(12, 10))
 
 # 元の荷重-変位曲線をプロットします
-ld_collection.ops.plot_load_displacement(ax=axs[0, 0], color="black")
+ld_collection.plot.plot_load_displacement(ax=axs[0, 0], color="black")
 axs[0, 0].set_title("元の荷重-変位曲線")
 axs[0, 0].grid(True, linestyle="--", alpha=0.7)
 
 # スケルトン曲線（元データなし）をプロットします
-skeleton_data.ops.plot_skeleton_curve(
+skeleton_data.plot.plot_skeleton_curve(
     ax=axs[0, 1],
     plot_original=False,
     skeleton_kwargs={"color": "red", "linewidth": 2},
@@ -189,7 +189,7 @@ axs[0, 1].set_title("スケルトン曲線のみ")
 axs[0, 1].grid(True, linestyle="--", alpha=0.7)
 
 # 累積曲線（元データなし）をプロットします
-cumulative_data.ops.plot_cumulative_curve(
+cumulative_data.plot.plot_cumulative_curve(
     ax=axs[1, 0],
     plot_original=False,
     cumulative_kwargs={"color": "blue", "linewidth": 2},
@@ -198,21 +198,21 @@ axs[1, 0].set_title("累積曲線のみ")
 axs[1, 0].grid(True, linestyle="--", alpha=0.7)
 
 # 複数曲線（スケルトンと累積を比較）をプロットします
-# __getitem__メソッドを使用してスケルトン曲線データにアクセス
-skeleton_curve = combined_data["curves.skeleton_curve"]
+# get_resultメソッドを使用してスケルトン曲線データにアクセス
+skeleton_curve = combined_data.get_result("skeleton_curve")
 axs[1, 1].plot(
-    skeleton_curve["x"],
-    skeleton_curve["y"],
+    skeleton_curve.x.values,
+    skeleton_curve.y.values,
     color="red",
     linewidth=2,
     label="スケルトン曲線",
 )
 
-# __getitem__メソッドを使用して累積曲線データにアクセス
-cumulative_curve = combined_data["curves.cumulative_curve"]
+# get_resultメソッドを使用して累積曲線データにアクセス
+cumulative_curve = combined_data.get_result("cumulative_curve")
 axs[1, 1].plot(
-    cumulative_curve["x"],
-    cumulative_curve["y"],
+    cumulative_curve.x.values,
+    cumulative_curve.y.values,
     color="blue",
     linewidth=2,
     label="累積曲線",

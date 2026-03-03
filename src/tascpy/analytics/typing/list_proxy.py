@@ -1180,14 +1180,15 @@ Returns:
         self,
         load_data: ndarray
     ) -> List[ndarray]:
-        """変位と荷重の間の点ごとの傾きを計算します。
+        """荷重-変位データから区間ごとの傾き（スロープ）を計算します
 
 Args:
-    disp_data: 変位データの配列
-    load_data: 荷重データの配列
+    collection (LoadDisplacementCollection): 荷重-変位コレクション
+    disp_data (str, optional): 変位データのカラム名（None時は自動解決）
+    load_data (str, optional): 荷重データのカラム名（None時は自動解決）
     
 Returns:
-    np.ndarray: 計算された傾きの配列（最初の要素は NaN）"""
+    LoadDisplacementCollection: 算出された傾きデータが追加された新しいコレクション"""
         ...
     
 
@@ -1198,17 +1199,7 @@ Returns:
         range_end: float = 0.8,
         method: str = 'linear_regression'
     ) -> List[float]:
-        """指定範囲における剛性（傾き）を計算します。
-
-Args:
-    disp_data: 変位データの配列 (NaN/None 除去済み)
-    load_data: 荷重データの配列 (NaN/None 除去済み)
-    range_start: 最大荷重に対する計算開始点の割合
-    range_end: 最大荷重に対する計算終了点の割合
-    method: 計算方法 ("linear_regression" または "secant")
-
-Returns:
-    float: 計算された剛性値"""
+        """calculate_stiffness のエイリアス"""
         ...
     
 
@@ -1223,7 +1214,7 @@ Returns:
         debug_mode: bool = False,
         fail_silently: bool = False
     ) -> List[tuple[bool, float, float, dict[str, Any]]]:
-        """"""
+        """find_yield_point のエイリアス"""
         ...
     
 
@@ -1275,14 +1266,15 @@ Returns:
         self,
         step: float = 0.5
     ) -> List[ndarray]:
-        """データの符号反転からサイクル数をカウントします。
+        """荷重データの符号反転に基づいてサイクルをカウントします
 
 Args:
-    data: 対象データ配列
-    step: サイクルカウントの増分
+    collection (LoadDisplacementCollection): 荷重-変位コレクション
+    data (str, optional): 荷重データのカラム名（None時はメタデータから解決）
+    step (float, optional): ノイズ除去のための変化判定ステップ幅. Defaults to 0.5.
     
 Returns:
-    np.ndarray: サイクルマーカーの配列"""
+    LoadDisplacementCollection: サイクル番号が追加された新しいコレクション"""
         ...
     
 
@@ -1351,14 +1343,16 @@ Returns:
         distance: int = 1,
         threshold: Optional[float] = None
     ) -> List[ndarray]:
-        """配列内の極大値(1)と極小値(-1)を検出します。
+        """荷重データのピーク（極大値）とバレー（極小値）を検出します
 
 Args:
-    data: 対象データ配列
-    distance: ピーク間の最小距離（インデックス数）
-    threshold: 隣接点との最小差
+    collection (LoadDisplacementCollection): 荷重-変位コレクション
+    data (str, optional): 荷重データのカラム名（None時は自動解決）
+    distance (int, optional): 隣接するピーク間の最小距離. Defaults to 1.
+    threshold (float, optional): ピークとして認識するための閾値
+    prominence (float, optional): 周囲からの最低の突出度
     
 Returns:
-    np.ndarray: ピーク(1)、バレー(-1)、その他(0)のフラグ配列"""
+    LoadDisplacementCollection: ピーク（1）、バレー（-1）、その他（0）を示すマーカーカラムが追加された新しいコレクション"""
         ...
     
