@@ -26,7 +26,7 @@ create_skeleton_curve = register_functional(
          "cycle_marker_column": (str, None)
     }
 )
-create_skeleton_curve.__doc__ = """荷重-変位データからスケルトン曲線（包絡線）を生成します
+create_skeleton_curve.__doc__ = """荷重-変位データからスケルトン曲線（包絡線）を生成します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -38,6 +38,9 @@ create_skeleton_curve.__doc__ = """荷重-変位データからスケルトン�
         
     Returns:
         LoadDisplacementCollection: スケルトン曲線データが結果として追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.create_skeleton_curve(has_decrease=True, decrease_type="envelope")
 """
 
 # 累積塑性変形-荷重曲線の生成操作
@@ -48,7 +51,7 @@ create_cumulative_curve = register_functional(
     extra_decorators=[resolve_ld_and_cycle_columns],
     store_xy_result={"name": "cumulative_curve"},
 )
-create_cumulative_curve.__doc__ = """荷重-変位データから累積塑性変形-荷重曲線を生成します
+create_cumulative_curve.__doc__ = """荷重-変位データから累積塑性変形-荷重曲線を生成します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -58,4 +61,7 @@ create_cumulative_curve.__doc__ = """荷重-変位データから累積塑性変
         
     Returns:
         LoadDisplacementCollection: 累積曲線データが結果として追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.create_cumulative_curve()
 """

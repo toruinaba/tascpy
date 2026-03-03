@@ -21,7 +21,7 @@ calculate_slopes = operation(domain="load_displacement")(resolve_ld_columns(regi
         "disp_data": ("column", float),
     }
 )))
-calculate_slopes.__doc__ = """荷重-変位データから区間ごとの傾き（スロープ）を計算します
+calculate_slopes.__doc__ = """荷重-変位データから区間ごとの傾き（スロープ）を計算します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -30,6 +30,9 @@ calculate_slopes.__doc__ = """荷重-変位データから区間ごとの傾き�
         
     Returns:
         LoadDisplacementCollection: 算出された傾きデータが追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.calculate_slopes()
 """
 
 calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
@@ -45,7 +48,7 @@ calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(r
         "method": (str, "linear_regression"),
     }
 )))
-calculate_stiffness.__doc__ = """指定された範囲のデータから剛性（代表スロープ）を計算します
+calculate_stiffness.__doc__ = """指定された範囲のデータから剛性（代表スロープ）を計算します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -57,6 +60,9 @@ calculate_stiffness.__doc__ = """指定された範囲のデータから剛性�
         
     Returns:
         LoadDisplacementCollection: 剛性の計算結果がメタデータとして追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.calculate_stiffness(range_start=0.1, range_end=0.4, method="linear_regression")
 """
 
 find_yield_point = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
@@ -77,7 +83,7 @@ find_yield_point = operation(domain="load_displacement")(resolve_ld_columns(regi
         "fail_silently": (bool, False),
     }
 )))
-find_yield_point.__doc__ = """荷重-変位データから降伏点（Yield Point）を検出します
+find_yield_point.__doc__ = """荷重-変位データから降伏点（Yield Point）を検出します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -93,6 +99,10 @@ find_yield_point.__doc__ = """荷重-変位データから降伏点（Yield Poin
         
     Returns:
         LoadDisplacementCollection: 降伏点情報が結果として追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.find_yield_point(method="offset", offset_value=0.002)
+        >>> yield_pt = col.results["yield_point"].value
 """
 
 stiffness = calculate_stiffness

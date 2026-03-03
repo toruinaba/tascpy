@@ -35,4 +35,8 @@ extract_coordinates.__doc__ = """各列の座標値を新しい列としてコ�
 
     Returns:
         CoordinateCollection: 座標列を追加したコレクション
+        
+    Examples:
+        >>> col = col.ops.extract_coordinates(result_prefix="coord_")
+        >>> x_coords = col["coord_x"].values
 """

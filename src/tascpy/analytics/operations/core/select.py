@@ -37,7 +37,7 @@ select = register_functional(
     inject_step_values={},
     signature_override={}
 )
-select.__doc__ = """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します
+select.__doc__ = """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -49,6 +49,10 @@ select.__doc__ = """条件（行や列）に基づいてデータを抽出し、
         
     Returns:
         ColumnCollection: 条件に一致するデータのみを含む新しいコレクション
+        
+    Examples:
+        >>> new_col = col.ops.select(columns=["荷重", "変位"])
+        >>> sliced_col = col.ops.select(step_min=0.0, step_max=10.0)
 """
 
 
@@ -59,7 +63,7 @@ fetch_near_step = register_functional(
     inject_columns={"num_inputs": 1},
     filter_rows=True,
 )
-fetch_near_step.__doc__ = """指定ステップ値に最も近いデータ行を一つ抽出します
+fetch_near_step.__doc__ = """指定ステップ値に最も近いデータ行を一つ抽出します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -67,6 +71,10 @@ fetch_near_step.__doc__ = """指定ステップ値に最も近いデータ行を
         
     Returns:
         ColumnCollection: ターゲットに最も近い1行のみを含む新しいコレクション（要素数1）
+        
+    Examples:
+        >>> single_row = col.ops.fetch_near_step(5.0)
+        >>> print(single_row.step.values[0])
 """
 
 
@@ -90,6 +98,9 @@ def split_by_integers(
 
     Returns:
         List[ColumnCollection]: 分割されたコレクションのリスト
+        
+    Examples:
+        >>> cycles = col.ops.split_by_integers(markers=[1, 1, 2, 2, 3])
     """
     length = len(collection)
     indices_list = functional_select.split_by_integers(length, markers)
@@ -131,6 +142,9 @@ def split_at_indices(
 
     Returns:
         List[ColumnCollection]: 分割されたコレクションのリスト
+        
+    Examples:
+        >>> partial_cols = col.ops.split_at_indices([100, 200])
     """
     length = len(collection)
     slices = functional_select.split_at_indices(length, indices)

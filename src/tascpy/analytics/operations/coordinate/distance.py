@@ -45,6 +45,9 @@ calculate_distance.__doc__ = """2つの列の座標間の距離を計算しま�
 
     Raises:
         ValueError: 座標情報がない場合
+        
+    Examples:
+        >>> dist = col.ops.calculate_distance("SensorA", "SensorB")
 """
 
 find_nearest_neighbors = register_functional(
@@ -71,6 +74,9 @@ find_nearest_neighbors.__doc__ = """指定した列に最も近い座標を持�
 
     Returns:
         CoordinateCollection: 近傍情報を含むコレクション
+        
+    Examples:
+        >>> cols_with_neighbors = col.ops.find_nearest_neighbors("SensorA", n_neighbors=3)
 """
 
 spatial_clustering = register_functional(
@@ -99,6 +105,9 @@ spatial_clustering.__doc__ = """座標情報に基づいてクラスタリング
 
     Returns:
         CoordinateCollection: クラスタリング結果を含むコレクション
+        
+    Examples:
+        >>> clustered_cols = col.ops.spatial_clustering(n_clusters=3, algorithm="kmeans")
 """
 
 distance = register_functional(

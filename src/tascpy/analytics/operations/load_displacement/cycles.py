@@ -21,7 +21,7 @@ cycle_count = operation(domain="load_displacement")(resolve_load_column(register
         "data": ("column", float),
     }
 )))
-cycle_count.__doc__ = """荷重データの符号反転に基づいてサイクルをカウントします
+cycle_count.__doc__ = """荷重データの符号反転に基づいてサイクルをカウントします。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -30,6 +30,9 @@ cycle_count.__doc__ = """荷重データの符号反転に基づいてサイク�
         
     Returns:
         LoadDisplacementCollection: サイクル番号が追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.cycle_count(step=1.0)
 """
 
 
@@ -37,7 +40,7 @@ cycle_count.__doc__ = """荷重データの符号反転に基づいてサイク�
 def split_by_cycles(
     collection: LoadDisplacementCollection, cycle_column: Optional[str] = None
 ) -> List[LoadDisplacementCollection]:
-    """サイクル番号ごとにデータを分割
+    """サイクル番号ごとにデータを分割します。
 
     データをサイクル番号ごとに分割し、各サイクルの
     荷重-変位コレクションのリストを返します。
@@ -48,6 +51,10 @@ def split_by_cycles(
 
     Returns:
         List[LoadDisplacementCollection]: サイクルごとに分割されたコレクションのリスト
+        
+    Examples:
+        >>> cycle_list = col.ops.split_by_cycles()
+        >>> first_cycle = cycle_list[0]
     """
     # サイクル列の特定または作成
     if cycle_column is None:
@@ -111,7 +118,7 @@ analyze_hysteresis = register_functional(
         "cycle_marker_column": (str, None)
     }
 )
-analyze_hysteresis.__doc__ = """各サイクルのヒステリシスエネルギー（面積）と最大/最小荷重・変位を計算します
+analyze_hysteresis.__doc__ = """各サイクルのヒステリシスエネルギー（面積）と最大/最小荷重・変位を計算します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -122,6 +129,10 @@ analyze_hysteresis.__doc__ = """各サイクルのヒステリシスエネルギ
         
     Returns:
         LoadDisplacementCollection: サイクルごとの統計量を持つ新しいコレクション
+        
+    Examples:
+        >>> stats_col = col.ops.analyze_hysteresis()
+        >>> energy = stats_col["energy"].values
 """
 
 analyze_stiffness_degradation = register_functional(
@@ -144,7 +155,7 @@ analyze_stiffness_degradation = register_functional(
         "cycle_marker_column": (str, None)
     }
 )
-analyze_stiffness_degradation.__doc__ = """各サイクルの割線剛性（剛性低下）を評価します
+analyze_stiffness_degradation.__doc__ = """各サイクルの割線剛性（剛性低下）を評価します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -155,6 +166,9 @@ analyze_stiffness_degradation.__doc__ = """各サイクルの割線剛性（剛�
         
     Returns:
         LoadDisplacementCollection: サイクルごとの割線剛性を持つ新しいコレクション
+        
+    Examples:
+        >>> stiffness_col = col.ops.analyze_stiffness_degradation()
 """
 
 
@@ -172,7 +186,7 @@ find_peaks_and_valleys = operation(domain="load_displacement")(resolve_load_colu
         "prominence": (float, None),
     }
 )))
-find_peaks_and_valleys.__doc__ = """荷重データのピーク（極大値）とバレー（極小値）を検出します
+find_peaks_and_valleys.__doc__ = """荷重データのピーク（極大値）とバレー（極小値）を検出します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -183,4 +197,7 @@ find_peaks_and_valleys.__doc__ = """荷重データのピーク（極大値）�
         
     Returns:
         LoadDisplacementCollection: ピーク（1）、バレー（-1）、その他（0）を示すマーカーカラムが追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.find_peaks_and_valleys(distance=10, prominence=0.5)
 """

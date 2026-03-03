@@ -48,6 +48,11 @@ interpolate_at_point.__doc__ = """座標点での値を補間して計算しま�
 
     Returns:
         CoordinateCollection: 補間結果を含むコレクション
+        
+    Examples:
+        >>> interp_col = col.ops.interpolate_at_point(
+        ...     x=10.0, y=20.0, method="inverse_distance"
+        ... )
 """
 
 interpolate_grid = register_functional(
@@ -78,6 +83,9 @@ interpolate_grid.__doc__ = """指定した領域のグリッド上で値を補�
 
     Returns:
         CoordinateCollection: グリッド補間結果を含むコレクション
+        
+    Examples:
+        >>> grid_col = col.ops.interpolate_grid(x_range=(0, 100), y_range=(0, 100), grid_size=(20, 20), target_column="Temperature")
 """
 
 spatial_interpolation_to_points = register_functional(
@@ -106,6 +114,13 @@ spatial_interpolation_to_points.__doc__ = """ソース列からターゲット�
 
     Returns:
         CoordinateCollection: 補間結果を含むコレクション
+        
+    Examples:
+        >>> mapped_col = col.ops.spatial_interpolation_to_points(
+        ...     source_columns=["Sensor1", "Sensor2"],
+        ...     target_columns=["NodeA", "NodeB"],
+        ...     method="inverse_distance"
+        ... )
 """
 
 interp_point = register_functional(

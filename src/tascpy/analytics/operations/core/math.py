@@ -25,7 +25,20 @@ add = register_functional(
     name="add",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("+")},
 )
-add.__doc__ = """複数カラムの要素ごとの和を計算します"""
+add.__doc__ = """複数カラムまたはスカラー値の要素ごとの和を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        value1 (Union[str, float]): 第1引数（カラム名または数値）
+        value2 (Union[str, float]): 第2引数（カラム名または数値）
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.add("CH01", "CH02")      # CH01 + CH02 -> 新しい列に追加
+        >>> col = col.ops.add("CH01", 10.5)        # CH01に10.5を加算
+"""
 
 subtract = register_functional(
     functional_math.subtract,
@@ -33,7 +46,20 @@ subtract = register_functional(
     name="subtract",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("-")},
 )
-subtract.__doc__ = """第一カラムから第二カラムの要素ごとの差を計算します"""
+subtract.__doc__ = """第一引数から第二引数の要素ごとの差を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        value1 (Union[str, float]): 第1引数（カラム名または数値）
+        value2 (Union[str, float]): 第2引数（引き算するカラム名または数値）
+
+    Returns:
+        ColumnCollection: 計算結果カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.subtract("CH01", "CH02") # CH01 - CH02
+        >>> col = col.ops.subtract("CH01", 10.5)   # CH01 - 10.5
+"""
 
 multiply = register_functional(
     functional_math.multiply,
@@ -41,7 +67,19 @@ multiply = register_functional(
     name="multiply",
     transform_column={"num_inputs": 2, "result_naming": infix_naming("*")},
 )
-multiply.__doc__ = """複数カラムの要素ごとの積を計算します"""
+multiply.__doc__ = """複数カラムまたはスカラー値の要素ごとの積を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        value1 (Union[str, float]): 第1引数（カラム名または数値）
+        value2 (Union[str, float]): 第2引数（カラム名または数値）
+
+    Returns:
+        ColumnCollection: 計算結果カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.multiply("CH01", 2.0)    # CH01 * 2.0
+"""
 
 divide = register_functional(
     functional_math.divide,
@@ -50,7 +88,19 @@ divide = register_functional(
     transform_column={"num_inputs": 2, "result_naming": infix_naming("/")},
     extra_decorators=[handle_zero_division(numerator_idx=0, denominator_idx=1)]
 )
-divide.__doc__ = """第一カラムを第二カラムで要素ごとに除算します"""
+divide.__doc__ = """第一引数を第二引数で要素ごとに除算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        value1 (Union[str, float]): 分子（カラム名または数値）
+        value2 (Union[str, float]): 分母（カラム名または数値）
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.divide("CH01", 1000)     # CH01 / 1000 (例: N -> kN変換など)
+"""
 
 # 微分と積分の関数を定義
 
@@ -97,6 +147,9 @@ diff.__doc__ = """データ系列の離散微分 (dy/dx) を計算します
         
     Returns:
         ColumnCollection: 微分値カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> diff_col = col.ops.diff(y_column="変位", x_column="__step__", method="central")
 """
 
 
@@ -128,6 +181,9 @@ integrate.__doc__ = """データ系列の離散積分 (∫ y dx) を計算しま
         
     Returns:
         ColumnCollection: 積分値カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> int_col = col.ops.integrate(y_column="速度", x_column="__step__")
 """
 
 
@@ -184,6 +240,18 @@ evaluate = register_functional(
         "collection": ("collection", ColumnCollection),
     }
 )
+evaluate.__doc__ = """与えられた数式文字列を評価し、新しい列を生成します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        expression (str): 評価する数式文字列（例: "CH01 * 2 + CH02"）
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> res_col = col.ops.evaluate("荷重 * 2.0 + 10.0")
+"""
 
 # ---------------------------------------------------------
 # 変換操作 (transform.pyから統合)
@@ -197,6 +265,19 @@ sin = register_functional(
     transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
 )
+sin.__doc__ = """指定されたカラムの正弦（Sine）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str | np.ndarray): 対象のカラム名
+        degrees (bool, optional): 角度を度数法で扱うか. Defaults to False.
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> sin_col = col.ops.sin("Angle", degrees=True)
+"""
 
 
 cos = register_functional(
@@ -206,6 +287,19 @@ cos = register_functional(
     transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
 )
+cos.__doc__ = """指定されたカラムの余弦（Cosine）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str | np.ndarray): 対象のカラム名
+        degrees (bool, optional): 角度を度数法で扱うか. Defaults to False.
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> cos_col = col.ops.cos("Angle", degrees=True)
+"""
 
 
 tan = register_functional(
@@ -215,6 +309,19 @@ tan = register_functional(
     transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray), "degrees": (bool, False)}
 )
+tan.__doc__ = """指定されたカラムの正接（Tangent）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str | np.ndarray): 対象のカラム名
+        degrees (bool, optional): 角度を度数法で扱うか. Defaults to False.
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> tan_col = col.ops.tan("Angle", degrees=True)
+"""
 
 
 # 指数関数/対数関数
@@ -225,6 +332,18 @@ exp = register_functional(
     transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray)}
 )
+exp.__doc__ = """指定されたカラムの指数関数（e^x）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str | np.ndarray): 対象のカラム名
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> exp_col = col.ops.exp("CH1")
+"""
 
 
 log = register_functional(
@@ -234,6 +353,19 @@ log = register_functional(
     transform_column={"num_inputs": 1, "result_naming": log_naming},
     signature_override={"values": ("values", np.ndarray), "base": (float, math.e)}
 )
+log.__doc__ = """指定されたカラムの対数（Log）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str | np.ndarray): 対象のカラム名
+        base (float, optional): 対数の底. Defaults to e.
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> log_col = col.ops.log("CH1", base=10.0)
+"""
 
 
 sqrt = register_functional(
@@ -243,6 +375,18 @@ sqrt = register_functional(
     transform_column={"num_inputs": 1, "result_naming": basic_naming},
     signature_override={"values": ("values", np.ndarray)}
 )
+sqrt.__doc__ = """指定されたカラムの平方根（Square Root）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str | np.ndarray): 対象のカラム名
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> sqrt_col = col.ops.sqrt("CH1")
+"""
 
 
 pow = register_functional(
@@ -255,6 +399,19 @@ pow = register_functional(
     },
     signature_override={"values": ("column", str), "exponent": (float, 1.0)}
 )
+pow.__doc__ = """指定されたカラムのべき乗（Power）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str): 対象のカラム名
+        exponent (float, optional): べき乗の指数. Defaults to 1.0.
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> pow_col = col.ops.pow("CH1", exponent=2.0)
+"""
 
 
 # その他の変換関数
@@ -265,6 +422,18 @@ abs_values = register_functional(
     transform_column={"num_inputs": 1, "result_naming": format_naming("abs({column})", arg_names=["column"])},
     signature_override={"values": ("column", str)}
 )
+abs_values.__doc__ = """指定されたカラムの絶対値（Absolute value）を計算します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str): 対象のカラム名
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> abs_col = col.ops.abs_values("変位")
+"""
 
 abs = abs_values
 
@@ -275,6 +444,19 @@ round_values = register_functional(
     transform_column={"num_inputs": 1, "result_naming": format_naming("round({column}, {decimals})", defaults={"decimals": 0}, arg_names=["column", "decimals"])},
     signature_override={"values": ("column", str), "decimals": (int, 0)}
 )
+round_values.__doc__ = """指定されたカラムの値を丸めます（四捨五入）。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str): 対象のカラム名
+        decimals (int, optional): 丸める小数点以下の桁数. Defaults to 0.
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> rounded_col = col.ops.round_values("荷重", decimals=2)
+"""
 
 
 normalize = register_functional(
@@ -284,3 +466,16 @@ normalize = register_functional(
     transform_column={"num_inputs": 1, "result_naming": format_naming("norm_{method}({column})", defaults={"method": "minmax"}, arg_names=["column", "method"])},
     signature_override={"values": ("column", str), "method": (str, "minmax")}
 )
+normalize.__doc__ = """指定されたカラムの値を正規化します。
+    
+    Args:
+        collection (ColumnCollection): データコレクション
+        values (str): 対象のカラム名
+        method (str, optional): 正規化手法 ("minmax", "zscore", "max_abs"). Defaults to "minmax".
+        
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+        
+    Examples:
+        >>> norm_col = col.ops.normalize("荷重", method="minmax")
+"""

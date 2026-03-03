@@ -208,5 +208,8 @@ interpolate.__doc__ = """指定した列の値を基準にしてデータを内�
         
     Returns:
         ColumnCollection: 内挿後のデータを持つ新しいコレクション
+        
+    Examples:
+        >>> interp_col = col.ops.interpolate(base_column_name="Time", point_count=1000)
 """
 

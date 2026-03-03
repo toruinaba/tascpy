@@ -27,6 +27,9 @@ calculate_stress.__doc__ = """応力を計算する (Stress = Load / Area)
 
     Returns:
         StrainCollection: 応力カラムが追加されたコレクション
+        
+    Examples:
+        >>> col = col.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力")
 """
 
 analyze_material_properties = register_functional(
@@ -73,5 +76,11 @@ analyze_material_properties.__doc__ = """材料特性（ヤング率、降伏点
 
     Returns:
         Tuple: E, yield_strain, yield_stress, nu
+        
+    Examples:
+        >>> col = col.ops.analyze_material_properties(
+        ...     stress_column="応力", strain_column="CH1", elastic_range=(0.0, 0.001)
+        ... )
+        >>> youngs_modulus = col.results["youngs_E"].value
 """
 

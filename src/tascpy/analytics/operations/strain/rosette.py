@@ -31,5 +31,11 @@ calculate_rosette_strains.__doc__ = """ロゼットひずみ計算 (主ひずみ
 
     Returns:
         StrainCollection: 計算結果（e_max, e_min, gamma_max, theta）が追加されたコレクション
+        
+    Examples:
+        >>> # カラム名指定で直交ロゼットを計算
+        >>> col = col.ops.calculate_rosette_strains(
+        ...     columns=["CH1", "CH2", "CH3"], rosette_type="rectangular"
+        ... )
 """
 

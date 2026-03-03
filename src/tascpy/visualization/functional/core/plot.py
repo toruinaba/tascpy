@@ -34,7 +34,22 @@ def plot(
     ax: Optional[plt.Axes] = None,
     **kwargs
 ) -> plt.Axes:
-    """基本的なプロットを行います"""
+    """基本的なプロットを行います。
+
+    Matplotlibを使用して散布図や折れ線グラフなどを描画します。
+
+    Args:
+        x_values (np.ndarray): X軸データの配列。
+        y_values (np.ndarray): Y軸データの配列。
+        x_label (str, optional): X軸のラベル。デフォルトは空文字列。
+        y_label (str, optional): Y軸のラベル。デフォルトは空文字列。
+        title (Optional[str], optional): グラフのタイトル。Noneの場合は自動生成されます。
+        ax (Optional[plt.Axes], optional): 描画先のAxes。Noneの場合は新しく作成されます。
+        **kwargs: Matplotlibのplot関数に渡される追加引数（color, marker, linestyleなど）。
+
+    Returns:
+        plt.Axes: 描画されたAxesオブジェクト。
+    """
     if title is None:
         title = f"{y_label.split(' [')[0]} vs {x_label.split(' [')[0]}"
         
@@ -69,7 +84,33 @@ def visualize_outliers(
     scale_factor: float = 1.0,
     **kwargs
 ) -> plt.Axes:
-    """異常値を検出し可視化します"""
+    """異常値を検出し可視化します。
+
+    移動平均を用いた外れ値検出を行い、正常値と異常値を色分けしてプロットします。
+
+    Args:
+        x_values (np.ndarray): X軸データの配列。
+        y_values (np.ndarray): Y軸データの配列（異常値検出の対象）。
+        x_label (str, optional): X軸のラベル。デフォルトは空文字列。
+        y_label (str, optional): Y軸のラベル。デフォルトは空文字列。
+        window_size (int, optional): 異常値検出用の移動平均ウィンドウサイズ。デフォルトは 3。
+        threshold (float, optional): 異常値判定の閾値。デフォルトは 0.5。
+        highlight_color (str, optional): 異常値のプロット色。デフォルトは "red"。
+        plot_type (str, optional): 正常値のプロットタイプ("line" または "scatter")。デフォルトは "scatter"。
+        show_normal (bool, optional): 正常値をプロットするかどうか。デフォルトは True。
+        normal_color (str, optional): 正常値のプロット色。デフォルトは "blue"。
+        normal_alpha (float, optional): 正常値の透明度。デフォルトは 0.5。
+        outlier_marker (str, optional): 異常値のマーカー形状。デフォルトは "o"。
+        outlier_size (int, optional): 異常値のマーカーサイズ。デフォルトは 50。
+        ax (Optional[plt.Axes], optional): 描画先のAxes。Noneの場合は新しく作成されます。
+        edge_handling (str, optional): 境界データの処理方法。デフォルトは "asymmetric"。
+        min_abs_value (float, optional): ゼロ除算防止の最小絶対値。デフォルトは 1e-10。
+        scale_factor (float, optional): スケールファクタ。デフォルトは 1.0。
+        **kwargs: Matplotlibに渡される追加引数。
+
+    Returns:
+        plt.Axes: 描画されたAxesオブジェクト。
+    """
     
     # 計算ロジック（純粋関数）の呼び出し
     flags = functional_stats.detect_outliers(
@@ -144,7 +185,17 @@ def plot_const_x(
     ax: Optional[plt.Axes] = None,
     **kwargs
 ) -> plt.Axes:
-    """共通のX軸に対して複数のY列をプロットします"""
+    """共通のX軸に対して複数のY列をプロットします。
+
+    Args:
+        y_data (Dict[str, np.ndarray]): 各Y軸の名前をキー、データ配列を値とする辞書。
+        x_values (np.ndarray): 共通のX軸データの配列。
+        ax (Optional[plt.Axes], optional): 描画先のAxes。Noneの場合は新しく作成されます。
+        **kwargs: グラフタイトル(title)やラベル(x_label, y_label)、Matplotlib引数。
+
+    Returns:
+        plt.Axes: 描画されたAxesオブジェクト。
+    """
             
     # 計算ロジック（純粋関数）
     x_arr, y_arr = functional_plot.prepare_const_x_data(y_data, x_values)
@@ -173,7 +224,22 @@ def iplot(
     fig: Optional[Any] = None,
     **kwargs
 ) -> Any:
-    """インタラクティブなプロットを行います（Jupyter/Plotly用）"""
+    """インタラクティブなプロットを行います（Jupyter/Plotly環境用）。
+
+    Plotlyを使用して、ホバーで値が確認できるインタラクティブなグラフを描画します。
+
+    Args:
+        x_values (np.ndarray): X軸データの配列。
+        y_values (np.ndarray): Y軸データの配列。
+        x_label (str, optional): X軸のラベル。デフォルトは空文字列。
+        y_label (str, optional): Y軸のラベル。デフォルトは空文字列。
+        title (Optional[str], optional): グラフのタイトル。Noneの場合は自動生成されます。
+        fig (Optional[Any], optional): 描画先のPlotly Figure。Noneの場合は新しく作成されます。
+        **kwargs: Plotly関数に渡される追加引数。
+
+    Returns:
+        Any: 描画されたPlotly Figureオブジェクト。
+    """
     if title is None:
         title = f"{y_label.split(' [')[0]} vs {x_label.split(' [')[0]}"
     

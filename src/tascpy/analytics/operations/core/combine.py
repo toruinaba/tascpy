@@ -67,6 +67,9 @@ switch_by_step.__doc__ = """特定のステップ値（またはインデック�
         
     Returns:
         ColumnCollection: 切り替え済みのデータを持つ新しいコレクション
+        
+    Examples:
+        >>> switched_col = col.ops.switch_by_step("Phase1", "Phase2", threshold=5.0)
 """
 
 
@@ -129,6 +132,9 @@ blend_by_step.__doc__ = """特定のステップ区間において、2つのデ�
 
     Returns:
         ColumnCollection: ブレンド済みのデータを持つ新しいコレクション
+        
+    Examples:
+        >>> blended_col = col.ops.blend_by_step("Phase1", "Phase2", start=4.0, end=6.0, blend_method="smoothstep")
 """
 
 
@@ -150,6 +156,9 @@ sum_columns.__doc__ = """指定された複数のカラムの要素ごとの合�
         
     Returns:
         ColumnCollection: 合計値カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> sum_col = col.ops.sum_columns(columns=["CH1", "CH2", "CH3"])
 """
 
 
@@ -171,6 +180,9 @@ average_columns.__doc__ = """指定された複数のカラムの要素ごとの
         
     Returns:
         ColumnCollection: 平均値カラムが追加された新しいコレクション
+        
+    Examples:
+        >>> avg_col = col.ops.average_columns(columns=["CH1", "CH2", "CH3"])
 """
 
 
@@ -200,6 +212,9 @@ conditional_select.__doc__ = """条件列の値と閾値の比較結果に基づ
         
     Returns:
         ColumnCollection: 条件に基づいて選択されたデータを持つ新しいコレクション
+        
+    Examples:
+        >>> selected_col = col.ops.conditional_select("CH_High", "CH_Low", cond_values="Temperature", threshold=50, compare=">")
 """
 
 
@@ -230,4 +245,7 @@ custom_combine.__doc__ = """ユーザー提供のカスタム関数を利用し�
         
     Returns:
         ColumnCollection: カスタム加工されたデータを含む新しいコレクション
+        
+    Examples:
+        >>> custom_col = col.ops.custom_combine("CH1", "CH2", combine_func=lambda x, y: x**2 + y**2, func_name="sum_squares")
 """

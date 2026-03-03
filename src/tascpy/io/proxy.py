@@ -19,7 +19,11 @@ class CollectionIO:
         Args:
             output_path: 出力先ファイルパス
             format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
-            **kwargs: フォーマット設定を上書きするためのキーワード引数
+            **kwargs: フォーマット設定を上書きするためのキーワード引数。
+                以下のパラメータが指定可能です：
+                - encoding (str): 文字エンコーディング（例: "utf-8", "shift_jis"）
+                - delimiter (str): 区切り文字
+                - use_channel_name (bool): 列名ではなくチャンネル名をヘッダーに用いるか
         """
         from .file_io import save_collection
         save_collection(
@@ -34,7 +38,8 @@ class CollectionIO:
         
         Args:
             path: 出力先パス
-            **kwargs: saveに渡す引数
+            **kwargs: saveメソッドまたはpandas.DataFrame.to_csvに渡す引数。
+                - delimiter, encoding 等が指定可能です。
         """
         try:
             self.save(path, format_name="csv", **kwargs)

@@ -23,7 +23,7 @@ filter_by_value = register_functional(
         "tolerance": (Optional[float], None),
     }
 )
-filter_by_value.__doc__ = """指定した列の値が条件に一致する行のみを抽出します
+filter_by_value.__doc__ = """指定した列の値が条件に一致する行のみを抽出します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -33,6 +33,10 @@ filter_by_value.__doc__ = """指定した列の値が条件に一致する行の
         
     Returns:
         ColumnCollection: 条件に一致した行のみを含む新しいコレクション
+        
+    Examples:
+        >>> filtered_col = col.ops.filter_by_value("状態", "正常")
+        >>> filtered_col = col.ops.filter_by_value("荷重", 100.0, tolerance=0.5)
 """
 
 
@@ -46,7 +50,7 @@ filter_out_none = register_functional(
         "mode": (str, "any")
     }
 )
-filter_out_none.__doc__ = """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します
+filter_out_none.__doc__ = """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -55,6 +59,9 @@ filter_out_none.__doc__ = """一つでも欠損値（None/NaN）が含まれる�
         
     Returns:
         ColumnCollection: 欠損値を含む行が除外された新しいコレクション
+        
+    Examples:
+        >>> clean_col = col.ops.filter_out_none() # どこかに欠損があればその行を削除
 """
 
 
@@ -69,7 +76,7 @@ remove_consecutive_duplicates_across = register_functional(
         "dup_type": (str, "all")
     }
 )
-remove_consecutive_duplicates_across.__doc__ = """連続する重複行を検知し、最初の行だけを残して除外します
+remove_consecutive_duplicates_across.__doc__ = """連続する重複行を検知し、最初の行だけを残して除外します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -79,6 +86,10 @@ remove_consecutive_duplicates_across.__doc__ = """連続する重複行を検知
         
     Returns:
         ColumnCollection: 連続重複が排除された新しいコレクション
+        
+    Examples:
+        >>> # 値が変化しない静止状態のデータを間引く場合などに有用
+        >>> thinned_col = col.ops.remove_consecutive_duplicates_across()
 """
 
 
@@ -100,7 +111,7 @@ remove_outliers = register_pipeline(
         "scale_factor": (float, 1.0),
     }
 )
-remove_outliers.__doc__ = """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します
+remove_outliers.__doc__ = """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -113,6 +124,9 @@ remove_outliers.__doc__ = """特定の基準（外れ値検知ロジック）に
 
     Returns:
         ColumnCollection: 外れ値が除外された新しいコレクション
+        
+    Examples:
+        >>> clean_col = col.ops.remove_outliers("変位", threshold=0.3)
 """
 
 
@@ -126,7 +140,7 @@ filter_by_condition = register_functional(
         "vals": ("column", str)
     }
 )
-filter_by_condition.__doc__ = """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します
+filter_by_condition.__doc__ = """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -135,6 +149,10 @@ filter_by_condition.__doc__ = """コールバック関数を使って、指定�
         
     Returns:
         ColumnCollection: 条件関数がTrueを返した行のみを含む新しいコレクション
+        
+    Examples:
+        >>> # 荷重が50以上の行だけを抽出
+        >>> high_load_col = col.ops.filter_by_condition("荷重", lambda x: x >= 50)
 """
 
 
@@ -148,7 +166,7 @@ remove_steps = register_functional(
         # step_values injected, steps passed
     }
 )
-remove_steps.__doc__ = """指定されたステップ値のリストに一致する行を除外します
+remove_steps.__doc__ = """指定されたステップ値のリストに一致する行を除外します。
 
     Args:
         collection (ColumnCollection): データコレクション
@@ -156,6 +174,9 @@ remove_steps.__doc__ = """指定されたステップ値のリストに一致す
         
     Returns:
         ColumnCollection: 指定したステップが除外された新しいコレクション
+        
+    Examples:
+        >>> filtered_col = col.ops.remove_steps(steps=[1.0, 2.0, 3.0])
 """
 
 
@@ -182,6 +203,9 @@ search_by_value.__doc__ = """指定された値に一致するデータのイン
         
     Returns:
         np.ndarray: 一致したインデックスの配列
+        
+    Examples:
+        >>> indices = col.ops.search_by_value("状態", "エラー")
 """
 
 
@@ -205,6 +229,9 @@ search_by_range.__doc__ = """指定したカラムの値が一定の範囲に収
         
     Returns:
         np.ndarray: 範囲内に収まるインデックスの配列
+        
+    Examples:
+        >>> indices = col.ops.search_by_range("荷重", min=10.0, max=50.0)
 """
 
 
@@ -242,6 +269,9 @@ search_by_step_range.__doc__ = """ステップ値が一定の範囲に収まる�
         
     Returns:
         np.ndarray: 条件に一致したインデックスの配列
+        
+    Examples:
+        >>> indices = col.ops.search_by_step_range(min=0.0, max=10.0)
 """
 
 
@@ -264,6 +294,9 @@ search_by_condition.__doc__ = """複数のカラムに対して、指定した�
         
     Returns:
         np.ndarray: 一致したインデックスの配列
+        
+    Examples:
+        >>> indices = col.ops.search_by_condition(columns=["荷重"], condition=lambda x: x > 100)
 """
 
 
@@ -285,6 +318,9 @@ search_missing_values.__doc__ = """欠損値（None/NaN）が含まれるイン�
         
     Returns:
         np.ndarray: 欠損値を含むインデックスの配列
+        
+    Examples:
+        >>> nan_indices = col.ops.search_missing_values()
 """
 
 
@@ -307,6 +343,9 @@ search_top_n.__doc__ = """指定されたカラムから上位または下位N�
         
     Returns:
         np.ndarray: 上位（下位）N件のインデックスの配列
+        
+    Examples:
+        >>> top_5_idx = col.ops.search_top_n("荷重", n=5, largest=True)
 """
 
 

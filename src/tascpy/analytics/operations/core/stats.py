@@ -38,6 +38,9 @@ moving_average.__doc__ = """指定されたウィンドウサイズで移動平�
         
     Returns:
         ColumnCollection: 移動平均値が追加された新しいコレクション
+        
+    Examples:
+        >>> smoothed_col = col.ops.moving_average("荷重", window_size=5)
 """
 
 
@@ -68,6 +71,9 @@ detect_outliers.__doc__ = """異常値を検出します
 
     Returns:
         ColumnCollection: 異常値フラグが追加された新しいコレクション
+        
+    Examples:
+        >>> flagged_col = col.ops.detect_outliers("変位", threshold=3.0)
 """
 
 
@@ -95,6 +101,9 @@ gaussian_filter.__doc__ = """ガウシアンフィルターを適用します
         
     Returns:
         ColumnCollection: フィルター処理後の値が追加された新しいコレクション
+        
+    Examples:
+        >>> filtered_col = col.ops.gaussian_filter("荷重", sigma=2.0)
 """
 
 
@@ -111,7 +120,19 @@ max = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
-max.__doc__ = """カラムの最大値を計算します"""
+max.__doc__ = """指定されたカラムの最大値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として最大値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.max("荷重")
+        >>> max_val = col.results["max(荷重)"].value
+"""
 
 min = register_functional(
     functional_stats.calc_min,
@@ -120,7 +141,18 @@ min = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
-min.__doc__ = """カラムの最小値を計算します"""
+min.__doc__ = """指定されたカラムの最小値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として最小値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.min("変位")
+"""
 
 mean = register_functional(
     functional_stats.calc_mean,
@@ -129,7 +161,18 @@ mean = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
-mean.__doc__ = """カラムの平均値を計算します"""
+mean.__doc__ = """指定されたカラムの平均値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として平均値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.mean("変位")
+"""
 
 std = register_functional(
     functional_stats.calc_std,
@@ -138,7 +181,18 @@ std = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
-std.__doc__ = """カラムの標準偏差を計算します"""
+std.__doc__ = """指定されたカラムの標準偏差を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として標準偏差が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.std("荷重")
+"""
 
 sum = register_functional(
     functional_stats.calc_sum,
@@ -147,4 +201,16 @@ sum = register_functional(
     inject_columns={"num_inputs": 1},
     extra_decorators=[handle_missing_values(strategy="nan")]
 )
-sum.__doc__ = """カラムの合計値を計算します"""
+sum.__doc__ = """指定されたカラムの合計値を計算します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        column_name (str): 計算対象のカラム名
+        
+    Returns:
+        ColumnCollection: 統計量として合計値が記録された新しいコレクション
+        
+    Examples:
+        >>> col = col.ops.sum("エネルギー")
+        >>> total_energy = col.results["sum(エネルギー)"].value
+"""
