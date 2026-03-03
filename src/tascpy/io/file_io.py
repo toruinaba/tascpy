@@ -21,7 +21,17 @@ def load_collection(
         format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc_txt"）
         auto_detect_types: カラム型を自動判定するかどうか
         collection_cls: 使用するColumnCollectionクラス（依存循環を防ぐため引数で受け取る）
-        **kwargs: フォーマット設定を上書きするためのキーワード引数
+        **kwargs: フォーマット設定を上書きするためのキーワード引数。
+            以下のパラメータが使用可能です：
+            - encoding (str): 文字エンコーディング（例: "utf-8", "shift_jis"）
+            - delimiter (str): 区切り文字
+            - ch_row (int): チャンネル文字の行位置 (0-indexed)
+            - name_row (int): 名前文字の行位置 (0-indexed)
+            - unit_row (int): 単位文字の行位置 (0-indexed)
+            - data_start_row (int): データ開始行 (0-indexed)
+            - data_start_col (int): データ開始列 (0-indexed)
+            - step_col (int): ステップ列のインデックス (0-indexed)
+            - selected_columns (list[str]): 読み込むカラム/チャンネル名のリスト。指定した列のみ読み込みます。
 
     Returns:
         ColumnCollection: 読み込んだデータを含む新しいColumnCollectionオブジェクト

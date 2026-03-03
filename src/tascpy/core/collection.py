@@ -28,7 +28,16 @@ T = TypeVar("T")
 
 
 class ColumnCollection:
-    """複数のcollumnと一つのstepを保持するクラス"""
+    """複数のColumn（データ列）とインデックスとなるStepを保持し、操作するための中心的なデータ構造クラス。
+    
+    PandasのDataFrameに似た役割を持ちますが、数値解析や実験データに特化しています。
+    データは各列ごとに `Column` インスタンスとして保持され、全体を通じたインデックスとして `Step` が管理されます。
+    
+    Attributes:
+        step (Step): 全データ行のインデックス（X軸・時間軸など）となるステップ列
+        columns (dict[str, Column]): カラム名をキー、Columnオブジェクトを値とする辞書
+        metadata (dict): 解析情報や日付などを格納する辞書
+    """
 
     domain: str = "core"
 
@@ -59,11 +68,15 @@ class ColumnCollection:
 
     if TYPE_CHECKING:
         @property
-        def ops(self) -> "CoreCollectionOperations": ...
+        def ops(self) -> "CoreCollectionOperations":
+            """データに対する各種演算機能を提供するアクセサ (例: `collection.ops.add()`)"""
+            ...
         
         from tascpy.visualization.plotters.core.plotter import CorePlotter
         @property
-        def plot(self) -> "CorePlotter": ...
+        def plot(self) -> "CorePlotter":
+            """データを可視化するためのプロッターを提供するアクセサ (例: `collection.plot.plot_time_series()`)"""
+            ...
 
     def __init__(
         self,

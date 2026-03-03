@@ -5,7 +5,18 @@ import numpy as np
 
 
 class Column(DataHolder):
-    """データ列を表すクラス"""
+    """データ列（1次元配列）を表す基本クラス。
+    
+    実験や解析の1チャンネル分のデータを保持します。単位(unit)やチャンネル名(ch)などのメタデータを持ち、
+    欠損値(None/NaN)のカウントや最大・最小値の取得といった基本的な統計演算をサポートします。
+
+    Attributes:
+        ch (str): チャンネル名（例: "CH01", "Disp_X"）
+        name (str): データ名、ラベル（例: "荷重", "変位"）
+        unit (str): データの単位（例: "kN", "mm"）
+        values (np.ndarray): 実際のデータ配列
+        metadata (dict): その他付随するメタデータ
+    """
 
     def __init__(self, ch, name, unit, values=None, metadata=None):
         super().__init__(name, values, metadata)
