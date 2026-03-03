@@ -29,10 +29,10 @@ tascpy/
 │       ├── registry.py     # 操作の登録システム
 │       ├── core/           # コアドメイン操作（functionalのラッパー）
 │       └── load_displacement/ # 荷重-変位ドメイン操作
-│   ├── registry.py     # 操作の登録システム
-│   ├── core/           # コアドメイン操作（functionalのラッパー）
-│   ├── load_displacement/ # 荷重-変位ドメイン操作
-```
+├── visualization/      # 可視化バックエンドとプロッター
+├── io/                 # データ入出力
+├── typing/             # 型ヒント・スタブ
+└── plugins/            # プラグイン
 
 ### 主要クラスの関係
 
