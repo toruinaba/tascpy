@@ -212,6 +212,12 @@ def gaussian_filter(
 
     Raises:
         ValueError: ウィンドウサイズが1未満の場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.stats import gaussian_filter
+        >>> import numpy as np
+        >>> arr = np.array([0, 10, 0, 0, 0])
+        >>> smoothed = gaussian_filter(arr, sigma=1.0)
     """
     if window_size is None:
         radius = int(4.0 * sigma + 0.5)
@@ -254,6 +260,11 @@ def calc_max(vals: Any) -> float:
 
     Returns:
         float: 最大値。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.stats import calc_max
+        >>> calc_max([1.0, 5.0, 2.0])
+        5.0
     """
     return float(np.nanmax(vals))
 
@@ -265,6 +276,11 @@ def calc_min(vals: Any) -> float:
 
     Returns:
         float: 最小値。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.stats import calc_min
+        >>> calc_min([1.0, 5.0, 2.0])
+        1.0
     """
     return float(np.nanmin(vals))
 
@@ -276,6 +292,11 @@ def calc_mean(vals: Any) -> float:
 
     Returns:
         float: 平均値。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.stats import calc_mean
+        >>> calc_mean([1.0, 5.0, 3.0])
+        3.0
     """
     return float(np.nanmean(vals))
 
@@ -287,6 +308,11 @@ def calc_std(vals: Any) -> float:
 
     Returns:
         float: 標準偏差。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.stats import calc_std
+        >>> calc_std([1.0, 5.0, 3.0])
+        1.632993161855452
     """
     return float(np.nanstd(vals))
 
@@ -298,5 +324,10 @@ def calc_sum(vals: Any) -> float:
 
     Returns:
         float: 合計値。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.stats import calc_sum
+        >>> calc_sum([1.0, 5.0, 3.0])
+        9.0
     """
     return float(np.nansum(vals))

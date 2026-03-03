@@ -20,6 +20,12 @@ def extract_coordinates(
 
     Returns:
         Dict[str, np.ndarray]: 抽出された各座標成分の配列を含む辞書
+        
+    Examples:
+        >>> from tascpy.analytics.functional.coordinate.basic import extract_coordinates
+        >>> import numpy as np
+        >>> extract_coordinates(x_array=np.array([1, 2]), y_array=np.array([3, 4]))
+        {'x': array([1, 2]), 'y': array([3, 4])}
     """
     result = {}
     if x_array is not None:

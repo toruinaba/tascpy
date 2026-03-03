@@ -76,6 +76,12 @@ def compare(values: Union[np.ndarray, list], op_str: str, value: Any) -> np.ndar
 
     Raises:
         ValueError: 無効な演算子が指定された場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.filters import compare
+        >>> import numpy as np
+        >>> compare(np.array([1, 2, 3]), ">", 1)
+        array([False,  True,  True])
     """
     arr = _to_array(values)
     
@@ -136,6 +142,12 @@ def in_range(
 
     Returns:
         np.ndarray: 条件を満たす要素がTrueとなるブール値配列。NaNは除外されます。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.filters import in_range
+        >>> import numpy as np
+        >>> in_range(np.array([1, 2, 3, 4]), 2, 3)
+        array([False,  True,  True, False])
     """
     arr = _to_array(values)
     
@@ -163,6 +175,12 @@ def is_valid(values: Union[np.ndarray, list]) -> np.ndarray:
 
     Returns:
         np.ndarray: 有効な値がTrueとなるブール値配列。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.filters import is_valid
+        >>> import numpy as np
+        >>> is_valid(np.array([1, np.nan, 3]))
+        array([ True, False,  True])
     """
     arr = _to_array(values)
     
@@ -254,6 +272,12 @@ def duplicated_indices(
     Raises:
         ValueError: dup_type が 'all' または 'any' 以外の場合。
         NotImplementedError: mode が 'consecutive' 以外の場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.filters import duplicated_indices
+        >>> data = {"A": [1, 1, 2, 2, 3]}
+        >>> duplicated_indices(data)
+        [0, 2, 4]
     """
     if not data:
         return []

@@ -82,6 +82,12 @@ def compute_point_interpolation_values(
         
     Returns:
         List[float]: 各ソースに対する補間値のリスト
+        
+    Examples:
+        >>> from tascpy.analytics.functional.coordinate.interpolation import compute_point_interpolation_values
+        >>> src_data = [{"point": {"x": 0, "y": 0, "z": 0}, "value": 10}, {"point": {"x": 10, "y": 0, "z": 0}, "value": 20}]
+        >>> compute_point_interpolation_values(src_data, 5, 0, 0, method="linear", power=1.0)
+        [10.0, 20.0]
     """
     if method == "inverse_distance":
         interp_func = inverse_distance_weighting
@@ -112,6 +118,17 @@ def compute_grid_interpolation_values(
         
     Returns:
         np.ndarray: 2次元の補間値グリッド (ny, nx)
+        
+    Examples:
+        >>> from tascpy.analytics.functional.coordinate.interpolation import compute_grid_interpolation_values
+        >>> import numpy as np
+        >>> source_point = {"point": {"x": 5, "y": 5, "z": 0}, "value": 10}
+        >>> x_grid = np.array([0, 5, 10])
+        >>> y_grid = np.array([0, 5, 10])
+        >>> compute_grid_interpolation_values(source_point, x_grid, y_grid, method="linear", power=1.0)
+        array([[1.41421356, 2.        , 1.41421356],
+               [2.        , 10.       , 2.        ],
+               [1.41421356, 2.        , 1.41421356]])
     """
     if method == "inverse_distance":
         interp_func = inverse_distance_weighting
@@ -148,6 +165,13 @@ def compute_spatial_interpolation_values(
         
     Returns:
         List[float]: ターゲットごとの平均補間値
+        
+    Examples:
+        >>> from tascpy.analytics.functional.coordinate.interpolation import compute_spatial_interpolation_values
+        >>> src_data = [{"point": {"x": 0, "y": 0, "z": 0}, "value": 10}, {"point": {"x": 10, "y": 0, "z": 0}, "value": 20}]
+        >>> tgt_coords = [{"x": 5, "y": 0, "z": 0}]
+        >>> compute_spatial_interpolation_values(src_data, tgt_coords, is_3d=False, method="linear", power=1.0)
+        [15.0]
     """
     if method == "inverse_distance":
         interp_func = inverse_distance_weighting

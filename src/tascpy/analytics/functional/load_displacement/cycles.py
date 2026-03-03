@@ -13,6 +13,13 @@ def compute_cycle_markers(data: np.ndarray, step: float = 0.5) -> np.ndarray:
         
     Returns:
         np.ndarray: サイクルマーカーの配列
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers
+        >>> import numpy as np
+        >>> data = np.array([10, 5, -5, -10, 5, 10])
+        >>> compute_cycle_markers(data, step=0.5)
+        array([1, 1, 1, 1, 2, 2])
     """
     cycle = [1.0]
     for i in range(1, len(data)):
@@ -38,6 +45,14 @@ def calculate_polygon_area(x: np.ndarray, y: np.ndarray) -> float:
         
     Returns:
         float: 面積（絶対値）
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.cycles import calculate_polygon_area
+        >>> import numpy as np
+        >>> x = np.array([0, 1, 1, 0])
+        >>> y = np.array([0, 0, 1, 1])
+        >>> calculate_polygon_area(x, y)
+        1.0
     """
     if len(x) < 3 or len(y) < 3:
         return 0.0
@@ -57,6 +72,14 @@ def compute_hysteresis_energy(
     Returns:
         Tuple[float, float, float, float, float]:
             (エネルギー, 最大荷重, 最小荷重, 最大変位, 最小変位)
+            
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.cycles import compute_hysteresis_energy
+        >>> import numpy as np
+        >>> loads = np.array([0, 100, 0, -100, 0])
+        >>> disps = np.array([0, 1, 2, 1, 0])
+        >>> compute_hysteresis_energy(loads, disps)
+        (200.0, 100.0, -100.0, 2.0, 0.0)
     """
     if len(loads) != len(disps):
         raise ValueError("荷重と変位のデータ長が一致しません")
@@ -95,6 +118,11 @@ def compute_secant_stiffness(
         
     Returns:
         float: 割線剛性（計算不能時は np.nan）
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.cycles import compute_secant_stiffness
+        >>> compute_secant_stiffness(100.0, -100.0, 1.0, -1.0)
+        100.0
     """
     if any(v is None or np.isnan(v) for v in (max_load, min_load, max_disp, min_disp)):
         return np.nan
@@ -122,6 +150,13 @@ def compute_peaks_and_valleys(
         
     Returns:
         np.ndarray: ピーク(1)、バレー(-1)、その他(0)のフラグ配列
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.cycles import compute_peaks_and_valleys
+        >>> import numpy as np
+        >>> data = np.array([0, 2, 1, 0, -1, -2, -1, 0])
+        >>> compute_peaks_and_valleys(data)
+        array([ 0,  1,  0,  0,  0, -1,  0,  0])
     """
     data_float = np.array([float(x) if x is not None else np.nan for x in data])
     flags = np.zeros(len(data), dtype=int)
@@ -190,6 +225,15 @@ def compute_energy_and_stats(
         
     Returns:
         Tuple: (サイクル番号, エネルギー, 最大荷重, 最小荷重, 最大変位, 最小変位)
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.cycles import compute_energy_and_stats
+        >>> import numpy as np
+        >>> loads = np.array([0, 100, 0, -100, 0])
+        >>> disps = np.array([0, 1, 2, 1, 0])
+        >>> markers = np.array([1, 1, 1, 1, 1])
+        >>> compute_energy_and_stats(loads, disps, markers)
+        (1.0, 200.0, 100.0, -100.0, 2.0, 0.0)
     """
     energy, max_l, min_l, max_d, min_d = compute_hysteresis_energy(loads, disps)
     c_num = float(markers[0]) if len(markers) > 0 else 1.0
@@ -212,6 +256,15 @@ def compute_stiffness_degradation_stats(
         
     Returns:
         Tuple: (サイクル番号, 割線剛性)
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.cycles import compute_stiffness_degradation_stats
+        >>> import numpy as np
+        >>> loads = np.array([0, 100, 0, -100, 0])
+        >>> disps = np.array([0, 1, 2, 1, 0])
+        >>> markers = np.array([1, 1, 1, 1, 1])
+        >>> compute_stiffness_degradation_stats(loads, disps, markers)
+        (1.0, 100.0)
     """
     energy, max_l, min_l, max_d, min_d = compute_hysteresis_energy(loads, disps)
     k = compute_secant_stiffness(max_l, min_l, max_d, min_d)

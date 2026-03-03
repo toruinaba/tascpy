@@ -103,6 +103,15 @@ def switch_by_step(
 
     Raises:
         ValueError: v1とv2の長さが異なる場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.combine import switch_by_step
+        >>> import numpy as np
+        >>> steps = np.array([0, 1, 2, 3])
+        >>> v1 = np.array([10, 10, 10, 10])
+        >>> v2 = np.array([20, 20, 20, 20])
+        >>> switch_by_step(steps, v1, v2, threshold=2)
+        array([10, 10, 20, 20])
     """
     if len(v1) != len(v2):
         raise ValueError(f"列の長さが一致しません: {len(v1)} vs {len(v2)}")
@@ -158,6 +167,15 @@ def blend_by_step(
 
     Raises:
         ValueError: v1とv2の長さが異なる場合、終了値が開始値以下の場合、または無効なブレンドメソッドが指定された場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.combine import blend_by_step
+        >>> import numpy as np
+        >>> steps = np.array([0.0, 0.5, 1.0, 1.5, 2.0])
+        >>> v1 = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+        >>> v2 = np.array([10.0, 10.0, 10.0, 10.0, 10.0])
+        >>> blend_by_step(steps, v1, v2, start=0.5, end=1.5, blend_method="linear")
+        array([ 0.,  0.,  5., 10., 10.])
     """
     if len(v1) != len(v2):
         raise ValueError("列の長さが一致しません")
@@ -262,6 +280,15 @@ def conditional_select(
 
     Raises:
         ValueError: 無効な比較演算子が指定された場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.combine import conditional_select
+        >>> import numpy as np
+        >>> cond = np.array([1, 5, 10])
+        >>> v1 = np.array([100, 100, 100])
+        >>> v2 = np.array([200, 200, 200])
+        >>> conditional_select(v1, v2, cond, threshold=4, compare=">")
+        array([200, 100, 100])
     """
     compare_ops = {
         ">": lambda x, y: x > y,
@@ -307,6 +334,15 @@ def custom_combine(
 
     Returns:
         Any: 結合結果（配列またはリスト）。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.combine import custom_combine
+        >>> import numpy as np
+        >>> def my_func(a, b): return a * 2 + b
+        >>> v1 = np.array([1, 2])
+        >>> v2 = np.array([3, 4])
+        >>> custom_combine(v1, v2, my_func)
+        array([5, 8])
     """
     try:
         vec_func = np.vectorize(combine_func)

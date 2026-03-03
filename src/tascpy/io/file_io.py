@@ -35,6 +35,10 @@ def load_collection(
 
     Returns:
         ColumnCollection: 読み込んだデータを含む新しいColumnCollectionオブジェクト
+        
+    Examples:
+        >>> from tascpy.io.file_io import load_collection
+        >>> col = load_collection("data.txt", format_name="tasc_txt", auto_detect_types=True)
     """
     # 循環インポートを避けるため、ここでインポートするか引数で受け取る
     if collection_cls is None:

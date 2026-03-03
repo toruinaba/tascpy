@@ -24,6 +24,9 @@ class CollectionIO:
                 - encoding (str): 文字エンコーディング（例: "utf-8", "shift_jis"）
                 - delimiter (str): 区切り文字
                 - use_channel_name (bool): 列名ではなくチャンネル名をヘッダーに用いるか
+                
+        Examples:
+            >>> col.io.save("processed_data.txt", format_name="tasc_txt")
         """
         from .file_io import save_collection
         save_collection(
@@ -40,6 +43,9 @@ class CollectionIO:
             path: 出力先パス
             **kwargs: saveメソッドまたはpandas.DataFrame.to_csvに渡す引数。
                 - delimiter, encoding 等が指定可能です。
+                
+        Examples:
+            >>> col.io.to_csv("processed_data.csv")
         """
         try:
             self.save(path, format_name="csv", **kwargs)

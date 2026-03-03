@@ -22,6 +22,13 @@ def compute_euclidean_distance(
 
     Returns:
         float: 計算された距離
+        
+    Examples:
+        >>> from tascpy.analytics.functional.coordinate.distance import compute_euclidean_distance
+        >>> compute_euclidean_distance(0, 0, 3, 4)
+        5.0
+        >>> compute_euclidean_distance(0, 0, 0, 1, 2, 2)
+        3.0
     """
     if p1_z is None and p2_z is None:
         p1 = np.array([p1_x, p1_y])

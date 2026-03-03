@@ -34,6 +34,10 @@ def plot_rosette_vectors(
 
     Returns:
         Axes: プロットされたAxesオブジェクト
+        
+    Examples:
+        >>> from tascpy.visualization.functional.strain.plot import plot_rosette_vectors
+        >>> ax = plot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=0.785, rosette_name="R1")
     """
     # 描画準備
     if ax is None:
@@ -71,7 +75,12 @@ def iplot_rosette_vectors(
     scale: float = 1.0,
     fig: Optional[Any] = None
 ) -> Any:
-    """ロゼットの主ひずみベクトルをインタラクティブにプロットする (Plotly)"""
+    """ロゼットの主ひずみベクトルをインタラクティブにプロットする (Plotly)
+    
+    Examples:
+        >>> from tascpy.visualization.functional.strain.plot import iplot_rosette_vectors
+        >>> fig = iplot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=0.785, rosette_name="R1")
+    """
     from tascpy.visualization import backend_plotly as plotly_backend
     
     if fig is None:

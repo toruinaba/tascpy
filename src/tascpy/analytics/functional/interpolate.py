@@ -23,6 +23,16 @@ def interpolate_core(
 
     Returns:
         Dict[str, np.ndarray]: リサンプリングされたすべてのデータを含む辞書。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.interpolate import interpolate_core
+        >>> import numpy as np
+        >>> base = np.array([0, 1, 2])
+        >>> num_data = {"y": np.array([0, 10, 20])}
+        >>> new_ax = np.array([0.5, 1.5])
+        >>> res = interpolate_core(base, num_data, {}, new_ax)
+        >>> res["y"]
+        array([ 5., 15.])
     """
     
     resampled_data = {}
@@ -122,6 +132,13 @@ def calculate_new_axis(
 
     Raises:
         ValueError: x_values と point_count の両方が指定されていない場合、または両方が指定されている場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.interpolate import calculate_new_axis
+        >>> import numpy as np
+        >>> base = np.array([0, 1, 2])
+        >>> calculate_new_axis(base, point_count=5)
+        array([0. , 0.5, 1. , 1.5, 2. ])
     """
     if x_values is None and point_count is None:
         raise ValueError("x_valuesまたはpoint_countのいずれかを指定してください")
@@ -152,6 +169,12 @@ def partition_data(
     Returns:
         tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]: 
             (数値データ辞書, その他のデータ辞書) のタプル。
+            
+    Examples:
+        >>> from tascpy.analytics.functional.interpolate import partition_data
+        >>> import numpy as np
+        >>> data = {"A": np.array([1, 2]), "B": np.array(["x", "y"])}
+        >>> num, other = partition_data(data)
     """
     numeric_data = {}
     other_data = {}

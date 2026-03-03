@@ -29,6 +29,10 @@ def load_from_file(file_path: Union[str, Path], format_name: str = "tasc", **kwa
 
     Returns:
         ColumnCollection: 読み込んだデータを含むColumnCollectionオブジェクト
+        
+    Examples:
+        >>> import tascpy
+        >>> col = tascpy.io.load("data.csv", format_name="csv")
     """
     import tascpy
     return tascpy.io.load(file_path, format_name=format_name, **kwargs)
@@ -47,6 +51,9 @@ def save_to_file(
         file_path: 保存先ファイルパス
         format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
         **kwargs: フォーマット設定を上書きするためのキーワード引数
+        
+    Examples:
+        >>> col.io.save("output_data.txt", format_name="tasc_txt")
     """
     collection.io.save(file_path, format_name=format_name, **kwargs)
 
@@ -62,6 +69,10 @@ def load_tasc_file(file_path: Union[str, Path], **kwargs):
 
     Returns:
         ColumnCollection: 読み込んだTASCデータを含むColumnCollectionオブジェクト
+        
+    Examples:
+        >>> import tascpy
+        >>> col = tascpy.io.load_tasc_file("data.txt", encoding="shift_jis")
     """
     import tascpy
     return tascpy.io.load(file_path, format_name="tasc", **kwargs)

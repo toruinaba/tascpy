@@ -24,6 +24,14 @@ def select_indices(
 
     Raises:
         ValueError: indices と steps の両方が指定された場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.select import select_indices
+        >>> import numpy as np
+        >>> steps_arr = np.array([0.0, 0.5, 1.0, 1.5])
+        >>> indices, meta = select_indices(steps_arr, steps=[0.5, 1.0])
+        >>> indices
+        [1, 2]
     """
     # indicesとstepsの両方が指定された場合はエラー
     if indices is not None and steps is not None:
@@ -131,6 +139,13 @@ def fetch_near_step(
     Raises:
         TypeError: values が数値型でない場合。
         ValueError: 有効なデータが見つからない場合（全てNaNなど）。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.select import fetch_near_step
+        >>> import numpy as np
+        >>> arr = np.array([0.0, 0.4, 0.9, 1.5])
+        >>> fetch_near_step(arr, 1.0)
+        [2]
     """
     # 数値型変換とチェック
     # Handle list input if necessary (though type hint says ndarray)
@@ -165,7 +180,7 @@ def split_by_integers(
     ユニークなマーカー値ごとに、そのマーカーに対応するインデックスの配列をリストとして返します。
 
     Args:
-        length (int): データの長さ。
+        length (int): データ長。
         markers (Union[List[int], np.ndarray]): 各要素に対応する整数マーカーのリストまたは配列。長さは `length` と一致する必要があります。
 
     Returns:
@@ -173,6 +188,13 @@ def split_by_integers(
 
     Raises:
         ValueError: データ長とマーカーリストの長さが一致しない場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.select import split_by_integers
+        >>> import numpy as np
+        >>> markers = np.array([1, 1, 2, 2, 3])
+        >>> split_by_integers(5, markers)
+        [array([0, 1]), array([2, 3]), array([4])]
     """
     if length != len(markers):
          raise ValueError(
@@ -208,6 +230,11 @@ def split_at_indices(
 
     Raises:
         IndexError: インデックスが範囲外 (0-length) の場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.select import split_at_indices
+        >>> split_at_indices(10, [3, 7])
+        [slice(0, 3, None), slice(3, 7, None), slice(7, 10, None)]
     """
     if isinstance(indices, int):
         indices_list = [indices]

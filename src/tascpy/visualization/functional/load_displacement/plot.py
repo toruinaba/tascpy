@@ -44,6 +44,13 @@ def plot_load_displacement(
 
     Returns:
         Axes: プロットされた軸オブジェクト
+        
+    Examples:
+        >>> from tascpy.visualization.functional.load_displacement.plot import plot_load_displacement
+        >>> import numpy as np
+        >>> disp = np.array([0, 1, 2, 3])
+        >>> load = np.array([0, 5, 10, 8])
+        >>> ax = plot_load_displacement(disp, load, x_label="Disp (mm)", y_label="Load (kN)")
     """
     if title is None:
         title = "Load-Displacement Curve"
@@ -90,6 +97,15 @@ def plot_skeleton_curve(
 
     Returns:
         Axes: プロットされた軸オブジェクト
+        
+    Examples:
+        >>> from tascpy.visualization.functional.load_displacement.plot import plot_skeleton_curve
+        >>> import numpy as np
+        >>> disp_orig = np.array([0, 1, 2, 3, 4, 5])
+        >>> load_orig = np.array([0, 5, 10, 8, 12, 10])
+        >>> skeleton_x = np.array([0, 2, 4])
+        >>> skeleton_y = np.array([0, 10, 12])
+        >>> ax = plot_skeleton_curve(skeleton_x, skeleton_y, x_values=disp_orig, y_values=load_orig)
     """
     # デフォルト引数の設定
     if original_kwargs is None:
@@ -162,6 +178,15 @@ def plot_cumulative_curve(
 
     Returns:
         Axes: プロットされた軸オブジェクト
+        
+    Examples:
+        >>> from tascpy.visualization.functional.load_displacement.plot import plot_cumulative_curve
+        >>> import numpy as np
+        >>> disp_orig = np.array([0, 1, 2, 3, 4, 5])
+        >>> load_orig = np.array([0, 5, 10, 8, 12, 10])
+        >>> cumulative_x = np.array([0, 1, 2, 3, 4, 5])
+        >>> cumulative_y = np.cumsum(np.abs(load_orig)) # Example cumulative load
+        >>> ax = plot_cumulative_curve(cumulative_x, cumulative_y, x_values=disp_orig, y_values=load_orig)
     """
     # デフォルト引数の設定
     if original_kwargs is None:
@@ -251,6 +276,23 @@ def plot_yield_point(
 
     Returns:
         Axes: プロットされた軸オブジェクト
+        
+    Examples:
+        >>> from tascpy.visualization.functional.load_displacement.plot import plot_yield_point
+        >>> import numpy as np
+        >>> disp = np.array([0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
+        >>> load = np.array([0, 2.5, 5.0, 6.5, 7.0, 7.2, 7.3])
+        >>> yield_disp = 1.5
+        >>> yield_load = 6.5
+        >>> initial_slope = 5.0
+        >>> ax = plot_yield_point(yield_disp, yield_load, initial_slope=initial_slope, x_values=disp, y_values=load)
+        >>> # オフセット法の場合
+        >>> yield_disp_offset = 1.2
+        >>> yield_load_offset = 5.5
+        >>> yield_params_offset = {"offset_value": 0.002}
+        >>> ax_offset = plot_yield_point(yield_disp_offset, yield_load_offset, yield_method="offset",
+        ...                              initial_slope=initial_slope, yield_parameters=yield_params_offset,
+        ...                              x_values=disp, y_values=load)
     """
     if yield_parameters is None:
         yield_parameters = {}
@@ -355,6 +397,18 @@ def plot_yield_analysis_details(
 
     Returns:
         Axes: プロットされた軸オブジェクト
+        
+    Examples:
+        >>> from tascpy.visualization.functional.load_displacement.plot import plot_yield_analysis_details
+        >>> import numpy as np
+        >>> disp = np.array([0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
+        >>> load = np.array([0, 2.5, 5.0, 6.5, 7.0, 7.2, 7.3])
+        >>> yield_disp = 1.5
+        >>> yield_load = 6.5
+        >>> initial_slope = 5.0
+        >>> yield_params = {"range_start": 0.1, "range_end": 0.4}
+        >>> ax = plot_yield_analysis_details(yield_disp, yield_load, initial_slope=initial_slope,
+        ...                                  yield_parameters=yield_params, x_values=disp, y_values=load)
     """
     if yield_parameters is None:
         yield_parameters = {}
@@ -406,16 +460,16 @@ def plot_yield_analysis_details(
         range_disps = x_values[range_mask]
         range_loads = y_values[range_mask]
 
-    mpl_backend.scatter_points(
-        range_disps,
-        range_loads,
-        ax=ax,
-        color="cyan",
-        s=40,
-        alpha=0.7,
-        label=f"Initial Slope Range ({range_start:.2f}-{range_end:.2f})",
-        zorder=4,
-    )
+        mpl_backend.scatter_points(
+            range_disps,
+            range_loads,
+            ax=ax,
+            color="cyan",
+            s=40,
+            alpha=0.7,
+            label=f"Initial Slope Range ({range_start:.2f}-{range_end:.2f})",
+            zorder=4,
+        )
 
     # 方法に応じた追加情報の表示
     title_text = f"Yield Point Analysis ({yield_method.capitalize()} Method)"
@@ -476,8 +530,18 @@ def compare_yield_methods(
         y_label: Y軸ラベル
         ax: プロット先の軸（None の場合は新規作成）
         **kwargs: 基礎となる荷重-変位プロットへの追加引数
+        
+    Examples:
+        >>> from tascpy.visualization.functional.load_displacement.plot import compare_yield_methods
+        >>> import numpy as np
+        >>> disp = np.array([0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
+        >>> load = np.array([0, 2.5, 5.0, 6.5, 7.0, 7.2, 7.3])
+        >>> results = [
+        ...     {"method": "offset", "yield_disp": 1.2, "yield_load": 5.5, "initial_slope": 5.0, "parameters": {"offset_value": 0.002}},
+        ...     {"method": "general", "yield_disp": 1.8, "yield_load": 6.8, "initial_slope": 5.0, "parameters": {"factor": 0.33}}
+        ... ]
+        >>> ax = compare_yield_methods(results, x_values=disp, y_values=load)
     """
-
     if not yield_results:
         return ax
 

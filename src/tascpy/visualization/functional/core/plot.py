@@ -49,6 +49,13 @@ def plot(
 
     Returns:
         plt.Axes: 描画されたAxesオブジェクト。
+        
+    Examples:
+        >>> from tascpy.visualization.functional.core.plot import plot
+        >>> import numpy as np
+        >>> x = np.array([0, 1, 2])
+        >>> y = np.array([0, 10, 20])
+        >>> ax = plot(x, y, x_label="Time (s)", y_label="Speed (m/s)")
     """
     if title is None:
         title = f"{y_label.split(' [')[0]} vs {x_label.split(' [')[0]}"
@@ -195,6 +202,13 @@ def plot_const_x(
 
     Returns:
         plt.Axes: 描画されたAxesオブジェクト。
+        
+    Examples:
+        >>> from tascpy.visualization.functional.core.plot import plot_const_x
+        >>> import numpy as np
+        >>> x = np.array([0, 1, 2])
+        >>> y_dict = {"Sensor 1": np.array([1, 2, 3]), "Sensor 2": np.array([3, 2, 1])}
+        >>> ax = plot_const_x(y_dict, x, x_label="Position (m)", y_label="Temperature (C)")
     """
             
     # 計算ロジック（純粋関数）
@@ -239,6 +253,13 @@ def iplot(
 
     Returns:
         Any: 描画されたPlotly Figureオブジェクト。
+        
+    Examples:
+        >>> from tascpy.visualization.functional.core.plot import iplot
+        >>> import numpy as np
+        >>> x = np.array([0, 1, 2])
+        >>> y = np.array([0, 10, 20])
+        >>> fig = iplot(x, y, x_label="Time (s)", y_label="Speed (m/s)")
     """
     if title is None:
         title = f"{y_label.split(' [')[0]} vs {x_label.split(' [')[0]}"

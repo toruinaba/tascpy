@@ -22,6 +22,13 @@ def compute_rosette_strains(
     Returns:
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: 
             (最大主ひずみ, 最小主ひずみ, 最大せん断ひずみ, 主ひずみ方向角度)
+            
+    Examples:
+        >>> from tascpy.analytics.functional.strain.rosette import compute_rosette_strains
+        >>> import numpy as np
+        >>> e1, e2, e3 = np.array([100]), np.array([200]), np.array([300])
+        >>> compute_rosette_strains(e1, e2, e3, "rectangular")
+        (array([300.]), array([100.]), array([200.]), array([0.]))
     """
     if r_type.lower() == "rectangular":
         ex = e1
@@ -63,6 +70,11 @@ def compute_rosette_vectors(
 
     Returns:
         Tuple[float, float, float, float]: (v1_x, v1_y, v2_x, v2_y)
+        
+    Examples:
+        >>> from tascpy.analytics.functional.strain.rosette import compute_rosette_vectors
+        >>> compute_rosette_vectors(300.0, 100.0, 0.0)
+        (300.0, 0.0, 6.123233995736766e-15, 100.0)
     """
     theta_rad = np.radians(val_theta)
     

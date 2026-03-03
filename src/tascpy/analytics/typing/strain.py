@@ -51,7 +51,11 @@ Args:
     result_prefix: 結果列の接頭辞 (デフォルト: "coord_")
 
 Returns:
-    CoordinateCollection: 座標列を追加したコレクション"""
+    CoordinateCollection: 座標列を追加したコレクション
+    
+Examples:
+    >>> col = col.ops.extract_coordinates(result_prefix="coord_")
+    >>> x_coords = col["coord_x"].values"""
         ...
     
 
@@ -77,7 +81,10 @@ Returns:
     float: 2点間のユークリッド距離
 
 Raises:
-    ValueError: 座標情報がない場合"""
+    ValueError: 座標情報がない場合
+    
+Examples:
+    >>> dist = col.ops.calculate_distance("SensorA", "SensorB")"""
         ...
     
 
@@ -97,7 +104,10 @@ Args:
     result_column: 結果列名（None の場合、自動生成）
 
 Returns:
-    CoordinateCollection: 近傍情報を含むコレクション"""
+    CoordinateCollection: 近傍情報を含むコレクション
+    
+Examples:
+    >>> cols_with_neighbors = col.ops.find_nearest_neighbors("SensorA", n_neighbors=3)"""
         ...
     
 
@@ -119,7 +129,10 @@ Args:
     algorithm: クラスタリングアルゴリズム (デフォルト: "kmeans")
 
 Returns:
-    CoordinateCollection: クラスタリング結果を含むコレクション"""
+    CoordinateCollection: クラスタリング結果を含むコレクション
+    
+Examples:
+    >>> clustered_cols = col.ops.spatial_clustering(n_clusters=3, algorithm="kmeans")"""
         ...
     
 
@@ -176,7 +189,12 @@ Args:
     result_prefix: 結果列の接頭辞
 
 Returns:
-    CoordinateCollection: 補間結果を含むコレクション"""
+    CoordinateCollection: 補間結果を含むコレクション
+    
+Examples:
+    >>> interp_col = col.ops.interpolate_at_point(
+    ...     x=10.0, y=20.0, method="inverse_distance"
+    ... )"""
         ...
     
 
@@ -203,7 +221,10 @@ Args:
     result_prefix: 結果列の接頭辞
 
 Returns:
-    CoordinateCollection: グリッド補間結果を含むコレクション"""
+    CoordinateCollection: グリッド補間結果を含むコレクション
+    
+Examples:
+    >>> grid_col = col.ops.interpolate_grid(x_range=(0, 100), y_range=(0, 100), grid_size=(20, 20), target_column="Temperature")"""
         ...
     
 
@@ -228,7 +249,14 @@ Args:
     result_prefix: 結果列の接頭辞
 
 Returns:
-    CoordinateCollection: 補間結果を含むコレクション"""
+    CoordinateCollection: 補間結果を含むコレクション
+    
+Examples:
+    >>> mapped_col = col.ops.spatial_interpolation_to_points(
+    ...     source_columns=["Sensor1", "Sensor2"],
+    ...     target_columns=["NodeA", "NodeB"],
+    ...     method="inverse_distance"
+    ... )"""
         ...
     
 
@@ -280,7 +308,13 @@ Args:
     prefix: 結果カラム名の接頭辞。デフォルトは rosette_name または "rosette"
 
 Returns:
-    StrainCollection: 計算結果（e_max, e_min, gamma_max, theta）が追加されたコレクション"""
+    StrainCollection: 計算結果（e_max, e_min, gamma_max, theta）が追加されたコレクション
+    
+Examples:
+    >>> # カラム名指定で直交ロゼットを計算
+    >>> col = col.ops.calculate_rosette_strains(
+    ...     columns=["CH1", "CH2", "CH3"], rosette_type="rectangular"
+    ... )"""
         ...
     
 
@@ -298,7 +332,10 @@ Args:
     unit: 結果の単位
 
 Returns:
-    StrainCollection: 応力カラムが追加されたコレクション"""
+    StrainCollection: 応力カラムが追加されたコレクション
+    
+Examples:
+    >>> col = col.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力")"""
         ...
     
 
@@ -321,7 +358,13 @@ Args:
     result_prefix: 結果名の接頭辞
 
 Returns:
-    Tuple: E, yield_strain, yield_stress, nu"""
+    Tuple: E, yield_strain, yield_stress, nu
+    
+Examples:
+    >>> col = col.ops.analyze_material_properties(
+    ...     stress_column="応力", strain_column="CH1", elastic_range=(0.0, 0.001)
+    ... )
+    >>> youngs_modulus = col.results["youngs_E"].value"""
         ...
     
 
@@ -333,7 +376,7 @@ Returns:
         value: Any,
         tolerance: Optional[float] = None
     ) -> ndarray:
-        """指定した列の値が条件に一致する行のみを抽出します
+        """指定した列の値が条件に一致する行のみを抽出します。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -342,7 +385,11 @@ Args:
     tolerance (float, optional): 数値比較時の許容誤差. Defaults to None.
     
 Returns:
-    ColumnCollection: 条件に一致した行のみを含む新しいコレクション"""
+    ColumnCollection: 条件に一致した行のみを含む新しいコレクション
+    
+Examples:
+    >>> filtered_col = col.ops.filter_by_value("状態", "正常")
+    >>> filtered_col = col.ops.filter_by_value("荷重", 100.0, tolerance=0.5)"""
         ...
     
 
@@ -352,7 +399,7 @@ Returns:
         column: str,
         mode: str = 'any'
     ) -> list[bool]:
-        """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します
+        """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -360,7 +407,10 @@ Args:
     mode (str, optional): 判定モード ("any": いずれかが欠損なら除外, "all": 全てが欠損なら除外). Defaults to "any".
     
 Returns:
-    ColumnCollection: 欠損値を含む行が除外された新しいコレクション"""
+    ColumnCollection: 欠損値を含む行が除外された新しいコレクション
+    
+Examples:
+    >>> clean_col = col.ops.filter_out_none() # どこかに欠損があればその行を削除"""
         ...
     
 
@@ -372,7 +422,7 @@ Returns:
         mode: str = 'consecutive',
         dup_type: str = 'all'
     ) -> list[int]:
-        """連続する重複行を検知し、最初の行だけを残して除外します
+        """連続する重複行を検知し、最初の行だけを残して除外します。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -381,7 +431,11 @@ Args:
     dup_type (str, optional): どの重複を残すか. Defaults to "all".
     
 Returns:
-    ColumnCollection: 連続重複が排除された新しいコレクション"""
+    ColumnCollection: 連続重複が排除された新しいコレクション
+    
+Examples:
+    >>> # 値が変化しない静止状態のデータを間引く場合などに有用
+    >>> thinned_col = col.ops.remove_consecutive_duplicates_across()"""
         ...
     
 
@@ -391,7 +445,7 @@ Returns:
         *args,
         **kwargs
     ) -> Any:
-        """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します
+        """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -403,7 +457,10 @@ Args:
     scale_factor (float, optional): スケールファクター. Defaults to 1.0.
 
 Returns:
-    ColumnCollection: 外れ値が除外された新しいコレクション"""
+    ColumnCollection: 外れ値が除外された新しいコレクション
+    
+Examples:
+    >>> clean_col = col.ops.remove_outliers("変位", threshold=0.3)"""
         ...
     
 
@@ -413,7 +470,7 @@ Returns:
         column: column = <class 'str'>,
         condition: <built-in function callable>
     ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します
+        """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -421,7 +478,11 @@ Args:
     condition (Callable[[np.ndarray], np.ndarray]): 真偽値配列を返す条件関数
     
 Returns:
-    ColumnCollection: 条件関数がTrueを返した行のみを含む新しいコレクション"""
+    ColumnCollection: 条件関数がTrueを返した行のみを含む新しいコレクション
+    
+Examples:
+    >>> # 荷重が50以上の行だけを抽出
+    >>> high_load_col = col.ops.filter_by_condition("荷重", lambda x: x >= 50)"""
         ...
     
 
@@ -430,14 +491,17 @@ Returns:
         steps: list[Any],
         tolerance: Optional[float] = None
     ) -> list[bool]:
-        """指定されたステップ値のリストに一致する行を除外します
+        """指定されたステップ値のリストに一致する行を除外します。
 
 Args:
     collection (ColumnCollection): データコレクション
     steps (List[float] | np.ndarray): 除外したいステップ値のリスト
     
 Returns:
-    ColumnCollection: 指定したステップが除外された新しいコレクション"""
+    ColumnCollection: 指定したステップが除外された新しいコレクション
+    
+Examples:
+    >>> filtered_col = col.ops.remove_steps(steps=[1.0, 2.0, 3.0])"""
         ...
     
 
@@ -457,7 +521,10 @@ Args:
     tolerance (float, optional): 許容誤差. Defaults to None.
     
 Returns:
-    np.ndarray: 一致したインデックスの配列"""
+    np.ndarray: 一致したインデックスの配列
+    
+Examples:
+    >>> indices = col.ops.search_by_value("状態", "エラー")"""
         ...
     
 
@@ -479,7 +546,10 @@ Args:
     inclusive (bool, optional): 境界値を含むか. Defaults to True.
     
 Returns:
-    np.ndarray: 範囲内に収まるインデックスの配列"""
+    np.ndarray: 範囲内に収まるインデックスの配列
+    
+Examples:
+    >>> indices = col.ops.search_by_range("荷重", min=10.0, max=50.0)"""
         ...
     
 
@@ -502,7 +572,10 @@ Args:
     by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
     
 Returns:
-    np.ndarray: 条件に一致したインデックスの配列"""
+    np.ndarray: 条件に一致したインデックスの配列
+    
+Examples:
+    >>> indices = col.ops.search_by_step_range(min=0.0, max=10.0)"""
         ...
     
 
@@ -521,7 +594,10 @@ Args:
     mode (str, optional): 判定モード ("any" または "all"). Defaults to "any".
     
 Returns:
-    np.ndarray: 一致したインデックスの配列"""
+    np.ndarray: 一致したインデックスの配列
+    
+Examples:
+    >>> indices = col.ops.search_by_condition(columns=["荷重"], condition=lambda x: x > 100)"""
         ...
     
 
@@ -538,7 +614,10 @@ Args:
     mode (str, optional): 判定モード ("any" または "all"). Defaults to "any".
     
 Returns:
-    np.ndarray: 欠損値を含むインデックスの配列"""
+    np.ndarray: 欠損値を含むインデックスの配列
+    
+Examples:
+    >>> nan_indices = col.ops.search_missing_values()"""
         ...
     
 
@@ -558,7 +637,10 @@ Args:
     largest (bool, optional): Trueなら大きい順、Falseなら小さい順. Defaults to True.
     
 Returns:
-    np.ndarray: 上位（下位）N件のインデックスの配列"""
+    np.ndarray: 上位（下位）N件のインデックスの配列
+    
+Examples:
+    >>> top_5_idx = col.ops.search_top_n("荷重", n=5, largest=True)"""
         ...
     
 
@@ -570,7 +652,7 @@ Returns:
         by_step_value: bool = True,
         tolerance: Optional[float] = None
     ) -> tuple[list[int], dict[str, Any]]:
-        """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します
+        """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -581,7 +663,11 @@ Args:
     step_max (float, optional): 最大ステップ値. Defaults to None.
     
 Returns:
-    ColumnCollection: 条件に一致するデータのみを含む新しいコレクション"""
+    ColumnCollection: 条件に一致するデータのみを含む新しいコレクション
+    
+Examples:
+    >>> new_col = col.ops.select(columns=["荷重", "変位"])
+    >>> sliced_col = col.ops.select(step_min=0.0, step_max=10.0)"""
         ...
     
 
@@ -590,14 +676,18 @@ Returns:
         column: str,
         value: float
     ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """指定ステップ値に最も近いデータ行を一つ抽出します
+        """指定ステップ値に最も近いデータ行を一つ抽出します。
 
 Args:
     collection (ColumnCollection): データコレクション
     target_step (float): 抽出したい基準ステップ値
     
 Returns:
-    ColumnCollection: ターゲットに最も近い1行のみを含む新しいコレクション（要素数1）"""
+    ColumnCollection: ターゲットに最も近い1行のみを含む新しいコレクション（要素数1）
+    
+Examples:
+    >>> single_row = col.ops.fetch_near_step(5.0)
+    >>> print(single_row.step.values[0])"""
         ...
     
 
@@ -615,7 +705,10 @@ Args:
     markers: 各要素に対応する整数マーカーのリストまたは配列。長さはコレクションの長さと一致する必要があります。
 
 Returns:
-    List[ColumnCollection]: 分割されたコレクションのリスト"""
+    List[ColumnCollection]: 分割されたコレクションのリスト
+    
+Examples:
+    >>> cycles = col.ops.split_by_integers(markers=[1, 1, 2, 2, 3])"""
         ...
     
 
@@ -630,7 +723,10 @@ Args:
     indices: 分割点となるインデックス（またはそのリスト）
 
 Returns:
-    List[ColumnCollection]: 分割されたコレクションのリスト"""
+    List[ColumnCollection]: 分割されたコレクションのリスト
+    
+Examples:
+    >>> partial_cols = col.ops.split_at_indices([100, 200])"""
         ...
     
 
@@ -663,7 +759,10 @@ Args:
     tolerance (float, optional): 比較の許容誤差. Defaults to None.
     
 Returns:
-    ColumnCollection: 切り替え済みのデータを持つ新しいコレクション"""
+    ColumnCollection: 切り替え済みのデータを持つ新しいコレクション
+    
+Examples:
+    >>> switched_col = col.ops.switch_by_step("Phase1", "Phase2", threshold=5.0)"""
         ...
     
 
@@ -702,7 +801,10 @@ Args:
     tolerance (float, optional): 比較の許容誤差. Defaults to None.
 
 Returns:
-    ColumnCollection: ブレンド済みのデータを持つ新しいコレクション"""
+    ColumnCollection: ブレンド済みのデータを持つ新しいコレクション
+    
+Examples:
+    >>> blended_col = col.ops.blend_by_step("Phase1", "Phase2", start=4.0, end=6.0, blend_method="smoothstep")"""
         ...
     
 
@@ -719,7 +821,10 @@ Args:
     columns (List[str], optional): 合計するカラム名のリスト. 未指定時はすべて. Defaults to None.
     
 Returns:
-    ColumnCollection: 合計値カラムが追加された新しいコレクション"""
+    ColumnCollection: 合計値カラムが追加された新しいコレクション
+    
+Examples:
+    >>> sum_col = col.ops.sum_columns(columns=["CH1", "CH2", "CH3"])"""
         ...
     
 
@@ -736,7 +841,10 @@ Args:
     columns (List[str], optional): 平均するカラム名のリスト. 未指定時はすべて. Defaults to None.
     
 Returns:
-    ColumnCollection: 平均値カラムが追加された新しいコレクション"""
+    ColumnCollection: 平均値カラムが追加された新しいコレクション
+    
+Examples:
+    >>> avg_col = col.ops.average_columns(columns=["CH1", "CH2", "CH3"])"""
         ...
     
 
@@ -764,7 +872,10 @@ Args:
     compare (str, optional): 比較演算子 (">", "<", ">=", "<=", "==", "!="). Defaults to ">".
     
 Returns:
-    ColumnCollection: 条件に基づいて選択されたデータを持つ新しいコレクション"""
+    ColumnCollection: 条件に基づいて選択されたデータを持つ新しいコレクション
+    
+Examples:
+    >>> selected_col = col.ops.conditional_select("CH_High", "CH_Low", cond_values="Temperature", threshold=50, compare=">")"""
         ...
     
 
@@ -788,7 +899,10 @@ Args:
     func_name (str, optional): 関数の名前（結果のカラム名に使用）. Defaults to None.
     
 Returns:
-    ColumnCollection: カスタム加工されたデータを含む新しいコレクション"""
+    ColumnCollection: カスタム加工されたデータを含む新しいコレクション
+    
+Examples:
+    >>> custom_col = col.ops.custom_combine("CH1", "CH2", combine_func=lambda x, y: x**2 + y**2, func_name="sum_squares")"""
         ...
     
 
@@ -797,7 +911,19 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """複数カラムの要素ごとの和を計算します"""
+        """複数カラムまたはスカラー値の要素ごとの和を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    value1 (Union[str, float]): 第1引数（カラム名または数値）
+    value2 (Union[str, float]): 第2引数（カラム名または数値）
+    
+Returns:
+    ColumnCollection: 計算結果カラムが追加された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.add("CH01", "CH02")      # CH01 + CH02 -> 新しい列に追加
+    >>> col = col.ops.add("CH01", 10.5)        # CH01に10.5を加算"""
         ...
     
 
@@ -806,7 +932,19 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """第一カラムから第二カラムの要素ごとの差を計算します"""
+        """第一引数から第二引数の要素ごとの差を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    value1 (Union[str, float]): 第1引数（カラム名または数値）
+    value2 (Union[str, float]): 第2引数（引き算するカラム名または数値）
+
+Returns:
+    ColumnCollection: 計算結果カラムが追加された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.subtract("CH01", "CH02") # CH01 - CH02
+    >>> col = col.ops.subtract("CH01", 10.5)   # CH01 - 10.5"""
         ...
     
 
@@ -815,7 +953,18 @@ Returns:
         column: str,
         v2: Union[ndarray, float]
     ) -> ndarray:
-        """複数カラムの要素ごとの積を計算します"""
+        """複数カラムまたはスカラー値の要素ごとの積を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    value1 (Union[str, float]): 第1引数（カラム名または数値）
+    value2 (Union[str, float]): 第2引数（カラム名または数値）
+
+Returns:
+    ColumnCollection: 計算結果カラムが追加された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.multiply("CH01", 2.0)    # CH01 * 2.0"""
         ...
     
 
@@ -825,7 +974,18 @@ Returns:
         v2: Union[ndarray, float],
         **kwargs
     ) -> ndarray:
-        """第一カラムを第二カラムで要素ごとに除算します"""
+        """第一引数を第二引数で要素ごとに除算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    value1 (Union[str, float]): 分子（カラム名または数値）
+    value2 (Union[str, float]): 分母（カラム名または数値）
+    
+Returns:
+    ColumnCollection: 計算結果カラムが追加された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.divide("CH01", 1000)     # CH01 / 1000 (例: N -> kN変換など)"""
         ...
     
 
@@ -847,7 +1007,10 @@ Args:
     method (str, optional): 微分手法 ("forward", "backward", "central"). Defaults to "central".
     
 Returns:
-    ColumnCollection: 微分値カラムが追加された新しいコレクション"""
+    ColumnCollection: 微分値カラムが追加された新しいコレクション
+    
+Examples:
+    >>> diff_col = col.ops.diff(y_column="変位", x_column="__step__", method="central")"""
         ...
     
 
@@ -872,7 +1035,10 @@ Args:
     initial_value (float, optional): 積分定数 (初期値). Defaults to 0.0.
     
 Returns:
-    ColumnCollection: 積分値カラムが追加された新しいコレクション"""
+    ColumnCollection: 積分値カラムが追加された新しいコレクション
+    
+Examples:
+    >>> int_col = col.ops.integrate(y_column="速度", x_column="__step__")"""
         ...
     
 
@@ -883,7 +1049,17 @@ Returns:
         expression: str,
         **kwargs
     ) -> Union[list[Optional[float]], ndarray]:
-        """"""
+        """与えられた数式文字列を評価し、新しい列を生成します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    expression (str): 評価する数式文字列（例: "CH01 * 2 + CH02"）
+    
+Returns:
+    ColumnCollection: 計算結果カラムが追加された新しいコレクション
+    
+Examples:
+    >>> res_col = col.ops.evaluate("荷重 * 2.0 + 10.0")"""
         ...
     
 
@@ -894,14 +1070,18 @@ Returns:
         column: values = <class 'numpy.ndarray'>,
         degrees: bool = False
     ) -> ndarray:
-        """正弦(sin)を計算します。
+        """指定されたカラムの正弦（Sine）を計算します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-    degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
-
+    collection (ColumnCollection): データコレクション
+    values (str | np.ndarray): 対象のカラム名
+    degrees (bool, optional): 角度を度数法で扱うか. Defaults to False.
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> sin_col = col.ops.sin("Angle", degrees=True)"""
         ...
     
 
@@ -912,14 +1092,18 @@ Returns:
         column: values = <class 'numpy.ndarray'>,
         degrees: bool = False
     ) -> ndarray:
-        """余弦(cos)を計算します。
+        """指定されたカラムの余弦（Cosine）を計算します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-    degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
-
+    collection (ColumnCollection): データコレクション
+    values (str | np.ndarray): 対象のカラム名
+    degrees (bool, optional): 角度を度数法で扱うか. Defaults to False.
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> cos_col = col.ops.cos("Angle", degrees=True)"""
         ...
     
 
@@ -930,14 +1114,18 @@ Returns:
         column: values = <class 'numpy.ndarray'>,
         degrees: bool = False
     ) -> ndarray:
-        """正接(tan)を計算します。
+        """指定されたカラムの正接（Tangent）を計算します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-    degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
-
+    collection (ColumnCollection): データコレクション
+    values (str | np.ndarray): 対象のカラム名
+    degrees (bool, optional): 角度を度数法で扱うか. Defaults to False.
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> tan_col = col.ops.tan("Angle", degrees=True)"""
         ...
     
 
@@ -946,13 +1134,17 @@ Returns:
         values: values = <class 'numpy.ndarray'>,
         column: values = <class 'numpy.ndarray'>
     ) -> ndarray:
-        """指数関数(exp)を計算します。
+        """指定されたカラムの指数関数（e^x）を計算します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-
+    collection (ColumnCollection): データコレクション
+    values (str | np.ndarray): 対象のカラム名
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> exp_col = col.ops.exp("CH1")"""
         ...
     
 
@@ -963,16 +1155,18 @@ Returns:
         column: values = <class 'numpy.ndarray'>,
         base: float = 2.718281828459045
     ) -> ndarray:
-        """対数(log)を計算します。
-
-0以下の値はNaNになります。
+        """指定されたカラムの対数（Log）を計算します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-    base (float, optional): 対数の底。デフォルトは e（自然対数）。
-
+    collection (ColumnCollection): データコレクション
+    values (str | np.ndarray): 対象のカラム名
+    base (float, optional): 対数の底. Defaults to e.
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> log_col = col.ops.log("CH1", base=10.0)"""
         ...
     
 
@@ -981,15 +1175,17 @@ Returns:
         values: values = <class 'numpy.ndarray'>,
         column: values = <class 'numpy.ndarray'>
     ) -> ndarray:
-        """平方根(sqrt)を計算します。
-
-負の値はNaNになります。
+        """指定されたカラムの平方根（Square Root）を計算します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-
+    collection (ColumnCollection): データコレクション
+    values (str | np.ndarray): 対象のカラム名
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> sqrt_col = col.ops.sqrt("CH1")"""
         ...
     
 
@@ -1000,14 +1196,18 @@ Returns:
         column: column = <class 'str'>,
         exponent: float
     ) -> ndarray:
-        """累乗(power)を計算します。
+        """指定されたカラムのべき乗（Power）を計算します。
 
 Args:
-    values (np.ndarray): 基数の配列。
-    exponent (float): 指数。
-
+    collection (ColumnCollection): データコレクション
+    values (str): 対象のカラム名
+    exponent (float, optional): べき乗の指数. Defaults to 1.0.
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> pow_col = col.ops.pow("CH1", exponent=2.0)"""
         ...
     
 
@@ -1016,13 +1216,17 @@ Returns:
         values: column = <class 'str'>,
         column: column = <class 'str'>
     ) -> ndarray:
-        """絶対値(absolute value)を計算します。
+        """指定されたカラムの絶対値（Absolute value）を計算します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-
+    collection (ColumnCollection): データコレクション
+    values (str): 対象のカラム名
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> abs_col = col.ops.abs_values("変位")"""
         ...
     
 
@@ -1033,14 +1237,18 @@ Returns:
         column: column = <class 'str'>,
         decimals: int = 0
     ) -> ndarray:
-        """値を指定された桁数で丸めます。
+        """指定されたカラムの値を丸めます（四捨五入）。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-    decimals (int, optional): 丸める小数点以下の桁数。デフォルトは 0。
-
+    collection (ColumnCollection): データコレクション
+    values (str): 対象のカラム名
+    decimals (int, optional): 丸める小数点以下の桁数. Defaults to 0.
+    
 Returns:
-    np.ndarray: 計算結果の配列。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> rounded_col = col.ops.round_values("荷重", decimals=2)"""
         ...
     
 
@@ -1051,19 +1259,18 @@ Returns:
         column: column = <class 'str'>,
         method: str = 'minmax'
     ) -> ndarray:
-        """値を正規化します。
+        """指定されたカラムの値を正規化します。
 
 Args:
-    values (np.ndarray): 入力値の配列。
-    method (str, optional): 正規化方法。
-        'minmax': 最小値を0、最大値を1にスケーリング。
-        'zscore': 平均を0、標準偏差を1に標準化。デフォルトは "minmax"。
-
+    collection (ColumnCollection): データコレクション
+    values (str): 対象のカラム名
+    method (str, optional): 正規化手法 ("minmax", "zscore", "max_abs"). Defaults to "minmax".
+    
 Returns:
-    np.ndarray: 正規化された配列。
-
-Raises:
-    ValueError: 指定されたメソッドが無効な場合。"""
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+    
+Examples:
+    >>> norm_col = col.ops.normalize("荷重", method="minmax")"""
         ...
     
 
@@ -1084,7 +1291,10 @@ Args:
     edge_handling (str, optional): 端の処理方法 ("asymmetric", "symmetric", "constant", "mirror", "wrap"). Defaults to "asymmetric".
     
 Returns:
-    ColumnCollection: 移動平均値が追加された新しいコレクション"""
+    ColumnCollection: 移動平均値が追加された新しいコレクション
+    
+Examples:
+    >>> smoothed_col = col.ops.moving_average("荷重", window_size=5)"""
         ...
     
 
@@ -1115,7 +1325,10 @@ Args:
     scale_factor (float, optional): スケールファクタ. Defaults to 1.0.
 
 Returns:
-    ColumnCollection: 異常値フラグが追加された新しいコレクション"""
+    ColumnCollection: 異常値フラグが追加された新しいコレクション
+    
+Examples:
+    >>> flagged_col = col.ops.detect_outliers("変位", threshold=3.0)"""
         ...
     
 
@@ -1137,7 +1350,10 @@ Args:
     window_size (Optional[int], optional): ウィンドウサイズ. Defaults to None.
     
 Returns:
-    ColumnCollection: フィルター処理後の値が追加された新しいコレクション"""
+    ColumnCollection: フィルター処理後の値が追加された新しいコレクション
+    
+Examples:
+    >>> filtered_col = col.ops.gaussian_filter("荷重", sigma=2.0)"""
         ...
     
 
@@ -1145,7 +1361,18 @@ Returns:
         self,
         column: str
     ) -> float:
-        """カラムの最大値を計算します"""
+        """指定されたカラムの最大値を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    
+Returns:
+    ColumnCollection: 統計量として最大値が記録された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.max("荷重")
+    >>> max_val = col.results["max(荷重)"].value"""
         ...
     
 
@@ -1153,7 +1380,17 @@ Returns:
         self,
         column: str
     ) -> float:
-        """カラムの最小値を計算します"""
+        """指定されたカラムの最小値を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    
+Returns:
+    ColumnCollection: 統計量として最小値が記録された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.min("変位")"""
         ...
     
 
@@ -1161,7 +1398,17 @@ Returns:
         self,
         column: str
     ) -> float:
-        """カラムの平均値を計算します"""
+        """指定されたカラムの平均値を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    
+Returns:
+    ColumnCollection: 統計量として平均値が記録された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.mean("変位")"""
         ...
     
 
@@ -1169,7 +1416,17 @@ Returns:
         self,
         column: str
     ) -> float:
-        """カラムの標準偏差を計算します"""
+        """指定されたカラムの標準偏差を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    
+Returns:
+    ColumnCollection: 統計量として標準偏差が記録された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.std("荷重")"""
         ...
     
 
@@ -1177,7 +1434,18 @@ Returns:
         self,
         column: str
     ) -> float:
-        """カラムの合計値を計算します"""
+        """指定されたカラムの合計値を計算します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column_name (str): 計算対象のカラム名
+    
+Returns:
+    ColumnCollection: 統計量として合計値が記録された新しいコレクション
+    
+Examples:
+    >>> col = col.ops.sum("エネルギー")
+    >>> total_energy = col.results["sum(エネルギー)"].value"""
         ...
     
 
@@ -1200,7 +1468,10 @@ Args:
     columns (List[str], optional): 明示的に線形補間対象とするカラム名のリスト. 未指定時はすべて自動判定. Defaults to None.
     
 Returns:
-    ColumnCollection: 内挿後のデータを持つ新しいコレクション"""
+    ColumnCollection: 内挿後のデータを持つ新しいコレクション
+    
+Examples:
+    >>> interp_col = col.ops.interpolate(base_column_name="Time", point_count=1000)"""
         ...
     
 

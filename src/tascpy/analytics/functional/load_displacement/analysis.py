@@ -13,6 +13,14 @@ def compute_slopes(disp_data: np.ndarray, load_data: np.ndarray) -> np.ndarray:
         
     Returns:
         np.ndarray: 計算された傾きの配列（最初の要素は NaN）
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.analysis import compute_slopes
+        >>> import numpy as np
+        >>> disp = np.array([0, 1, 2, 4])
+        >>> load = np.array([0, 10, 20, 30])
+        >>> compute_slopes(disp, load)
+        array([nan, 10., 10.,  5.])
     """
     if len(disp_data) != len(load_data):
         raise ValueError("変位と荷重データの長さは一致する必要があります")
@@ -54,6 +62,14 @@ def compute_stiffness(
 
     Returns:
         float: 計算された剛性値
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.analysis import compute_stiffness
+        >>> import numpy as np
+        >>> disp = np.array([0, 1, 2, 3, 4])
+        >>> load = np.array([0, 100, 200, 300, 400])
+        >>> compute_stiffness(disp, load, range_start=0.2, range_end=0.8)
+        100.0
     """
     if len(load_data) < 2:
         raise ValueError("剛性計算に十分なデータがありません")

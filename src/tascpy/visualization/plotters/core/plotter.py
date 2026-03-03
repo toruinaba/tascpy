@@ -54,6 +54,9 @@ class CorePlotter:
             
         Returns:
             描画されたAxes
+            
+        Examples:
+            >>> ax = col.plot.plot(y_column="荷重", x_column="変位", x_label="Displacement (mm)", y_label="Load (kN)")
         """
         y_vals, auto_y_label = self._extract_axis(y_column)
         x_vals, auto_x_label = self._extract_axis(x_column)
@@ -88,6 +91,9 @@ class CorePlotter:
             
         Returns:
             描画されたAxes
+            
+        Examples:
+            >>> axes = col.plot.plot_const_x(x_values=[1, 2, 3], y_columns=["CH1", "CH2"])
         """
         x_vals = np.array(x_values)
         
@@ -123,6 +129,9 @@ class CorePlotter:
             
         Returns:
             描画されたAxes
+            
+        Examples:
+            >>> ax = col.plot.visualize_outliers(column="荷重")
         """
         y_vals, auto_y_label = self._extract_axis(column)
         
@@ -150,7 +159,11 @@ class CorePlotter:
         y_label: Optional[str] = None,
         **kwargs
     ) -> Any:
-        """インタラクティブな出力をPlotlyで行います"""
+        """インタラクティブな出力をPlotlyで行います
+        
+        Examples:
+            >>> fig = col.plot.iplot(x_column="変位", y_column="荷重")
+        """
         from tascpy.visualization.functional.core.plot import iplot as core_iplot
         
         x_vals, auto_x_label = self._extract_axis(x_column)

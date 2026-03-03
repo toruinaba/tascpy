@@ -22,6 +22,13 @@ def extend_data_edge(
 
     Returns:
         Tuple: 延長後の(x, y)座標
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.curves import extend_data_edge
+        >>> x = [0.0, 1.0]
+        >>> y = [0.0, 10.0]
+        >>> extend_data_edge(x, y, 2.0, target_type="x", extend_position="end")
+        (2.0, 20.0)
     """
     if extend_position == "end":
         if len(x_data) < 2 or len(y_data) < 2:
@@ -68,6 +75,14 @@ def compute_skeleton_curve(
         
     Returns:
         Tuple[List[float], List[float]]: スケルトン曲線の(変位, 荷重)リスト
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.curves import compute_skeleton_curve
+        >>> import numpy as np
+        >>> loads = np.array([0, 10, 20, 15, 0])
+        >>> disps = np.array([0, 1, 2, 3, 4])
+        >>> markers = np.array([1, 1, 1, 1, 1])
+        >>> d_ske, p_ske = compute_skeleton_curve(loads, disps, markers, has_decrease=True)
     """
     loads_list = loads.tolist()
     disps_list = displacements.tolist()
@@ -198,6 +213,14 @@ def compute_cumulative_curve(
         
     Returns:
         Tuple[List[float], List[float]]: 累積曲線の(変位, 荷重)リスト
+        
+    Examples:
+        >>> from tascpy.analytics.functional.load_displacement.curves import compute_cumulative_curve
+        >>> import numpy as np
+        >>> loads = np.array([0, 10, 0, -10, 0, 15, 0])
+        >>> disps = np.array([0, 1, 2, 1, 0, 1.5, 2.5])
+        >>> markers = np.array([1, 1, 1, 1, 1, 2, 2])
+        >>> d_cum, p_cum = compute_cumulative_curve(loads, disps, markers)
     """
     loads_list = loads.tolist()
     disps_list = displacements.tolist()

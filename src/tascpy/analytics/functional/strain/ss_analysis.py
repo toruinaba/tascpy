@@ -10,6 +10,12 @@ def compute_stress(load_vals: np.ndarray, area: float) -> np.ndarray:
 
     Returns:
         np.ndarray: 応力配列
+        
+    Examples:
+        >>> from tascpy.analytics.functional.strain.ss_analysis import compute_stress
+        >>> import numpy as np
+        >>> compute_stress(np.array([1000, 2000]), 10.0)
+        array([100., 200.])
     """
     return load_vals / area
 
@@ -32,6 +38,14 @@ def compute_material_properties(
     Returns:
         Tuple[float, float, float, float]: (ヤング率 E, 降伏ひずみ, 降伏応力, ポアソン比 nu)
         計算できない場合は適宜 np.nan を返します
+        
+    Examples:
+        >>> from tascpy.analytics.functional.strain.ss_analysis import compute_material_properties
+        >>> import numpy as np
+        >>> stress = np.array([0, 100, 200, 300])
+        >>> strain = np.array([0, 0.001, 0.002, 0.02])
+        >>> compute_material_properties(stress, strain, elastic_range=(0.0, 0.002))
+        (100000.0, 0.005, 300.0, nan)
     """
     E = np.nan
     yield_strain = np.nan

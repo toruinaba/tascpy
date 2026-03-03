@@ -23,6 +23,13 @@ def evaluate_expression(
     Raises:
         ValueError: 式の構文エラー、安全でない操作、未定義の関数使用、または評価中のエラーが発生した場合。
         KeyError: 式に含まれるカラム名がデータに存在しない場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.math import evaluate_expression
+        >>> import numpy as np
+        >>> data = {"A": np.array([1, 2]), "B": np.array([3, 4])}
+        >>> evaluate_expression(data, "A + B * 2")
+        [7.0, 10.0]
     """
     # ASTを使用して式の構文検証
     try:
@@ -390,6 +397,12 @@ def normalize(values: np.ndarray, method: str = "minmax") -> np.ndarray:
 
     Raises:
         ValueError: 指定されたメソッドが無効な場合。
+        
+    Examples:
+        >>> from tascpy.analytics.functional.math import normalize
+        >>> import numpy as np
+        >>> normalize(np.array([0, 5, 10]), method="minmax")
+        array([0. , 0.5, 1. ])
     """
     values = values.astype(float)
     result_arr = np.full(len(values), np.nan)

@@ -13,6 +13,12 @@ def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nda
         
     Returns:
         np.ndarray: 各データ点のクラスタラベル
+        
+    Examples:
+        >>> from tascpy.analytics.functional.coordinate.clustering import simple_kmeans
+        >>> import numpy as np
+        >>> X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
+        >>> labels = simple_kmeans(X, 2)
     """
     n_samples, _ = X.shape
     
@@ -47,6 +53,12 @@ def find_nearest_neighbors_logic(distances: List[Tuple[str, float]], n_neighbors
 
     Returns:
         List[Tuple[str, float]]: ソート済みの近傍リスト
+        
+    Examples:
+        >>> from tascpy.analytics.functional.coordinate.clustering import find_nearest_neighbors_logic
+        >>> dists = [("p1", 5.0), ("p2", 2.0), ("p3", 8.0)]
+        >>> find_nearest_neighbors_logic(dists, 2)
+        [('p2', 2.0), ('p1', 5.0)]
     """
     sorted_distances = sorted([d for d in distances if d[1] is not None and not np.isnan(d[1])], key=lambda x: x[1])
     n = min(n_neighbors, len(sorted_distances))
