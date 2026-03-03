@@ -12,6 +12,24 @@ class Column(DataHolder):
         self.ch = ch
         self.unit = unit
 
+    def __repr__(self) -> str:
+        name = str(self.name) if self.name else "Unnamed"
+        unit_str = f" unit='{self.unit}'" if self.unit else ""
+        ch_str = f" ch='{self.ch}'" if self.ch else ""
+        size = len(self)
+        if size == 0:
+            preview = "[]"
+        else:
+            try:
+                vals = list(self.values)
+                if size <= 6:
+                    preview = f"{vals}"
+                else:
+                    preview = f"[{vals[0]}, {vals[1]}, ..., {vals[-2]}, {vals[-1]}]"
+            except Exception:
+                preview = "[...]"
+        return f"<{self.__class__.__name__}{ch_str} name='{name}'{unit_str} length={size} values={preview}>"
+
     def clone(self):
         from copy import deepcopy
 

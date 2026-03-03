@@ -25,6 +25,22 @@ class DataHolder:
     def __getitem__(self, key):
         return self.values[key]
 
+    def __repr__(self) -> str:
+        name = self.name if self.name else "Unnamed"
+        size = len(self)
+        if size == 0:
+            preview = "[]"
+        else:
+            try:
+                vals = list(self.values)
+                if size <= 6:
+                    preview = f"{vals}"
+                else:
+                    preview = f"[{vals[0]}, {vals[1]}, ..., {vals[-2]}, {vals[-1]}]"
+            except Exception:
+                preview = "[...]"
+        return f"<{self.__class__.__name__} name='{name}' length={size} values={preview}>"
+
     def clone(self):
         NotImplementedError
 

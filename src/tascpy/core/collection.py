@@ -311,7 +311,22 @@ class ColumnCollection:
 
     def __repr__(self) -> str:
         """文字列表現"""
-        return f"ColumnCollection(step={self.step}, columns={self.columns}, metadata={self.metadata})"
+        step_len = len(self.step)
+        col_count = len(self.columns)
+        
+        col_names = list(self.columns.keys())
+        if len(col_names) > 5:
+            col_list_str = f"[{', '.join(f'{repr(n)}' for n in col_names[:5])}, ... ({col_count} total)]"
+        else:
+            col_list_str = f"[{', '.join(f'{repr(n)}' for n in col_names)}]"
+            
+        res_count = len(self._results)
+        res_str = f", results={res_count}" if res_count > 0 else ""
+        
+        meta_keys = list(self.metadata.keys())
+        meta_str = f" metadata_keys={meta_keys}" if meta_keys else ""
+            
+        return f"<ColumnCollection shape=({step_len}, {col_count}){res_str} columns={col_list_str}{meta_str}>"
 
     def head(self, n: int = 5) -> "ColumnCollection":
         """最初のn行を取得
