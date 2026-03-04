@@ -927,6 +927,27 @@ Examples:
         ...
     
 
+    def average_across(
+        self,
+        ignore_nan: bool = True
+    ) -> List[ndarray]:
+        """複数カラムの値を行ごとに平均し、新しいカラムとして追加します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    *columns (str): 平均を計算対象とする複数列のカラム名
+    ignore_nan (bool, optional): 欠損値（NaN）を無視するかどうか。デフォルトはTrue。
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+
+Returns:
+    ColumnCollection: 計算結果カラムが追加されたコレクション
+
+Examples:
+    >>> avg_col = col.ops.average_across("センサ1", "センサ2", "センサ3", result_column="平均値")
+    >>> avg_col = col.ops.average_across("CH01", "CH02", ignore_nan=False)"""
+        ...
+    
+
     def moving_average(
         self,
         window_size: int = 3,

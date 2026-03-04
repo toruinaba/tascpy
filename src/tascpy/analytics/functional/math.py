@@ -648,3 +648,28 @@ def integrate(
         return result
     else:
         return result_sorted
+
+def average_across(*columns: np.ndarray, ignore_nan: bool = True) -> np.ndarray:
+    """複数列間で、各行ごとの平均値を計算します。
+
+    Args:
+        *columns (np.ndarray): 対象となる複数列のNumPy配列
+        ignore_nan (bool, optional): 欠損値（NaN）を無視して平均するかどうか。
+            Trueの場合、NaNが含まれていても他の有効な値から平均を計算します。
+            Falseの場合、NaNが含まれる行の結果はNaNになります。デフォルトは True。
+
+    Returns:
+        np.ndarray: 計算された行ごとの平均値を含む配列。
+    """
+    if not columns:
+        raise ValueError("少なくとも1つの列を指定する必要があります。")
+        
+    # Stack arrays horizontally to form a 2D matrix
+    stacked = np.column_stack(columns)
+    
+    # Calculate row-wise mean with or without ignoring nans
+    with np.errstate(invalid='ignore'):  # Ignore empty slice warnings for all-NaN rows
+        if ignore_nan:
+            return np.nanmean(stacked, axis=1)
+        else:
+            return np.mean(stacked, axis=1)

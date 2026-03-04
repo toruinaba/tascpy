@@ -3,7 +3,8 @@ import numpy as np
 import math
 from tascpy.analytics.functional.math import (
     add, subtract, multiply, divide, diff, integrate, evaluate_expression,
-    sin, cos, tan, exp, log, sqrt, power, abs_values, round_values, normalize
+    sin, cos, tan, exp, log, sqrt, power, abs_values, round_values, normalize,
+    average_across
 )
 
 def test_add_functional():
@@ -54,3 +55,15 @@ def test_normalize():
     arr = np.array([1.0, 2.0, 3.0])
     minmax = normalize(arr, method="minmax")
     np.testing.assert_array_equal(minmax, [0.0, 0.5, 1.0])
+
+def test_average_across_functional():
+    arr1 = np.array([1.0, 2.0, np.nan])
+    arr2 = np.array([3.0, 4.0, 5.0])
+    
+    # ignore_nan = True (default)
+    res_ignore = average_across(arr1, arr2)
+    np.testing.assert_allclose(res_ignore, [2.0, 3.0, 5.0])
+    
+    # ignore_nan = False
+    res_strict = average_across(arr1, arr2, ignore_nan=False)
+    np.testing.assert_allclose(res_strict, [2.0, 3.0, np.nan])

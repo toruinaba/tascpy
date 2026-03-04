@@ -18,7 +18,8 @@ def inject_columns(
     Decorator to parse arguments and inject column data.
     
     Args:
-        num_inputs: Number of positional arguments to treat as columns/values.
+        num_inputs: Number of positional arguments to treat as columns/values. 
+                    If set to -1, it treats all remaining positional arguments as columns.
         cast_to_numpy: If True, converts injected values to numpy arrays (if they are lists).
         columns_arg: If specified, looks for this argument (list of column names) and replaces it 
                      with a dictionary {col_name: values}. If the argument is None, it may default 
@@ -147,7 +148,10 @@ def inject_columns(
             if include_step:
                 input_values.append(step_values)
 
-            for i in range(num_inputs):
+            # Determine actual number of inputs to process
+            actual_num_inputs = len(args_list) if num_inputs == -1 else num_inputs
+
+            for i in range(actual_num_inputs):
                 val_source = None
                 
                 # 1. Try positional

@@ -701,3 +701,47 @@ normalize.__doc__ = """指定されたカラムの値を正規化します。
     Examples:
         >>> norm_col = col.ops.normalize("荷重", method="minmax")
 """
+
+average_across = register_functional(
+    functional_math.average_across,
+    domain="core",
+    name="average_across",
+    extra_decorators=[handle_missing_values(strategy="nan")],
+    inject_columns={"num_inputs": -1, "cast_to_numpy": True},
+    store_result={"result_naming": basic_naming("average_across")},
+    signature_override={
+        "*columns": ("column_names", tuple),
+        "ignore_nan": (bool, True),
+        "result_column": (str, None)
+    }
+)
+"""複数カラムの値を行ごとに平均し、新しいカラムとして追加します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        *columns (str): 平均を計算対象とする複数列のカラム名
+        ignore_nan (bool, optional): 欠損値（NaN）を無視するかどうか。デフォルトはTrue。
+        result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+
+    Examples:
+        >>> avg_col = col.ops.average_across("センサ1", "センサ2", "センサ3", result_column="平均値")
+        >>> avg_col = col.ops.average_across("CH01", "CH02", ignore_nan=False)
+"""
+average_across.__doc__ = """複数カラムの値を行ごとに平均し、新しいカラムとして追加します。
+
+    Args:
+        collection (ColumnCollection): データコレクション
+        *columns (str): 平均を計算対象とする複数列のカラム名
+        ignore_nan (bool, optional): 欠損値（NaN）を無視するかどうか。デフォルトはTrue。
+        result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+
+    Returns:
+        ColumnCollection: 計算結果カラムが追加されたコレクション
+
+    Examples:
+        >>> avg_col = col.ops.average_across("センサ1", "センサ2", "センサ3", result_column="平均値")
+        >>> avg_col = col.ops.average_across("CH01", "CH02", ignore_nan=False)
+"""
