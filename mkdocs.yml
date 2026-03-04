@@ -32,7 +32,10 @@ plugins:
 
 nav:
   - Home: index.md
-  - Developer Guide: developer_guide.md
+  - Developer Guide: 
+      - General: developer_guide.md
+      - Operations & Registry: developer_guide_operations.md
+      - Testing Strategy: developer_guide_testing.md
   - API Reference:
       - Core: api/core.md
       - IO: api/io.md

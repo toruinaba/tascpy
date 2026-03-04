@@ -161,50 +161,19 @@ def custom_function(
 
 ### 2. 操作の登録
 
-操作関数に `@operation` デコレータを付けると、自動的に `OperationRegistry` に登録されます。特定のドメインに特化した操作の場合は、ドメイン名を指定します：
+操作関数を `tascpy` のシステムに登録するには、デコレータや `register_functional` などの高度な登録システムを使用します。
 
-```python
-# 荷重-変位ドメイン特化の操作
-@operation(domain="load_displacement")
-def custom_ld_operation(
-    collection: LoadDisplacementCollection,
-    # パラメータ...
-) -> LoadDisplacementCollection:
-    # 実装...
-```
+この登録システムは、引数の自動展開（列名からnumpy配列へ）、欠損値（NaN）の自動処理、計算結果の自動保管（元のコレクションへのマージ）、および VS Code 用のスタブ生成などを全て自動的に行います。
+
+非常に強力ですが、複雑なアーキテクチャを持っているため、必ず詳細ガイドを参照してください。
+
+👉 **[操作登録の詳細な仕組み (register_functional)](developer_guide_operations.md) を参照**
 
 ### 3. テストの作成
 
-新しい操作に対するテストを作成します：
+純粋なアルゴリズムのテスト（`functional`）と、コレクションの操作としてのテスト（`operations`）を明確に分けて記述する必要があります。
 
-```python
-# tests/unit/analytics/operations/core/test_custom_ops.py
-import pytest
-from tascpy.core.collection import ColumnCollection
-
-class TestCustomOperations:
-    """カスタム操作のテスト"""
-    
-    def setup_method(self):
-        """テスト用のデータを準備"""
-        self.collection = ColumnCollection.from_dict({
-            "A": [1.0, 2.0, 3.0],
-            "B": [4.0, 5.0, 6.0]
-        })
-        
-    def test_custom_function(self):
-        """custom_function の基本機能をテスト"""
-        result = self.collection.ops.custom_function("A", 2.0, result_column="A_doubled").end()
-        
-        # 結果の検証
-        assert "A_doubled" in result.columns
-        assert result["A_doubled"].values[0] == 2.0
-        assert result["A_doubled"].values[1] == 4.0
-        assert result["A_doubled"].values[2] == 6.0
-        
-        # 元のデータが変更されていないことを確認
-        assert self.collection["A"].values[0] == 1.0
-```
+👉 **[テスト戦略 (Testing Strategy)](developer_guide_testing.md) を参照**
 
 ### 4. ドキュメントの更新
 
