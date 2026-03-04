@@ -114,9 +114,25 @@ class CollectionOperations(Generic[T]):
 
     def as_domain(self, domain: str, **kwargs: Any) -> "CollectionOperations":
         """現在のコレクションを指定されたドメインに変換
+        
         Args:
-            domain: 変換先のドメイン
-            **kwargs: ドメインに渡す追加の引数
+            domain: 変換先のドメイン名（"strain", "load_displacement", "coordinate", "timeseries", "signal" 等）
+            **kwargs: 変換に渡す追加の引数。ドメインごとに以下の引数が利用可能です。
+                - strain:
+                    - rosettes (Dict[str, Dict[str, Any]]): ロゼットゲージの定義
+                    - rosette_metadata_key (str): ロゼット情報を保存するメタデータのキー (省略可)
+                - load_displacement:
+                    - load_column (str): 荷重データのカラム名 (省略時は推測)
+                    - displacement_column (str): 変位データのカラム名 (省略時は推測)
+                - coordinate:
+                    - coordinates (Dict[str, Dict[str, float]]): 各カラムの座標定義 (x, y, z)
+                    - coordinate_metadata_key (str): 座標情報を保存するメタデータのキー (省略可)
+                - timeseries:
+                    - start_date (Union[str, datetime]): 時系列の開始日時
+                    - frequency (str): サンプリング周期 (例: "1D", "1H", "1s")
+                - signal:
+                    - sample_rate (float): サンプリングレート (Hz)
+
         Returns:
             CollectionOperations: 新しいCollectionOperationsオブジェクト
         """

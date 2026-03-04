@@ -106,7 +106,12 @@ class CollectionListOperations(Generic[C]):
         
         Args:
             domain: 変換先のドメイン名
-            **kwargs: 変換に渡す追加引数
+            **kwargs: 変換に渡す追加引数。ドメインごとに以下の引数が利用可能です。
+                - strain: rosettes (Dict), rosette_metadata_key (str)
+                - load_displacement: load_column (str), displacement_column (str)
+                - coordinate: coordinates (Dict), coordinate_metadata_key (str)
+                - timeseries: start_date (str/datetime), frequency (str)
+                - signal: sample_rate (float)
             
         Returns:
             変換されたコレクションリスト
