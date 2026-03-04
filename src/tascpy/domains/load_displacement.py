@@ -192,7 +192,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return "load_displacement"
 
     @property
-    def ops(self):
+    def ops(self) -> "LoadDisplacementCollectionOperations":
         """操作プロキシクラスを返す"""
         from tascpy.analytics.operations.proxy import CollectionOperations
 

@@ -78,7 +78,7 @@ class StrainCollection(CoordinateCollection):
         return "strain"
 
     @property
-    def ops(self):
+    def ops(self) -> "StrainCollectionOperations":
         """操作プロキシクラスを返す"""
         from tascpy.analytics.operations.proxy import CollectionOperations
 
