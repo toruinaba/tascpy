@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import NumberColumn
+from tascpy.core.column import NumberColumn, StringColumn
 import tascpy.analytics.operations.core.math  # Ensure ops are registered
 
 def test_average_across():
@@ -47,3 +47,24 @@ def test_average_across():
     # 3. Automatic naming
     result3 = collection.ops.average_across("A", "B")
     assert any(col.startswith("average_across") for col in result3.columns)
+
+def test_average_across_string_coercion():
+    steps = [1, 2, 3]
+    
+    col1 = StringColumn("CH1", "A", "V", ["1.0", "none", "3.0"])
+    col2 = StringColumn("CH2", "B", "V", ["none", "2.0", "na"])
+    
+    columns = {
+        "A": col1,
+        "B": col2
+    }
+    
+    collection = ColumnCollection(steps, columns)
+    
+    result = collection.ops.average_across("A", "B", result_column="avg_str")
+    avg_vals = result["avg_str"].values
+    
+    # row0: ["1.0", "none"] -> 1.0
+    # row1: ["none", "2.0"] -> 2.0
+    # row2: ["3.0", "na"] -> 3.0
+    np.testing.assert_allclose(avg_vals, [1.0, 2.0, 3.0])

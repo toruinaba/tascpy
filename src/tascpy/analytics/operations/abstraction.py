@@ -244,19 +244,41 @@ def handle_missing_values(strategy: str = "nan"):
                 for arg in args:
                     if isinstance(arg, np.ndarray) and np.issubdtype(arg.dtype, np.number):
                         processed_args.append(arg.astype(float)) # Ensure float for NaN
-                    elif isinstance(arg, np.ndarray) and arg.dtype == object:
-                        # Attempt to cast object array to float/nan
+                    elif isinstance(arg, np.ndarray) and (arg.dtype == object or arg.dtype.kind in ('U', 'S')):
+                        # Attempt to cast object or string array to float/nan
                         try:
-                            vals = [v if v is not None else np.nan for v in arg]
+                            vals = []
+                            for v in arg:
+                                if v is None:
+                                    vals.append(np.nan)
+                                elif isinstance(v, str):
+                                    v_lower = v.strip().lower()
+                                    if v_lower in ("none", "null", "", "nan", "na") or v_lower.startswith("*"):
+                                        vals.append(np.nan)
+                                    else:
+                                        vals.append(float(v))
+                                else:
+                                    vals.append(float(v))
                             processed_args.append(np.array(vals, dtype=float))
-                        except:
+                        except Exception:
                             processed_args.append(arg)
                     elif isinstance(arg, list):
                          # Convert list with None to float array with NaN
                          try:
-                             vals = [v if v is not None else np.nan for v in arg] if isinstance(arg, (list, np.ndarray)) else arg
+                             vals = []
+                             for v in arg:
+                                 if v is None:
+                                     vals.append(np.nan)
+                                 elif isinstance(v, str):
+                                     v_lower = v.strip().lower()
+                                     if v_lower in ("none", "null", "", "nan", "na") or v_lower.startswith("*"):
+                                         vals.append(np.nan)
+                                     else:
+                                         vals.append(float(v))
+                                 else:
+                                     vals.append(float(v))
                              processed_args.append(np.array(vals, dtype=float))
-                         except:
+                         except Exception:
                              processed_args.append(arg)
                     else:
                         processed_args.append(arg)
@@ -288,14 +310,19 @@ def handle_missing_values(strategy: str = "nan"):
                         if isinstance(arg, list):
                             if None in arg: has_missing = True
                         elif isinstance(arg, np.ndarray):
-                            if arg.dtype == object:
-                                if None in arg: 
-                                    has_missing = True
-                                else:
-                                    # vector check for nan in object/float mix
-                                    # safe check
-                                    is_nan = np.vectorize(lambda x: isinstance(x, float) and np.isnan(x))(arg)
-                                    if is_nan.any(): has_missing = True
+                            if arg.dtype == object or arg.dtype.kind in ('U', 'S'):
+                                for v in arg:
+                                    if v is None:
+                                        has_missing = True
+                                        break
+                                    elif isinstance(v, str):
+                                        v_lower = v.strip().lower()
+                                        if v_lower in ("none", "null", "", "nan", "na") or v_lower.startswith("*"):
+                                            has_missing = True
+                                            break
+                                    elif isinstance(v, float) and np.isnan(v):
+                                        has_missing = True
+                                        break
                             elif np.issubdtype(arg.dtype, np.number) and np.isnan(arg).any(): has_missing = True
                     
                     converted_args.append(arg)
