@@ -85,9 +85,22 @@ def compute_stiffness(
     if len(range_load) < 2:
         raise ValueError(f"指定範囲以内に十分なデータがありません")
 
+    if np.ptp(range_disp) == 0:
+        raise ValueError(
+            "指定範囲内の変位データに変動がありません（分散ゼロ）。"
+            "SVDエラーを防ぐため、事前に .ops.remove_consecutive_duplicates_across() "
+            "などを実行して重複データを除去してください。"
+        )
+
     if method == "linear_regression":
-        slope, _ = np.polyfit(range_disp, range_load, 1)
-        return float(slope)
+        try:
+            slope, _ = np.polyfit(range_disp, range_load, 1)
+            return float(slope)
+        except np.linalg.LinAlgError:
+            raise ValueError(
+                "線形回帰(np.polyfit)でSVDエラーが発生しました。"
+                "前処理で .ops.remove_consecutive_duplicates_across() を試してください。"
+            )
     elif method == "secant":
         d_disp = range_disp[-1] - range_disp[0]
         if d_disp == 0:
@@ -136,7 +149,20 @@ def compute_yield_point_general(
     factor: float = 0.33
 ) -> Tuple[bool, float, float, Dict[str, Any]]:
     """一般降伏法による降伏点の計算"""
-    slopes = np.gradient(load_data, disp_data)
+    # np.gradientは同じx座標が連続するとゼロ除算エラーになるため、重複を排除
+    diff_disp = np.diff(disp_data)
+    unique_mask = np.insert(diff_disp != 0, 0, True)
+
+    if not np.any(unique_mask) or np.sum(unique_mask) < 2:
+        raise ValueError(
+            "変位データがすべて同じか、勾配計算に十分な変動がありません。"
+            "事前に .ops.remove_consecutive_duplicates_across() を実行してください。"
+        )
+
+    unique_disp = disp_data[unique_mask]
+    unique_load = load_data[unique_mask]
+
+    slopes = np.gradient(unique_load, unique_disp)
     threshold = initial_slope * factor
     
     debug_info = {
@@ -152,7 +178,8 @@ def compute_yield_point_general(
     yield_idx = np.where(slopes <= threshold)[0]
     if len(yield_idx) > 0:
         idx = yield_idx[0]
-        return True, float(disp_data[idx]), float(load_data[idx]), debug_info
+        # 元の配列インデックスではなく、重複排除後のインデックスから値を取得
+        return True, float(unique_disp[idx]), float(unique_load[idx]), debug_info
         
     return False, np.nan, np.nan, debug_info
 
@@ -168,9 +195,20 @@ def compute_yield_point(
     debug_mode: bool = False,
     fail_silently: bool = False,
 ) -> Tuple[bool, float, float, Dict[str, Any]]:
-    initial_slope = compute_stiffness(
-        disp_data, load_data, range_start=range_start, range_end=range_end
-    )
+    try:
+        initial_slope = compute_stiffness(
+            disp_data, load_data, range_start=range_start, range_end=range_end
+        )
+    except ValueError as e:
+        if fail_silently:
+            return False, np.nan, np.nan, {"error": str(e), "method": method}
+        raise
+
+    if np.isnan(initial_slope) or np.isinf(initial_slope):
+        err_msg = "初期剛性(initial_slope)が NaN または Inf となりました。"
+        if fail_silently:
+            return False, np.nan, np.nan, {"error": err_msg, "method": method}
+        raise ValueError(err_msg)
     if method == "offset":
         res_tuple = compute_yield_point_offset(disp_data, load_data, initial_slope, offset_value)
     elif method == "general":

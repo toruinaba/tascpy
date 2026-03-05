@@ -62,6 +62,11 @@ calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(r
     }
 )))
 """指定された範囲のデータから剛性（代表スロープ）を計算します。
+    
+    注意:
+        変位データに変動がない（同じ値が連続する）場合、計算（SVD）がエラーになるか
+        ゼロ除算が発生します。事前に `.ops.remove_consecutive_duplicates_across()` によって
+        重複を除去しておくことを推奨します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -78,6 +83,11 @@ calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(r
         >>> col = col.ops.calculate_stiffness(range_start=0.1, range_end=0.4, method="linear_regression")
 """
 calculate_stiffness.__doc__ = """指定された範囲のデータから剛性（代表スロープ）を計算します。
+    
+    注意:
+        変位データに変動がない（同じ値が連続する）場合、計算（SVD）がエラーになるか
+        ゼロ除算が発生します。事前に `.ops.remove_consecutive_duplicates_across()` によって
+        重複を除去しておくことを推奨します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -113,6 +123,17 @@ find_yield_point = operation(domain="load_displacement")(resolve_ld_columns(regi
     }
 )))
 """荷重-変位データから降伏点（Yield Point）を検出します。
+    
+    初期剛性を `range_start` (デフォルト: 0.1) から `range_end` (デフォルト: 0.3) の
+    最大荷重に対する割合の範囲で自動計算し、以下のいずれかの手法で降伏点を求めます：
+    
+    - `method="offset"`: 初期剛性に対して `offset_value` (デフォルト 0.2%) 平行移動した直線とデータの交点。
+    - `method="general"`: 各点の瞬間の傾き（勾配）を計算し、`initial_slope * factor` を最初に下回った点。
+    
+    注意:
+        変位データに変動がない（同じ変位値が連続する）場合、SVDエラーやゼロ除算が発生するため
+        例外が送出されます。このようなデータが含まれる場合は、本処理を呼び出す前に
+        `.ops.remove_consecutive_duplicates_across()` を実行し、重複データを除外してください。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
@@ -134,6 +155,17 @@ find_yield_point = operation(domain="load_displacement")(resolve_ld_columns(regi
         >>> yield_pt = col.results["yield_point"].value
 """
 find_yield_point.__doc__ = """荷重-変位データから降伏点（Yield Point）を検出します。
+    
+    初期剛性を `range_start` (デフォルト: 0.1) から `range_end` (デフォルト: 0.3) の
+    最大荷重に対する割合の範囲で自動計算し、以下のいずれかの手法で降伏点を求めます：
+    
+    - `method="offset"`: 初期剛性に対して `offset_value` (デフォルト 0.2%) 平行移動した直線とデータの交点。
+    - `method="general"`: 各点の瞬間の傾き（勾配）を計算し、`initial_slope * factor` を最初に下回った点。
+    
+    注意:
+        変位データに変動がない（同じ変位値が連続する）場合、SVDエラーやゼロ除算が発生するため
+        例外が送出されます。このようなデータが含まれる場合は、本処理を呼び出す前に
+        `.ops.remove_consecutive_duplicates_across()` を実行し、重複データを除外してください。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
