@@ -282,6 +282,18 @@ class OperationRegistry:
              setattr(wrapped_func, "__tascpy_stub_signature__", stub_sig)
              setattr(wrapped_func, "__tascpy_functional_origin__", func)
 
+        # Flag if the operation returns a ColumnCollection
+        returns_collection = any([
+            store_result is not None,
+            store_xy_result is not None,
+            store_point_result is not None,
+            store_multiple_results is not None,
+            process_by_group is not None,
+            transform_column is not None,
+        ])
+        if returns_collection:
+            setattr(wrapped_func, "__tascpy_returns_collection__", True)
+
 
         # 5. Register
         cls.register(wrapped_func, domain=domain, shared_with=shared_with)

@@ -388,12 +388,11 @@ def generate_operation_stub(
         # CollectionListOperations を返すスタブを生成
         return_type = f'"CollectionListOperations[{class_name}]"'
     else:
-        # 通常の操作関数の戻り値を取得
         # get_type_hintsの結果から、ColumnCollectionを返すかどうか判定
         original_return = "Any"
-        is_collection = False
+        is_collection = getattr(func, "__tascpy_returns_collection__", False)
         
-        if "return" in type_hints:
+        if not is_collection and "return" in type_hints:
             ret_type = type_hints["return"]
             
             # クラス型で判定

@@ -661,7 +661,7 @@ Examples:
         compare_mode: str = 'value',
         by_step_value: bool = True,
         tolerance: Optional[float] = None
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """特定のステップ値（またはインデックス）を境にして、2つのデータ列を切り替えます
 
 Args:
@@ -701,7 +701,7 @@ Examples:
         by_step_value: bool = True,
         blend_method: str = 'linear',
         tolerance: Optional[float] = None
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """特定のステップ区間において、2つのデータ列を滑らかにブレンド（合成）します
 
 Args:
@@ -728,7 +728,7 @@ Examples:
         data: columns = typing.Optional[typing.List[str]],
         column: columns = typing.Optional[typing.List[str]],
         columns = None
-    ) -> Any:
+    ) -> "CoordinateCollectionOperations":
         """指定された複数のカラムの要素ごとの合計を計算します
 
 Args:
@@ -748,7 +748,7 @@ Examples:
         data: columns = typing.Optional[typing.List[str]],
         column: columns = typing.Optional[typing.List[str]],
         columns = None
-    ) -> Any:
+    ) -> "CoordinateCollectionOperations":
         """指定された複数のカラムの要素ごとの平均を計算します
 
 Args:
@@ -775,7 +775,7 @@ Examples:
         cond_values: ndarray,
         threshold: Union[int, float] = 0,
         compare: str = '>'
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """条件列の値と閾値の比較結果に基づき、2つの列から値を選択します
 
 Args:
@@ -825,7 +825,7 @@ Examples:
         self,
         column: str,
         v2: Union[ndarray, float]
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """複数カラムまたはスカラー値の要素ごとの和を計算します。
 
 Args:
@@ -846,7 +846,7 @@ Examples:
         self,
         column: str,
         v2: Union[ndarray, float]
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """第一引数から第二引数の要素ごとの差を計算します。
 
 Args:
@@ -867,7 +867,7 @@ Examples:
         self,
         column: str,
         v2: Union[ndarray, float]
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """複数カラムまたはスカラー値の要素ごとの積を計算します。
 
 Args:
@@ -888,7 +888,7 @@ Examples:
         column: str,
         v2: Union[ndarray, float],
         **kwargs
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """第一引数を第二引数で要素ごとに除算します。
 
 Args:
@@ -912,7 +912,7 @@ Examples:
         column: y_values = <class 'numpy.ndarray'>,
         x: Union[ndarray, list[float]],
         method: str = 'central'
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """データ系列の離散微分 (dy/dx) を計算します
 
 Args:
@@ -939,7 +939,7 @@ Examples:
         x: Union[ndarray, list[float]],
         method: str = 'trapezoid',
         initial_value: float = 0.0
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """データ系列の離散積分 (∫ y dx) を計算します
 
 Args:
@@ -963,7 +963,7 @@ Examples:
         column: collection = <class 'tascpy.core.collection.ColumnCollection'>,
         expression: str,
         **kwargs
-    ) -> Union[list[Optional[float]], ndarray]:
+    ) -> "CoordinateCollectionOperations":
         """与えられた数式文字列を評価し、新しい列を生成します。
 
 Args:
@@ -984,7 +984,7 @@ Examples:
         degrees: bool = False,
         column: values = <class 'numpy.ndarray'>,
         degrees: bool = False
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの正弦（Sine）を計算します。
 
 Args:
@@ -1006,7 +1006,7 @@ Examples:
         degrees: bool = False,
         column: values = <class 'numpy.ndarray'>,
         degrees: bool = False
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの余弦（Cosine）を計算します。
 
 Args:
@@ -1028,7 +1028,7 @@ Examples:
         degrees: bool = False,
         column: values = <class 'numpy.ndarray'>,
         degrees: bool = False
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの正接（Tangent）を計算します。
 
 Args:
@@ -1048,7 +1048,7 @@ Examples:
         self,
         values: values = <class 'numpy.ndarray'>,
         column: values = <class 'numpy.ndarray'>
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの指数関数（e^x）を計算します。
 
 Args:
@@ -1069,7 +1069,7 @@ Examples:
         base: float = 2.718281828459045,
         column: values = <class 'numpy.ndarray'>,
         base: float = 2.718281828459045
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの対数（Log）を計算します。
 
 Args:
@@ -1089,7 +1089,7 @@ Examples:
         self,
         values: values = <class 'numpy.ndarray'>,
         column: values = <class 'numpy.ndarray'>
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの平方根（Square Root）を計算します。
 
 Args:
@@ -1110,7 +1110,7 @@ Examples:
         exponent: float = 1.0,
         column: column = <class 'str'>,
         exponent: float
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムのべき乗（Power）を計算します。
 
 Args:
@@ -1130,7 +1130,7 @@ Examples:
         self,
         values: column = <class 'str'>,
         column: column = <class 'str'>
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの絶対値（Absolute value）を計算します。
 
 Args:
@@ -1151,7 +1151,7 @@ Examples:
         decimals: int = 0,
         column: column = <class 'str'>,
         decimals: int = 0
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの値を丸めます（四捨五入）。
 
 Args:
@@ -1173,7 +1173,7 @@ Examples:
         method: str = 'minmax',
         column: column = <class 'str'>,
         method: str = 'minmax'
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """指定されたカラムの値を正規化します。
 
 Args:
@@ -1194,7 +1194,7 @@ Examples:
         ignore_nan: bool = True,
         column: str,
         ignore_nan: bool = True
-    ) -> ndarray:
+    ) -> "CoordinateCollectionOperations":
         """複数カラムの値を行ごとに平均し、新しいカラムとして追加します。
 
 Args:
@@ -1250,7 +1250,7 @@ Examples:
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
-    ) -> list[int]:
+    ) -> "CoordinateCollectionOperations":
         """異常値を検出します
 
 Args:
@@ -1278,7 +1278,7 @@ Examples:
         column: vals = typing.Any,
         sigma: float = 1.0,
         window_size: Optional[int] = None
-    ) -> Any:
+    ) -> "CoordinateCollectionOperations":
         """ガウシアンフィルターを適用します
 
 Args:
