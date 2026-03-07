@@ -54,8 +54,8 @@ def compute_stiffness(
     """指定範囲における剛性（傾き）を計算します。
 
     Args:
-        disp_data: 変位データの配列 (NaN/None 除去済み)
-        load_data: 荷重データの配列 (NaN/None 除去済み)
+        disp_data: 変位データの配列
+        load_data: 荷重データの配列
         range_start: 最大荷重に対する計算開始点の割合
         range_end: 最大荷重に対する計算終了点の割合
         method: 計算方法 ("linear_regression" または "secant")
@@ -71,6 +71,12 @@ def compute_stiffness(
         >>> compute_stiffness(disp, load, range_start=0.2, range_end=0.8)
         100.0
     """
+    disp_data = np.asarray(disp_data, dtype=float)
+    load_data = np.asarray(load_data, dtype=float)
+    valid_mask = ~(np.isnan(disp_data) | np.isnan(load_data))
+    disp_data = disp_data[valid_mask]
+    load_data = load_data[valid_mask]
+
     if len(load_data) < 2:
         raise ValueError("剛性計算に十分なデータがありません")
 
@@ -195,6 +201,12 @@ def compute_yield_point(
     debug_mode: bool = False,
     fail_silently: bool = False,
 ) -> Tuple[bool, float, float, Dict[str, Any]]:
+    disp_data = np.asarray(disp_data, dtype=float)
+    load_data = np.asarray(load_data, dtype=float)
+    valid_mask = ~(np.isnan(disp_data) | np.isnan(load_data))
+    disp_data = disp_data[valid_mask]
+    load_data = load_data[valid_mask]
+
     try:
         initial_slope = compute_stiffness(
             disp_data, load_data, range_start=range_start, range_end=range_end
