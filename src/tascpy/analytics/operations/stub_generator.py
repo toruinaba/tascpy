@@ -212,174 +212,77 @@ def generate_operation_stub(
     # 第一引数 (collection) を除外したパラメータと型アノテーションを取得
     params = []
     
-    # If explicit stub signature is provided, use it primarily
-    if stub_sig_meta:
-        # stub_sig_meta expects {param_name: (type, default)} or just simple dict
-        # But we need ordered params. The dict in register_functional might not order well 
-        # unless it was an ordered dict or list.
-        # Let's assume standard k:v where v is type or (type, default)
-        
-        # We still iterate sig.parameters of the WRAPPER to catch *args/**kwargs correctly?
-        # NO, the wrapper signature (after decorators) is usually generic (*args, **kwargs)
-        # or heavily modified.
-        # However, `inspect.signature(func)` on a functools.wrapped func returns the ORIGINAL pure function signature.
-        # The problem is we want to REPLACE pure function params (values) with operation params (column).
-        
-        # Hybrid Approach:
-        # Use signature(func) as base (which is pure func), but OVERRIDE specific params defined in metadata.
-        # e.g., 'vals' -> 'column: str'
-        
-        # Iterate pure func params
-        first = True
-        for name, param in sig.parameters.items():
-             # Pure function usually doesn't have 'collection' as first arg.
-             # Wait, the wrapper does. But `sig` here is from `inspect.signature(func)`.
-             # If `func` is the wrapper (returned by register_functional), it has `__wrapped__` pointing to pure func.
-             # `inspect.signature` follows `__wrapped__` by default.
-             # So `sig` IS the pure function signature.
-             
-             # Pure func: (values, value, tolerance)
-             # Op wanted: (column: str, value, tolerance)
-             
-             # We can't just skip first arg if pure func didn't have collection.
-             # But pure func definitely DOES NOT have collection.
-             
-             # We need to map `values` (arg 0) to `column`.
-             
-             # Check if this param is in metadata overridden
-             if name in stub_sig_meta:
-                 # Override
-                 meta = stub_sig_meta[name]
-                 # meta could be (type, default) or just type
-                 if isinstance(meta, tuple):
-                     m_type, m_default = meta
-                     m_anno = format_annotation(m_type)
-                     p_str = f"{name}: {m_anno}"
-                     if m_default is not inspect.Parameter.empty:
-                          p_str += f" = {repr(m_default)}"
-                     params.append(p_str)
-                 else:
-                     # Just name replacement? Or name is the key?
-                     # Ideally we want to rename 'values' to 'column'.
-                     # But 'name' here is parameter name. 
-                     
-                     # If stub_sig_meta is {'values': ('column', str, None)}?
-                     # Let's simplify and rely on the plan:
-                     # "function signatures in functional modules"
-                     pass
-
-        # Since simple override is tricky with just dict, let's look at `stub_sig_meta` structure.
-        # We probably want to define the FULL desired parameter list if we are transforming it.
-        # BUT, preserving default values from pure func is good.
-        
-        # Let's look at what we likely put in `register_functional`: `signature_override`.
-        
-        # New Logic:
-        # If stub_sig_meta is present AND looks like a full definitions list/dict:
-        # We reconstruct params from it.
-        # But usually we just want to "Replace first arg name to 'column'".
-        
-        # Let's try to infer from inspection + metadata.
-        pass
-
-    # Fallback to standard logic but adapted for pure/wrapper difference
     is_pure_functional = hasattr(func, "__tascpy_functional_origin__")
     
     first = True
     for name, param in sig.parameters.items():
-        # If pure functional, the first arg is 'values', NOT 'collection'. 
-        # But pure functions don't take collection.
-        # However, the wrapper DOES take collection.
-        # We are generating Stub for the WRAPPER method on the Collection class.
-        # So `self` is the collection.
+        if not is_pure_functional and first:
+            # collection引数をスキップ
+            first = False
+            continue
+            
+        # パラメータの初期値
+        param_name = name
+        param_type = None
+        param_default = param.default
         
-        # Standard operations: def op(collection, arg1, ...)
-        # inspect.signature(op) -> (collection, arg1, ...)
-        # We skip first ('collection').
-        
-        # Pure functions adapted: def op(values, ...)
-        # inspect.signature(wrapper) -> (values, ...) because it unwraps to pure func.
-        
-        # So `name` is 'values'. We DON'T skip it if it's the data input (which becomes column selection).
-        # We want to convert `values: np.ndarray` -> `column: str`.
-        
-        if not is_pure_functional:
-            if first:
-                first = False
-                continue  # collection引数をスキップ
-        else:
-             # For pure functional, first arg is the data input.
-             # We want to expose it as 'column' (str).
-             if first:
-                 first = False
-                 # Check metadata for name override
-                 target_name = "column" # Default
-                 target_type = "str"
-                 
-                 # Look up signature override for this param
-                 if stub_sig_meta and name in stub_sig_meta:
-                      # override: {'values': ('column', str)}
-                      # Just assume simple dict for now?
-                      pass
-                      
-                 # Hardcode common pattern for now:
-                 # logic: pure func first arg -> "column: str"
-                 
-                 # Resolve name override
-                 param_name = name
-                 param_type = "str"
-                 param_default = inspect.Parameter.empty
-                 
-                 if stub_sig_meta and name in stub_sig_meta:
-                      meta = stub_sig_meta[name]
-                      if isinstance(meta, tuple):
-                          # (type, default)
-                          if len(meta) >= 1: param_type = format_annotation(meta[0])
-                          if len(meta) >= 2: param_default = meta[1]
-                      elif isinstance(meta, dict):
-                           # {'name': 'column', 'type': str, 'default': ...}
-                           if 'name' in meta: target_name = meta['name']
-                           if 'type' in meta: param_type = format_annotation(meta['type'])
-                           if 'default' in meta: param_default = meta['default']
-                      else:
-                           # Just type
-                           param_type = format_annotation(meta)
-                 
-                 param_str = f"{target_name}: {param_type}"
-                 if param_default is not inspect.Parameter.empty and param_default is not None:
-                      param_str += f" = {repr(param_default)}"
-                 elif param_default is None:
-                      param_str += " = None"
-                      
-                 params.append(param_str)
-                 continue
-
-        if param.kind == inspect.Parameter.VAR_POSITIONAL:
-            # *args のような可変長位置引数
-            param_str = f"*{name}"
-        elif param.kind == inspect.Parameter.VAR_KEYWORD:
-            # **kwargs のような可変長キーワード引数
-            param_str = f"**{name}"
-        else:
-            # 通常の引数（位置引数またはキーワード引数）
-            param_str = f"{name}"
-
-        # 型アノテーションの処理
+        # 元の型ヒントを取得
         if name in type_hints:
-            annotation_str = format_annotation(type_hints[name])
-            param_str += f": {annotation_str}"
+            param_type = type_hints[name]
         elif param.annotation != inspect.Parameter.empty:
-            annotation_str = format_annotation(param.annotation)
+            param_type = param.annotation
+            
+        # `signature_override` の適用
+        if stub_sig_meta and name in stub_sig_meta:
+            meta = stub_sig_meta[name]
+            if isinstance(meta, tuple):
+                if len(meta) >= 1:
+                    first_item = meta[0]
+                    # もし最初の要素が文字列（strそのものではなく、strインスタンス）なら名前のオーバーライド
+                    if isinstance(first_item, str) and first_item != str:
+                        param_name = first_item
+                        if len(meta) >= 2:
+                            param_type = meta[1]
+                        if len(meta) >= 3:
+                            param_default = meta[2]
+                    else:
+                        param_type = first_item
+                        if len(meta) >= 2:
+                            param_default = meta[1]
+            elif isinstance(meta, dict):
+                if 'name' in meta: param_name = meta['name']
+                if 'type' in meta: param_type = meta['type']
+                if 'default' in meta: param_default = meta['default']
+            else:
+                param_type = meta
+                
+        # Pure functionalの第1引数（データ系列）のデフォルト変換
+        if is_pure_functional and first:
+            if param_name == name:
+                param_name = "column"
+                param_type = str
+        
+        first = False
+        
+        # パラメータ文字列の構築
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            param_str = f"*{param_name}"
+        elif param.kind == inspect.Parameter.VAR_KEYWORD:
+            param_str = f"**{param_name}"
+        else:
+            param_str = f"{param_name}"
+
+        if param_type is not None:
+            annotation_str = format_annotation(param_type)
             param_str += f": {annotation_str}"
 
         # デフォルト値の処理
-        if param.default != inspect.Parameter.empty and param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.VAR_KEYWORD:
-            if param.default is None:
+        if param_default is not inspect.Parameter.empty and param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            if param_default is None:
                 param_str += " = None"
             else:
-                default_repr = repr(param.default)
-                param_str += f" = {default_repr}"
-
+                param_str += f" = {repr(param_default)}"
+                
         params.append(param_str)
 
 
@@ -410,7 +313,7 @@ def generate_operation_stub(
 
         if is_collection:
             # CollectionOperations (連鎖) を返す
-            return_type = f'"{class_name}"'
+            return_type = class_name
         else:
             # 元の戻り値を返す（連鎖終了）
             # Anyの場合はAnyとするが、元の型ヒントがあればそれを使う
@@ -511,9 +414,9 @@ def generate_list_operation_stub(
         # splitの結果は「分割されたコレクションのリスト」。
         # これを各要素に適用すると、「リストのリスト」ができる。
         # ここは型定義が難しいが、実用的には CollectionListOperations[C] でチェインを続けたいケースが多い
-        return_type = '"CollectionListOperations[C]"'
+        return_type = 'CollectionListOperations[C]'
     elif is_collection_return:
-        return_type = '"CollectionListOperations[C]"'
+        return_type = 'CollectionListOperations[C]'
     else:
         # 通常の値を返す場合 -> List[ReturnType]
         original_ret = "Any"
@@ -546,11 +449,13 @@ def generate_collection_list_operations_stub(stub_dir: Path) -> None:
     list_proxy_file = stub_dir / "list_proxy.py"
     
     with list_proxy_file.open("w", encoding="utf-8") as f:
-        f.write("# 自動生成されたCollectionListOperationsスタブ - 編集しないでください\n")
-        f.write("from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload\n")
+        f.write("# 自動生成されたリストプロキシスタブ - 編集しないでください\n")
+        f.write("from __future__ import annotations\n")
+        f.write(
+            "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Iterable, Generic, overload, Literal\n"
+        )
         f.write("from tascpy.core.collection import ColumnCollection\n")
         f.write("from .proxy_base import CollectionOperationsBase\n")
-        f.write("from typing import Literal\n")
 
         # ドメインごとのコレクションクラスをインポート
         domains = OperationRegistry.discover_domains()
@@ -609,7 +514,7 @@ def generate_collection_list_operations_stub(stub_dir: Path) -> None:
         # map メソッド
         f.write("    def map(\n")
         f.write("        self, operation: str, *args: Any, **kwargs: Any\n")
-        f.write("    ) -> Union[\"CollectionListOperations[C]\", List[Any]]:\n")
+        f.write("    ) -> Union[CollectionListOperations[C], List[Any]]:\n")
         f.write('        """各コレクションに同じ操作を適用します\n')
         f.write("        \n")
         f.write("        Args:\n")
@@ -628,7 +533,7 @@ def generate_collection_list_operations_stub(stub_dir: Path) -> None:
         # filter メソッド
         f.write("    def filter(\n")
         f.write("        self, predicate: Callable[[C], bool]\n")
-        f.write("    ) -> \"CollectionListOperations[C]\":\n")
+        f.write("    ) -> CollectionListOperations[C]:\n")
         f.write('        """条件を満たすコレクションだけをフィルタリングします\n')
         f.write("        \n")
         f.write("        Args:\n")
@@ -677,10 +582,10 @@ def generate_collection_list_operations_stub(stub_dir: Path) -> None:
             # ここでは簡易的に文字列で指定
             
             f.write("    @overload\n")
-            f.write(f"    def as_domain(self, domain: Literal['{domain}'], **kwargs: Any) -> \"CollectionListOperations[{class_name}]\":\n")
+            f.write(f"    def as_domain(self, domain: Literal['{domain}'], **kwargs: Any) -> CollectionListOperations[{class_name}]:\n")
             f.write("        ...\n\n")
 
-        f.write("    def as_domain(self, domain: str, **kwargs: Any) -> \"CollectionListOperations\":\n")
+        f.write("    def as_domain(self, domain: str, **kwargs: Any) -> CollectionListOperations:\n")
         f.write('        """全てのコレクションを指定されたドメインに変換します\n')
         f.write("        \n")
         f.write("        Args:\n")
@@ -740,6 +645,7 @@ def generate_stubs() -> None:
     with init_file.open("w", encoding="utf-8") as f:
         f.write("# 自動生成されたスタブファイル - 編集しないでください\n")
         f.write("# このファイルはPylanceの自動補完と型チェック用です\n\n")
+        f.write("from __future__ import annotations\n")
         f.write(
             "from typing import cast, TypeVar, Union, overload, Any, Dict, List, Optional, Callable, Generic, Literal\n"
         )
@@ -752,10 +658,22 @@ def generate_stubs() -> None:
     proxy_file = stub_dir / "proxy_base.py"
     with proxy_file.open("w", encoding="utf-8") as f:
         f.write("# 自動生成されたプロキシベーススタブ - 編集しないでください\n")
+        f.write("from __future__ import annotations\n")
         f.write(
-            "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload, Literal\n"
+            "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload, Literal, TYPE_CHECKING\n"
         )
         f.write("from tascpy.core.collection import ColumnCollection\n\n")
+        
+        # We need to import the literal return types for as_domain dynamically
+        f.write("if TYPE_CHECKING:\n")
+        for domain in domains:
+            if domain == "core":
+                 f.write("    from .core import CoreCollectionOperations\n")
+            else:
+                 class_name = f"{domain.title().replace('_', '')}CollectionOperations"
+                 f.write(f"    from .{domain} import {class_name}\n")
+        f.write("\n")
+        
         f.write("# コレクション型のTypeVar\n")
         f.write("C = TypeVar('C', bound=ColumnCollection)\n")
         f.write("# 戻り値型のTypeVar\n")
@@ -773,6 +691,25 @@ def generate_stubs() -> None:
         f.write("        \n")
         f.write("        Returns:\n")
         f.write("            自身を返す\n")
+        f.write('        """\n')
+        f.write("        ...\n\n")
+        
+        # Add as_domain overloads dynamically
+        for domain in domains:
+            class_name = "CoreCollectionOperations" if domain == "core" else f"{domain.title().replace('_', '')}CollectionOperations"
+            f.write("    @overload\n")
+            f.write(f"    def as_domain(self, domain: Literal['{domain}'], **kwargs: Any) -> {class_name}:\n")
+            f.write("        ...\n\n")
+            
+        f.write("    def as_domain(self, domain: str, **kwargs: Any) -> CollectionOperationsBase:\n")
+        f.write('        """現在のコレクションを指定されたドメインに変換\n')
+        f.write("        \n")
+        f.write("        Args:\n")
+        f.write("            domain: 変換先のドメイン名\n")
+        f.write("            **kwargs: 変換に渡す追加引数\n")
+        f.write("        \n")
+        f.write("        Returns:\n")
+        f.write("            指定されたドメインの操作メソッドを提供するCollectionOperations\n")
         f.write('        """\n')
         f.write("        ...\n\n")
     
@@ -833,6 +770,7 @@ def generate_stubs() -> None:
             f.write(
                 f"# 自動生成された{domain}ドメインのスタブファイル - 編集しないでください\n"
             )
+            f.write("from __future__ import annotations\n")
             f.write(
                 "from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Generic, overload, Literal\n"
             )

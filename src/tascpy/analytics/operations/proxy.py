@@ -14,8 +14,8 @@ from tascpy.core.collection import ColumnCollection
 import numpy as np
 
 if TYPE_CHECKING:
-    from tascpy.typing.proxy_base import CollectionOperationsBase
-    from tascpy.typing.core import CoreCollectionOperations
+    from tascpy.analytics.typing.proxy_base import CollectionOperationsBase
+    from tascpy.analytics.typing.core import CoreCollectionOperations
 
 
 

@@ -1,8 +1,8 @@
-# 自動生成されたCollectionListOperationsスタブ - 編集しないでください
-from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Generic, overload
+# 自動生成されたリストプロキシスタブ - 編集しないでください
+from __future__ import annotations
+from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, Iterable, Generic, overload, Literal
 from tascpy.core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
-from typing import Literal
 from tascpy.domains.core import ColumnCollection
 from ..domains.strain import StrainCollection
 from ..domains.load_displacement import LoadDisplacementCollection
@@ -41,7 +41,7 @@ class CollectionListOperations(Generic[C]):
 
     def map(
         self, operation: str, *args: Any, **kwargs: Any
-    ) -> Union["CollectionListOperations[C]", List[Any]]:
+    ) -> Union[CollectionListOperations[C], List[Any]]:
         """各コレクションに同じ操作を適用します
         
         Args:
@@ -59,7 +59,7 @@ class CollectionListOperations(Generic[C]):
 
     def filter(
         self, predicate: Callable[[C], bool]
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """条件を満たすコレクションだけをフィルタリングします
         
         Args:
@@ -86,22 +86,22 @@ class CollectionListOperations(Generic[C]):
         ...
 
     @overload
-    def as_domain(self, domain: Literal['core'], **kwargs: Any) -> "CollectionListOperations[ColumnCollection]":
+    def as_domain(self, domain: Literal['core'], **kwargs: Any) -> CollectionListOperations[ColumnCollection]:
         ...
 
     @overload
-    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> "CollectionListOperations[StrainCollection]":
+    def as_domain(self, domain: Literal['strain'], **kwargs: Any) -> CollectionListOperations[StrainCollection]:
         ...
 
     @overload
-    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> "CollectionListOperations[LoadDisplacementCollection]":
+    def as_domain(self, domain: Literal['load_displacement'], **kwargs: Any) -> CollectionListOperations[LoadDisplacementCollection]:
         ...
 
     @overload
-    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> "CollectionListOperations[CoordinateCollection]":
+    def as_domain(self, domain: Literal['coordinate'], **kwargs: Any) -> CollectionListOperations[CoordinateCollection]:
         ...
 
-    def as_domain(self, domain: str, **kwargs: Any) -> "CollectionListOperations":
+    def as_domain(self, domain: str, **kwargs: Any) -> CollectionListOperations:
         """全てのコレクションを指定されたドメインに変換します
         
         Args:
@@ -208,7 +208,7 @@ Examples:
     def filter_by_condition(
         self,
         condition: <built-in function callable>
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します。
 
 Args:
@@ -404,7 +404,7 @@ Examples:
     def fetch_near_step(
         self,
         value: float
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """指定ステップ値に最も近いデータ行を一つ抽出します。
 
 Args:
@@ -423,7 +423,7 @@ Examples:
     def split_by_integers(
         self,
         markers: Union[list[int], ndarray]
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """整数マーカーに基づいてコレクションを分割します。
 
 ユニークなマーカー値ごとに、そのマーカーに対応するデータを含む
@@ -444,7 +444,7 @@ Examples:
     def split_at_indices(
         self,
         indices: Union[int, list[int]]
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """指定されたインデックスでコレクションを分割します。
 
 Args:
@@ -585,7 +585,7 @@ Examples:
         v2: Any,
         combine_func: Callable[[Any, Any], Any],
         **kwargs
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """ユーザー提供のカスタム関数を利用して2つの列を合成します
 
 Args:
@@ -957,7 +957,7 @@ Examples:
         self,
         window_size: int = 3,
         edge_handling = 'asymmetric'
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """指定されたウィンドウサイズで移動平均を計算します
 
 Args:
@@ -1121,7 +1121,7 @@ Examples:
         point_count: Optional[int] = None,
         method: str = 'linear',
         columns: Optional[list[str]] = None
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """指定した列の値を基準にしてデータを内挿（リスサンプリング）します
 
 Args:
@@ -1277,7 +1277,7 @@ Examples:
         z: Optional[float],
         method: str,
         power: float
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """座標点での値を補間して計算します
 
 指定された座標点 (x, y, z) において、既存の座標値に基づいて値を補間します。
@@ -1372,7 +1372,7 @@ Examples:
         z: Optional[float],
         method: str,
         power: float
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """interpolate_at_point のエイリアス"""
         ...
     
@@ -1590,7 +1590,7 @@ Examples:
     def split_by_cycles(
         self,
         cycle_column: Optional[str] = None
-    ) -> "CollectionListOperations[C]":
+    ) -> CollectionListOperations[C]:
         """サイクル番号ごとにデータを分割します。
 
 データをサイクル番号ごとに分割し、各サイクルの

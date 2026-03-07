@@ -2,7 +2,7 @@ from typing import Dict, List, Any, Optional, Union, Callable
 from tascpy.core.step import Step
 from tascpy.core.column import Column
 from tascpy.core.result import AnalysisResult
-from tascpy.typing.core import CoreCollectionOperations
+from tascpy.analytics.typing.core import CoreCollectionOperations
 from tascpy.visualization.plotters.core.plotter import CorePlotter
 
 class ColumnCollection:

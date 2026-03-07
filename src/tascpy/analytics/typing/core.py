@@ -1,4 +1,5 @@
 # 自動生成されたcoreドメインのスタブファイル - 編集しないでください
+from __future__ import annotations
 from typing import Optional, Union, List, Dict, Any, Callable, TypeVar, cast, Generic, overload, Literal
 from tascpy.core.collection import ColumnCollection
 from .proxy_base import CollectionOperationsBase
@@ -33,12 +34,10 @@ class CoreCollectionOperations(CollectionOperationsBase[ColumnCollection]):
 
     def filter_by_value(
         self,
-        values: column = <class 'str'>,
-        tolerance: Optional[float] = None,
-        column: column = <class 'str'>,
+        column: str,
         value: Any,
         tolerance: Optional[float] = None
-    ) -> ndarray:
+    ) -> CoreCollectionOperations:
         """指定した列の値が条件に一致する行のみを抽出します。
 
 Args:
@@ -58,10 +57,9 @@ Examples:
 
     def filter_out_none(
         self,
-        mode: str = 'any',
         column: str,
         mode: str = 'any'
-    ) -> list[bool]:
+    ) -> CoreCollectionOperations:
         """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します。
 
 Args:
@@ -79,12 +77,10 @@ Examples:
 
     def remove_consecutive_duplicates_across(
         self,
-        data: columns = typing.Optional[typing.List[str]],
-        dup_type: str = 'all',
-        column: columns = typing.Optional[typing.List[str]],
+        columns: Optional[list[str]],
         mode: str = 'consecutive',
         dup_type: str = 'all'
-    ) -> list[int]:
+    ) -> CoreCollectionOperations:
         """連続する重複行を検知し、最初の行だけを残して除外します。
 
 Args:
@@ -107,7 +103,7 @@ Examples:
         column: str,
         *args,
         **kwargs
-    ) -> Any:
+    ) -> CoreCollectionOperations:
         """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します。
 
 Args:
@@ -129,8 +125,7 @@ Examples:
 
     def filter_by_condition(
         self,
-        vals: column = <class 'str'>,
-        column: column = <class 'str'>,
+        column: str,
         condition: <built-in function callable>
     ) -> "CollectionListOperations[CoreCollectionOperations]":
         """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します。
@@ -153,7 +148,7 @@ Examples:
         self,
         steps: list[Any],
         tolerance: Optional[float] = None
-    ) -> list[bool]:
+    ) -> CoreCollectionOperations:
         """指定されたステップ値のリストに一致する行を除外します。
 
 Args:
@@ -170,8 +165,7 @@ Examples:
 
     def search_by_value(
         self,
-        values: values = typing.Any,
-        column: values = typing.Any,
+        column: str,
         op_str: str,
         value: Any
     ) -> list[int]:
@@ -193,8 +187,7 @@ Examples:
 
     def search_by_range(
         self,
-        values: vals = typing.Any,
-        column: vals = typing.Any,
+        vals: Any,
         min_value: Any,
         max_value: Any,
         inclusive: bool = True
@@ -244,8 +237,7 @@ Examples:
 
     def search_by_condition(
         self,
-        data: columns = typing.Optional[typing.List[str]],
-        column: columns = typing.Optional[typing.List[str]],
+        columns: Optional[list[str]],
         condition_func: Callable[[Dict[str, Any]], bool]
     ) -> list[int]:
         """複数のカラムに対して、指定した条件関数を満たすインデックスリストを返します
@@ -266,8 +258,7 @@ Examples:
 
     def search_missing_values(
         self,
-        data: columns = typing.Optional[typing.List[str]],
-        column: columns = typing.Optional[typing.List[str]]
+        columns: Optional[list[str]]
     ) -> list[int]:
         """欠損値（None/NaN）が含まれるインデックスリストを返します
 
@@ -286,8 +277,7 @@ Examples:
 
     def search_top_n(
         self,
-        values: vals = typing.Any,
-        column: vals = typing.Any,
+        vals: Any,
         n: int,
         descending: bool = True
     ) -> list[int]:
@@ -314,7 +304,7 @@ Examples:
         steps: Optional[list[Union[int, float]]] = None,
         by_step_value: bool = True,
         tolerance: Optional[float] = None
-    ) -> tuple[list[int], dict[str, Any]]:
+    ) -> CoreCollectionOperations:
         """条件（行や列）に基づいてデータを抽出し、新しいコレクションを作成します。
 
 Args:
@@ -395,21 +385,14 @@ Examples:
 
     def switch_by_step(
         self,
-        steps: step_values = <class 'numpy.ndarray'>,
-        v1: v1 = typing.Union[str, numpy.ndarray],
-        v2: v2 = typing.Union[str, numpy.ndarray],
-        threshold: Union[int, float],
-        compare_mode: str = 'value',
-        by_step_value: bool = True,
-        tolerance: Optional[float] = None,
-        column: step_values = <class 'numpy.ndarray'>,
-        v1: ndarray,
-        v2: ndarray,
+        step_values: ndarray,
+        v1: Union[str, ndarray],
+        v2: Union[str, ndarray],
         threshold: Union[int, float],
         compare_mode: str = 'value',
         by_step_value: bool = True,
         tolerance: Optional[float] = None
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """特定のステップ値（またはインデックス）を境にして、2つのデータ列を切り替えます
 
 Args:
@@ -431,16 +414,7 @@ Examples:
 
     def blend_by_step(
         self,
-        steps: step_values = <class 'numpy.ndarray'>,
-        v1: v1 = <class 'numpy.ndarray'>,
-        v2: v2 = <class 'numpy.ndarray'>,
-        start: Union[int, float],
-        end: Union[int, float],
-        compare_mode: str = 'value',
-        by_step_value: bool = True,
-        blend_method: str = 'linear',
-        tolerance: Optional[float] = None,
-        column: step_values = <class 'numpy.ndarray'>,
+        step_values: ndarray,
         v1: ndarray,
         v2: ndarray,
         start: Union[int, float],
@@ -449,7 +423,7 @@ Examples:
         by_step_value: bool = True,
         blend_method: str = 'linear',
         tolerance: Optional[float] = None
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """特定のステップ区間において、2つのデータ列を滑らかにブレンド（合成）します
 
 Args:
@@ -473,10 +447,9 @@ Examples:
 
     def sum_columns(
         self,
-        data: columns = typing.Optional[typing.List[str]],
-        column: columns = typing.Optional[typing.List[str]],
+        columns: Optional[list[str]],
         columns = None
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定された複数のカラムの要素ごとの合計を計算します
 
 Args:
@@ -493,10 +466,9 @@ Examples:
 
     def average_columns(
         self,
-        data: columns = typing.Optional[typing.List[str]],
-        column: columns = typing.Optional[typing.List[str]],
+        columns: Optional[list[str]],
         columns = None
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定された複数のカラムの要素ごとの平均を計算します
 
 Args:
@@ -513,17 +485,12 @@ Examples:
 
     def conditional_select(
         self,
-        v1: v1 = <class 'numpy.ndarray'>,
-        v2: v2 = <class 'numpy.ndarray'>,
-        cond_values: cond_values = <class 'numpy.ndarray'>,
-        threshold: Union[int, float] = 0,
-        compare: str = '>',
-        column: v1 = <class 'numpy.ndarray'>,
+        column: str,
         v2: ndarray,
         cond_values: ndarray,
         threshold: Union[int, float] = 0,
         compare: str = '>'
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """条件列の値と閾値の比較結果に基づき、2つの列から値を選択します
 
 Args:
@@ -544,10 +511,7 @@ Examples:
 
     def custom_combine(
         self,
-        v1: v1 = typing.Any,
-        v2: v2 = typing.Any,
-        combine_func: combine_func = typing.Callable[[typing.Any, typing.Any], typing.Any],
-        column: v1 = typing.Any,
+        column: str,
         v2: Any,
         combine_func: Callable[[Any, Any], Any],
         **kwargs
@@ -573,7 +537,7 @@ Examples:
         self,
         column: str,
         v2: Union[ndarray, float]
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """複数カラムまたはスカラー値の要素ごとの和を計算します。
 
 Args:
@@ -594,7 +558,7 @@ Examples:
         self,
         column: str,
         v2: Union[ndarray, float]
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """第一引数から第二引数の要素ごとの差を計算します。
 
 Args:
@@ -615,7 +579,7 @@ Examples:
         self,
         column: str,
         v2: Union[ndarray, float]
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """複数カラムまたはスカラー値の要素ごとの積を計算します。
 
 Args:
@@ -636,7 +600,7 @@ Examples:
         column: str,
         v2: Union[ndarray, float],
         **kwargs
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """第一引数を第二引数で要素ごとに除算します。
 
 Args:
@@ -654,13 +618,10 @@ Examples:
 
     def diff(
         self,
-        y: y_values = <class 'numpy.ndarray'>,
-        x: x_values = <class 'numpy.ndarray'>,
-        method: str = 'central',
-        column: y_values = <class 'numpy.ndarray'>,
-        x: Union[ndarray, list[float]],
+        y_values: ndarray,
+        x_values: ndarray,
         method: str = 'central'
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """データ系列の離散微分 (dy/dx) を計算します
 
 Args:
@@ -679,15 +640,11 @@ Examples:
 
     def integrate(
         self,
-        y: y_values = <class 'numpy.ndarray'>,
-        x: x_values = <class 'numpy.ndarray'>,
+        y_values: ndarray,
+        x_values: ndarray,
         method: str = 'trapezoidal',
-        initial_value: float = 0.0,
-        column: y_values = <class 'numpy.ndarray'>,
-        x: Union[ndarray, list[float]],
-        method: str = 'trapezoid',
         initial_value: float = 0.0
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """データ系列の離散積分 (∫ y dx) を計算します
 
 Args:
@@ -707,11 +664,10 @@ Examples:
 
     def evaluate(
         self,
-        collection: collection = <class 'tascpy.core.collection.ColumnCollection'>,
-        column: collection = <class 'tascpy.core.collection.ColumnCollection'>,
+        column: str,
         expression: str,
         **kwargs
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """与えられた数式文字列を評価し、新しい列を生成します。
 
 Args:
@@ -728,11 +684,9 @@ Examples:
 
     def sin(
         self,
-        values: values = <class 'numpy.ndarray'>,
-        degrees: bool = False,
-        column: values = <class 'numpy.ndarray'>,
+        column: str,
         degrees: bool = False
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定されたカラムの正弦（Sine）を計算します。
 
 Args:
@@ -750,11 +704,9 @@ Examples:
 
     def cos(
         self,
-        values: values = <class 'numpy.ndarray'>,
-        degrees: bool = False,
-        column: values = <class 'numpy.ndarray'>,
+        column: str,
         degrees: bool = False
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定されたカラムの余弦（Cosine）を計算します。
 
 Args:
@@ -772,11 +724,9 @@ Examples:
 
     def tan(
         self,
-        values: values = <class 'numpy.ndarray'>,
-        degrees: bool = False,
-        column: values = <class 'numpy.ndarray'>,
+        column: str,
         degrees: bool = False
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定されたカラムの正接（Tangent）を計算します。
 
 Args:
@@ -794,9 +744,8 @@ Examples:
 
     def exp(
         self,
-        values: values = <class 'numpy.ndarray'>,
-        column: values = <class 'numpy.ndarray'>
-    ) -> "CoreCollectionOperations":
+        column: str
+    ) -> CoreCollectionOperations:
         """指定されたカラムの指数関数（e^x）を計算します。
 
 Args:
@@ -813,11 +762,9 @@ Examples:
 
     def log(
         self,
-        values: values = <class 'numpy.ndarray'>,
-        base: float = 2.718281828459045,
-        column: values = <class 'numpy.ndarray'>,
+        column: str,
         base: float = 2.718281828459045
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定されたカラムの対数（Log）を計算します。
 
 Args:
@@ -835,9 +782,8 @@ Examples:
 
     def sqrt(
         self,
-        values: values = <class 'numpy.ndarray'>,
-        column: values = <class 'numpy.ndarray'>
-    ) -> "CoreCollectionOperations":
+        column: str
+    ) -> CoreCollectionOperations:
         """指定されたカラムの平方根（Square Root）を計算します。
 
 Args:
@@ -854,11 +800,9 @@ Examples:
 
     def pow(
         self,
-        values: column = <class 'str'>,
-        exponent: float = 1.0,
-        column: column = <class 'str'>,
-        exponent: float
-    ) -> "CoreCollectionOperations":
+        column: str,
+        exponent: float = 1.0
+    ) -> CoreCollectionOperations:
         """指定されたカラムのべき乗（Power）を計算します。
 
 Args:
@@ -876,9 +820,8 @@ Examples:
 
     def abs_values(
         self,
-        values: column = <class 'str'>,
-        column: column = <class 'str'>
-    ) -> "CoreCollectionOperations":
+        column: str
+    ) -> CoreCollectionOperations:
         """指定されたカラムの絶対値（Absolute value）を計算します。
 
 Args:
@@ -895,11 +838,9 @@ Examples:
 
     def round_values(
         self,
-        values: column = <class 'str'>,
-        decimals: int = 0,
-        column: column = <class 'str'>,
+        column: str,
         decimals: int = 0
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定されたカラムの値を丸めます（四捨五入）。
 
 Args:
@@ -917,11 +858,9 @@ Examples:
 
     def normalize(
         self,
-        values: column = <class 'str'>,
-        method: str = 'minmax',
-        column: column = <class 'str'>,
+        column: str,
         method: str = 'minmax'
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定されたカラムの値を正規化します。
 
 Args:
@@ -939,10 +878,9 @@ Examples:
 
     def average_across(
         self,
-        ignore_nan: bool = True,
-        column: str,
+        *column: str,
         ignore_nan: bool = True
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """複数カラムの値を行ごとに平均し、新しいカラムとして追加します。
 
 Args:
@@ -962,11 +900,9 @@ Examples:
 
     def moving_average(
         self,
-        window_size: int = 3,
-        edge_handling: str = 'asymmetric',
         column: str,
         window_size: int = 3,
-        edge_handling = 'asymmetric'
+        edge_handling: str = 'asymmetric'
     ) -> "CollectionListOperations[CoreCollectionOperations]":
         """指定されたウィンドウサイズで移動平均を計算します
 
@@ -986,19 +922,13 @@ Examples:
 
     def detect_outliers(
         self,
-        vals: vals = typing.Any,
-        window_size: int = 3,
-        threshold: float = 0.5,
-        edge_handling: str = 'asymmetric',
-        min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0,
-        column: vals = typing.Any,
+        column: str,
         window_size: int = 3,
         threshold: float = 0.5,
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
         scale_factor: float = 1.0
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """異常値を検出します
 
 Args:
@@ -1020,13 +950,10 @@ Examples:
 
     def gaussian_filter(
         self,
-        vals: vals = typing.Any,
-        sigma: float = 1.0,
-        window_size: Optional[int] = None,
-        column: vals = typing.Any,
+        column: str,
         sigma: float = 1.0,
         window_size: Optional[int] = None
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """ガウシアンフィルターを適用します
 
 Args:
@@ -1142,7 +1069,7 @@ Examples:
         point_count: Optional[int] = None,
         method: str = 'linear',
         columns: Optional[list[str]] = None
-    ) -> "CoreCollectionOperations":
+    ) -> CoreCollectionOperations:
         """指定した列の値を基準にしてデータを内挿（リスサンプリング）します
 
 Args:

@@ -290,6 +290,7 @@ class OperationRegistry:
             store_multiple_results is not None,
             process_by_group is not None,
             transform_column is not None,
+            filter_rows is True,
         ])
         if returns_collection:
             setattr(wrapped_func, "__tascpy_returns_collection__", True)

@@ -23,7 +23,7 @@ class TestStubGenerator(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.temp_path = Path(self.temp_dir.name)
         # 元のtypingディレクトリパスをバックアップ
-        self.original_typing_dir = Path(__file__).parents[4] / "src" / "tascpy" / "typing"
+        self.original_typing_dir = Path(__file__).parents[4] / "src" / "tascpy" / "analytics" / "typing"
 
     def tearDown(self):
         """テスト後のクリーンアップ"""
@@ -49,7 +49,7 @@ class TestStubGenerator(unittest.TestCase):
     def test_domain_stubs_include_core_operations(self):
         """非coreドメインのスタブファイルにcoreのメソッドが含まれることを確認"""
         # 正しいtypingディレクトリのパスを取得
-        typing_dir = Path(__file__).parents[4] / "src" / "tascpy" / "typing"
+        typing_dir = Path(__file__).parents[4] / "src" / "tascpy" / "analytics" / "typing"
         
         # スタブを生成
         generate_stubs()
