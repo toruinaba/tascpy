@@ -9,7 +9,7 @@ from tascpy.analytics.operations.core.math import (
     evaluate,
     diff,
     integrate,
-    sin, cos, tan, exp, log, sqrt, pow, abs_values, abs as math_abs, round_values, normalize,
+    log, sqrt, pow, abs_values, abs as math_abs, round_values, normalize,
     average_across
 )
 from tascpy.core.collection import ColumnCollection
@@ -96,37 +96,7 @@ class TestIntegrateOperation:
         assert "∫A·dB" in result.columns
         assert isinstance(result["∫A·dB"].metadata, dict)
 
-class TestTrigonometricFunctions:
-    def test_sin_radians(self, sample_collection):
-        result = sin(sample_collection, "angle_rad")
-        assert isinstance(result, ColumnCollection)
-        assert "sin(angle_rad)" in result.columns
-
-    def test_sin_degrees(self, sample_collection):
-        result = sin(sample_collection, "angle_deg", degrees=True)
-        assert isinstance(result, ColumnCollection)
-
-    def test_cos_radians(self, sample_collection):
-        result = cos(sample_collection, "angle_rad")
-        assert isinstance(result, ColumnCollection)
-
-    def test_cos_degrees(self, sample_collection):
-        result = cos(sample_collection, "angle_deg", degrees=True)
-        assert isinstance(result, ColumnCollection)
-
-    def test_tan_radians(self, sample_collection):
-        result = tan(sample_collection, "angle_rad")
-        assert isinstance(result, ColumnCollection)
-
-    def test_trig_with_none(self, sample_collection):
-        result = sin(sample_collection, "with_none")
-        assert isinstance(result, ColumnCollection)
-
 class TestExponentialAndLogarithmicFunctions:
-    def test_exp(self, sample_collection):
-        result = exp(sample_collection, "exp_input")
-        assert isinstance(result, ColumnCollection)
-
     def test_log_natural(self, sample_collection):
         result = log(sample_collection, "log_input")
         assert isinstance(result, ColumnCollection)
@@ -197,13 +167,13 @@ class TestNormalizationFunctions:
 class TestErrorHandling:
     def test_nonexistent_column(self, sample_collection):
         with pytest.raises(KeyError):
-            sin(sample_collection, "nonexistent")
+            abs_values(sample_collection, "nonexistent")
 
 class TestOperationChaining:
     def test_chained_operations(self, ops):
         result = (
-            ops.sin("angle_deg", degrees=True)
-            .abs("sin(angle_deg)")
+            ops.abs_values("negative")
+            .pow("abs(negative)", 2)
             .end()
         )
         assert isinstance(result, ColumnCollection)
@@ -212,7 +182,7 @@ class TestOperationChaining:
         result = (
             ops.normalize("norm_input", method="minmax")
             .pow("norm_minmax(norm_input)", 2)
-            .cos("norm_minmax(norm_input)^2")
+            .round_values("norm_minmax(norm_input)^2", 1)
             .end()
         )
         assert isinstance(result, ColumnCollection)

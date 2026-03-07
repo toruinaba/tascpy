@@ -3,7 +3,7 @@ import numpy as np
 import math
 from tascpy.analytics.functional.math import (
     add, subtract, multiply, divide, diff, integrate, evaluate_expression,
-    sin, cos, tan, exp, log, sqrt, power, abs_values, round_values, normalize,
+    log, sqrt, power, abs_values, round_values, normalize,
     average_across
 )
 
@@ -42,10 +42,6 @@ def test_evaluate_functional():
     }
     res = evaluate_expression(data, "A + B * 2")
     assert res == [7.0, 10.0]
-
-def test_trig_functions():
-    np.testing.assert_allclose(sin(np.array([0, np.pi/2])), [0, 1], atol=1e-10)
-    np.testing.assert_allclose(cos(np.array([0, np.pi])), [1, -1], atol=1e-10)
 
 def test_log_functions():
     res = log(np.array([1.0, math.e]))

@@ -405,55 +405,7 @@ def where(mask: Union[np.ndarray, list]) -> List[int]:
     return np.where(mask)[0].tolist()
 
 
-def top_n(values: Union[np.ndarray, list], n: int, descending: bool = True) -> List[int]:
-    """上位N個の値のインデックスを返します。
 
-    NaNは除外されます。結果のインデックスは昇順にソートされて返されます。
-
-    Args:
-        values (Union[np.ndarray, list]): 値の配列。
-        n (int): 取得する要素数。
-        descending (bool, optional): 降順（大きい順）に選択するかどうか。Falseの場合は昇順（小さい順）。デフォルトは True。
-
-    Returns:
-        List[int]: 選択された要素のインデックスリスト（昇順ソート済み）。
-    """
-    vals = np.array(values) if isinstance(values, list) else values
-    
-    # Exclude NaN
-    if np.issubdtype(vals.dtype, np.number):
-        valid_mask = ~np.isnan(vals)
-    else:
-        # Object array? Assuming numeric for sorting usually.
-        # But let's check.
-        try:
-             valid_mask = ~np.isnan(vals.astype(float))
-        except:
-             # Fallback: assume all valid if not convertible? Or exclude None?
-             valid_mask = np.ones(len(vals), dtype=bool)
-
-    valid_indices = np.where(valid_mask)[0]
-    valid_vals = vals[valid_mask]
-    
-    if len(valid_vals) == 0:
-        return []
-        
-    # Sort valid values
-    sorted_idx_local = np.argsort(valid_vals)
-    
-    if descending:
-        sorted_idx_local = sorted_idx_local[::-1]
-        
-    # Map back to original indices
-    sorted_original = valid_indices[sorted_idx_local]
-    
-    # Take top N
-    top_indices = sorted_original[:n]
-    
-    # Sort indices strictly for return (as per original spec: return sorted indices)
-    top_indices.sort()
-    
-    return top_indices.tolist()
 
 
 def nearest_index(
@@ -690,66 +642,7 @@ def remove_steps_mask(
             
     return mask
 
-# --- 検索操作 (search.pyから統合) ---
 
-def search_by_condition(
-    data: Dict[str, Any], 
-    condition_func: Callable[[Dict[str, Any]], bool]
-) -> List[int]:
-    """条件関数を満たす行のインデックスを検索します。
-
-    Args:
-        data (Dict[str, Any]): カラム名をキーとするデータ辞書。
-        condition_func (Callable[[Dict[str, Any]], bool]): 行データ（辞書）を受け取り、boolを返す関数。
-
-    Returns:
-        List[int]: 条件を満たす行のインデックスリスト。
-    """
-    if not data:
-        return []
-
-    indices = []
-    
-    # Check length
-    length = 0
-    # Prefer first column's length
-    for arr in data.values():
-        length = len(arr)
-        break
-    
-    col_names = list(data.keys())
-    
-    for i in range(length):
-        row_data = {}
-        for name in col_names:
-            vals = data[name]
-            if i < len(vals):
-                 val = vals[i]
-            else:
-                 val = None
-            row_data[name] = val
-
-        if condition_func(row_data):
-            indices.append(i)
-
-    return indices
-
-def search_missing_values(data: Dict[str, Any]) -> List[int]:
-    """欠損値を含む行のインデックスを検索します。
-
-    Args:
-        data (Dict[str, Any]): カラム名をキーとするデータ辞書。
-
-    Returns:
-        List[int]: いずれかのカラムに欠損値を含む行のインデックスリスト。
-    """
-    # Keep rows where ALL columns are valid (valid_mask is True)
-    # So rows with missing values are where valid_mask is False
-    valid_mask = filter_valid_rows(data, mode="any")
-    
-    # Invert mask to find rows WITH missing values
-    missing_mask = [not x for x in valid_mask]
-    return where(missing_mask)
 
 
 

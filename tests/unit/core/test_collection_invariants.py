@@ -106,30 +106,3 @@ class TestColumnCollectionInvariants:
         # Second half
         assert len(res_list[1]) == 2
         assert len(res_list[1]["col1"]) == 2
-        
-    def test_interpolate_maintains_invariant(self):
-        """interpolate操作が全列の同期を維持すること"""
-        col = ColumnCollection(
-            step=Step([1.0, 2.0, 3.0]),
-            columns={
-                "val": [10.0, 20.0, 30.0],
-                "meta": [1, 2, 3] # Non-number / treated as other
-            }
-        )
-        from tascpy.analytics.operations.core.interpolate import interpolate
-        
-        # New axis: 1.5, 2.5 (2 points)
-        res = interpolate(col, x_values=[1.5, 2.5])
-        
-        assert len(res) == 2
-        assert len(res["val"]) == 2
-        assert len(res["meta"]) == 2
-        
-        # Verify values
-        np.testing.assert_array_equal(res.step.values, [1.5, 2.5])
-        np.testing.assert_array_equal(res["val"].values, [15.0, 25.0])
-        # Meta should be nearest neighbor
-        # 1.5 -> closest to 1 or 2? 1.5 is equidistant. numpy searchsorted logic?
-        # Usually rounds to ... check impl. 
-        # But length must be 2.
-

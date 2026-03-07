@@ -1,9 +1,11 @@
 from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING, Union
 import numpy as np
-from ..core.collection import ColumnCollection
-from ..core.step import Step
-from ..core.column import Column
-from .factory import DomainCollectionFactory
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.step import Step
+from tascpy.core.column import Column
+from tascpy.domains.factory import DomainCollectionFactory
+from tascpy.analytics.functional.coordinate.clustering import find_nearest_neighbors_logic, simple_kmeans
+from tascpy.analytics.functional.coordinate.distance import compute_euclidean_distance
 
 if TYPE_CHECKING:
     from ..typing.coordinate import CoordinateCollectionOperations
@@ -376,10 +378,144 @@ class CoordinateCollection(ColumnCollection):
 
         # z座標が設定されていない場合は2D距離を計算
         if z1 is None or z2 is None:
-            return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            return float(np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
 
         # 3D距離を計算
-        return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
+        return float(np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2))
+
+    def find_nearest_neighbors(
+        self,
+        column: str,
+        n_neighbors: int = 3,
+        result_column: Optional[str] = None,
+    ) -> "CoordinateCollection":
+        """指定した列に最も近い座標を持つ近傍列を探します
+
+        指定された列を基準として、座標空間上で最も近い n 個の列を探索します。
+        結果はメタデータに保存され、近傍情報も新しい列として追加されます。
+
+        Args:
+            column: 基準となる列名
+            n_neighbors: 取得する近傍の数 (デフォルト: 3)
+            result_column: 結果列名（None の場合、自動生成）
+
+        Returns:
+            CoordinateCollection: 近傍情報を含むコレクション
+        """
+        if column not in self.columns:
+            raise ValueError(f"指定されたカラム '{column}' が見つかりません。")
+
+        matrix, valid_cols = self.get_coordinate_matrix(include_z=True)
+        if len(valid_cols) <= 1:
+            raise ValueError("十分な数の座標データがありません。")
+
+        try:
+            target_idx = valid_cols.index(column)
+        except ValueError:
+            raise ValueError(f"カラム '{column}' には有効な座標が設定されていません。")
+
+        # functionalロジックを呼び出し
+        distances, indices = find_nearest_neighbors_logic(matrix, target_idx, n_neighbors)
+
+        # numpy int/float を Python ネイティブに変換
+        nearest_cols = [valid_cols[i] for i in indices]
+        dist_list = [float(d) for d in distances]
+
+        # クローンして結果をメタデータとプロパティ列として保存
+        new_col = self.clone()
+        res_name = result_column or f"{column}_neighbors"
+        
+        # 列として追加 (便宜上数値を1にして、メタデータで詳細を持たせる等、要件によるがここでは元の設計を踏襲して列化)
+        # 本来opsでやっていたことは、結果カラムを新しく作ること
+        from tascpy.core.column import NumberColumn
+        step_len = len(new_col.step.values) if new_col.step is not None else len(next(iter(new_col.columns.values())).values)
+        
+        # 値は1.0などをダミーで入れ、メタデータに情報を格納
+        result_array = np.ones(step_len)
+        new_column = NumberColumn(res_name, "Nearest Neighbors", "", result_array)
+        
+        metadata = {
+            "operation": "find_nearest_neighbors",
+            "base_column": column,
+            "neighbors": nearest_cols,
+            "distances": dist_list
+        }
+        new_column.metadata = metadata
+        new_col.columns[res_name] = new_column
+        
+        # コレクションのメタデータにも格納
+        if "coordinate_domain" not in new_col.metadata:
+            new_col.metadata["coordinate_domain"] = {}
+        new_col.metadata["coordinate_domain"][f"nearest_neighbors_{column}"] = metadata
+
+        return new_col
+
+
+    def spatial_clustering(
+        self,
+        n_clusters: int = 2,
+        columns: Optional[List[str]] = None,
+        result_column: str = "cluster",
+        algorithm: str = "kmeans"
+    ) -> "CoordinateCollection":
+        """座標情報に基づいてクラスタリングを行います
+
+        列の座標位置に基づいて、類似した位置にある列をグループ化します。
+        クラスタリング結果はメタデータに保存され、各列のクラスタ情報も追加されます。
+
+        Args:
+            n_clusters: クラスタ数 (デフォルト: 2)
+            columns: クラスタリング対象の列名リスト（None の場合は座標を持つ全列）
+            result_column: 結果列名 (デフォルト: "cluster")
+            algorithm: クラスタリングアルゴリズム (デフォルト: "kmeans")
+
+        Returns:
+            CoordinateCollection: クラスタリング結果を含むコレクション
+        """
+        matrix, valid_cols = self.get_coordinate_matrix(columns, include_z=True)
+
+        if len(valid_cols) < n_clusters:
+            raise ValueError(f"クラスタ数({n_clusters})が有効な座標データの数({len(valid_cols)})を上回っています。")
+
+        # クラスタリングの実行
+        if algorithm.lower() != "kmeans":
+            raise NotImplementedError(f"アルゴリズム '{algorithm}' は未実装です。")
+            
+        labels = simple_kmeans(matrix, n_clusters)
+        
+        # Pythonネイティブ型に変換
+        labels_list = [int(l) for l in labels]
+        cluster_assignment = dict(zip(valid_cols, labels_list))
+
+        new_col = self.clone()
+        
+        # 各列のメタデータにクラスタIDを付与
+        for idx, col_name in enumerate(valid_cols):
+            cluster_id = int(labels[idx])
+            if hasattr(new_col.columns[col_name], "metadata"):
+                new_col.columns[col_name].metadata["cluster_id"] = cluster_id
+            
+        # コレクション全体のメタデータにクラスタ情報を保存
+        metadata = {
+            "operation": "spatial_clustering",
+            "algorithm": algorithm,
+            "n_clusters": n_clusters,
+            "assignments": cluster_assignment
+        }
+        if "coordinate_domain" not in new_col.metadata:
+            new_col.metadata["coordinate_domain"] = {}
+        new_col.metadata["coordinate_domain"]["clustering_result"] = metadata
+        
+        # クラスタIDを含むサマリー列を追加
+        from tascpy.core.column import NumberColumn
+        step_len = len(new_col.step.values) if new_col.step is not None else len(next(iter(new_col.columns.values())).values)
+        cluster_array = np.full(step_len, np.nan) # データ行という意味では意味をなさないが仕様踏襲
+        
+        new_column = NumberColumn(result_column, "Cluster ID", "", cluster_array)
+        new_column.metadata = metadata
+        new_col.columns[result_column] = new_column
+
+        return new_col
 
 
 # ファクトリ関数の定義

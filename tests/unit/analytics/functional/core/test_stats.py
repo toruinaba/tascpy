@@ -4,8 +4,7 @@ import math
 from tascpy.analytics.functional.stats import (
     moving_average,
     detect_outliers,
-    gaussian_filter,
-    calc_max, calc_min, calc_mean, calc_std, calc_sum
+    gaussian_filter
 )
 
 def test_moving_average():
@@ -31,13 +30,4 @@ def test_gaussian_filter():
     res = gaussian_filter(data, sigma=1.0)
     np.testing.assert_allclose(res, data, atol=1e-6)
 
-def test_aggregations():
-    data = [1.0, 2.0, 3.0, 4.0, np.nan]
-    assert calc_max(data) == 4.0
-    assert calc_min(data) == 1.0
-    assert calc_mean(data) == 2.5
-    assert calc_sum(data) == 10.0
-    
-    res_std = calc_std(data)
-    expected_std = np.std([1,2,3,4])
-    assert math.isclose(res_std, expected_std, rel_tol=1e-5)
+

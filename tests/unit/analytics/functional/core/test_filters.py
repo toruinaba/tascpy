@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from tascpy.analytics.functional.filters import (
     eq, neq, compare, in_range, is_valid, filter_valid_rows, duplicated_indices,
-    remove_outliers_mask, search, search_range
+    remove_outliers_mask
 )
 
 def test_eq():
@@ -45,10 +45,4 @@ def test_duplicated_indices():
     res = duplicated_indices(data, mode="consecutive", dup_type="all")
     assert res == [0, 2, 4, 5]
 
-def test_search():
-    arr = np.array([10, 20, 30, 40])
-    assert search(arr, ">=", 30) == [2, 3]
 
-def test_search_range():
-    arr = np.array([10, 20, 30, 40, 50])
-    assert search_range(arr, 20, 40) == [1, 2, 3]

@@ -47,10 +47,6 @@ def evaluate_expression(
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 func_name = node.func.id
                 safe_funcs = {
-                    "sin",
-                    "cos",
-                    "tan",
-                    "exp",
                     "log",
                     "sqrt",
                     "abs",
@@ -77,7 +73,7 @@ def evaluate_expression(
     
     for node in ast.walk(parsed_ast):
         if isinstance(node, ast.Name) and node.id not in {
-            "sin", "cos", "tan", "exp", "log", "sqrt", "abs",
+            "log", "sqrt", "abs",
             "max", "min", "pow", "round"
         } and node.id not in constants:
             column_names.append(node.id)
@@ -105,10 +101,6 @@ def evaluate_expression(
     try:
         # 名前空間の構築
         namespace = {
-            "sin": np.sin,
-            "cos": np.cos,
-            "tan": np.tan,
-            "exp": np.exp,
             "log": np.log,
             "sqrt": np.sqrt,
             "abs": np.abs,
@@ -192,12 +184,7 @@ def evaluate_expression(
             
             result_values = []
             
-            # 数学関数（スカラー用）
             math_funcs = {
-                "sin": math.sin,
-                "cos": math.cos,
-                "tan": math.tan,
-                "exp": math.exp,
                 "log": math.log,
                 "sqrt": math.sqrt,
                 "abs": abs,
@@ -248,59 +235,6 @@ def evaluate_expression(
              raise ValueError(f"式の評価中にエラーが発生しました: {str(e)}")
 
 # --- 変換操作 (transform.pyから統合) ---
-
-def sin(values: np.ndarray, degrees: bool = False) -> np.ndarray:
-    """正弦(sin)を計算します。
-
-    Args:
-        values (np.ndarray): 入力値の配列。
-        degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    if degrees:
-        values = np.radians(values)
-    return np.sin(values)
-
-def cos(values: np.ndarray, degrees: bool = False) -> np.ndarray:
-    """余弦(cos)を計算します。
-
-    Args:
-        values (np.ndarray): 入力値の配列。
-        degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    if degrees:
-        values = np.radians(values)
-    return np.cos(values)
-
-def tan(values: np.ndarray, degrees: bool = False) -> np.ndarray:
-    """正接(tan)を計算します。
-
-    Args:
-        values (np.ndarray): 入力値の配列。
-        degrees (bool, optional): 入力が度数法(degree)かどうか。Trueの場合はラジアンに変換してから計算します。デフォルトは False（ラジアン）。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    if degrees:
-        values = np.radians(values)
-    return np.tan(values)
-
-def exp(values: np.ndarray) -> np.ndarray:
-    """指数関数(exp)を計算します。
-
-    Args:
-        values (np.ndarray): 入力値の配列。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    return np.exp(values)
 
 def log(values: np.ndarray, base: float = math.e) -> np.ndarray:
     """対数(log)を計算します。
