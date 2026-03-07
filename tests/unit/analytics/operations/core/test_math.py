@@ -15,6 +15,7 @@ from tascpy.analytics.operations.core.math import (
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.analytics.operations.proxy import CollectionOperations
+from tascpy.analytics.operations.error_handling import TascpyOperationError
 
 
 @pytest.fixture
@@ -161,12 +162,14 @@ class TestNormalizationFunctions:
         assert isinstance(result, ColumnCollection)
 
     def test_invalid_normalize_method(self, sample_collection):
-        with pytest.raises(ValueError, match="methodは"):
+        # 新設計では ValueError は TascpyOperationError にラップされる
+        with pytest.raises(TascpyOperationError, match="methodは"):
             normalize(sample_collection, "norm_input", method="invalid")
 
 class TestErrorHandling:
     def test_nonexistent_column(self, sample_collection):
-        with pytest.raises(KeyError):
+        # 新設計では KeyError は TascpyOperationError にラップされる
+        with pytest.raises(TascpyOperationError):
             abs_values(sample_collection, "nonexistent")
 
 class TestOperationChaining:

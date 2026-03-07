@@ -12,7 +12,8 @@ def inject_columns(
     cast_to_numpy: bool = True,
     columns_arg: str = None,
     columns_arg_pos: int = None,
-    include_step: bool = False
+    include_step: bool = False,
+    pass_collection: bool = True,
 ):
     """
     Decorator to parse arguments and inject column data.
@@ -182,7 +183,10 @@ def inject_columns(
                     else:
                         input_values.append(val_source)
             
-            return func(*input_values, *args_list, **kwargs)
+            if pass_collection:
+                return func(collection, *input_values, *args_list, **kwargs)
+            else:
+                return func(*input_values, *args_list, **kwargs)
             
         return wrapper
     return decorator
@@ -235,13 +239,18 @@ def handle_missing_values(strategy: str = "nan"):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # args are now values (arrays or scalars) from inject_columns
+            # args are now values (arrays or scalars) from inject_columns.
+            # The first arg may be a ColumnCollection (when using direct stacking);
+            # in that case we pass it through unchanged.
             
             processed_args = []
             
             # 'nan' strategy
             if strategy == "nan":
-                for arg in args:
+                for i, arg in enumerate(args):
+                    if i == 0 and isinstance(arg, ColumnCollection):
+                        processed_args.append(arg)
+                        continue
                     if isinstance(arg, np.ndarray) and np.issubdtype(arg.dtype, np.number):
                         processed_args.append(arg.astype(float)) # Ensure float for NaN
                     elif isinstance(arg, np.ndarray) and (arg.dtype == object or arg.dtype.kind in ('U', 'S')):
@@ -301,7 +310,10 @@ def handle_missing_values(strategy: str = "nan"):
                 
                 converted_args = []
                 
-                for arg in args:
+                for i, arg in enumerate(args):
+                    if i == 0 and isinstance(arg, ColumnCollection):
+                        converted_args.append(arg)
+                        continue
                     # Treat raw inputs (lists with None)
                     if isinstance(arg, (list, np.ndarray)):
                         if shape_ref is None: shape_ref = arg

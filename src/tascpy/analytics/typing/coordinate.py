@@ -523,273 +523,378 @@ Examples:
 
     def add(
         self,
-        column: str,
-        v2: Union[ndarray, float]
+        value1: Union[str, float, ndarray],
+        value2: Union[str, float, ndarray],
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
         """複数カラムまたはスカラー値の要素ごとの和を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    value1 (Union[str, float]): 第1引数（カラム名または数値）
-    value2 (Union[str, float]): 第2引数（カラム名または数値）
-    
+    value1 (Union[str, float, np.ndarray]): 第1引数（カラム名または数値）
+    value2 (Union[str, float, np.ndarray]): 第2引数（カラム名または数値）
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加された新しいコレクション
-    
+
 Examples:
-    >>> col = col.ops.add("CH01", "CH02")      # CH01 + CH02 -> 新しい列に追加
-    >>> col = col.ops.add("CH01", 10.5)        # CH01に10.5を加算"""
+    >>> col = col.ops.add("CH01", "CH02")
+    >>> col = col.ops.add("CH01", 10.5)"""
         ...
     
 
     def subtract(
         self,
-        column: str,
-        v2: Union[ndarray, float]
+        value1: Union[str, float, ndarray],
+        value2: Union[str, float, ndarray],
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
         """第一引数から第二引数の要素ごとの差を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    value1 (Union[str, float]): 第1引数（カラム名または数値）
-    value2 (Union[str, float]): 第2引数（引き算するカラム名または数値）
+    value1 (Union[str, float, np.ndarray]): 第1引数（カラム名または数値）
+    value2 (Union[str, float, np.ndarray]): 第2引数（引き算するカラム名または数値）
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
 
 Returns:
     ColumnCollection: 計算結果カラムが追加された新しいコレクション
-    
+
 Examples:
-    >>> col = col.ops.subtract("CH01", "CH02") # CH01 - CH02
-    >>> col = col.ops.subtract("CH01", 10.5)   # CH01 - 10.5"""
+    >>> col = col.ops.subtract("CH01", "CH02")
+    >>> col = col.ops.subtract("CH01", 10.5)"""
         ...
     
 
     def multiply(
         self,
-        column: str,
-        v2: Union[ndarray, float]
+        value1: Union[str, float, ndarray],
+        value2: Union[str, float, ndarray],
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
         """複数カラムまたはスカラー値の要素ごとの積を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    value1 (Union[str, float]): 第1引数（カラム名または数値）
-    value2 (Union[str, float]): 第2引数（カラム名または数値）
+    value1 (Union[str, float, np.ndarray]): 第1引数（カラム名または数値）
+    value2 (Union[str, float, np.ndarray]): 第2引数（カラム名または数値）
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
 
 Returns:
     ColumnCollection: 計算結果カラムが追加された新しいコレクション
-    
+
 Examples:
-    >>> col = col.ops.multiply("CH01", 2.0)    # CH01 * 2.0"""
+    >>> col = col.ops.multiply("CH01", 2.0)"""
         ...
     
 
     def divide(
         self,
-        column: str,
-        v2: Union[ndarray, float],
-        **kwargs
+        value1: Union[str, float, ndarray],
+        value2: Union[str, float, ndarray],
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
         """第一引数を第二引数で要素ごとに除算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    value1 (Union[str, float]): 分子（カラム名または数値）
-    value2 (Union[str, float]): 分母（カラム名または数値）
-    
+    value1 (Union[str, float, np.ndarray]): 分子（カラム名または数値）
+    value2 (Union[str, float, np.ndarray]): 分母（カラム名または数値）
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加された新しいコレクション
-    
+
 Examples:
-    >>> col = col.ops.divide("CH01", 1000)     # CH01 / 1000 (例: N -> kN変換など)"""
+    >>> col = col.ops.divide("荷重", 1000)"""
         ...
     
 
     def diff(
         self,
-        y_values: ndarray,
-        x_values: ndarray,
-        method: str = 'central'
+        y_column: Union[str, ndarray],
+        x_column: Union[str, ndarray],
+        method: str = 'central',
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
-        """データ系列の離散微分 (dy/dx) を計算します
+        """データ系列の離散微分 (dy/dx) を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    y_column (str): Y軸データとなるカラム名
-    x_column (str): X軸データとなるカラム名
+    y_column (Union[str, np.ndarray]): Y軸データとなるカラム名
+    x_column (Union[str, np.ndarray]): X軸データとなるカラム名
     method (str, optional): 微分手法 ("forward", "backward", "central"). Defaults to "central".
-    
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 微分値カラムが追加された新しいコレクション
-    
+
 Examples:
-    >>> diff_col = col.ops.diff(y_column="変位", x_column="__step__", method="central")"""
+    >>> result = col.ops.diff("変位", "__step__", method="central")"""
         ...
     
 
     def integrate(
         self,
-        y_values: ndarray,
-        x_values: ndarray,
-        method: str = 'trapezoidal',
-        initial_value: float = 0.0
+        y_column: Union[str, ndarray],
+        x_column: Union[str, ndarray],
+        method: str = 'trapezoid',
+        initial_value: float = 0.0,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
-        """データ系列の離散積分 (∫ y dx) を計算します
+        """データ系列の離散積分 (∫y dx) を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    y_column (str): Y軸データとなるカラム名
-    x_column (str): X軸データとなるカラム名
-    method (str, optional): 積分手法 ("trapezoidal", "cumulative_sum"). Defaults to "trapezoidal".
+    y_column (Union[str, np.ndarray]): Y軸データとなるカラム名
+    x_column (Union[str, np.ndarray]): X軸データとなるカラム名
+    method (str, optional): 積分手法 ("trapezoid", "cumulative_sum"). Defaults to "trapezoid".
     initial_value (float, optional): 積分定数 (初期値). Defaults to 0.0.
-    
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 積分値カラムが追加された新しいコレクション
-    
+
 Examples:
-    >>> int_col = col.ops.integrate(y_column="速度", x_column="__step__")"""
+    >>> result = col.ops.integrate("速度", "__step__")"""
         ...
     
 
     def evaluate(
         self,
-        column: str,
         expression: str,
-        **kwargs
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
-        """与えられた数式文字列を評価し、新しい列を生成します。
+        """与えられた数式文字列を評価し、新しいカラムを生成します。
 
 Args:
     collection (ColumnCollection): データコレクション
     expression (str): 評価する数式文字列（例: "CH01 * 2 + CH02"）
-    
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加された新しいコレクション
-    
+
 Examples:
-    >>> res_col = col.ops.evaluate("荷重 * 2.0 + 10.0")"""
+    >>> result = col.ops.evaluate("荷重 * 2.0 + 10.0")"""
         ...
     
 
     def log(
         self,
-        column: str,
-        base: float = 2.718281828459045
+        values: Union[str, ndarray],
+        base: float = 2.718281828459045,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
-        """指定されたカラムの対数（Log）を計算します。
+        """指定されたカラムの対数を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    values (str | np.ndarray): 対象のカラム名
+    values (Union[str, np.ndarray]): 対象のカラム名または数値配列
     base (float, optional): 対数の底. Defaults to e.
-    
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加されたコレクション
-    
+
 Examples:
-    >>> log_col = col.ops.log("CH1", base=10.0)"""
+    >>> result = col.ops.log("CH1", base=10.0)"""
         ...
     
 
     def sqrt(
         self,
-        column: str
+        values: Union[str, ndarray],
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
-        """指定されたカラムの平方根（Square Root）を計算します。
+        """指定されたカラムの平方根を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    values (str | np.ndarray): 対象のカラム名
-    
+    values (Union[str, np.ndarray]): 対象のカラム名または数値配列
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加されたコレクション
-    
+
 Examples:
-    >>> sqrt_col = col.ops.sqrt("CH1")"""
+    >>> result = col.ops.sqrt("CH1")"""
         ...
     
 
     def pow(
         self,
-        column: str,
-        exponent: float = 1.0
+        values: Union[str, ndarray],
+        exponent: float = 1.0,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
-        """指定されたカラムのべき乗（Power）を計算します。
+        """指定されたカラムのべき乗を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    values (str): 対象のカラム名
-    exponent (float, optional): べき乗の指数. Defaults to 1.0.
-    
+    values (Union[str, np.ndarray]): 対象のカラム名または数値配列
+    exponent (float, optional): 指数. Defaults to 1.0.
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加されたコレクション
-    
+
 Examples:
-    >>> pow_col = col.ops.pow("CH1", exponent=2.0)"""
+    >>> result = col.ops.pow("CH1", exponent=2.0)"""
         ...
     
 
     def abs_values(
         self,
-        column: str
+        values: Union[str, ndarray],
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
-        """指定されたカラムの絶対値（Absolute value）を計算します。
+        """指定されたカラムの絶対値を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    values (str): 対象のカラム名
-    
+    values (Union[str, np.ndarray]): 対象のカラム名または数値配列
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加されたコレクション
-    
+
 Examples:
-    >>> abs_col = col.ops.abs_values("変位")"""
+    >>> result = col.ops.abs_values("変位")"""
         ...
     
 
     def round_values(
         self,
-        column: str,
-        decimals: int = 0
+        values: Union[str, ndarray],
+        decimals: int = 0,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
         """指定されたカラムの値を丸めます（四捨五入）。
 
 Args:
     collection (ColumnCollection): データコレクション
-    values (str): 対象のカラム名
+    values (Union[str, np.ndarray]): 対象のカラム名または数値配列
     decimals (int, optional): 丸める小数点以下の桁数. Defaults to 0.
-    
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加されたコレクション
-    
+
 Examples:
-    >>> rounded_col = col.ops.round_values("荷重", decimals=2)"""
+    >>> result = col.ops.round_values("荷重", decimals=2)"""
         ...
     
 
     def normalize(
         self,
-        column: str,
-        method: str = 'minmax'
+        values: Union[str, ndarray],
+        method: str = 'minmax',
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
         """指定されたカラムの値を正規化します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    values (str): 対象のカラム名
+    values (Union[str, np.ndarray]): 対象のカラム名または数値配列
     method (str, optional): 正規化手法 ("minmax", "zscore", "max_abs"). Defaults to "minmax".
-    
+    result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
+
 Returns:
     ColumnCollection: 計算結果カラムが追加されたコレクション
-    
+
 Examples:
-    >>> norm_col = col.ops.normalize("荷重", method="minmax")"""
+    >>> result = col.ops.normalize("荷重", method="minmax")"""
         ...
     
 
     def average_across(
         self,
-        *column: str,
-        ignore_nan: bool = True
+        *columns: str,
+        ignore_nan: bool = True,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> CoordinateCollectionOperations:
         """複数カラムの値を行ごとに平均し、新しいカラムとして追加します。
 
@@ -798,13 +903,15 @@ Args:
     *columns (str): 平均を計算対象とする複数列のカラム名
     ignore_nan (bool, optional): 欠損値（NaN）を無視するかどうか。デフォルトはTrue。
     result_column (str, optional): 結果を格納するカラム名。指定しない場合は自動生成。
+    unit (str, optional): 結果の単位。
+    ch (str, optional): 結果のチャネル名。
+    in_place (bool, optional): 元のコレクションを上書きするかどうか。デフォルトはFalse。
 
 Returns:
     ColumnCollection: 計算結果カラムが追加されたコレクション
 
 Examples:
-    >>> avg_col = col.ops.average_across("センサ1", "センサ2", "センサ3", result_column="平均値")
-    >>> avg_col = col.ops.average_across("CH01", "CH02", ignore_nan=False)"""
+    >>> result = col.ops.average_across("センサ1", "センサ2", "センサ3", result_column="平均値")"""
         ...
     
 
