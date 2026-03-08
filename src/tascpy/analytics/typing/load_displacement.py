@@ -38,8 +38,12 @@ class LoadDisplacementCollectionOperations(CollectionOperationsBase[LoadDisplace
 
     def calculate_slopes(
         self,
-        column: float,
-        load_data: ndarray
+        disp_data: Union[str, ndarray] = None,
+        load_data: Union[str, ndarray] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> LoadDisplacementCollectionOperations:
         """荷重-変位データから区間ごとの傾き（スロープ）を計算します。
 
@@ -47,10 +51,14 @@ Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
     disp_data (str, optional): 変位データのカラム名（None時は自動解決）
     load_data (str, optional): 荷重データのカラム名（None時は自動解決）
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     LoadDisplacementCollection: 算出された傾きデータが追加された新しいコレクション
-    
+
 Examples:
     >>> col = col.ops.calculate_slopes()"""
         ...
@@ -58,20 +66,20 @@ Examples:
 
     def calculate_stiffness(
         self,
-        column: float,
-        column: float,
+        disp_data: Optional[str] = None,
+        load_data: Optional[str] = None,
         range_start: float = 0.2,
         range_end: float = 0.8,
         method: str = 'linear_regression'
-    ) -> float:
+    ) -> LoadDisplacementCollectionOperations:
         """calculate_stiffness のエイリアス"""
         ...
     
 
     def find_yield_point(
         self,
-        column: float,
-        column: float,
+        disp_data: Union[str, ndarray] = None,
+        load_data: Union[str, ndarray] = None,
         method: str = 'offset',
         offset_value: float = 0.002,
         range_start: float = 0.1,
@@ -79,20 +87,18 @@ Examples:
         factor: float = 0.33,
         debug_mode: bool = False,
         fail_silently: bool = False
-    ) -> LoadDisplacementCollectionOperations:
+    ) -> tuple[bool, float, float, dict[str, Any]]:
         """find_yield_point のエイリアス"""
         ...
     
 
     def create_skeleton_curve(
         self,
-        column: str,
-        displacements: ndarray,
-        markers: ndarray,
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None,
+        cycle_marker_column: Optional[str] = None,
         has_decrease: bool = False,
-        decrease_type: str = 'envelope',
-        *args,
-        **kwargs
+        decrease_type: str = 'envelope'
     ) -> LoadDisplacementCollectionOperations:
         """荷重-変位データからスケルトン曲線（包絡線）を生成します。
 
@@ -103,10 +109,10 @@ Args:
     cycle_marker_column (str, optional): サイクルマーカーカラム名（None時は自動解決）
     has_decrease (bool, optional): 剛性低下を考慮するかどうか. Defaults to False.
     decrease_type (str, optional): 剛性低下の計算手法. Defaults to "envelope".
-    
+
 Returns:
     LoadDisplacementCollection: スケルトン曲線データが結果として追加された新しいコレクション
-    
+
 Examples:
     >>> col = col.ops.create_skeleton_curve(has_decrease=True, decrease_type="envelope")"""
         ...
@@ -114,10 +120,9 @@ Examples:
 
     def create_cumulative_curve(
         self,
-        displacements: ndarray,
-        markers: ndarray,
-        *args,
-        **kwargs
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None,
+        cycle_marker_column: Optional[str] = None
     ) -> LoadDisplacementCollectionOperations:
         """荷重-変位データから累積塑性変形-荷重曲線を生成します。
 
@@ -126,10 +131,10 @@ Args:
     load_column (str, optional): 荷重データのカラム名（None時は自動解決）
     displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
     cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
-    
+
 Returns:
     LoadDisplacementCollection: 累積曲線データが結果として追加された新しいコレクション
-    
+
 Examples:
     >>> col = col.ops.create_cumulative_curve()"""
         ...
@@ -137,19 +142,27 @@ Examples:
 
     def cycle_count(
         self,
-        column: float,
-        step: float = 0.5
+        column: Optional[str] = None,
+        step: float = 0.5,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> LoadDisplacementCollectionOperations:
         """荷重データの符号反転に基づいてサイクルをカウントします。
 
 Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
-    data (str, optional): 荷重データのカラム名（None時はメタデータから解決）
+    column (str, optional): 荷重データのカラム名（None時はメタデータから解決）
     step (float, optional): ノイズ除去のための変化判定ステップ幅. Defaults to 0.5.
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     LoadDisplacementCollection: サイクル番号が追加された新しいコレクション
-    
+
 Examples:
     >>> col = col.ops.cycle_count(step=1.0)"""
         ...
@@ -170,7 +183,7 @@ Args:
 
 Returns:
     List[LoadDisplacementCollection]: サイクルごとに分割されたコレクションのリスト
-    
+
 Examples:
     >>> cycle_list = col.ops.split_by_cycles()
     >>> first_cycle = cycle_list[0]"""
@@ -179,12 +192,11 @@ Examples:
 
     def analyze_hysteresis(
         self,
-        column: str,
-        disps: ndarray,
-        markers: ndarray,
-        *args,
-        **kwargs
-    ) -> LoadDisplacementCollectionOperations:
+        cycle_column: Optional[str] = None,
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None,
+        cycle_marker_column: Optional[str] = None
+    ) -> tuple:
         """各サイクルのヒステリシスエネルギー（面積）と最大/最小荷重・変位を計算します。
 
 Args:
@@ -193,10 +205,10 @@ Args:
     load_column (str, optional): 荷重データのカラム名（None時は自動解決）
     displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
     cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
-    
+
 Returns:
     LoadDisplacementCollection: サイクルごとの統計量を持つ新しいコレクション
-    
+
 Examples:
     >>> stats_col = col.ops.analyze_hysteresis()
     >>> energy = stats_col["energy"].values"""
@@ -205,12 +217,11 @@ Examples:
 
     def analyze_stiffness_degradation(
         self,
-        column: str,
-        disps: ndarray,
-        markers: ndarray,
-        *args,
-        **kwargs
-    ) -> LoadDisplacementCollectionOperations:
+        cycle_column: Optional[str] = None,
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None,
+        cycle_marker_column: Optional[str] = None
+    ) -> tuple:
         """各サイクルの割線剛性（剛性低下）を評価します。
 
 Args:
@@ -219,10 +230,10 @@ Args:
     load_column (str, optional): 荷重データのカラム名（None時は自動解決）
     displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
     cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
-    
+
 Returns:
     LoadDisplacementCollection: サイクルごとの割線剛性を持つ新しいコレクション
-    
+
 Examples:
     >>> stiffness_col = col.ops.analyze_stiffness_degradation()"""
         ...
@@ -230,22 +241,31 @@ Examples:
 
     def find_peaks_and_valleys(
         self,
-        column: float,
+        column: Union[str, ndarray] = None,
         distance: int = 1,
-        threshold: float = None
+        threshold: Optional[float] = None,
+        prominence: Optional[float] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> LoadDisplacementCollectionOperations:
         """荷重データのピーク（極大値）とバレー（極小値）を検出します。
 
 Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
-    data (str, optional): 荷重データのカラム名（None時は自動解決）
+    column (str, optional): 荷重データのカラム名（None時は自動解決）
     distance (int, optional): 隣接するピーク間の最小距離. Defaults to 1.
     threshold (float, optional): ピークとして認識するための閾値
     prominence (float, optional): 周囲からの最低の突出度
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     LoadDisplacementCollection: ピーク（1）、バレー（-1）、その他（0）を示すマーカーカラムが追加された新しいコレクション
-    
+
 Examples:
     >>> col = col.ops.find_peaks_and_valleys(distance=10, prominence=0.5)"""
         ...

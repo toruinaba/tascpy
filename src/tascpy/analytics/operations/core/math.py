@@ -25,7 +25,7 @@ from ..naming import infix_naming, format_naming, basic_naming, log_naming
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=infix_naming("+"))
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def add(
     collection: ColumnCollection,
@@ -60,7 +60,7 @@ def add(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=infix_naming("-"))
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def subtract(
     collection: ColumnCollection,
@@ -95,7 +95,7 @@ def subtract(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=infix_naming("*"))
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def multiply(
     collection: ColumnCollection,
@@ -129,7 +129,7 @@ def multiply(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=infix_naming("/"))
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 @handle_zero_division(numerator_idx=0, denominator_idx=1)
 @handle_missing_values(strategy="nan")
 def divide(
@@ -184,7 +184,7 @@ def _integrate_unit_inference(collection, y_column, x_column, **kwargs):
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=format_naming("d({0})/d({1})"), unit_inference=_diff_unit_inference)
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 @handle_missing_values(strategy="strict")
 def diff(
     collection: ColumnCollection,
@@ -220,7 +220,7 @@ def diff(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=format_naming("∫{0}·d{1}"), unit_inference=_integrate_unit_inference)
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 @handle_missing_values(strategy="strict")
 def integrate(
     collection: ColumnCollection,
@@ -312,7 +312,7 @@ def evaluate(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=log_naming)
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def log(
     collection: ColumnCollection,
@@ -346,7 +346,7 @@ def log(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=basic_naming)
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def sqrt(
     collection: ColumnCollection,
@@ -378,7 +378,7 @@ def sqrt(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=format_naming("{0}^{exponent}", defaults={"exponent": 1.0}, arg_names=["values", "exponent"]))
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def pow(
     collection: ColumnCollection,
@@ -412,7 +412,7 @@ def pow(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=format_naming("abs({0})"))
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def abs_values(
     collection: ColumnCollection,
@@ -446,7 +446,7 @@ abs = abs_values
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=format_naming("round({0}, {decimals})", defaults={"decimals": 0}))
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def round_values(
     collection: ColumnCollection,
@@ -480,7 +480,7 @@ def round_values(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=format_naming("norm_{method}({0})", defaults={"method": "minmax"}))
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def normalize(
     collection: ColumnCollection,
@@ -518,7 +518,7 @@ def normalize(
 @operation(domain="core")
 @handle_operation_errors
 @store_result(result_naming=basic_naming("average_across"))
-@inject_columns(num_inputs=-1, cast_to_numpy=True)
+@inject_columns(num_inputs=-1, cast_to_numpy=True, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def average_across(
     collection: ColumnCollection,

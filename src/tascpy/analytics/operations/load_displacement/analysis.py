@@ -4,65 +4,60 @@ from typing import List, Optional, Dict, Any, Tuple, Union
 import numpy as np
 from ...operations.registry import operation
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.core.column import Column
-from tascpy.core.result import PointResult
-from ...operations.validation import requires_domain
-from ...operations.registry import register_functional
-from .abstraction import resolve_ld_columns
+from ...operations.abstraction import inject_columns, store_result, store_point_result, store_scalar_result
 from ...functional.load_displacement.analysis import compute_slopes, compute_stiffness, compute_yield_point
 
-calculate_slopes = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
-    compute_slopes,
-    domain="load_displacement",
-    name="calculate_slopes",
-    inject_columns={"num_inputs": 2, "cast_to_numpy": True},
-    store_result={"result_naming": "slope_data"},
-    signature_override={
-        "disp_data": ("column", float),
-    }
-)))
-"""荷重-変位データから区間ごとの傾き（スロープ）を計算します。
+
+@operation(domain="load_displacement")
+@store_result(result_naming="slope_data")
+@inject_columns(num_inputs=2, pass_collection=True)
+def calculate_slopes(
+    collection: LoadDisplacementCollection,
+    disp_data: Union[str, np.ndarray] = None,
+    load_data: Union[str, np.ndarray] = None,
+    result_column: Optional[str] = None,
+    unit: Optional[str] = None,
+    ch: Optional[str] = None,
+    in_place: bool = False,
+) -> LoadDisplacementCollection:
+    """荷重-変位データから区間ごとの傾き（スロープ）を計算します。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
         disp_data (str, optional): 変位データのカラム名（None時は自動解決）
         load_data (str, optional): 荷重データのカラム名（None時は自動解決）
-        
+        result_column (str, optional): 結果カラム名. Defaults to None.
+        unit (str, optional): 結果の単位. Defaults to None.
+        ch (str, optional): 結果のチャネル名. Defaults to None.
+        in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
     Returns:
         LoadDisplacementCollection: 算出された傾きデータが追加された新しいコレクション
-        
+
     Examples:
         >>> col = col.ops.calculate_slopes()
-"""
-calculate_slopes.__doc__ = """荷重-変位データから区間ごとの傾き（スロープ）を計算します。
+    """
+    # inject_columns passes (collection, disp_arr, load_arr, ...)
+    # disp_data and load_data are resolved from the collection if None
+    if disp_data is None:
+        disp_data = np.array(collection[collection.displacement_column].values)
+    if load_data is None:
+        load_data = np.array(collection[collection.load_column].values)
+    return compute_slopes(disp_data, load_data)
 
-    Args:
-        collection (LoadDisplacementCollection): 荷重-変位コレクション
-        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
-        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
-        
-    Returns:
-        LoadDisplacementCollection: 算出された傾きデータが追加された新しいコレクション
-        
-    Examples:
-        >>> col = col.ops.calculate_slopes()
-"""
 
-calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
-    compute_stiffness,
-    domain="load_displacement",
-    name="calculate_stiffness",
-    inject_columns={"num_inputs": 2, "cast_to_numpy": True},
-    signature_override={
-        "disp_data": ("column", float),
-        "load_data": ("column", float),
-        "range_start": (float, 0.2),
-        "range_end": (float, 0.8),
-        "method": (str, "linear_regression"),
-    }
-)))
-"""指定された範囲のデータから剛性（代表スロープ）を計算します。
-    
+@operation(domain="load_displacement")
+@store_scalar_result(name="stiffness")
+def calculate_stiffness(
+    collection: LoadDisplacementCollection,
+    disp_data: Optional[str] = None,
+    load_data: Optional[str] = None,
+    range_start: float = 0.2,
+    range_end: float = 0.8,
+    method: str = "linear_regression",
+) -> LoadDisplacementCollection:
+    """指定された範囲のデータから剛性（代表スロープ）を計算します。
+
     注意:
         変位データに変動がない（同じ値が連続する）場合、計算（SVD）がエラーになるか
         ゼロ除算が発生します。事前に `.ops.remove_consecutive_duplicates_across()` によって
@@ -75,118 +70,91 @@ calculate_stiffness = operation(domain="load_displacement")(resolve_ld_columns(r
         range_start (float, optional): 計算対象範囲の開始比率（最大値に対する比率）. Defaults to 0.2.
         range_end (float, optional): 計算対象範囲の終了比率（最大値に対する比率）. Defaults to 0.8.
         method (str, optional): 計算手法 ("linear_regression", "secant"). Defaults to "linear_regression".
-        
-    Returns:
-        LoadDisplacementCollection: 剛性の計算結果がメタデータとして追加された新しいコレクション
-        
-    Examples:
-        >>> col = col.ops.calculate_stiffness(range_start=0.1, range_end=0.4, method="linear_regression")
-"""
-calculate_stiffness.__doc__ = """指定された範囲のデータから剛性（代表スロープ）を計算します。
-    
-    注意:
-        変位データに変動がない（同じ値が連続する）場合、計算（SVD）がエラーになるか
-        ゼロ除算が発生します。事前に `.ops.remove_consecutive_duplicates_across()` によって
-        重複を除去しておくことを推奨します。
 
-    Args:
-        collection (LoadDisplacementCollection): 荷重-変位コレクション
-        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
-        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
-        range_start (float, optional): 計算対象範囲の開始比率（最大値に対する比率）. Defaults to 0.2.
-        range_end (float, optional): 計算対象範囲の終了比率（最大値に対する比率）. Defaults to 0.8.
-        method (str, optional): 計算手法 ("linear_regression", "secant"). Defaults to "linear_regression".
-        
     Returns:
-        LoadDisplacementCollection: 剛性の計算結果がメタデータとして追加された新しいコレクション
-        
-    Examples:
-        >>> col = col.ops.calculate_stiffness(range_start=0.1, range_end=0.4, method="linear_regression")
-"""
+        float: 計算された剛性値
 
-find_yield_point = operation(domain="load_displacement")(resolve_ld_columns(register_functional(
-    compute_yield_point,
-    domain="load_displacement",
-    name="find_yield_point",
-    inject_columns={"num_inputs": 2, "cast_to_numpy": True},
-    store_point_result={"name": "yield_point"},
-    signature_override={
-        "disp_data": ("column", float),
-        "load_data": ("column", float),
-        "method": (str, "offset"),
-        "offset_value": (float, 0.002),
-        "range_start": (float, 0.1),
-        "range_end": (float, 0.3),
-        "factor": (float, 0.33),
-        "debug_mode": (bool, False),
-        "fail_silently": (bool, False),
-    }
-)))
-"""荷重-変位データから降伏点（Yield Point）を検出します。
-    
-    初期剛性を `range_start` (デフォルト: 0.1) から `range_end` (デフォルト: 0.3) の
-    最大荷重に対する割合の範囲で自動計算し、以下のいずれかの手法で降伏点を求めます：
-    
-    - `method="offset"`: 初期剛性に対して `offset_value` (デフォルト 0.2%) 平行移動した直線とデータの交点。
-    - `method="general"`: 各点の瞬間の傾き（勾配）を計算し、`initial_slope * factor` を最初に下回った点。
-    
+    Examples:
+        >>> stiffness = col.ops.calculate_stiffness(range_start=0.1, range_end=0.4)
+    """
+    disp_col = disp_data or collection.displacement_column
+    load_col = load_data or collection.load_column
+
+    disp_arr = np.array(collection[disp_col].values)
+    load_arr = np.array(collection[load_col].values)
+
+    return compute_stiffness(
+        disp_arr, load_arr,
+        range_start=range_start,
+        range_end=range_end,
+        method=method,
+    )
+
+
+@operation(domain="load_displacement")
+@store_point_result(name="yield_point")
+@inject_columns(num_inputs=2, pass_collection=True)
+def find_yield_point(
+    collection: LoadDisplacementCollection,
+    disp_data: Union[str, np.ndarray] = None,
+    load_data: Union[str, np.ndarray] = None,
+    method: str = "offset",
+    offset_value: float = 0.002,
+    range_start: float = 0.1,
+    range_end: float = 0.3,
+    factor: float = 0.33,
+    debug_mode: bool = False,
+    fail_silently: bool = False,
+) -> Tuple[bool, float, float, Dict[str, Any]]:
+    """荷重-変位データから降伏点（Yield Point）を検出します。
+
+    初期剛性を `range_start` から `range_end` の最大荷重に対する割合の範囲で自動計算し、
+    以下のいずれかの手法で降伏点を求めます：
+
+    - `method="offset"`: 初期剛性に対して `offset_value` 平行移動した直線とデータの交点。
+    - `method="general"`: 各点の瞬間の傾き（勾配）を計算し、`initial_slope * factor` を下回った点。
+
     注意:
-        変位データに変動がない（同じ変位値が連続する）場合、SVDエラーやゼロ除算が発生するため
-        例外が送出されます。このようなデータが含まれる場合は、本処理を呼び出す前に
-        `.ops.remove_consecutive_duplicates_across()` を実行し、重複データを除外してください。
+        変位データに変動がない（同じ変位値が連続する）場合、SVDエラーやゼロ除算が発生します。
+        事前に `.ops.remove_consecutive_duplicates_across()` を実行してください。
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
         disp_data (str, optional): 変位データのカラム名（None時は自動解決）
         load_data (str, optional): 荷重データのカラム名（None時は自動解決）
         method (str, optional): 降伏点判定手法 ("offset", "max_load"). Defaults to "offset".
-        offset_value (float, optional): オフセット法におけるオフセットひずみ等. Defaults to 0.002.
+        offset_value (float, optional): オフセット法におけるオフセット値. Defaults to 0.002.
         range_start (float, optional): 剛性計算の開始比率. Defaults to 0.1.
         range_end (float, optional): 剛性計算の終了比率. Defaults to 0.3.
         factor (float, optional): 特定手法での係数. Defaults to 0.33.
         debug_mode (bool, optional): デバッグ情報を表示するか. Defaults to False.
         fail_silently (bool, optional): 検出失敗時に例外を投げず無視するか. Defaults to False.
-        
+
     Returns:
         LoadDisplacementCollection: 降伏点情報が結果として追加された新しいコレクション
-        
+
     Examples:
         >>> col = col.ops.find_yield_point(method="offset", offset_value=0.002)
         >>> yield_pt = col.results["yield_point"].value
-"""
-find_yield_point.__doc__ = """荷重-変位データから降伏点（Yield Point）を検出します。
-    
-    初期剛性を `range_start` (デフォルト: 0.1) から `range_end` (デフォルト: 0.3) の
-    最大荷重に対する割合の範囲で自動計算し、以下のいずれかの手法で降伏点を求めます：
-    
-    - `method="offset"`: 初期剛性に対して `offset_value` (デフォルト 0.2%) 平行移動した直線とデータの交点。
-    - `method="general"`: 各点の瞬間の傾き（勾配）を計算し、`initial_slope * factor` を最初に下回った点。
-    
-    注意:
-        変位データに変動がない（同じ変位値が連続する）場合、SVDエラーやゼロ除算が発生するため
-        例外が送出されます。このようなデータが含まれる場合は、本処理を呼び出す前に
-        `.ops.remove_consecutive_duplicates_across()` を実行し、重複データを除外してください。
+    """
+    if disp_data is None:
+        disp_data = np.array(collection[collection.displacement_column].values)
+    if load_data is None:
+        load_data = np.array(collection[collection.load_column].values)
 
-    Args:
-        collection (LoadDisplacementCollection): 荷重-変位コレクション
-        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
-        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
-        method (str, optional): 降伏点判定手法 ("offset", "max_load"). Defaults to "offset".
-        offset_value (float, optional): オフセット法におけるオフセットひずみ等. Defaults to 0.002.
-        range_start (float, optional): 剛性計算の開始比率. Defaults to 0.1.
-        range_end (float, optional): 剛性計算の終了比率. Defaults to 0.3.
-        factor (float, optional): 特定手法での係数. Defaults to 0.33.
-        debug_mode (bool, optional): デバッグ情報を表示するか. Defaults to False.
-        fail_silently (bool, optional): 検出失敗時に例外を投げず無視するか. Defaults to False.
-        
-    Returns:
-        LoadDisplacementCollection: 降伏点情報が結果として追加された新しいコレクション
-        
-    Examples:
-        >>> col = col.ops.find_yield_point(method="offset", offset_value=0.002)
-        >>> yield_pt = col.results["yield_point"].value
-"""
+    return compute_yield_point(
+        disp_data, load_data,
+        method=method,
+        offset_value=offset_value,
+        range_start=range_start,
+        range_end=range_end,
+        factor=factor,
+        debug_mode=debug_mode,
+        fail_silently=fail_silently,
+    )
 
+
+# Aliases
 stiffness = calculate_stiffness
 stiffness.__doc__ = "calculate_stiffness のエイリアス"
 

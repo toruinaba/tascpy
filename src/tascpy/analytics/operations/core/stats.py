@@ -18,7 +18,7 @@ from ..naming import format_naming
     defaults={"window_size": 3},
     arg_names=["column", "window_size", "edge_handling"]
 ))
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def moving_average(
     collection: ColumnCollection,
@@ -53,7 +53,7 @@ def moving_average(
 
 @operation(domain="core")
 @store_result(result_naming=format_naming("outlier({0})"))
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def detect_outliers(
     collection: ColumnCollection,
@@ -105,7 +105,7 @@ def detect_outliers(
     defaults={"sigma": 1.0},
     arg_names=["column", "sigma", "window_size"]
 ))
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 @handle_missing_values(strategy="nan")
 def gaussian_filter(
     collection: ColumnCollection,

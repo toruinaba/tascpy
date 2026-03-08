@@ -9,7 +9,7 @@ from ...functional import stats as functional_stats
 
 @operation(domain="core")
 @filter_rows
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 def filter_by_value(
     collection: ColumnCollection,
     column: str,
@@ -99,7 +99,7 @@ def remove_consecutive_duplicates_across(
 
 @operation(domain="core")
 @filter_rows
-@inject_columns(num_inputs=1)
+@inject_columns(num_inputs=1, pass_collection=True)
 def filter_by_condition(
     collection: ColumnCollection,
     column: str,

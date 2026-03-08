@@ -21,7 +21,9 @@ def linear_collection():
     
     c = LoadDisplacementCollection(
         step=list(range(101)), 
-        columns={"displacement": col_x, "load": col_y}
+        columns={"displacement": col_x, "load": col_y},
+        load_column="load",
+        displacement_column="displacement",
     )
     return c
 
@@ -45,7 +47,9 @@ def bilinear_collection():
     
     c = LoadDisplacementCollection(
         step=list(range(len(x))), 
-        columns={"displacement": col_x, "load": col_y}
+        columns={"displacement": col_x, "load": col_y},
+        load_column="load",
+        displacement_column="displacement",
     )
     return c
 
@@ -69,7 +73,9 @@ class TestCalculateSlopes:
             columns={
                 "displacement": Column(ch=None, name="displacement", unit="mm", values=[0.0]),
                 "load": Column(ch=None, name="load", unit="kN", values=[0.0])
-            }
+            },
+            load_column="load",
+            displacement_column="displacement",
         )
         with pytest.raises(ValueError, match="2つ以上のデータポイントが必要です"):
             calculate_slopes(c)
@@ -80,11 +86,11 @@ class TestCalculateStiffness:
         # range_start=0.2, range_end=0.8
         # max load = 20. range 4 to 16.
         val = calculate_stiffness(linear_collection, method="linear_regression")
-        assert val == pytest.approx(2.0)
+        assert val.results["stiffness"].value == pytest.approx(2.0)
 
     def test_secant(self, linear_collection):
         val = calculate_stiffness(linear_collection, method="secant")
-        assert val == pytest.approx(2.0)
+        assert val.results["stiffness"].value == pytest.approx(2.0)
 
     def test_insufficient_range_data(self, linear_collection):
         # linear_collection has 101 points (0..10). max load 20.

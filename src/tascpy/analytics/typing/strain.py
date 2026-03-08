@@ -40,11 +40,13 @@ class StrainCollectionOperations(CollectionOperationsBase[StrainCollection]):
         self,
         x: float,
         y: float,
-        z: Optional[float],
-        method: str,
-        power: float
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """座標点での値を補間して計算します
+        z: Optional[float] = None,
+        target_columns: Optional[list[str]] = None,
+        method: str = 'inverse_distance',
+        power: float = 2.0,
+        result_prefix: str = 'interp_'
+    ) -> StrainCollectionOperations:
+        """座標点での値を補間して計算します。
 
 指定された座標点 (x, y, z) において、既存の座標値に基づいて値を補間します。
 補間方法として逆距離加重法、最近傍法、線形補間法を選択できます。
@@ -61,7 +63,7 @@ Args:
 
 Returns:
     CoordinateCollection: 補間結果を含むコレクション
-    
+
 Examples:
     >>> interp_col = col.ops.interpolate_at_point(
     ...     x=10.0, y=20.0, method="inverse_distance"
@@ -71,12 +73,15 @@ Examples:
 
     def interpolate_grid(
         self,
-        x_grid: ndarray,
-        y_grid: ndarray,
-        method: str,
-        power: float
-    ) -> ndarray:
-        """指定した領域のグリッド上で値を補間します
+        x_range: tuple[float, float],
+        y_range: tuple[float, float],
+        grid_size: tuple[int, int] = (10, 10),
+        target_column: Optional[str] = None,
+        method: str = 'inverse_distance',
+        power: float = 2.0,
+        result_prefix: str = 'grid_'
+    ) -> StrainCollectionOperations:
+        """指定した領域のグリッド上で値を補間します。
 
 指定された x-y 平面上の矩形領域をグリッドに分割し、各グリッド点での値を補間します。
 補間結果はメタデータと結果列に保存されます。
@@ -93,20 +98,24 @@ Args:
 
 Returns:
     CoordinateCollection: グリッド補間結果を含むコレクション
-    
+
 Examples:
-    >>> grid_col = col.ops.interpolate_grid(x_range=(0, 100), y_range=(0, 100), grid_size=(20, 20), target_column="Temperature")"""
+    >>> grid_col = col.ops.interpolate_grid(
+    ...     x_range=(0, 100), y_range=(0, 100),
+    ...     grid_size=(20, 20), target_column="Temperature"
+    ... )"""
         ...
     
 
     def spatial_interpolation_to_points(
         self,
-        target_coords: list[dict[str, Any]],
-        is_3d: bool,
-        method: str,
-        power: float
-    ) -> list[float]:
-        """ソース列からターゲット列の座標位置に値を補間します
+        source_columns: Optional[list[str]] = None,
+        target_columns: Optional[list[str]] = None,
+        method: str = 'inverse_distance',
+        power: float = 2.0,
+        result_prefix: str = 'interp_'
+    ) -> StrainCollectionOperations:
+        """ソース列からターゲット列の座標位置に値を補間します。
 
 指定されたソース列の座標位置の値を使用して、ターゲット列の座標位置における
 値を補間します。複数のソースからの補間値の平均が計算されます。
@@ -121,7 +130,7 @@ Args:
 
 Returns:
     CoordinateCollection: 補間結果を含むコレクション
-    
+
 Examples:
     >>> mapped_col = col.ops.spatial_interpolation_to_points(
     ...     source_columns=["Sensor1", "Sensor2"],
@@ -131,37 +140,15 @@ Examples:
         ...
     
 
-    def interp_point(
-        self,
-        x: float,
-        y: float,
-        z: Optional[float],
-        method: str,
-        power: float
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """interpolate_at_point のエイリアス"""
-        ...
-    
-
-    def interp_grid(
-        self,
-        x_grid: ndarray,
-        y_grid: ndarray,
-        method: str,
-        power: float
-    ) -> ndarray:
-        """interpolate_grid のエイリアス"""
-        ...
-    
-
     def calculate_rosette_strains(
         self,
-        e2: ndarray,
-        e3: ndarray,
-        r_type: str = 'rectangular',
-        angle_offset: float = 0.0
-    ) -> tuple[ndarray, ndarray, ndarray, ndarray]:
-        """ロゼットひずみ計算 (主ひずみ・主応力方向)
+        rosette_name: Optional[str] = None,
+        columns: Optional[list[str]] = None,
+        rosette_type: str = 'rectangular',
+        orientation: float = 0.0,
+        prefix: Optional[str] = None
+    ) -> StrainCollectionOperations:
+        """ロゼットひずみ計算 (主ひずみ・主応力方向)。
 
 3軸ひずみゲージの値から、最大・最小主ひずみ、最大せん断ひずみ、主ひずみ方向を計算します。
 
@@ -170,19 +157,14 @@ Args:
     rosette_name: 定義済みのロゼット名（metadataから情報を取得）
     columns: ゲージのカラム名リスト [e1, e2, e3]。
              rosette_name指定時は無視されます。
-             直交の場合: 0, 45, 90度
-             デルタの場合: 0, 60, 120度
     rosette_type: ロゼットタイプ ('rectangular' or 'delta')
-                  rosette_name指定時はmetadataが優先されます。
     orientation: 第1ゲージの設置角度（X軸基準、反時計回り、度単位）
-                 rosette_name指定時はmetadataが優先されます。
     prefix: 結果カラム名の接頭辞。デフォルトは rosette_name または "rosette"
 
 Returns:
     StrainCollection: 計算結果（e_max, e_min, gamma_max, theta）が追加されたコレクション
-    
+
 Examples:
-    >>> # カラム名指定で直交ロゼットを計算
     >>> col = col.ops.calculate_rosette_strains(
     ...     columns=["CH1", "CH2", "CH3"], rosette_type="rectangular"
     ... )"""
@@ -191,9 +173,12 @@ Examples:
 
     def calculate_stress(
         self,
-        area: float
-    ) -> ndarray:
-        """応力を計算する (Stress = Load / Area)
+        load_column: str = None,
+        area: float = None,
+        result_column: str = 'stress',
+        unit: str = 'MPa'
+    ) -> StrainCollectionOperations:
+        """応力を計算する (Stress = Load / Area)。
 
 Args:
     collection: ひずみコレクション
@@ -204,7 +189,7 @@ Args:
 
 Returns:
     StrainCollection: 応力カラムが追加されたコレクション
-    
+
 Examples:
     >>> col = col.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力")"""
         ...
@@ -212,16 +197,46 @@ Examples:
 
     def find_yield_point(
         self,
-        load_data: ndarray,
+        stress_column: str = None,
+        strain_column: str = None,
+        lateral_strain_column: Optional[str] = None,
         method: str = 'offset',
         offset_value: float = 0.002,
         range_start: float = 0.1,
         range_end: float = 0.3,
         factor: float = 0.33,
         debug_mode: bool = False,
-        fail_silently: bool = False
-    ) -> tuple[bool, float, float, dict[str, Any]]:
-        """find_yield_point のエイリアス"""
+        fail_silently: bool = False,
+        result_prefix: str = 'yield'
+    ) -> StrainCollectionOperations:
+        """応力-ひずみデータから降伏点（Yield Point）を検出します。
+
+load_displacementドメインのfind_yield_pointと同様のアルゴリズムを使用しますが、
+応力(Load相当)とひずみ(Disp相当)を入力とします。
+
+Args:
+    collection: ひずみコレクション
+    stress_column: 応力データのカラム名
+    strain_column: ひずみデータのカラム名
+    lateral_strain_column: 横ひずみデータのカラム名（任意）
+    method: 降伏点判定手法 ("offset", "general"). Defaults to "offset".
+    offset_value: オフセット法におけるオフセットひずみ等. Defaults to 0.002.
+    range_start: 剛性計算の開始比率. Defaults to 0.1.
+    range_end: 剛性計算の終了比率. Defaults to 0.3.
+    factor: 特定手法での係数. Defaults to 0.33.
+    debug_mode: デバッグ情報を表示するか. Defaults to False.
+    fail_silently: 検出失敗時に例外を投げず無視するか. Defaults to False.
+    result_prefix: 結果名の接頭辞（現在は未使用）
+
+Returns:
+    StrainCollection: 降伏点情報が結果として追加された新しいコレクション
+
+Examples:
+    >>> col = col.ops.find_yield_point(
+    ...     stress_column="応力", strain_column="CH1", method="offset", offset_value=0.002
+    ... )
+    >>> yield_pt = col.results["yield_point"]
+    >>> yield_pt.x, yield_pt.y  # ひずみ, 応力"""
         ...
     
 

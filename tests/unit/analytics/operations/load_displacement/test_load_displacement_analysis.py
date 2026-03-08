@@ -281,20 +281,22 @@ class TestLoadDisplacementAnalysis:
     def test_calculate_stiffness_linear_regression(self):
         """線形回帰法によるcalculate_stiffnessのテスト"""
         # デフォルトは線形回帰法
-        stiffness = calculate_stiffness(
+        result = calculate_stiffness(
             self.ld_collection,
             range_start=0.2,  # 荷重最大値の20%から
             range_end=0.8,  # 荷重最大値の80%まで
             method="linear_regression",
         )
 
+        assert isinstance(result, LoadDisplacementCollection)
+        assert "stiffness" in result.results
         # 線形データの傾きは10程度になるはず
-        assert stiffness == pytest.approx(10.0, rel=0.1)
+        assert result.results["stiffness"].value == pytest.approx(10.0, rel=0.1)
 
     def test_calculate_stiffness_secant(self):
         """割線法によるcalculate_stiffnessのテスト"""
         # 割線法で剛性を計算
-        stiffness = calculate_stiffness(
+        result = calculate_stiffness(
             self.ld_collection,
             range_start=0.2,  # 荷重最大値の20%から
             range_end=0.8,  # 荷重最大値の80%まで
@@ -302,30 +304,33 @@ class TestLoadDisplacementAnalysis:
         )
 
         # 線形データの傾きは10程度になるはず（割線法でも同様）
-        assert stiffness == pytest.approx(10.0, rel=0.1)
+        assert result.results["stiffness"].value == pytest.approx(10.0, rel=0.1)
 
         # サイクルデータで計算
-        cycle_stiffness = calculate_stiffness(
+        cycle_result = calculate_stiffness(
             self.cycle_ld_collection, range_start=0.2, range_end=0.8, method="secant"
         )
 
         # サイクルデータでも妥当な値になることを確認
-        assert cycle_stiffness != 0
+        assert cycle_result.results["stiffness"].value != 0
 
     def test_calculate_stiffness_range(self):
         """異なる範囲でのcalculate_stiffnessのテスト"""
         # 範囲を変えて剛性を計算
-        stiffness1 = calculate_stiffness(
+        result1 = calculate_stiffness(
             self.ld_collection,
             range_start=0.1,  # 荷重最大値の10%から
             range_end=0.5,  # 荷重最大値の50%まで
         )
 
-        stiffness2 = calculate_stiffness(
+        result2 = calculate_stiffness(
             self.ld_collection,
             range_start=0.5,  # 荷重最大値の50%から
             range_end=0.9,  # 荷重最大値の90%まで
         )
+
+        stiffness1 = result1.results["stiffness"].value
+        stiffness2 = result2.results["stiffness"].value
 
         # 線形部分の範囲なら剛性は同じになるはず
         assert stiffness1 == pytest.approx(10.0, rel=0.1)

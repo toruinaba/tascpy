@@ -27,8 +27,8 @@ class LoadDisplacementCollection(ColumnCollection):
         step: Optional[Step] = None,
         columns: Optional[Dict[str, Column]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        load_column: str = "load",
-        displacement_column: str = "displacement",
+        load_column: str = None,
+        displacement_column: str = None,
         **kwargs: Any,
     ):
         """初期化
@@ -37,9 +37,14 @@ class LoadDisplacementCollection(ColumnCollection):
             step: ステップデータ
             columns: カラムデータ
             metadata: メタデータ
-            load_column: 荷重データを含むカラム名
-            displacement_column: 変形データを含むカラム名
+            load_column: 荷重データを含むカラム名（必須）
+            displacement_column: 変形データを含むカラム名（必須）
         """
+        if load_column is None:
+            raise ValueError("load_column は必須です。荷重データのカラム名を指定してください。")
+        if displacement_column is None:
+            raise ValueError("displacement_column は必須です。変形データのカラム名を指定してください。")
+
         super().__init__(step=step, columns=columns, metadata=metadata)
 
         # 荷重と変形のカラム名をメタデータに保存
@@ -225,9 +230,7 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             str: 荷重カラム名
         """
-        return self.metadata.get("load_displacement_domain", {}).get(
-            "load_column", "load"
-        )
+        return self.metadata["load_displacement_domain"]["load_column"]
 
     @property
     def displacement_column(self) -> str:
@@ -236,9 +239,7 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             str: 変形カラム名
         """
-        return self.metadata.get("load_displacement_domain", {}).get(
-            "displacement_column", "displacement"
-        )
+        return self.metadata["load_displacement_domain"]["displacement_column"]
 
     def clone(self) -> "LoadDisplacementCollection":
         """コレクションの複製を作成
@@ -246,14 +247,12 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             LoadDisplacementCollection: 複製されたコレクション
         """
-        ld_info = self.metadata.get("load_displacement_domain", {})
-
         new_collection = LoadDisplacementCollection(
             step=self.step.clone() if self.step else None,
             columns={name: column.clone() for name, column in self.columns.items()},
             metadata=self.metadata.copy(),
-            load_column=ld_info.get("load_column", "load"),
-            displacement_column=ld_info.get("displacement_column", "displacement"),
+            load_column=self.load_column,
+            displacement_column=self.displacement_column,
         )
         new_collection._results = self._results.copy()
         return new_collection
@@ -267,21 +266,14 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             list[str]: カラム名とアクセス可能なメタデータキーのリスト
         """
-        # 基本のキーセット（カラム + 結果）
         key_set = set(super().keys())
-
-        # 特殊キーを追加
         key_set.add("step")
-        key_set.add("load")
-        key_set.add("displacement")
         key_set.add("curves")
-
         # メタデータのトップレベルキーを追加（カラム名と衝突しないもの）
         if self.metadata:
             for meta_key in self.metadata.keys():
                 if meta_key not in key_set and meta_key not in ["curves", "metadata"]:
                     key_set.add(meta_key)
-
         return sorted(list(key_set))
 
     @property
@@ -323,6 +315,52 @@ class LoadDisplacementCollection(ColumnCollection):
         """
         mask = self.valid_data_mask
         return self.displacement_data[mask], self.load_data[mask]
+
+    def get_ld_cycle_arrays(
+        self,
+        load_column: Optional[str] = None,
+        displacement_column: Optional[str] = None,
+        cycle_marker_column: Optional[str] = None,
+    ):
+        """荷重・変位・サイクルマーカーの numpy 配列を取得する。
+
+        カラム名を省略した場合はメタデータから自動解決します。
+        サイクルマーカーカラムが存在しない場合は ``KeyError`` を raise します
+        （自動生成はオペレーション層の責務）。
+
+        Args:
+            load_column: 荷重カラム名（None 時はメタデータから解決）
+            displacement_column: 変位カラム名（None 時はメタデータから解決）
+            cycle_marker_column: サイクルマーカーカラム名（None 時は自動検出）
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: (loads, displacements, markers)
+
+        Raises:
+            KeyError: サイクルマーカーカラムが見つからない場合
+
+        Examples:
+            >>> loads, disps, markers = col.get_ld_cycle_arrays()
+            >>> loads, disps, markers = col.get_ld_cycle_arrays(cycle_marker_column="cycle")
+        """
+        import numpy as np
+
+        loads = np.array(self[load_column or self.load_column].values)
+        disps = np.array(self[displacement_column or self.displacement_column].values)
+
+        # サイクルマーカー解決: 明示指定のみ。未指定・未存在の場合は KeyError
+        if cycle_marker_column is None:
+            raise KeyError(
+                "cycle_marker_column が指定されていません。"
+                "先に `col.ops.cycle_count()` を実行してマーカー列を作成するか、"
+                "cycle_marker_column を明示的に指定してください。"
+            )
+        if cycle_marker_column not in self.columns:
+            raise KeyError(f"サイクルマーカーカラム '{cycle_marker_column}' が見つかりません")
+        markers = np.array(self[cycle_marker_column].values)
+
+        return loads, disps, markers
+
 
 
 # ファクトリ関数の定義

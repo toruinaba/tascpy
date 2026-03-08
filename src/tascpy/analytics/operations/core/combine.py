@@ -15,7 +15,7 @@ from ..naming import basic_naming, callable_naming
 
 @operation(domain="core")
 @store_result(result_naming=basic_naming("switch_by_step"))
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 def switch_by_step(
     collection: ColumnCollection,
     v1: Union[str, np.ndarray],
@@ -64,7 +64,7 @@ def switch_by_step(
 
 @operation(domain="core")
 @store_result(result_naming=basic_naming("blend_by_step"))
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 def blend_by_step(
     collection: ColumnCollection,
     v1: Union[str, np.ndarray],
@@ -187,7 +187,7 @@ def average_columns(
 
 @operation(domain="core")
 @store_result(result_naming=basic_naming("conditional_select"))
-@inject_columns(num_inputs=3)
+@inject_columns(num_inputs=3, pass_collection=True)
 def conditional_select(
     collection: ColumnCollection,
     v1: Union[str, np.ndarray],
@@ -231,7 +231,7 @@ def conditional_select(
 
 @operation(domain="core")
 @store_result(result_naming=callable_naming(callable_arg="combine_func", name_arg="func_name", default="custom_combine_result"))
-@inject_columns(num_inputs=2)
+@inject_columns(num_inputs=2, pass_collection=True)
 def custom_combine(
     collection: ColumnCollection,
     v1: Union[str, np.ndarray],

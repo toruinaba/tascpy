@@ -13,7 +13,7 @@ def inject_columns(
     columns_arg: str = None,
     columns_arg_pos: int = None,
     include_step: bool = False,
-    pass_collection: bool = True,
+    pass_collection: bool = False,
 ):
     """
     Decorator to parse arguments and inject column data.
@@ -580,6 +580,67 @@ def store_point_result(
         return decorator(func)
     return decorator
 
+
+def store_scalar_result(
+    func: Optional[Callable] = None,
+    *,
+    name: str = "scalar",
+    unit: Optional[str] = None,
+    inject_metadata: Optional[Callable[[tuple, dict, Any], Dict[str, Any]]] = None,
+):
+    """
+    Decorator to store a scalar (float/int) result as a ScalarResult in the collection.
+
+    The wrapped function is expected to return a numeric scalar value.
+    The result is stored in ``collection.results[name]`` as a ``ScalarResult``.
+
+    Args:
+        name: Result key used in ``collection.results``.
+        unit: Optional unit string for the scalar value.
+        inject_metadata: Optional callable ``(args, kwargs, res) -> dict`` to
+            attach extra metadata to the result collection.
+
+    Examples:
+        >>> @store_scalar_result(name="stiffness", unit="kN/mm")
+        ... def calculate_stiffness(collection, ...):
+        ...     return 10.5   # float
+        ...
+        >>> result = calculate_stiffness(col)
+        >>> result.results["stiffness"].value
+        10.5
+    """
+    def decorator(target_func):
+        @functools.wraps(target_func)
+        def wrapper(collection: Union[ColumnCollection, Any], *args, **kwargs):
+            if not isinstance(collection, ColumnCollection):
+                return target_func(collection, *args, **kwargs)
+
+            scalar_value = target_func(collection, *args, **kwargs)
+
+            result_collection = collection.clone()
+            result_unit = unit
+
+            scalar = ScalarResult(
+                name=name,
+                value=scalar_value,
+                unit=result_unit,
+            )
+            result_collection.add_result(scalar)
+
+            if inject_metadata:
+                try:
+                    meta = inject_metadata(args, kwargs, scalar_value)
+                    if meta:
+                        result_collection.metadata.update(meta)
+                except Exception as e:
+                    raise e
+
+            return result_collection
+        return wrapper
+
+    if func is not None:
+        return decorator(func)
+    return decorator
 
 def store_multiple_results(
     func: Optional[Callable] = None,

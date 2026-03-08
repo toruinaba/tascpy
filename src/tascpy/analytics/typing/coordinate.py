@@ -40,11 +40,13 @@ class CoordinateCollectionOperations(CollectionOperationsBase[CoordinateCollecti
         self,
         x: float,
         y: float,
-        z: Optional[float],
-        method: str,
-        power: float
-    ) -> "CollectionListOperations[CoordinateCollectionOperations]":
-        """座標点での値を補間して計算します
+        z: Optional[float] = None,
+        target_columns: Optional[list[str]] = None,
+        method: str = 'inverse_distance',
+        power: float = 2.0,
+        result_prefix: str = 'interp_'
+    ) -> CoordinateCollectionOperations:
+        """座標点での値を補間して計算します。
 
 指定された座標点 (x, y, z) において、既存の座標値に基づいて値を補間します。
 補間方法として逆距離加重法、最近傍法、線形補間法を選択できます。
@@ -61,7 +63,7 @@ Args:
 
 Returns:
     CoordinateCollection: 補間結果を含むコレクション
-    
+
 Examples:
     >>> interp_col = col.ops.interpolate_at_point(
     ...     x=10.0, y=20.0, method="inverse_distance"
@@ -71,12 +73,15 @@ Examples:
 
     def interpolate_grid(
         self,
-        x_grid: ndarray,
-        y_grid: ndarray,
-        method: str,
-        power: float
-    ) -> ndarray:
-        """指定した領域のグリッド上で値を補間します
+        x_range: tuple[float, float],
+        y_range: tuple[float, float],
+        grid_size: tuple[int, int] = (10, 10),
+        target_column: Optional[str] = None,
+        method: str = 'inverse_distance',
+        power: float = 2.0,
+        result_prefix: str = 'grid_'
+    ) -> CoordinateCollectionOperations:
+        """指定した領域のグリッド上で値を補間します。
 
 指定された x-y 平面上の矩形領域をグリッドに分割し、各グリッド点での値を補間します。
 補間結果はメタデータと結果列に保存されます。
@@ -93,20 +98,24 @@ Args:
 
 Returns:
     CoordinateCollection: グリッド補間結果を含むコレクション
-    
+
 Examples:
-    >>> grid_col = col.ops.interpolate_grid(x_range=(0, 100), y_range=(0, 100), grid_size=(20, 20), target_column="Temperature")"""
+    >>> grid_col = col.ops.interpolate_grid(
+    ...     x_range=(0, 100), y_range=(0, 100),
+    ...     grid_size=(20, 20), target_column="Temperature"
+    ... )"""
         ...
     
 
     def spatial_interpolation_to_points(
         self,
-        target_coords: list[dict[str, Any]],
-        is_3d: bool,
-        method: str,
-        power: float
-    ) -> list[float]:
-        """ソース列からターゲット列の座標位置に値を補間します
+        source_columns: Optional[list[str]] = None,
+        target_columns: Optional[list[str]] = None,
+        method: str = 'inverse_distance',
+        power: float = 2.0,
+        result_prefix: str = 'interp_'
+    ) -> CoordinateCollectionOperations:
+        """ソース列からターゲット列の座標位置に値を補間します。
 
 指定されたソース列の座標位置の値を使用して、ターゲット列の座標位置における
 値を補間します。複数のソースからの補間値の平均が計算されます。
@@ -121,36 +130,13 @@ Args:
 
 Returns:
     CoordinateCollection: 補間結果を含むコレクション
-    
+
 Examples:
     >>> mapped_col = col.ops.spatial_interpolation_to_points(
     ...     source_columns=["Sensor1", "Sensor2"],
     ...     target_columns=["NodeA", "NodeB"],
     ...     method="inverse_distance"
     ... )"""
-        ...
-    
-
-    def interp_point(
-        self,
-        x: float,
-        y: float,
-        z: Optional[float],
-        method: str,
-        power: float
-    ) -> "CollectionListOperations[CoordinateCollectionOperations]":
-        """interpolate_at_point のエイリアス"""
-        ...
-    
-
-    def interp_grid(
-        self,
-        x_grid: ndarray,
-        y_grid: ndarray,
-        method: str,
-        power: float
-    ) -> ndarray:
-        """interpolate_grid のエイリアス"""
         ...
     
 
