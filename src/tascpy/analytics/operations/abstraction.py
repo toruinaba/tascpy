@@ -851,7 +851,7 @@ def transform_column(
         f_missing = handle_missing_values(strategy=missing_strategy)(func)
         
         # 2. Inject Columns
-        f_inject = inject_columns(num_inputs=num_inputs)(f_missing)
+        f_inject = inject_columns(num_inputs=num_inputs, pass_collection=False)(f_missing)
         
         # 3. Store Result
         # We need to preserve __name__ for naming logic

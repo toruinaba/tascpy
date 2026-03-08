@@ -238,10 +238,10 @@ Args:
     column (str): 条件判定の対象となるカラム名
     value (Any): 一致するか比較する値
     tolerance (float, optional): 数値比較時の許容誤差. Defaults to None.
-    
+
 Returns:
     ColumnCollection: 条件に一致した行のみを含む新しいコレクション
-    
+
 Examples:
     >>> filtered_col = col.ops.filter_by_value("状態", "正常")
     >>> filtered_col = col.ops.filter_by_value("荷重", 100.0, tolerance=0.5)"""
@@ -250,7 +250,7 @@ Examples:
 
     def filter_out_none(
         self,
-        column: str,
+        columns: Optional[list[str]] = None,
         mode: str = 'any'
     ) -> StrainCollectionOperations:
         """一つでも欠損値（None/NaN）が含まれる行、または全て欠損値の行を除外します。
@@ -259,19 +259,19 @@ Args:
     collection (ColumnCollection): データコレクション
     columns (List[str], optional): 判定対象のカラム名リスト. 未指定時はすべて. Defaults to None.
     mode (str, optional): 判定モード ("any": いずれかが欠損なら除外, "all": 全てが欠損なら除外). Defaults to "any".
-    
+
 Returns:
     ColumnCollection: 欠損値を含む行が除外された新しいコレクション
-    
+
 Examples:
-    >>> clean_col = col.ops.filter_out_none() # どこかに欠損があればその行を削除"""
+    >>> clean_col = col.ops.filter_out_none()
+    >>> clean_col = col.ops.filter_out_none(columns=["荷重", "変位"], mode="any")"""
         ...
     
 
     def remove_consecutive_duplicates_across(
         self,
-        columns: Optional[list[str]],
-        mode: str = 'consecutive',
+        columns: Optional[list[str]] = None,
         dup_type: str = 'all'
     ) -> StrainCollectionOperations:
         """連続する重複行を検知し、最初の行だけを残して除外します。
@@ -279,24 +279,46 @@ Examples:
 Args:
     collection (ColumnCollection): データコレクション
     columns (List[str], optional): 重複判定の対象となるカラム名リスト. 未指定時はすべて. Defaults to None.
-    mode (str, optional): 重複判定モード. Defaults to "consecutive".
-    dup_type (str, optional): どの重複を残すか. Defaults to "all".
-    
+    dup_type (str, optional): 重複判定方法 ("all": 全カラム一致で重複, "any": いずれかで重複). Defaults to "all".
+
 Returns:
     ColumnCollection: 連続重複が排除された新しいコレクション
-    
+
 Examples:
-    >>> # 値が変化しない静止状態のデータを間引く場合などに有用
-    >>> thinned_col = col.ops.remove_consecutive_duplicates_across()"""
+    >>> thinned_col = col.ops.remove_consecutive_duplicates_across()
+    >>> thinned_col = col.ops.remove_consecutive_duplicates_across(columns=["荷重", "変位"])"""
+        ...
+    
+
+    def filter_by_condition(
+        self,
+        column: str,
+        condition: Callable
+    ) -> StrainCollectionOperations:
+        """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します。
+
+Args:
+    collection (ColumnCollection): データコレクション
+    column (str): 条件判定の対象となるカラム名
+    condition (Callable): 各要素を受け取り True/False を返す関数
+
+Returns:
+    ColumnCollection: 条件関数がTrueを返した行のみを含む新しいコレクション
+
+Examples:
+    >>> high_load_col = col.ops.filter_by_condition("荷重", lambda x: x >= 50)"""
         ...
     
 
     def remove_outliers(
         self,
         column: str,
-        *args,
-        **kwargs
-    ) -> StrainCollectionOperations:
+        window_size: int = 3,
+        threshold: float = 0.5,
+        edge_handling: str = 'asymmetric',
+        min_abs_value: float = 1e-10,
+        scale_factor: float = 1.0
+    ) -> "CollectionListOperations[StrainCollectionOperations]":
         """特定の基準（外れ値検知ロジック）に基づいて外れ値と判定された行を除外します。
 
 Args:
@@ -304,36 +326,18 @@ Args:
     column (str): 外れ値判定の対象となるカラム名
     window_size (int, optional): 移動窓のサイズ. Defaults to 3.
     threshold (float, optional): 外れ値と判定する閾値. Defaults to 0.5.
-    edge_handling (str, optional): 端の処理手法. Defaults to "asymmetric".
-    min_abs_value (float, optional): 最小絶対値. Defaults to 1e-10.
+    edge_handling (str, optional): 端の処理手法 ("asymmetric", "symmetric"). Defaults to "asymmetric".
+    min_abs_value (float, optional): 最小絶対値（ゼロ除算防止）. Defaults to 1e-10.
     scale_factor (float, optional): スケールファクター. Defaults to 1.0.
 
 Returns:
     ColumnCollection: 外れ値が除外された新しいコレクション
-    
+
+Raises:
+    KeyError: 指定されたカラムが存在しない場合
+
 Examples:
     >>> clean_col = col.ops.remove_outliers("変位", threshold=0.3)"""
-        ...
-    
-
-    def filter_by_condition(
-        self,
-        column: str,
-        condition: <built-in function callable>
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """コールバック関数を使って、指定カラムの値に対するカスタム条件で行を抽出します。
-
-Args:
-    collection (ColumnCollection): データコレクション
-    column (str): 条件判定の対象となるカラム名
-    condition (Callable[[np.ndarray], np.ndarray]): 真偽値配列を返す条件関数
-    
-Returns:
-    ColumnCollection: 条件関数がTrueを返した行のみを含む新しいコレクション
-    
-Examples:
-    >>> # 荷重が50以上の行だけを抽出
-    >>> high_load_col = col.ops.filter_by_condition("荷重", lambda x: x >= 50)"""
         ...
     
 
@@ -346,11 +350,12 @@ Examples:
 
 Args:
     collection (ColumnCollection): データコレクション
-    steps (List[float] | np.ndarray): 除外したいステップ値のリスト
-    
+    steps (List[float]): 除外したいステップ値のリスト
+    tolerance (float, optional): ステップ値一致判定の許容誤差. Defaults to None.
+
 Returns:
     ColumnCollection: 指定したステップが除外された新しいコレクション
-    
+
 Examples:
     >>> filtered_col = col.ops.remove_steps(steps=[1.0, 2.0, 3.0])"""
         ...
@@ -368,35 +373,40 @@ Examples:
 
 Args:
     collection (ColumnCollection): データコレクション
-    columns (str | List[str], optional): 抽出するカラム名. Defaults to None (全カラム).
-    start (int, optional): 抽出開始インデックス. Defaults to None.
-    end (int, optional): 抽出終了インデックス. Defaults to None.
-    step_min (float, optional): 最小ステップ値. Defaults to None.
-    step_max (float, optional): 最大ステップ値. Defaults to None.
-    
+    columns (List[str], optional): 抽出するカラム名のリスト. Defaults to None (全カラム).
+    indices (List[int], optional): 抽出する行インデックスのリスト. Defaults to None.
+    steps (List[float], optional): 抽出するステップ値またはインデックスのリスト. Defaults to None.
+    by_step_value (bool, optional): `steps` をステップ値として扱うか（Falseはインデックス). Defaults to True.
+    tolerance (float, optional): ステップ値一致判定の許容誤差. Defaults to None.
+
 Returns:
     ColumnCollection: 条件に一致するデータのみを含む新しいコレクション
-    
+
+Raises:
+    KeyError: 指定されたカラムが存在しない場合
+    IndexError: 指定されたインデックスが範囲外の場合
+    ValueError: `indices` と `steps` を同時に指定した場合
+
 Examples:
     >>> new_col = col.ops.select(columns=["荷重", "変位"])
-    >>> sliced_col = col.ops.select(step_min=0.0, step_max=10.0)"""
+    >>> sliced_col = col.ops.select(steps=[1.0, 2.0, 3.0])
+    >>> sliced_col = col.ops.select(indices=[0, 2, 4])"""
         ...
     
 
     def fetch_near_step(
         self,
-        column: str,
-        value: float
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
+        target_step: float
+    ) -> StrainCollectionOperations:
         """指定ステップ値に最も近いデータ行を一つ抽出します。
 
 Args:
     collection (ColumnCollection): データコレクション
     target_step (float): 抽出したい基準ステップ値
-    
+
 Returns:
     ColumnCollection: ターゲットに最も近い1行のみを含む新しいコレクション（要素数1）
-    
+
 Examples:
     >>> single_row = col.ops.fetch_near_step(5.0)
     >>> print(single_row.step.values[0])"""
@@ -418,7 +428,7 @@ Args:
 
 Returns:
     List[ColumnCollection]: 分割されたコレクションのリスト
-    
+
 Examples:
     >>> cycles = col.ops.split_by_integers(markers=[1, 1, 2, 2, 3])"""
         ...
@@ -436,7 +446,7 @@ Args:
 
 Returns:
     List[ColumnCollection]: 分割されたコレクションのリスト
-    
+
 Examples:
     >>> partial_cols = col.ops.split_at_indices([100, 200])"""
         ...
@@ -444,15 +454,18 @@ Examples:
 
     def switch_by_step(
         self,
-        step_values: ndarray,
         v1: Union[str, ndarray],
         v2: Union[str, ndarray],
-        threshold: Union[int, float],
+        threshold: Union[int, float] = 0,
         compare_mode: str = 'value',
         by_step_value: bool = True,
-        tolerance: Optional[float] = None
+        tolerance: Optional[float] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> StrainCollectionOperations:
-        """特定のステップ値（またはインデックス）を境にして、2つのデータ列を切り替えます
+        """特定のステップ値（またはインデックス）を境にして、2つのデータ列を切り替えます。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -462,10 +475,14 @@ Args:
     compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
     by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
     tolerance (float, optional): 比較の許容誤差. Defaults to None.
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     ColumnCollection: 切り替え済みのデータを持つ新しいコレクション
-    
+
 Examples:
     >>> switched_col = col.ops.switch_by_step("Phase1", "Phase2", threshold=5.0)"""
         ...
@@ -473,51 +490,65 @@ Examples:
 
     def blend_by_step(
         self,
-        step_values: ndarray,
-        v1: ndarray,
-        v2: ndarray,
-        start: Union[int, float],
-        end: Union[int, float],
+        v1: Union[str, ndarray],
+        v2: Union[str, ndarray],
+        start: Union[int, float] = 0,
+        end: Union[int, float] = 1,
         compare_mode: str = 'value',
         by_step_value: bool = True,
         blend_method: str = 'linear',
-        tolerance: Optional[float] = None
+        tolerance: Optional[float] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> StrainCollectionOperations:
-        """特定のステップ区間において、2つのデータ列を滑らかにブレンド（合成）します
+        """特定のステップ区間において、2つのデータ列を滑らかにブレンド（合成）します。
 
 Args:
     collection (ColumnCollection): データコレクション
     v1 (str | np.ndarray): ブレンド前のデータ（始端側）
     v2 (str | np.ndarray): ブレンド後のデータ（終端側）
     start (int | float): ブレンドを開始するステップ値（またはインデックス）
-    end (int | float): ブレンドを終了しv2に完全に以降するステップ値（またはインデックス）
+    end (int | float): ブレンドを終了しv2に完全に移行するステップ値（またはインデックス）
     compare_mode (str, optional): 比較モード ("value", "index"). Defaults to "value".
     by_step_value (bool, optional): 基準軸としてステップ値を使うか. Defaults to True.
-    blend_method (str, optional): ブレンド手法 ("linear", "cosine", "smoothstep"). Defaults to "linear".
+    blend_method (str, optional): ブレンド手法 ("linear", "smooth", "log", "exp"). Defaults to "linear".
     tolerance (float, optional): 比較の許容誤差. Defaults to None.
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
 
 Returns:
     ColumnCollection: ブレンド済みのデータを持つ新しいコレクション
-    
+
 Examples:
-    >>> blended_col = col.ops.blend_by_step("Phase1", "Phase2", start=4.0, end=6.0, blend_method="smoothstep")"""
+    >>> blended_col = col.ops.blend_by_step("Phase1", "Phase2", start=4.0, end=6.0)"""
         ...
     
 
     def sum_columns(
         self,
-        columns: Optional[list[str]],
-        columns = None
+        columns: Optional[list[str]] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> StrainCollectionOperations:
-        """指定された複数のカラムの要素ごとの合計を計算します
+        """指定された複数のカラムの要素ごとの合計を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
     columns (List[str], optional): 合計するカラム名のリスト. 未指定時はすべて. Defaults to None.
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     ColumnCollection: 合計値カラムが追加された新しいコレクション
-    
+
 Examples:
     >>> sum_col = col.ops.sum_columns(columns=["CH1", "CH2", "CH3"])"""
         ...
@@ -525,18 +556,25 @@ Examples:
 
     def average_columns(
         self,
-        columns: Optional[list[str]],
-        columns = None
+        columns: Optional[list[str]] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> StrainCollectionOperations:
-        """指定された複数のカラムの要素ごとの平均を計算します
+        """指定された複数のカラムの要素ごとの平均を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
     columns (List[str], optional): 平均するカラム名のリスト. 未指定時はすべて. Defaults to None.
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     ColumnCollection: 平均値カラムが追加された新しいコレクション
-    
+
 Examples:
     >>> avg_col = col.ops.average_columns(columns=["CH1", "CH2", "CH3"])"""
         ...
@@ -544,38 +582,50 @@ Examples:
 
     def conditional_select(
         self,
-        column: str,
-        v2: ndarray,
-        cond_values: ndarray,
+        v1: Union[str, ndarray],
+        v2: Union[str, ndarray],
+        cond_values: Union[str, ndarray],
         threshold: Union[int, float] = 0,
-        compare: str = '>'
+        compare: str = '>',
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> StrainCollectionOperations:
-        """条件列の値と閾値の比較結果に基づき、2つの列から値を選択します
+        """条件列の値と閾値の比較結果に基づき、2つの列から値を選択します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    v1 (str | np.ndarray): 条件付き真(True)の時に選ばれるデータ
-    v2 (str | np.ndarray): 条件付き偽(False)の時に選ばれるデータ
+    v1 (str | np.ndarray): 条件真(True)の時に選ばれるデータ
+    v2 (str | np.ndarray): 条件偽(False)の時に選ばれるデータ
     cond_values (str | np.ndarray): 条件判定の基準となるデータ列
     threshold (int | float, optional): 条件判定の閾値. Defaults to 0.
     compare (str, optional): 比較演算子 (">", "<", ">=", "<=", "==", "!="). Defaults to ">".
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     ColumnCollection: 条件に基づいて選択されたデータを持つ新しいコレクション
-    
+
 Examples:
-    >>> selected_col = col.ops.conditional_select("CH_High", "CH_Low", cond_values="Temperature", threshold=50, compare=">")"""
+    >>> selected_col = col.ops.conditional_select("CH_High", "CH_Low", "Temperature", threshold=50)"""
         ...
     
 
     def custom_combine(
         self,
-        column: str,
-        v2: Any,
-        combine_func: Callable[[Any, Any], Any],
-        **kwargs
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """ユーザー提供のカスタム関数を利用して2つの列を合成します
+        v1: Union[str, ndarray],
+        v2: Union[str, ndarray],
+        combine_func: Callable[[Any, Any], Any] = None,
+        func_name: Optional[str] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
+    ) -> StrainCollectionOperations:
+        """ユーザー提供のカスタム関数を利用して2つの列を合成します。
 
 Args:
     collection (ColumnCollection): データコレクション
@@ -583,12 +633,17 @@ Args:
     v2 (str | np.ndarray): 第二引数となるデータ列
     combine_func (Callable[[Any, Any], Any]): 合成処理を行うコールバック関数
     func_name (str, optional): 関数の名前（結果のカラム名に使用）. Defaults to None.
-    
+    result_column (str, optional): 結果カラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     ColumnCollection: カスタム加工されたデータを含む新しいコレクション
-    
+
 Examples:
-    >>> custom_col = col.ops.custom_combine("CH1", "CH2", combine_func=lambda x, y: x**2 + y**2, func_name="sum_squares")"""
+    >>> custom_col = col.ops.custom_combine("CH1", "CH2",
+    ...     combine_func=lambda x, y: x**2 + y**2, func_name="sum_squares")"""
         ...
     
 
@@ -988,21 +1043,29 @@ Examples:
 
     def moving_average(
         self,
-        column: str,
+        column: Union[str, ndarray],
         window_size: int = 3,
-        edge_handling: str = 'asymmetric'
-    ) -> "CollectionListOperations[StrainCollectionOperations]":
-        """指定されたウィンドウサイズで移動平均を計算します
+        edge_handling: str = 'asymmetric',
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
+    ) -> StrainCollectionOperations:
+        """指定されたウィンドウサイズで移動平均を計算します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    column_name (str): 計算対象のカラム名
+    column (str): 計算対象のカラム名
     window_size (int, optional): 移動平均のウィンドウサイズ. Defaults to 3.
-    edge_handling (str, optional): 端の処理方法 ("asymmetric", "symmetric", "constant", "mirror", "wrap"). Defaults to "asymmetric".
-    
+    edge_handling (str, optional): 端の処理方法 ("asymmetric", "symmetric"). Defaults to "asymmetric".
+    result_column (str, optional): 結果を格納するカラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     ColumnCollection: 移動平均値が追加された新しいコレクション
-    
+
 Examples:
     >>> smoothed_col = col.ops.moving_average("荷重", window_size=5)"""
         ...
@@ -1010,49 +1073,65 @@ Examples:
 
     def detect_outliers(
         self,
-        column: str,
+        column: Union[str, ndarray],
         window_size: int = 3,
         threshold: float = 0.5,
         edge_handling: str = 'asymmetric',
         min_abs_value: float = 1e-10,
-        scale_factor: float = 1.0
+        scale_factor: float = 1.0,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> StrainCollectionOperations:
-        """異常値を検出します
+        """異常値を検出し、フラグ（0: 正常, 1: 外れ値）を新しいカラムとして追加します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    column_name (str): 計算対象のカラム名
-    window_size (int, optional): 移動平均などのウィンドウサイズ. Defaults to 3.
+    column (str): 計算対象のカラム名
+    window_size (int, optional): 移動平均のウィンドウサイズ. Defaults to 3.
     threshold (float, optional): 異常と判定する閾値. Defaults to 0.5.
     edge_handling (str, optional): 端の処理方法. Defaults to "asymmetric".
-    min_abs_value (float, optional): ゼロ除算を防ぐための最小絶対値. Defaults to 1e-10.
+    min_abs_value (float, optional): ゼロ除算防止の最小絶対値. Defaults to 1e-10.
     scale_factor (float, optional): スケールファクタ. Defaults to 1.0.
+    result_column (str, optional): 結果を格納するカラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
 
 Returns:
     ColumnCollection: 異常値フラグが追加された新しいコレクション
-    
+
 Examples:
-    >>> flagged_col = col.ops.detect_outliers("変位", threshold=3.0)"""
+    >>> flagged_col = col.ops.detect_outliers("変位", threshold=0.3)"""
         ...
     
 
     def gaussian_filter(
         self,
-        column: str,
+        column: Union[str, ndarray],
         sigma: float = 1.0,
-        window_size: Optional[int] = None
+        window_size: Optional[int] = None,
+        result_column: Optional[str] = None,
+        unit: Optional[str] = None,
+        ch: Optional[str] = None,
+        in_place: bool = False
     ) -> StrainCollectionOperations:
-        """ガウシアンフィルターを適用します
+        """ガウシアンフィルターを適用して平滑化した値を新しいカラムとして追加します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    column_name (str): 計算対象のカラム名
-    sigma (float, optional): ガウス関数の標準偏差. Defaults to 1.0.
-    window_size (Optional[int], optional): ウィンドウサイズ. Defaults to None.
-    
+    column (str): 計算対象のカラム名
+    sigma (float, optional): ガウス分布の標準偏差. Defaults to 1.0.
+    window_size (int, optional): フィルタウィンドウサイズ. 未指定時は sigma から自動計算. Defaults to None.
+    result_column (str, optional): 結果を格納するカラム名. Defaults to None.
+    unit (str, optional): 結果の単位. Defaults to None.
+    ch (str, optional): 結果のチャネル名. Defaults to None.
+    in_place (bool, optional): 元のコレクションを上書きするか. Defaults to False.
+
 Returns:
     ColumnCollection: フィルター処理後の値が追加された新しいコレクション
-    
+
 Examples:
     >>> filtered_col = col.ops.gaussian_filter("荷重", sigma=2.0)"""
         ...
