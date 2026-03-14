@@ -269,9 +269,15 @@ def handle_missing_values(strategy: str = "nan"):
                                     if v_lower in ("none", "null", "", "nan", "na") or v_lower.startswith("*"):
                                         vals.append(np.nan)
                                     else:
-                                        vals.append(float(v))
+                                        try:
+                                            vals.append(float(v))
+                                        except (ValueError, TypeError):
+                                            vals.append(np.nan)
                                 else:
-                                    vals.append(float(v))
+                                    try:
+                                        vals.append(float(v))
+                                    except (ValueError, TypeError):
+                                        vals.append(np.nan)
                             processed_args.append(np.array(vals, dtype=float))
                         except Exception:
                             processed_args.append(arg)
@@ -287,9 +293,15 @@ def handle_missing_values(strategy: str = "nan"):
                                      if v_lower in ("none", "null", "", "nan", "na") or v_lower.startswith("*"):
                                          vals.append(np.nan)
                                      else:
-                                         vals.append(float(v))
+                                         try:
+                                             vals.append(float(v))
+                                         except (ValueError, TypeError):
+                                             vals.append(np.nan)
                                  else:
-                                     vals.append(float(v))
+                                     try:
+                                         vals.append(float(v))
+                                     except (ValueError, TypeError):
+                                         vals.append(np.nan)
                              processed_args.append(np.array(vals, dtype=float))
                          except Exception:
                              processed_args.append(arg)
