@@ -27,8 +27,8 @@ class LoadDisplacementCollection(ColumnCollection):
         step: Optional[Step] = None,
         columns: Optional[Dict[str, Column]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        load_column: str = None,
-        displacement_column: str = None,
+        load_column: str = "load",
+        displacement_column: str = "displacement",
         **kwargs: Any,
     ):
         """初期化
@@ -37,8 +37,8 @@ class LoadDisplacementCollection(ColumnCollection):
             step: ステップデータ
             columns: カラムデータ
             metadata: メタデータ
-            load_column: 荷重データを含むカラム名（必須）
-            displacement_column: 変形データを含むカラム名（必須）
+            load_column: 荷重データを含むカラム名（デフォルト: "load"）
+            displacement_column: 変形データを含むカラム名（デフォルト: "displacement"）
         """
         if load_column is None:
             raise ValueError("load_column は必須です。荷重データのカラム名を指定してください。")

@@ -45,8 +45,12 @@ def inject_columns(
                             new_args.append(np.array(arg))
                         else:
                             new_args.append(arg)
+                    if pass_collection:
+                        return func(None, *new_args, **kwargs)
                     return func(*new_args, **kwargs)
                 
+                if pass_collection:
+                    return func(None, *all_args, **kwargs)
                 return func(*all_args, **kwargs)
 
             # --- ColumnCollection Mode ---

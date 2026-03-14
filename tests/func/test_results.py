@@ -2,7 +2,7 @@ from pathlib import Path
 import tascpy as tp
 from matplotlib import pyplot as plt
 
-from tascpy.plugins.load_displacement import cycle_count
+from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers as cycle_count
 
 
 class Test_results:
@@ -100,9 +100,8 @@ class Test_results:
                 
             ax.set_title(f"step {count}")
 
-            from tascpy.plugins.load_displacement import (
-                find_general_yield_point,
-                find_offset_yield_point,
+            from tascpy.analytics.functional.load_displacement.analysis import (
+                compute_yield_point,
             )
 
             if len(splitted) > 0:
@@ -112,12 +111,13 @@ class Test_results:
                 
                 # ax.plot(d_smooth, p_smooth, label="smoothed")
                 try:
-                    yield_point = find_offset_yield_point(
-                        d_val, p, offset_value=2, r_lower=0.1, r_upper=0.3
+                    import numpy as np
+                    is_valid, yield_disp, yield_load, debug_info = compute_yield_point(
+                        d_val, p, method="offset", offset_value=2, range_start=0.1, range_end=0.3
                     )
-                    # print(f"yield_point: {yield_point}")
-                    # Removed add_point usage
-                    ax.scatter([yield_point[1]], [yield_point[0]], color='r')
+                    # print(f"yield_point: {yield_load, yield_disp}")
+                    if is_valid:
+                        ax.scatter([yield_disp], [yield_load], color='r')
                 except Exception:
                     pass
             # plt.show()
@@ -144,21 +144,20 @@ class Test_results:
         pd_rmdup.plot.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax, linewidth=0.5, label="original")
         # plt.show()
 
-        from tascpy.plugins.load_displacement import create_skeleton_curve
+        from tascpy.analytics.functional.load_displacement.curves import compute_skeleton_curve
+        from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers
 
         p_cyc = pd_removed_outliers["P_total"].values
         d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].values
-        p_ske, d_ske = create_skeleton_curve(
-            d_cyc, p_cyc, has_decrease=True, decrease_type="envelope"
+        markers = compute_cycle_markers(p_cyc)
+        d_ske, p_ske = compute_skeleton_curve(
+            p_cyc, d_cyc, markers, has_decrease=True, decrease_type="envelope"
         )
-        p_ske2, d_ske2 = create_skeleton_curve(
-            d_cyc, p_cyc, has_decrease=True, decrease_type="continuous_only"
+        d_ske2, p_ske2 = compute_skeleton_curve(
+            p_cyc, d_cyc, markers, has_decrease=True, decrease_type="continuous_only"
         )
 
-        from tascpy.plugins.load_displacement import (
-            find_general_yield_point,
-            find_offset_yield_point,
-        )
+        from tascpy.analytics.functional.load_displacement.analysis import compute_yield_point
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -166,19 +165,25 @@ class Test_results:
         ax.plot(d_ske2, p_ske2, label="continuous_only")
         
         try:
-            py1, dy1, stiff1 = find_general_yield_point(
-                d_ske, p_ske, r_lower=0.33, r_upper=0.66
+            is_valid1, dy1, py1, dbg1 = compute_yield_point(
+                np.array(d_ske), np.array(p_ske), method="general", range_start=0.33, range_end=0.66
             )
-            py2, dy2, stiff2 = find_offset_yield_point(
-                d_ske, p_ske, offset_value=2, r_lower=0.33, r_upper=0.66
+            is_valid2, dy2, py2, dbg2 = compute_yield_point(
+                np.array(d_ske), np.array(p_ske), method="offset", offset_value=2, range_start=0.33, range_end=0.66
             )
-            # print(f"yield_point: {py1}, {dy1}, {stiff1}")
             
             # Removed utils.plot usage, replaced with standard matplotlib
-            ax.axline((0, 0), slope=stiff1, color="gray", linestyle="--")
-            ax.axline((2, 0), slope=stiff2, color="gray", linestyle="--")
-            ax.scatter([dy1], [py1], color='r')
-            ax.scatter([dy2], [py2], color='r')
+            if dbg1.get('initial_slope', None) is not None:
+                stiff1 = dbg1['initial_slope']
+                ax.axline((0, 0), slope=stiff1, color="gray", linestyle="--")
+            if dbg2.get('initial_slope', None) is not None:
+                stiff2 = dbg2['initial_slope']
+                ax.axline((2, 0), slope=stiff2, color="gray", linestyle="--")
+                
+            if is_valid1:
+                ax.scatter([dy1], [py1], color='r')
+            if is_valid2:
+                ax.scatter([dy2], [py2], color='r')
             ax.legend()
         except Exception:
             pass
@@ -199,15 +204,13 @@ class Test_results:
         # Removed detect_outliers_ratio usage
         pd_removed_outliers = pd_rmdup
         
-        from tascpy.plugins.load_displacement import (
-            create_skeleton_curve,
-            cycle_count,
-            create_cumulative_curve,
-        )
+        from tascpy.analytics.functional.load_displacement.curves import compute_cumulative_curve
+        from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers
 
         p_cyc = pd_removed_outliers["P_total"].values
         d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].values
-        p_cum, d_cum = create_cumulative_curve(d_cyc, p_cyc)
+        markers = compute_cycle_markers(p_cyc)
+        d_cum, p_cum = compute_cumulative_curve(p_cyc, d_cyc, markers)
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(d_cum, p_cum, label="envelope")

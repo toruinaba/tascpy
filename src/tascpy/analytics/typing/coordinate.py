@@ -311,19 +311,21 @@ Examples:
 
     def fetch_near_step(
         self,
-        target_step: float
+        column: Union[str, ndarray],
+        target_value: float
     ) -> CoordinateCollectionOperations:
-        """指定ステップ値に最も近いデータ行を一つ抽出します。
+        """指定されたカラムの値に最も近いデータ行を一つ抽出します。
 
 Args:
     collection (ColumnCollection): データコレクション
-    target_step (float): 抽出したい基準ステップ値
+    column (str): 抽出したい基準となるカラム名
+    target_value (float): 抽出したい基準値
 
 Returns:
     ColumnCollection: ターゲットに最も近い1行のみを含む新しいコレクション（要素数1）
 
 Examples:
-    >>> single_row = col.ops.fetch_near_step(5.0)
+    >>> single_row = col.ops.fetch_near_step("P_total", 200.0)
     >>> print(single_row.step.values[0])"""
         ...
     
