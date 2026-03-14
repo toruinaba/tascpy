@@ -944,8 +944,9 @@ def handle_zero_division(
             if mode not in valid_modes:
                  raise ValueError(f"handle_zero_division must be one of {valid_modes}")
 
-            v1 = args[numerator_idx]
-            v2 = args[denominator_idx]
+            offset = 1 if len(args) > 0 and isinstance(args[0], ColumnCollection) else 0
+            v1 = args[numerator_idx + offset]
+            v2 = args[denominator_idx + offset]
 
             # 1. Pre-computation checks (Error mode)
             if mode == "error":
