@@ -126,13 +126,9 @@ class TestLoadDisplacementCycles:
     def test_split_by_cycles_without_cycle_column(self):
         """サイクル列がないときのsplit_by_cycles関数テスト"""
         # サイクル列を追加せずに直接split_by_cyclesを呼び出し
-        # 内部でcycle_count関数が呼ばれることを確認
-        result = split_by_cycles(self.ld_collection)
-
-        # 実装では全データが1サイクルになるため長さは1
-        assert len(result) == 1
-        # すべてのデータが含まれる
-        assert len(result[0]) == 10
+        # 内部でエラーになることを確認
+        with pytest.raises(KeyError, match="サイクルカラムが指定されておらず、自動検出もできませんでした。"):
+            result = split_by_cycles(self.ld_collection)
 
     def test_cycle_count_zero_crossing(self):
         """ゼロ交差でのサイクル増加テスト"""

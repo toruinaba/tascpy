@@ -62,9 +62,7 @@ class TestLoadDisplacementCurves:
         # スケルトン曲線を作成。引数を明示的に指定
         result = create_skeleton_curve(
             self.ld_collection,
-            "load",
-            "displacement",
-            "cycle"
+            cycle_marker_column="cycle"
         )
 
         # 結果のコレクション型の確認
@@ -88,9 +86,7 @@ class TestLoadDisplacementCurves:
         # 複数サイクルの場合
         result = create_skeleton_curve(
             self.multi_cycle_collection,
-            "load",
-            "displacement",
-            "cycle",
+            cycle_marker_column="cycle",
             has_decrease=True,
             decrease_type="envelope"
         )
@@ -110,13 +106,13 @@ class TestLoadDisplacementCurves:
         """異なる減少部分の処理方法のテスト"""
         
         envelope_result = create_skeleton_curve(
-            self.multi_cycle_collection, "load", "displacement", "cycle", has_decrease=True, decrease_type="envelope"
+            self.multi_cycle_collection, cycle_marker_column="cycle", has_decrease=True, decrease_type="envelope"
         )
         continuous_result = create_skeleton_curve(
-            self.multi_cycle_collection, "load", "displacement", "cycle", has_decrease=True, decrease_type="continuous_only"
+            self.multi_cycle_collection, cycle_marker_column="cycle", has_decrease=True, decrease_type="continuous_only"
         )
         both_result = create_skeleton_curve(
-            self.multi_cycle_collection, "load", "displacement", "cycle", has_decrease=True, decrease_type="both"
+            self.multi_cycle_collection, cycle_marker_column="cycle", has_decrease=True, decrease_type="both"
         )
 
         # それぞれ結果が異なることを確認
@@ -132,9 +128,7 @@ class TestLoadDisplacementCurves:
         # 累積曲線を作成
         result = create_cumulative_curve(
             self.multi_cycle_collection,
-            "load",
-            "displacement",
-            "cycle"
+            cycle_marker_column="cycle"
         )
 
         assert "cumulative_curve" in result.results

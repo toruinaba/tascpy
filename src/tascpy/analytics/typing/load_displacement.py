@@ -38,8 +38,6 @@ class LoadDisplacementCollectionOperations(CollectionOperationsBase[LoadDisplace
 
     def calculate_slopes(
         self,
-        disp_data: Union[str, ndarray] = None,
-        load_data: Union[str, ndarray] = None,
         result_column: Optional[str] = None,
         unit: Optional[str] = None,
         ch: Optional[str] = None,
@@ -49,8 +47,6 @@ class LoadDisplacementCollectionOperations(CollectionOperationsBase[LoadDisplace
 
 Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
-    disp_data (str, optional): 変位データのカラム名（None時は自動解決）
-    load_data (str, optional): 荷重データのカラム名（None時は自動解決）
     result_column (str, optional): 結果カラム名. Defaults to None.
     unit (str, optional): 結果の単位. Defaults to None.
     ch (str, optional): 結果のチャネル名. Defaults to None.
@@ -66,8 +62,6 @@ Examples:
 
     def calculate_stiffness(
         self,
-        disp_data: Optional[str] = None,
-        load_data: Optional[str] = None,
         range_start: float = 0.2,
         range_end: float = 0.8,
         method: str = 'linear_regression'
@@ -78,8 +72,6 @@ Examples:
 
     def find_yield_point(
         self,
-        disp_data: Union[str, ndarray] = None,
-        load_data: Union[str, ndarray] = None,
         method: str = 'offset',
         offset_value: float = 0.002,
         range_start: float = 0.1,
@@ -94,8 +86,6 @@ Examples:
 
     def create_skeleton_curve(
         self,
-        load_column: Optional[str] = None,
-        displacement_column: Optional[str] = None,
         cycle_marker_column: Optional[str] = None,
         has_decrease: bool = False,
         decrease_type: str = 'envelope'
@@ -104,8 +94,6 @@ Examples:
 
 Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
-    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
-    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
     cycle_marker_column (str, optional): サイクルマーカーカラム名（None時は自動解決）
     has_decrease (bool, optional): 剛性低下を考慮するかどうか. Defaults to False.
     decrease_type (str, optional): 剛性低下の計算手法. Defaults to "envelope".
@@ -120,16 +108,12 @@ Examples:
 
     def create_cumulative_curve(
         self,
-        load_column: Optional[str] = None,
-        displacement_column: Optional[str] = None,
         cycle_marker_column: Optional[str] = None
     ) -> LoadDisplacementCollectionOperations:
         """荷重-変位データから累積塑性変形-荷重曲線を生成します。
 
 Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
-    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
-    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
     cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
 
 Returns:
@@ -193,8 +177,6 @@ Examples:
     def analyze_hysteresis(
         self,
         cycle_column: Optional[str] = None,
-        load_column: Optional[str] = None,
-        displacement_column: Optional[str] = None,
         cycle_marker_column: Optional[str] = None
     ) -> tuple:
         """各サイクルのヒステリシスエネルギー（面積）と最大/最小荷重・変位を計算します。
@@ -202,8 +184,6 @@ Examples:
 Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
     cycle_column (str, optional): サイクル番号のカラム名（None時は自動解決）
-    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
-    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
     cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
 
 Returns:
@@ -218,8 +198,6 @@ Examples:
     def analyze_stiffness_degradation(
         self,
         cycle_column: Optional[str] = None,
-        load_column: Optional[str] = None,
-        displacement_column: Optional[str] = None,
         cycle_marker_column: Optional[str] = None
     ) -> tuple:
         """各サイクルの割線剛性（剛性低下）を評価します。
@@ -227,8 +205,6 @@ Examples:
 Args:
     collection (LoadDisplacementCollection): 荷重-変位コレクション
     cycle_column (str, optional): サイクル番号のカラム名（None時は自動解決）
-    load_column (str, optional): 荷重データのカラム名（None時は自動解決）
-    displacement_column (str, optional): 変位データのカラム名（None時は自動解決）
     cycle_marker_column (str, optional): サブサイクル判定用のマーカーカラム名
 
 Returns:

@@ -10,11 +10,8 @@ from ...functional.load_displacement.analysis import compute_slopes, compute_sti
 
 @operation(domain="load_displacement")
 @store_result(result_naming="slope_data")
-@inject_columns(num_inputs=2, pass_collection=True)
 def calculate_slopes(
     collection: LoadDisplacementCollection,
-    disp_data: Union[str, np.ndarray] = None,
-    load_data: Union[str, np.ndarray] = None,
     result_column: Optional[str] = None,
     unit: Optional[str] = None,
     ch: Optional[str] = None,
@@ -24,8 +21,6 @@ def calculate_slopes(
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
-        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
-        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
         result_column (str, optional): 結果カラム名. Defaults to None.
         unit (str, optional): 結果の単位. Defaults to None.
         ch (str, optional): 結果のチャネル名. Defaults to None.
@@ -37,12 +32,9 @@ def calculate_slopes(
     Examples:
         >>> col = col.ops.calculate_slopes()
     """
-    # inject_columns passes (collection, disp_arr, load_arr, ...)
-    # disp_data and load_data are resolved from the collection if None
-    if disp_data is None:
-        disp_data = np.array(collection[collection.displacement_column].values)
-    if load_data is None:
-        load_data = np.array(collection[collection.load_column].values)
+    # Extract data directly from the collection
+    disp_data = collection.displacement_data
+    load_data = collection.load_data
     return compute_slopes(disp_data, load_data)
 
 
@@ -50,8 +42,6 @@ def calculate_slopes(
 @store_scalar_result(name="stiffness")
 def calculate_stiffness(
     collection: LoadDisplacementCollection,
-    disp_data: Optional[str] = None,
-    load_data: Optional[str] = None,
     range_start: float = 0.2,
     range_end: float = 0.8,
     method: str = "linear_regression",
@@ -65,8 +55,6 @@ def calculate_stiffness(
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
-        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
-        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
         range_start (float, optional): 計算対象範囲の開始比率（最大値に対する比率）. Defaults to 0.2.
         range_end (float, optional): 計算対象範囲の終了比率（最大値に対する比率）. Defaults to 0.8.
         method (str, optional): 計算手法 ("linear_regression", "secant"). Defaults to "linear_regression".
@@ -77,11 +65,8 @@ def calculate_stiffness(
     Examples:
         >>> stiffness = col.ops.calculate_stiffness(range_start=0.1, range_end=0.4)
     """
-    disp_col = disp_data or collection.displacement_column
-    load_col = load_data or collection.load_column
-
-    disp_arr = np.array(collection[disp_col].values)
-    load_arr = np.array(collection[load_col].values)
+    disp_arr = collection.displacement_data
+    load_arr = collection.load_data
 
     return compute_stiffness(
         disp_arr, load_arr,
@@ -93,11 +78,8 @@ def calculate_stiffness(
 
 @operation(domain="load_displacement")
 @store_point_result(name="yield_point")
-@inject_columns(num_inputs=2, pass_collection=True)
 def find_yield_point(
     collection: LoadDisplacementCollection,
-    disp_data: Union[str, np.ndarray] = None,
-    load_data: Union[str, np.ndarray] = None,
     method: str = "offset",
     offset_value: float = 0.002,
     range_start: float = 0.1,
@@ -120,8 +102,6 @@ def find_yield_point(
 
     Args:
         collection (LoadDisplacementCollection): 荷重-変位コレクション
-        disp_data (str, optional): 変位データのカラム名（None時は自動解決）
-        load_data (str, optional): 荷重データのカラム名（None時は自動解決）
         method (str, optional): 降伏点判定手法 ("offset", "max_load"). Defaults to "offset".
         offset_value (float, optional): オフセット法におけるオフセット値. Defaults to 0.002.
         range_start (float, optional): 剛性計算の開始比率. Defaults to 0.1.
@@ -137,10 +117,8 @@ def find_yield_point(
         >>> col = col.ops.find_yield_point(method="offset", offset_value=0.002)
         >>> yield_pt = col.results["yield_point"].value
     """
-    if disp_data is None:
-        disp_data = np.array(collection[collection.displacement_column].values)
-    if load_data is None:
-        load_data = np.array(collection[collection.load_column].values)
+    disp_data = collection.displacement_data
+    load_data = collection.load_data
 
     return compute_yield_point(
         disp_data, load_data,

@@ -112,28 +112,28 @@ def sample_with_cyclic_data():
 @pytest.fixture
 def sample_with_skeleton_curve_columns(sample_with_cyclic_data):
     """スケルトン曲線データを列に含むサンプル（旧形式）"""
-    result = create_skeleton_curve(sample_with_cyclic_data, "load", "displacement", "cycle")
+    result = create_skeleton_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
     return result
 
 
 @pytest.fixture
 def sample_with_skeleton_curve_metadata(sample_with_cyclic_data):
     """スケルトン曲線データをメタデータに含むサンプル（新形式）"""
-    result = create_skeleton_curve(sample_with_cyclic_data, "load", "displacement", "cycle")
+    result = create_skeleton_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
     return result
 
 
 @pytest.fixture
 def sample_with_cumulative_curve_columns(sample_with_cyclic_data):
     """累積曲線データを列に含むサンプル（旧形式）"""
-    result = create_cumulative_curve(sample_with_cyclic_data, "load", "displacement", "cycle")
+    result = create_cumulative_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
     return result
 
 
 @pytest.fixture
 def sample_with_cumulative_curve_metadata(sample_with_cyclic_data):
     """累積曲線データをメタデータに含むサンプル（新形式）"""
-    result = create_cumulative_curve(sample_with_cyclic_data, "load", "displacement", "cycle")
+    result = create_cumulative_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
     return result
 
 

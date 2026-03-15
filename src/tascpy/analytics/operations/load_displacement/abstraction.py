@@ -45,8 +45,6 @@ def resolve_ld_and_cycle_columns(func):
     @functools.wraps(func)
     def wrapper(
         collection,
-        load_column=None,
-        displacement_column=None,
         cycle_marker_column=None,
         *args,
         **kwargs
@@ -55,12 +53,10 @@ def resolve_ld_and_cycle_columns(func):
         from tascpy.plugins.load_displacement import cycle_count
         
         ld_info = collection.metadata.get("load_displacement_domain", {})
-        load_col = load_column or ld_info.get("load_column", collection.load_column)
-        disp_col = displacement_column or ld_info.get("displacement_column", collection.displacement_column)
         marker_col = cycle_marker_column or ld_info.get("cycle_marker_column", "cycle_marker")
         
-        loads = np.array(collection[load_col].values)
-        disps = np.array(collection[disp_col].values)
+        loads = collection.load_data
+        disps = collection.displacement_data
         
         try:
             if marker_col in collection.columns:

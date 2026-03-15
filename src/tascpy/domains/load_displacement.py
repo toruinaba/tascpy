@@ -318,19 +318,14 @@ class LoadDisplacementCollection(ColumnCollection):
 
     def get_ld_cycle_arrays(
         self,
-        load_column: Optional[str] = None,
-        displacement_column: Optional[str] = None,
         cycle_marker_column: Optional[str] = None,
     ):
         """荷重・変位・サイクルマーカーの numpy 配列を取得する。
 
-        カラム名を省略した場合はメタデータから自動解決します。
         サイクルマーカーカラムが存在しない場合は ``KeyError`` を raise します
         （自動生成はオペレーション層の責務）。
 
         Args:
-            load_column: 荷重カラム名（None 時はメタデータから解決）
-            displacement_column: 変位カラム名（None 時はメタデータから解決）
             cycle_marker_column: サイクルマーカーカラム名（None 時は自動検出）
 
         Returns:
@@ -345,8 +340,8 @@ class LoadDisplacementCollection(ColumnCollection):
         """
         import numpy as np
 
-        loads = np.array(self[load_column or self.load_column].values)
-        disps = np.array(self[displacement_column or self.displacement_column].values)
+        loads = self.load_data
+        disps = self.displacement_data
 
         # サイクルマーカー解決: 明示指定のみ。未指定・未存在の場合は KeyError
         if cycle_marker_column is None:
