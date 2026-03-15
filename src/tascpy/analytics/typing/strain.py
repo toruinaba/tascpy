@@ -1154,6 +1154,14 @@ Examples:
         ...
     
 
+    def some_op3(
+        self,
+        
+    ) -> Any:
+        """This is chained assignment."""
+        ...
+    
+
     @overload
     def as_domain(self, domain: Literal['core'], **kwargs: Any) -> CoreCollectionOperations:
         ...

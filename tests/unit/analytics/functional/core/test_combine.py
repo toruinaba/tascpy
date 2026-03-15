@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from tascpy.analytics.functional.combine import (
+from tascpy.analytics.functional.core.combine import (
     switch_by_step,
     blend_by_step,
     sum_columns,

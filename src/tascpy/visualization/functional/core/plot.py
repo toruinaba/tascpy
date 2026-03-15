@@ -19,10 +19,10 @@ except ImportError:
         "警告: japanize_matplotlib をインポートできません。日本語が正しく表示されない可能性があります。"
     )
 
-from tascpy.analytics.functional.core import plot_utils as functional_plot
+from tascpy.visualization.functional.core import plot_utils as functional_plot
 from tascpy.visualization import backend_mpl
 from tascpy.visualization import backend_plotly
-from tascpy.analytics.functional import stats as functional_stats
+from tascpy.analytics.functional.core import stats as functional_stats
 
 
 def plot(

@@ -10,7 +10,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from ..registry import operation
 from ..abstraction import filter_rows, select_columns, inject_step_values, inject_columns
-from ...functional import select as functional_select
+from ...functional.core import select as functional_select
 
 
 @operation(domain="core")

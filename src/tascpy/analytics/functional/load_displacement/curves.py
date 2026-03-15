@@ -2,7 +2,7 @@
 
 from typing import List, Tuple, Any
 import numpy as np
-from ..select import split_list_by_integers
+from ..core.select import split_list_by_integers
 
 def extend_data_edge(
     x_data: List[float], 

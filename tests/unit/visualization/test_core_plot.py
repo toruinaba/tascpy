@@ -240,7 +240,7 @@ class TestPlot:
 class TestVisualizeOutliers:
     """visualize_outliers関数のテスト"""
 
-    @patch("tascpy.analytics.functional.stats.detect_outliers")
+    @patch("tascpy.analytics.functional.core.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
     def test_basic_visualization(
@@ -282,7 +282,7 @@ class TestVisualizeOutliers:
         # 結果がAxesオブジェクトであることを確認
         assert result is mock_ax
 
-    @patch("tascpy.analytics.functional.stats.detect_outliers")
+    @patch("tascpy.analytics.functional.core.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     def test_existing_axes(self, mock_show, mock_detect_outliers, sample_collection):
         """既存のAxesオブジェクトを使用する機能が正しく動作することを確認"""
@@ -306,7 +306,7 @@ class TestVisualizeOutliers:
         # 結果がAxesであることを確認
         assert result is mock_ax
 
-    @patch("tascpy.analytics.functional.stats.detect_outliers")
+    @patch("tascpy.analytics.functional.core.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
     def test_no_outliers(
@@ -334,7 +334,7 @@ class TestVisualizeOutliers:
         # 結果がAxesであることを確認
         assert result is mock_ax
 
-    @patch("tascpy.analytics.functional.stats.detect_outliers")
+    @patch("tascpy.analytics.functional.core.stats.detect_outliers")
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
     def test_custom_parameters(

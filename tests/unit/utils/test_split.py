@@ -1,6 +1,6 @@
 
 import pytest
-from tascpy.analytics.functional.select import (
+from tascpy.analytics.functional.core.select import (
     split_list_by_chunks,
     split_list_by_count,
     split_list_by_condition,

@@ -1032,6 +1032,14 @@ Examples:
         ...
     
 
+    def some_op3(
+        self,
+        
+    ) -> List[Any]:
+        """This is chained assignment."""
+        ...
+    
+
     def interpolate_at_point(
         self,
         x: float,

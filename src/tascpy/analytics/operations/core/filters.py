@@ -3,8 +3,8 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from ..registry import operation
 from ..abstraction import inject_columns, filter_rows, inject_step_values
-from ...functional import filters as functional_filters
-from ...functional import stats as functional_stats
+from ...functional.core import filters as functional_filters
+from ...functional.core import stats as functional_stats
 
 
 @operation(domain="core")

@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import math
-from tascpy.analytics.functional.stats import (
+from tascpy.analytics.functional.core.stats import (
     moving_average,
     detect_outliers,
     gaussian_filter

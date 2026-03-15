@@ -9,7 +9,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from ..registry import operation
 from ..abstraction import inject_columns, store_result
-from ...functional import combine as functional_combine
+from ...functional.core import combine as functional_combine
 from ..naming import basic_naming, callable_naming
 
 

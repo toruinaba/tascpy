@@ -13,7 +13,7 @@ from ..abstraction import (
     handle_missing_values,
     inject_columns
 )
-from ...functional import math as functional_math
+from ...functional.core import math as functional_math
 from ..registry import operation
 from ..naming import infix_naming, format_naming, basic_naming, log_naming
 

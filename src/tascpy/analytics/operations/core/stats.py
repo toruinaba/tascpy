@@ -8,7 +8,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from ..registry import operation
 from ..abstraction import store_result, inject_columns, handle_missing_values
-from ...functional import stats as functional_stats
+from ...functional.core import stats as functional_stats
 from ..naming import format_naming
 
 

@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from tascpy.analytics.functional.filters import (
+from tascpy.analytics.functional.core.filters import (
     eq, neq, compare, in_range, is_valid, filter_valid_rows, duplicated_indices,
     remove_outliers_mask
 )

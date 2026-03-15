@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from tascpy.analytics.functional.select import (
+from tascpy.analytics.functional.core.select import (
     select_indices,
     fetch_near_step,
     split_by_integers,
