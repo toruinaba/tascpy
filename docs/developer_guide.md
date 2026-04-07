@@ -17,11 +17,22 @@ tascpy/
 │   ├── converters.py   # ドメイン間変換
 │   ├── coordinate/     # 座標ドメイン
 │   ├── load_displacement/ # 荷重-変位ドメイン
-├── operations/         # データ処理操作
-│   ├── registry.py     # 操作の登録システム
-│   ├── core/           # コアドメイン操作
-│   ├── load_displacement/ # 荷重-変位ドメイン操作
-```
+├── analytics/          # データ分析・処理機能（旧 functional / operations）
+│   ├── functional/     # 純粋な計算ロジック（ステートレス関数）
+│   │   ├── core/       # コア機能（数学演算、フィルタ等）
+│   │   │   ├── math.py
+│   │   │   ├── filters.py
+│   │   │   ├── stats.py 
+│   │   │   └── combine.py
+│   │   └── load_displacement/ # 荷重-変位特化機能
+│   └── operations/     # データ処理操作・メソッドチェーンのラッパー
+│       ├── registry.py     # 操作の登録システム
+│       ├── core/           # コアドメイン操作（functionalのラッパー）
+│       └── load_displacement/ # 荷重-変位ドメイン操作
+├── visualization/      # 可視化バックエンドとプロッター
+├── io/                 # データ入出力
+├── typing/             # 型ヒント・スタブ
+└── plugins/            # プラグイン
 
 ### 主要クラスの関係
 
@@ -29,6 +40,44 @@ tascpy/
 - **DomainCollectionFactory**: ドメイン特化コレクションの作成を担当
 - **CollectionOperations**: メソッドチェーンを実現するための操作ハブ
 - **OperationRegistry**: 操作関数を登録・管理
+- **Functional Modules**: 状態を持たない純粋な計算ロジックの実装層
+
+### 将来のアーキテクチャ展望 (プラグイン登録モデル)
+
+現在のアーキテクチャでは、`ColumnCollection` などのコアデータ構造が利便性（メソッドチェーン）のために `.ops` や `.plot` プロパティを定義し、内部で間接的に `operations` や `visualization` パッケージを参照しています。
+
+しかし、長期的にはコア層（`core`）を外部パッケージ（`operations`, `visualization`, `io` 等）から完全に独立させる**ヘキサゴナル・アーキテクチャ（プラグイン登録モデル）**への移行が推奨されます。
+
+#### 理想的な依存関係（コアの完全独立）
+
+```text
+# 依存の方向性（外側から内側へ）
+io (CSVの読込等)       ──> core (純粋なメモリ空間)
+operations (計算の実行) ──> core
+visualization (描画)     ──> core
+```
+
+#### 実現アプローチ：アクセサの動的マウント
+
+Pandasの `Extension API` のように、「メソッドチェーンの起点は維持しつつ、コアには一切の依存を持たせない」構成です。
+
+1. **`core` 層は口だけを開けておく:**
+   `ColumnCollection` には `register_accessor()` メソッドのみを定義し、`.ops` や `.plot` といった特定の名前やその実体は一切知らなくてよい状態にします。
+
+2. **外部パッケージインポート時の自動注入:**
+   `operations` や `visualization` パッケージの `__init__.py` が呼び出された瞬間に、自分自身を `ColumnCollection` のプロパティとして動的登録（マウント）します。
+
+```python
+# 例: tascpy/analytics/operations/__init__.py
+from tascpy.core.collection import ColumnCollection
+from tascpy.analytics.operations.proxy import CollectionOperations
+
+# コアクラスに対して、後から拡張機能 `.ops` として接続する
+ColumnCollection.register_accessor("ops", CollectionOperations)
+```
+
+このアーキテクチャに向けたリファクタリングを進めることで、**「一切の外部ライブラリ（matplotlib等）に依存せずピュアに動く `core`」** と **「直感的で強力なメソッドチェーン（DX）」** を高い次元で両立させることが可能になります。
+
 
 ## 開発環境のセットアップ
 
@@ -66,11 +115,11 @@ pip install -r requirements-dev.txt
 ### 1. 操作関数の実装
 
 ```python
-# src/tascpy/operations/core/custom_ops.py
+# src/tascpy/analytics/operations/core/custom_ops.py
 from typing import Optional, Union, Dict, Any
 
 from tascpy.core.collection import ColumnCollection
-from tascpy.operations.registry import operation
+from tascpy.analytics.operations.registry import operation
 
 @operation  # デコレータを使用して操作を登録
 def custom_function(
@@ -112,50 +161,19 @@ def custom_function(
 
 ### 2. 操作の登録
 
-操作関数に `@operation` デコレータを付けると、自動的に `OperationRegistry` に登録されます。特定のドメインに特化した操作の場合は、ドメイン名を指定します：
+操作関数を `tascpy` のシステムに登録するには、デコレータや `register_functional` などの高度な登録システムを使用します。
 
-```python
-# 荷重-変位ドメイン特化の操作
-@operation(domain="load_displacement")
-def custom_ld_operation(
-    collection: LoadDisplacementCollection,
-    # パラメータ...
-) -> LoadDisplacementCollection:
-    # 実装...
-```
+この登録システムは、引数の自動展開（列名からnumpy配列へ）、欠損値（NaN）の自動処理、計算結果の自動保管（元のコレクションへのマージ）、および VS Code 用のスタブ生成などを全て自動的に行います。
+
+非常に強力ですが、複雑なアーキテクチャを持っているため、必ず詳細ガイドを参照してください。
+
+👉 **[操作登録の詳細な仕組み (register_functional)](developer_guide_operations.md) を参照**
 
 ### 3. テストの作成
 
-新しい操作に対するテストを作成します：
+純粋なアルゴリズムのテスト（`functional`）と、コレクションの操作としてのテスト（`operations`）を明確に分けて記述する必要があります。
 
-```python
-# tests/unit/operations/core/test_custom_ops.py
-import pytest
-from tascpy.core.collection import ColumnCollection
-
-class TestCustomOperations:
-    """カスタム操作のテスト"""
-    
-    def setup_method(self):
-        """テスト用のデータを準備"""
-        self.collection = ColumnCollection.from_dict({
-            "A": [1.0, 2.0, 3.0],
-            "B": [4.0, 5.0, 6.0]
-        })
-        
-    def test_custom_function(self):
-        """custom_function の基本機能をテスト"""
-        result = self.collection.ops.custom_function("A", 2.0, result_column="A_doubled").end()
-        
-        # 結果の検証
-        assert "A_doubled" in result.columns
-        assert result["A_doubled"].values[0] == 2.0
-        assert result["A_doubled"].values[1] == 4.0
-        assert result["A_doubled"].values[2] == 6.0
-        
-        # 元のデータが変更されていないことを確認
-        assert self.collection["A"].values[0] == 1.0
-```
+👉 **[テスト戦略 (Testing Strategy)](developer_guide_testing.md) を参照**
 
 ### 4. ドキュメントの更新
 
@@ -277,11 +295,11 @@ def prepare_for_custom_domain(
 ### 5. ドメイン特化操作の実装
 
 ```python
-# src/tascpy/operations/custom_domain/analysis.py
+# src/tascpy/analytics/operations/custom_domain/analysis.py
 from typing import Optional, Any
 
 from tascpy.domains.custom_domain.collection import CustomDomainCollection
-from tascpy.operations.registry import operation
+from tascpy.analytics.operations.registry import operation
 
 @operation(domain="custom_domain")
 def special_analysis(
@@ -423,7 +441,7 @@ python scripts/generate_stubs.py
 ```
 
 ```python
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
@@ -435,7 +453,7 @@ generate_stubs()
 2. 必要に応じて `stub_generator.py` をカスタマイズ：
 
 ```python
-# src/tascpy/operations/stub_generator.py
+# src/tascpy/analytics/operations/stub_generator.py
 # カスタムドメイン用のスタブテンプレートを追加
 DOMAIN_STUB_TEMPLATES = {
     # 既存のテンプレート...
@@ -500,11 +518,11 @@ python scripts/generate_stubs.py
 あるいは、Python コードから直接生成することも可能です。
 
 ```python
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
-スタブファイルは `src/tascpy/operations/stubs/` ディレクトリに生成され、これにより VS Code / Pylance での自動補完が有効になります。
+スタブファイルは `src/tascpy/typing/stubs/` または適宜設定されたディレクトリに生成され、これにより VS Code / Pylance での自動補完が有効になります。
 
 ### スタブファイルの更新
 
@@ -549,6 +567,6 @@ T = TypeVar('T', bound='CollectionOperationsBase')
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```

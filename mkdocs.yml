@@ -1,0 +1,44 @@
+site_name: tascpy
+site_description: タスク計測データ処理用のPythonライブラリ
+site_author: toru_inaba
+site_url: https://toruinaba.github.io/tascpy/
+
+repo_name: toruinaba/tascpy
+repo_url: https://github.com/toruinaba/tascpy
+
+theme:
+  name: material
+  language: ja
+  features:
+    - navigation.tabs
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_source: true
+            show_category_heading: true
+
+nav:
+  - Home: index.md
+  - Developer Guide: 
+      - General: developer_guide.md
+      - Operations & Registry: developer_guide_operations.md
+      - Testing Strategy: developer_guide_testing.md
+  - API Reference:
+      - Core: api/core.md
+      - IO: api/io.md
+      - Analytics: api/analytics.md
+      - Visualization: api/visualization.md
+      - Domains: api/domains.md

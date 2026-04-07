@@ -7,7 +7,7 @@ from setuptools import find_packages
 
 setup(
     name="tascpy",
-    version="0.1.2",
+    version="0.1.3",
     description="タスク計測データ処理用のPythonライブラリ",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

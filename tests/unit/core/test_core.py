@@ -2,12 +2,12 @@ import pytest
 from datetime import datetime, timedelta
 import numpy as np
 
-from src.tascpy.core.column import Column
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.step import Step
-from src.tascpy.core.row import Row
-from src.tascpy.operations.registry import operation, OperationRegistry
-from src.tascpy.domains.factory import DomainCollectionFactory
+from tascpy.core.column import Column
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.step import Step
+from tascpy.core.row import Row
+from tascpy.analytics.operations.registry import operation, OperationRegistry
+from tascpy.domains.factory import DomainCollectionFactory
 
 
 @pytest.fixture
@@ -31,23 +31,23 @@ class TestColumnCollection:
         assert isinstance(basic_collection, ColumnCollection)
         assert len(basic_collection) == 5
         assert len(basic_collection.columns) == 2
-        assert basic_collection.step.values == [1, 2, 3, 4, 5]
+        np.testing.assert_array_equal(basic_collection.step.values, [1, 2, 3, 4, 5])
         assert basic_collection.metadata["description"] == "Test collection"
 
         a_col = basic_collection["A"]
         assert isinstance(a_col, Column)
-        assert a_col.values == [1, 2, 3, 4, 5]
+        np.testing.assert_array_equal(a_col.values, [1, 2, 3, 4, 5])
 
     def test_getitem(self, basic_collection):
         """getitemメソッドのテスト"""
-        assert basic_collection["A"].values == [1, 2, 3, 4, 5]
+        np.testing.assert_array_equal(basic_collection["A"].values, [1, 2, 3, 4, 5])
         assert basic_collection[0].step == 1
         assert basic_collection[0].values == {"A": 1, "B": 5}
         assert isinstance(basic_collection[0], Row)
         assert isinstance(basic_collection[1:3], ColumnCollection)
         assert len(basic_collection[1:3]) == 2
-        assert basic_collection[1:3].step.values == [2, 3]
-        assert basic_collection[1:3]["A"].values == [2, 3]
+        np.testing.assert_array_equal(basic_collection[1:3].step.values, [2, 3])
+        np.testing.assert_array_equal(basic_collection[1:3]["A"].values, [2, 3])
 
     def test_clone(self, basic_collection):
         """cloneメソッドのテスト"""
@@ -56,14 +56,14 @@ class TestColumnCollection:
         assert cloned.step is not basic_collection.step
         assert cloned.columns["A"] is not basic_collection.columns["A"]
         assert cloned.metadata == basic_collection.metadata
-        assert cloned["A"].values == basic_collection["A"].values
+        np.testing.assert_array_equal(cloned["A"].values, basic_collection["A"].values)
 
     def test_add_remove_column(self, basic_collection):
         """add_columnとremove_columnメソッドのテスト"""
         new_col = Column("3", "C", "N", [10, 20, 30, 40, 50])
         basic_collection.add_column("C", new_col)
         assert "C" in basic_collection.columns
-        assert basic_collection["C"].values == [10, 20, 30, 40, 50]
+        np.testing.assert_array_equal(basic_collection["C"].values, [10, 20, 30, 40, 50])
 
         basic_collection.remove_column("C")
         assert "C" not in basic_collection.columns
@@ -107,8 +107,8 @@ class TestOperations:
 
         assert isinstance(result, ColumnCollection)
         assert len(result) == 1
-        assert result["A"].values == [3]
-        assert result["B"].values == [3]
+        np.testing.assert_array_equal(result["A"].values, [3])
+        np.testing.assert_array_equal(result["B"].values, [3])
 
     def test_chain_methods(self, basic_collection):
         """メソッドチェーンのテスト"""
@@ -116,8 +116,8 @@ class TestOperations:
 
         assert isinstance(result, ColumnCollection)
         assert len(result) == 1
-        assert result["A"].values == [3]
-        assert result["B"].values == [3]
+        np.testing.assert_array_equal(result["A"].values, [3])
+        np.testing.assert_array_equal(result["B"].values, [3])
 
 
 class TestDomainConversion:
@@ -145,6 +145,13 @@ class TestDomainConversion:
             result.metadata["frequency"] = new_frequency
             result.metadata["resampled"] = True
             return result
+
+    @pytest.fixture(autouse=True)
+    def restore_domain_factory(self):
+        """テスト後にDomainCollectionFactoryの状態を復元するフィクスチャ"""
+        original_factories = DomainCollectionFactory._factories.copy()
+        yield
+        DomainCollectionFactory._factories = original_factories
 
     @pytest.fixture
     def basic_collection_for_domain(self):
@@ -182,11 +189,11 @@ class TestDomainConversion:
         assert len(converted) == 5
         assert converted.metadata["frequency"] == "1H"
         assert converted.metadata["description"] == "Test time series collection"
-        assert converted.step.values == basic_collection_for_domain.step.values
-        assert (
-            converted["values"].values == basic_collection_for_domain["values"].values
+        np.testing.assert_array_equal(converted.step.values, basic_collection_for_domain.step.values)
+        np.testing.assert_array_equal(
+            converted["values"].values, basic_collection_for_domain["values"].values
         )
-        assert converted["flag"].values == basic_collection_for_domain["flag"].values
+        np.testing.assert_array_equal(converted["flag"].values, basic_collection_for_domain["flag"].values)
 
     def test_as_domain_method(self, timeseries_domain, basic_collection_for_domain):
         """as_domainメソッドのテスト"""
@@ -215,7 +222,7 @@ class TestDomainConversion:
 
         # データが保持されていることを確認
         assert len(core_collection) == len(timeseries)
-        assert core_collection.step.values == timeseries.step.values
+        np.testing.assert_array_equal(core_collection.step.values, timeseries.step.values)
 
         # 元のドメインのメタデータが保存されていることを確認
         assert "domain_metadata" in core_collection.metadata
@@ -279,6 +286,10 @@ class TestDomainConversion:
             result = LoadDisplacementCollection(**kwargs)
             return result
 
+            result = LoadDisplacementCollection(**kwargs)
+            return result
+
+        # ファクトリ登録（フィクスチャがクリーンアップを行う）
         DomainCollectionFactory.register("load_displacement", create_load_displacement)
 
         # 2. coordinateドメインの準備
@@ -478,14 +489,16 @@ class TestDomainConversion:
         # データが保持されていることを確認（全てのパターン）
         for converted in [core_from_ld, core_from_coord, core_from_custom]:
             assert len(converted) == len(basic_collection_for_domain)
-            assert converted.step.values == basic_collection_for_domain.step.values
-            assert (
-                converted["values"].values
-                == basic_collection_for_domain["values"].values
+            np.testing.assert_array_equal(converted.step.values, basic_collection_for_domain.step.values)
+            np.testing.assert_array_equal(
+                converted["values"].values,
+                basic_collection_for_domain["values"].values
             )
-            assert (
-                converted["flag"].values == basic_collection_for_domain["flag"].values
+            np.testing.assert_array_equal(
+                converted["flag"].values, basic_collection_for_domain["flag"].values
             )
+        # finallyブロックはフィクスチャに置き換えられたため削除
+
 
 
 # 統合テスト
@@ -533,41 +546,47 @@ def test_full_pipeline():
     def create_timeseries(**kwargs):
         return TimeSeriesCollection(**kwargs)
 
-    DomainCollectionFactory.register("timeseries", create_timeseries)
+    # 元のファクトリを保存
+    original_factories = DomainCollectionFactory._factories.copy()
+    try:
+        DomainCollectionFactory.register("timeseries", create_timeseries)
 
-    @operation(domain="timeseries")
-    def moving_average(collection, column, window=3):
-        """移動平均の計算"""
-        result = collection.clone()
-        values = collection.columns[column].values
+        @operation(domain="timeseries")
+        def moving_average(collection, column, window=3):
+            """移動平均の計算"""
+            result = collection.clone()
+            values = collection.columns[column].values
 
-        # 単純な移動平均の計算
-        ma_values = []
-        for i in range(len(values)):
-            start = max(0, i - window // 2)
-            end = min(len(values), i + window // 2 + 1)
-            window_values = [v for v in values[start:end] if v is not None]
+            # 単純な移動平均の計算
+            ma_values = []
+            for i in range(len(values)):
+                start = max(0, i - window // 2)
+                end = min(len(values), i + window // 2 + 1)
+                window_values = [v for v in values[start:end] if v is not None]
 
-            if window_values:
-                ma_values.append(sum(window_values) / len(window_values))
-            else:
-                ma_values.append(None)
+                if window_values:
+                    ma_values.append(sum(window_values) / len(window_values))
+                else:
+                    ma_values.append(None)
 
-        result.add_column(f"{column}_ma{window}", ma_values)
-        return result
+            result.add_column(f"{column}_ma{window}", ma_values)
+            return result
 
-    # パイプラインの実行
-    result = (
-        collection.ops.add_derived_column("x+y", "sum")
-        .filter_by_value("group", "A")
-        .as_domain(domain="timeseries", start_date="2023-01-01", frequency="1D")
-        .moving_average("sum", window=3)
-        .end()
-    )
+        # パイプラインの実行
+        result = (
+            collection.ops.add_derived_column("x+y", "sum")
+            .filter_by_value("group", "A")
+            .as_domain(domain="timeseries", start_date="2023-01-01", frequency="1D")
+            .moving_average("sum", window=3)
+            .end()
+        )
 
-    # 結果の検証
-    assert len(result) == 2  # group="A"のデータのみ
-    assert "sum" in result.columns
-    assert "sum_ma3" in result.columns
-    assert result.columns["sum"].values == [2.0, 6.0]  # x+y の結果
-    assert isinstance(result.step.values[0], datetime)
+        # 結果の検証
+        assert len(result) == 2  # group="A"のデータのみ
+        assert "sum" in result.columns
+        assert "sum_ma3" in result.columns
+        np.testing.assert_array_equal(result.columns["sum"].values, [2.0, 6.0])  # x+y の結果
+        assert isinstance(result.step.values[0], datetime)
+    finally:
+        # ファクトリの状態を復元
+        DomainCollectionFactory._factories = original_factories

@@ -1,0 +1,3 @@
+"""
+Coordinate functional operations module.
+"""

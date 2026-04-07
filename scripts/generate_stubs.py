@@ -27,24 +27,24 @@ def main():
         # スタブ生成を実行
         try:
             # 先にレジストリをインポートして初期化
-            from src.tascpy.operations.registry import OperationRegistry
+            from src.tascpy.analytics.operations.registry import OperationRegistry
 
             # ドメインを先に検出
             OperationRegistry.discover_domains()
 
             # スタブ生成を実行
-            from src.tascpy.operations.stub_generator import generate_stubs
+            from src.tascpy.analytics.operations.stub_generator import generate_stubs
 
             generate_stubs()
         except ImportError as ie:
             print(f"インポートエラー: {ie}")
             # tascpyが通常のパッケージとしてインストールされている場合
             try:
-                from tascpy.operations.registry import OperationRegistry
+                from tascpy.analytics.operations.registry import OperationRegistry
 
                 OperationRegistry.discover_domains()
 
-                from tascpy.operations.stub_generator import generate_stubs
+                from tascpy.analytics.operations.stub_generator import generate_stubs
 
                 generate_stubs()
             except ImportError:

@@ -10,10 +10,11 @@ import numpy as np
 # プロジェクトのルートディレクトリをPYTHONPATHに追加
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.tascpy.core.collection import ColumnCollection
-from src.tascpy.core.column import Column
-from src.tascpy.core.io_formats import register_format
-from src.tascpy.io.file_handlers import load_from_file, save_to_file, load_tasc_file
+from tascpy.core.collection import ColumnCollection
+from tascpy.core.column import Column
+from tascpy.io.formats import register_format
+from tascpy.io.file_handlers import load_from_file, save_to_file, load_tasc_file
+import tascpy
 
 # テストデータパスの設定
 TEST_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))
@@ -62,7 +63,7 @@ UNIT,,,kN,mm,°C
             # Pathオブジェクトの存在チェックをパッチ
             with patch.object(Path, "exists", return_value=True):
                 # ダミーのファイルパスでテスト - 明示的に標準フォーマットを指定
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.txt", format_name="standard"
                 )
 
@@ -76,12 +77,12 @@ UNIT,,,kN,mm,°C
                 ]
 
                 # ステップ値の検証
-                assert collection.step.values == [1, 2, 3, 4, 5]
+                assert collection.step.values.tolist() == [1, 2, 3, 4, 5]
 
                 # カラム値の検証
-                assert collection["Force"].values == [0.5, 1.0, 1.5, 2.0, 2.5]
-                assert collection["Displacement"].values == [0.1, 0.2, 0.3, 0.4, 0.5]
-                assert collection["Temperature"].values == [
+                assert collection["Force"].values.tolist() == [0.5, 1.0, 1.5, 2.0, 2.5]
+                assert collection["Displacement"].values.tolist() == [0.1, 0.2, 0.3, 0.4, 0.5]
+                assert collection["Temperature"].values.tolist() == [
                     25.0,
                     25.1,
                     25.2,
@@ -112,7 +113,7 @@ UNIT,,,kN,mm,°C
             # Pathオブジェクトの存在チェックをパッチ
             with patch.object(Path, "exists", return_value=True):
                 # CSVフォーマット指定でテスト
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.csv", format_name="csv"
                 )
 
@@ -121,7 +122,7 @@ UNIT,,,kN,mm,°C
                 assert len(collection.columns) == 3
 
                 # データ値の検証
-                assert collection["Force"].values == [0.5, 1.0, 1.5, 2.0, 2.5]
+                assert collection["Force"].values.tolist() == [0.5, 1.0, 1.5, 2.0, 2.5]
 
     def test_from_file_tasc_format(self):
         """TASC形式（以前のW-N.txt形式）ファイルからの読み込みテスト"""
@@ -130,7 +131,7 @@ UNIT,,,kN,mm,°C
             # Pathオブジェクトの存在チェックをパッチ
             with patch.object(Path, "exists", return_value=True):
                 # TASC形式指定でテスト
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.txt", format_name="tasc"
                 )
 
@@ -139,7 +140,7 @@ UNIT,,,kN,mm,°C
                 assert len(collection.columns) == 4
 
                 # ステップ値の検証
-                assert collection.step.values == [1, 2, 3, 4, 5]
+                assert collection.step.values.tolist() == [1, 2, 3, 4, 5]
 
                 # カラム値の検証（None値も含む）
                 assert collection["CH0"].values[0] is None
@@ -200,7 +201,7 @@ UNIT,,,kN,mm,°C
         with patch("builtins.open", mock_open(read_data=custom_data)):
             with patch.object(Path, "exists", return_value=True):
                 # カスタムフォーマットで読み込み
-                collection = ColumnCollection.from_file(
+                collection = tascpy.io.load(
                     "dummy_path.txt", format_name="custom_test"
                 )
 
@@ -232,7 +233,7 @@ UNIT,,,kN,mm,°C
         m = mock_open()
         with patch("builtins.open", m):
             # 標準フォーマット明示的に指定
-            collection.to_file("output.txt", format_name="standard")
+            collection.io.save("output.txt", format_name="standard")
 
             # 書き込み呼び出しの検証
             m.assert_called_once_with(Path("output.txt"), "w", encoding="utf-8")
@@ -257,24 +258,28 @@ UNIT,,,kN,mm,°C
         collection = ColumnCollection(steps, columns)
 
         # load_from_fileのテスト - モックパスを修正
+        # file_handlers.py内でインポートされたtascpyをパッチする
         with patch(
-            "src.tascpy.core.collection.ColumnCollection.from_file"
-        ) as mock_from_file:
-            load_from_file("test.txt")
-            mock_from_file.assert_called_once()
+            "tascpy.io.load"
+        ) as mock_load:
+            with patch.object(Path, "exists", return_value=True):
+                with patch("builtins.open", mock_open(read_data="dummy")):
+                    load_from_file("test.txt")
+                    mock_load.assert_called_once()
 
         # save_to_fileのテスト
         with patch(
-            "src.tascpy.core.collection.ColumnCollection.to_file"
-        ) as mock_to_file:
-            save_to_file(collection, "test.txt")
-            mock_to_file.assert_called_once()
+            "tascpy.io.file_io.save_collection"
+        ) as mock_save:
+            with patch.object(Path, "exists", return_value=True):
+                save_to_file(collection, "test.txt")
+                mock_save.assert_called_once()
 
     def test_nonexistent_file(self):
         """存在しないファイルの読み込み時の例外テスト"""
         with patch.object(Path, "exists", return_value=False):
             with pytest.raises(FileNotFoundError):
-                ColumnCollection.from_file("nonexistent.txt")
+                tascpy.io.load("nonexistent.txt")
 
     def test_invalid_format(self):
         """無効なフォーマット指定時の例外テスト"""
@@ -283,14 +288,14 @@ UNIT,,,kN,mm,°C
         with patch("builtins.open", mock_open(read_data=mock_data)):
             with patch.object(Path, "exists", return_value=True):
                 with pytest.raises(KeyError):
-                    ColumnCollection.from_file("test.txt", format_name="invalid_format")
+                    tascpy.io.load("test.txt", format_name="invalid_format")
 
     def test_date_time_properties(self):
         """日付・時間プロパティのテスト"""
         # mock_openを使用してファイル読み込みをモック
         with patch("builtins.open", mock_open(read_data=self.TEST_FILE_CONTENT)):
             with patch.object(Path, "exists", return_value=True):
-                collection = ColumnCollection.from_file("dummy_path.txt")
+                collection = tascpy.io.load("dummy_path.txt")
 
                 # 日付・時間プロパティの検証
                 assert collection.date == collection.metadata["date"]
@@ -301,10 +306,10 @@ UNIT,,,kN,mm,°C
                 assert date == collection.date
                 assert time == collection.time
 
-    def test_real_tasc_file_load(self):
+    def test_real_tasc_file_load(self, tasc_file):
         """実際のTASC形式（W-N.txt）ファイルを読み込むテスト"""
         # テストデータファイルのパス
-        tasc_file_path = os.path.join(TEST_DATA_DIR, "W-N.txt")
+        tasc_file_path = str(tasc_file)
 
         # ファイルが存在することを確認
         assert os.path.exists(
@@ -369,70 +374,66 @@ UNIT,,,kN,mm,°C
         print(f"読み込まれた行数: {len(collection)}")
         print(f"最初の5つの列名: {list(collection.columns.keys())[:5]}")
 
-    def test_tasc_file_specific_columns(self):
+    def test_tasc_file_specific_columns(self, tasc_file):
         """TASCファイルから特定の列だけを抽出するテスト"""
-        # mock_openを使用してTASCファイル読み込みをモック
-        with patch("builtins.open", mock_open(read_data=self.TEST_WN_CONTENT)):
-            # Pathオブジェクトの存在チェックをパッチ
-            with patch.object(Path, "exists", return_value=True):
-                # チャンネル名を使用してファイルを読み込む
-                selected_ch_columns = ["CH0", "CH1"]
-                collection_ch = load_tasc_file(
-                    "dummy_path.txt", selected_columns=selected_ch_columns
-                )
+        # チャンネル名を使用してファイルを読み込む
+        selected_ch_columns = ["CH0", "CH1"]
+        collection_ch = load_tasc_file(
+            str(tasc_file), selected_columns=selected_ch_columns
+        )
 
-                # 指定したチャンネル列だけが読み込まれているか確認
-                assert len(collection_ch.columns) == len(selected_ch_columns)
-                for col in collection_ch.columns.values():
-                    assert (
-                        col.ch in selected_ch_columns
-                    ), f"指定したチャンネル {col.ch} が読み込まれていません"
+        # 指定したチャンネル列だけが読み込まれているか確認
+        assert len(collection_ch.columns) == len(selected_ch_columns)
+        for col in collection_ch.columns.values():
+            assert (
+                col.ch in selected_ch_columns
+            ), f"指定したチャンネル {col.ch} が読み込まれていません"
 
-                # 他のチャンネル列が含まれていないことを確認
-                for col in collection_ch.columns.values():
-                    assert (
-                        col.ch in selected_ch_columns
-                    ), f"指定していないチャンネル {col.ch} が読み込まれています"
+        # 他のチャンネル列が含まれていないことを確認
+        for col in collection_ch.columns.values():
+            assert (
+                col.ch in selected_ch_columns
+            ), f"指定していないチャンネル {col.ch} が読み込まれています"
 
-                # 列名を使用してファイルを読み込む
-                # テストデータには、列名が"Force1", "Force2", "Displacement1", "Displacement2"があるはず
-                selected_name_columns = ["Force1", "Displacement1"]
-                collection_name = load_tasc_file(
-                    "dummy_path.txt", selected_columns=selected_name_columns
-                )
+        # 列名を使用してファイルを読み込む
+        # テストデータには、列名が"Force1", "Force2", "Displacement1", "Displacement2"があるはず
+        selected_name_columns = ["Force1", "Displacement1"]
+        collection_name = load_tasc_file(
+            str(tasc_file), selected_columns=selected_name_columns
+        )
 
-                # 指定した列名だけが読み込まれているか確認
-                assert len(collection_name.columns) == len(selected_name_columns)
-                for col_name in selected_name_columns:
-                    assert (
-                        col_name in collection_name.columns
-                    ), f"指定した列 {col_name} が読み込まれていません"
+        # 指定した列名だけが読み込まれているか確認
+        assert len(collection_name.columns) == len(selected_name_columns)
+        for col_name in selected_name_columns:
+            assert (
+                col_name in collection_name.columns
+            ), f"指定した列 {col_name} が読み込まれていません"
 
-                # 列名とチャンネル名を混合して使用
-                mixed_columns = ["CH0", "Displacement1"]
-                collection_mixed = load_tasc_file(
-                    "dummy_path.txt", selected_columns=mixed_columns
-                )
+        # 列名とチャンネル名を混合して使用
+        mixed_columns = ["CH0", "Displacement1"]
+        collection_mixed = load_tasc_file(
+            str(tasc_file), selected_columns=mixed_columns
+        )
 
-                # 混合指定した列が読み込まれているか確認
-                assert len(collection_mixed.columns) == len(mixed_columns)
+        # 混合指定した列が読み込まれているか確認
+        assert len(collection_mixed.columns) == len(mixed_columns)
 
-                # CH0のチャンネル名を持つ列が含まれていることを確認
-                ch0_exists = False
-                for col in collection_mixed.columns.values():
-                    if col.ch == "CH0":
-                        ch0_exists = True
-                        break
-                assert ch0_exists, "指定したチャンネルCH0の列が読み込まれていません"
+        # CH0のチャンネル名を持つ列が含まれていることを確認
+        ch0_exists = False
+        for col in collection_mixed.columns.values():
+            if col.ch == "CH0":
+                ch0_exists = True
+                break
+        assert ch0_exists, "指定したチャンネルCH0の列が読み込まれていません"
 
-                # Displacement1という列名の列が含まれていることを確認
-                assert (
-                    "Displacement1" in collection_mixed.columns
-                ), "指定した列名Displacement1が読み込まれていません"
+        # Displacement1という列名の列が含まれていることを確認
+        assert (
+            "Displacement1" in collection_mixed.columns
+        ), "指定した列名Displacement1が読み込まれていません"
 
-                # 基本データが正しいことを確認
-                assert len(collection_mixed) > 0
-                assert collection_mixed.metadata["format"] == "tasc"
+        # 基本データが正しいことを確認
+        assert len(collection_mixed) > 0
+        assert collection_mixed.metadata["format"] == "tasc"
 
     def test_encoding_settings(self):
         """ファイルフォーマットのエンコーディング設定のテスト"""
@@ -442,10 +443,10 @@ UNIT,,,kN,mm,°C
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
                 with patch(
-                    "src.tascpy.core.collection.open", mock_file
+                    "tascpy.core.collection.open", mock_file
                 ) as mock_open_func:
                     # ここでは実際にファイルを読み込む必要はない、エンコーディング設定が正しく渡されたかだけを確認
-                    ColumnCollection.from_file("dummy_path.txt", format_name="tasc")
+                    tascpy.io.load("dummy_path.txt", format_name="tasc")
                     # openが呼び出されたか確認
                     mock_file.assert_called()
                     # 引数をチェック（エンコーディングがshift_jisかどうか）
@@ -456,8 +457,8 @@ UNIT,,,kN,mm,°C
             with patch(
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
-                with patch("src.tascpy.core.collection.open", mock_file):
-                    ColumnCollection.from_file("dummy_path.txt", format_name="standard")
+                with patch("tascpy.core.collection.open", mock_file):
+                    tascpy.io.load("dummy_path.txt", format_name="standard")
                     # 引数をチェック
                     call_args = mock_file.call_args_list[0]
                     assert call_args[1]["encoding"] == "utf-8"
@@ -466,8 +467,8 @@ UNIT,,,kN,mm,°C
             with patch(
                 "builtins.open", mock_open(read_data="テストデータ")
             ) as mock_file:
-                with patch("src.tascpy.core.collection.open", mock_file):
-                    ColumnCollection.from_file(
+                with patch("tascpy.core.collection.open", mock_file):
+                    tascpy.io.load(
                         "dummy_path.txt",
                         format_name="tasc",
                         encoding="euc-jp",  # エンコーディングを上書き
@@ -484,22 +485,22 @@ UNIT,,,kN,mm,°C
         collection = ColumnCollection(steps, columns)
 
         # TASCフォーマットでの保存（Shift-JIS）
-        with patch("src.tascpy.core.collection.open") as mock_open_func:
-            collection.to_file("output.txt")  # デフォルトはtasc
+        with patch("builtins.open") as mock_open_func:
+            collection.io.save("output.txt")  # デフォルトはtasc
             # 適切なエンコーディングが使われているか確認
             mock_open_func.assert_called_with(
                 Path("output.txt"), "w", encoding="shift_jis"
             )
 
         # 標準フォーマットでの保存（UTF-8）
-        with patch("src.tascpy.core.collection.open") as mock_open_func:
-            collection.to_file("output.txt", format_name="standard")
+        with patch("builtins.open") as mock_open_func:
+            collection.io.save("output.txt", format_name="standard")
             # 適切なエンコーディングが使われているか確認
             mock_open_func.assert_called_with(Path("output.txt"), "w", encoding="utf-8")
 
         # カスタムエンコーディングでの保存
-        with patch("src.tascpy.core.collection.open") as mock_open_func:
-            collection.to_file("output.txt", encoding="euc-jp")
+        with patch("builtins.open") as mock_open_func:
+            collection.io.save("output.txt", encoding="euc-jp")
             # 指定したエンコーディングが使われているか確認
             mock_open_func.assert_called_with(
                 Path("output.txt"), "w", encoding="euc-jp"

@@ -15,12 +15,27 @@ def load_from_file(file_path: Union[str, Path], format_name: str = "tasc", **kwa
     Args:
         file_path: 読み込むファイルのパス
         format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
-        **kwargs: フォーマット設定を上書きするためのキーワード引数
+        **kwargs: フォーマット設定を上書きするためのキーワード引数。
+            以下のパラメータを指定可能です：
+            - encoding (str): 文字エンコーディング（例: "utf-8", "shift_jis"）
+            - delimiter (str): 区切り文字
+            - ch_row (int): チャンネル名が記載されている行インデックス(0始まり)
+            - name_row (int): カラム名が記載されている行インデックス(0始まり)
+            - unit_row (int): 単位が記載されている行インデックス(0始まり)
+            - data_start_row (int): データが開始する行インデックス(0始まり)
+            - data_start_col (int): データが開始する列インデックス(0始まり)
+            - step_col (int): Step（インデックス）として使用する列インデックス
+            - selected_columns (list[str]): 読み込むカラム名のリスト（指定した列のみ読み込みます）
 
     Returns:
         ColumnCollection: 読み込んだデータを含むColumnCollectionオブジェクト
+        
+    Examples:
+        >>> import tascpy
+        >>> col = tascpy.io.load("data.csv", format_name="csv")
     """
-    return ColumnCollection.from_file(file_path, format_name, **kwargs)
+    import tascpy
+    return tascpy.io.load(file_path, format_name=format_name, **kwargs)
 
 
 def save_to_file(
@@ -36,8 +51,11 @@ def save_to_file(
         file_path: 保存先ファイルパス
         format_name: 使用するファイルフォーマットの名前（デフォルト: "tasc"）
         **kwargs: フォーマット設定を上書きするためのキーワード引数
+        
+    Examples:
+        >>> col.io.save("output_data.txt", format_name="tasc_txt")
     """
-    collection.to_file(file_path, format_name, **kwargs)
+    collection.io.save(file_path, format_name=format_name, **kwargs)
 
 
 def load_tasc_file(file_path: Union[str, Path], **kwargs):
@@ -45,9 +63,16 @@ def load_tasc_file(file_path: Union[str, Path], **kwargs):
 
     Args:
         file_path: 読み込むTASCファイルのパス
-        **kwargs: 追加のフォーマット設定オプション
+        **kwargs: 追加のフォーマット設定オプション。主なオプションは以下の通りです：
+            - encoding (str): 文字エンコーディング（デフォルト: "utf-8" または "shift_jis"）
+            - selected_columns (list[str]): 特定の列のみを読み込む場合はカラム名またはチャンネル名のリストを指定
 
     Returns:
         ColumnCollection: 読み込んだTASCデータを含むColumnCollectionオブジェクト
+        
+    Examples:
+        >>> import tascpy
+        >>> col = tascpy.io.load_tasc_file("data.txt", encoding="shift_jis")
     """
-    return load_from_file(file_path, format_name="tasc", **kwargs)
+    import tascpy
+    return tascpy.io.load(file_path, format_name="tasc", **kwargs)

@@ -167,13 +167,13 @@ class TestLoadDisplacementCollection:
         assert len(filtered) == 1
         assert filtered["load"].values[0] == 10.0
 
-        added = ops.add("load", 5.0).end()
-        assert added["load+5.0"].values[0] == 5.0  # 元の0.0 + 5.0
+        added = ops.add("load", 5.0, result_column="load_plus_5").end()
+        assert added["load_plus_5"].values[0] == 5.0  # 元の0.0 + 5.0
 
         # 特定の行のみを選択
-        selected = ops.select_step(steps=[1, 2]).end()
+        selected = ops.select(steps=[1, 2]).end()
         assert len(selected) == 2
-        assert selected.step.values == [1, 2]
+        np.testing.assert_array_equal(selected.step.values, [1, 2])
 
     def test_domain_operations(self):
         """ドメイン固有の操作が利用可能かテスト"""

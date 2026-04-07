@@ -73,16 +73,17 @@ ld_collection = collection.ops.as_domain(
 ).end()
 
 # 降伏点の計算
-yield_result = (
+yield_collection = (
     ld_collection.ops
     .calculate_stiffness(range_start=0.1, range_end=0.5, result_column="Stiffness")
-    .calculate_yield_point(method="offset", offset_ratio=0.002)  # 0.2%オフセット法
+    .find_yield_point(method="offset", offset=0.002)  # 0.2%オフセット法
     .end()
 )
 
 # 結果の表示
-print(f"降伏荷重: {yield_result['YieldPoint_Load'].values[0]:.2f} kN")
-print(f"降伏変位: {yield_result['YieldPoint_Displacement'].values[0]:.2f} mm")
+yield_pt = yield_collection.get_result("yield_point_offset_0.2%")
+print(f"降伏荷重: {yield_pt.y:.2f} kN")
+print(f"降伏変位: {yield_pt.x:.2f} mm")
 ```
 
 ### 可視化の例
@@ -94,9 +95,8 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots(figsize=(10, 6))
 
 (
-    collection.ops
-    .select(columns=["Displacement", "Force"])
-    .plot(
+    collection
+    .plot.plot(
         x_column="Displacement",
         y_column="Force",
         plot_type="scatter",
@@ -105,7 +105,6 @@ fig, ax = plt.subplots(figsize=(10, 6))
         marker="o",
         alpha=0.7
     )
-    .end()
 )
 
 plt.title("荷重-変位関係")
@@ -142,7 +141,7 @@ tascpy のチェーンメソッドは動的に登録されるため、IDE の自
 
 ```python
 # スタブファイルの手動生成
-from tascpy.operations.stub_generator import generate_stubs
+from tascpy.analytics.operations.stub_generator import generate_stubs
 generate_stubs()
 ```
 
@@ -162,7 +161,12 @@ tascpy/
 │   └── tascpy/
 │       ├── core/         # 基本データ構造
 │       ├── domains/      # ドメイン特化コレクション
-│       ├── operations/   # データ処理操作
+│       ├── analytics/    # 分析パッケージ群
+│       │   ├── functional/   # 計算ロジック・アルゴリズム層
+│       │   ├── operations/   # メソッドチェーンの操作ラッパー
+│       │   └── typing/       # 型ヒント・スタブ
+│       ├── visualization/# 可視化バックエンド
+│       ├── io/           # データ入出力
 │       └── plugins/      # プラグイン
 ├── tests/                # テストコード
 ├── examples/             # サンプルコード

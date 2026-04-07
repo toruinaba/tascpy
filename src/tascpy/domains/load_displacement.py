@@ -11,7 +11,16 @@ if TYPE_CHECKING:
 
 
 class LoadDisplacementCollection(ColumnCollection):
-    """荷重と変形のデータセットを扱うための特化コレクションクラス"""
+    """荷重と変形のデータセットを扱うための特化コレクションクラス
+    
+    Examples:
+        >>> from tascpy.domains.load_displacement import LoadDisplacementCollection
+        >>> from tascpy.core.column import NumberColumn
+        >>> cols = {"load": NumberColumn("load", "Load", "kN", [0.0, 10.0]), "disp": NumberColumn("disp", "Disp", "mm", [0.0, 1.0])}
+        >>> col = LoadDisplacementCollection(columns=cols, load_column="load", displacement_column="disp")
+        >>> col["load"].values
+        [0.0, 10.0]
+    """
 
     def __init__(
         self,
@@ -28,9 +37,14 @@ class LoadDisplacementCollection(ColumnCollection):
             step: ステップデータ
             columns: カラムデータ
             metadata: メタデータ
-            load_column: 荷重データを含むカラム名
-            displacement_column: 変形データを含むカラム名
+            load_column: 荷重データを含むカラム名（デフォルト: "load"）
+            displacement_column: 変形データを含むカラム名（デフォルト: "displacement"）
         """
+        if load_column is None:
+            raise ValueError("load_column は必須です。荷重データのカラム名を指定してください。")
+        if displacement_column is None:
+            raise ValueError("displacement_column は必須です。変形データのカラム名を指定してください。")
+
         super().__init__(step=step, columns=columns, metadata=metadata)
 
         # 荷重と変形のカラム名をメタデータに保存
@@ -76,6 +90,9 @@ class LoadDisplacementCollection(ColumnCollection):
         Raises:
             KeyError: 指定されたキーまたはパスが見つからない場合
         """
+        if isinstance(key, int):
+            return super().__getitem__(key)
+
         # キーにドットが含まれる場合はパスアクセスとして処理
         if "." in key:
             path_parts = key.split(".")
@@ -180,9 +197,9 @@ class LoadDisplacementCollection(ColumnCollection):
         return "load_displacement"
 
     @property
-    def ops(self):
+    def ops(self) -> "LoadDisplacementCollectionOperations":
         """操作プロキシクラスを返す"""
-        from ..operations.proxy import CollectionOperations
+        from tascpy.analytics.operations.proxy import CollectionOperations
 
         if TYPE_CHECKING:
             from ..typing.load_displacement import (
@@ -192,6 +209,19 @@ class LoadDisplacementCollection(ColumnCollection):
             return LoadDisplacementCollectionOperations(self, domain="load_displacement")  # type: ignore
         else:
             return CollectionOperations(self, domain=self.domain)
+            
+    @property
+    def plot(self):
+        """荷重-変位データの可視化プロキシクラスを返す
+        
+        Returns:
+            LoadDisplacementPlotter: 荷重-変位用の可視化機能を提供するPlotter
+        """
+        if not hasattr(self, "_plotter"):
+            from tascpy.visualization.plotters.load_displacement.plotter import LoadDisplacementPlotter
+            
+            self._plotter = LoadDisplacementPlotter(self)
+        return self._plotter
 
     @property
     def load_column(self) -> str:
@@ -200,9 +230,7 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             str: 荷重カラム名
         """
-        return self.metadata.get("load_displacement_domain", {}).get(
-            "load_column", "load"
-        )
+        return self.metadata["load_displacement_domain"]["load_column"]
 
     @property
     def displacement_column(self) -> str:
@@ -211,9 +239,7 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             str: 変形カラム名
         """
-        return self.metadata.get("load_displacement_domain", {}).get(
-            "displacement_column", "displacement"
-        )
+        return self.metadata["load_displacement_domain"]["displacement_column"]
 
     def clone(self) -> "LoadDisplacementCollection":
         """コレクションの複製を作成
@@ -221,15 +247,15 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             LoadDisplacementCollection: 複製されたコレクション
         """
-        ld_info = self.metadata.get("load_displacement_domain", {})
-
-        return LoadDisplacementCollection(
+        new_collection = LoadDisplacementCollection(
             step=self.step.clone() if self.step else None,
             columns={name: column.clone() for name, column in self.columns.items()},
             metadata=self.metadata.copy(),
-            load_column=ld_info.get("load_column", "load"),
-            displacement_column=ld_info.get("displacement_column", "displacement"),
+            load_column=self.load_column,
+            displacement_column=self.displacement_column,
         )
+        new_collection._results = self._results.copy()
+        return new_collection
 
     def keys(self) -> list[str]:
         """利用可能なキーのリストを返す
@@ -240,27 +266,108 @@ class LoadDisplacementCollection(ColumnCollection):
         Returns:
             list[str]: カラム名とアクセス可能なメタデータキーのリスト
         """
-        # 基本のキーセット
-        key_set = set(self.columns.keys())
-
-        # 特殊キーを追加
+        key_set = set(super().keys())
         key_set.add("step")
-        key_set.add("load")
-        key_set.add("displacement")
         key_set.add("curves")
-
         # メタデータのトップレベルキーを追加（カラム名と衝突しないもの）
         if self.metadata:
             for meta_key in self.metadata.keys():
                 if meta_key not in key_set and meta_key not in ["curves", "metadata"]:
                     key_set.add(meta_key)
-
         return sorted(list(key_set))
+
+    @property
+    def load_data(self):
+        """荷重データ配列を取得 (NaNを保持)
+        
+        Returns:
+            np.ndarray: 荷重データの配列
+        """
+        import numpy as np
+        return np.array([v if v is not None else np.nan for v in self[self.load_column].values])
+
+    @property
+    def displacement_data(self):
+        """変位データ配列を取得 (NaNを保持)
+        
+        Returns:
+            np.ndarray: 変位データの配列
+        """
+        import numpy as np
+        return np.array([v if v is not None else np.nan for v in self[self.displacement_column].values])
+        
+    @property
+    def valid_data_mask(self):
+        """NaNを含まない有効なデータのブールマスクを取得
+        
+        Returns:
+            np.ndarray: 有効なデータのブールマスク
+        """
+        import numpy as np
+        return ~(np.isnan(self.load_data) | np.isnan(self.displacement_data))
+        
+    @property
+    def valid_data(self):
+        """有効な(変位, 荷重)の配列の組を取得
+        
+        Returns:
+            tuple[np.ndarray, np.ndarray]: (変位データ, 荷重データ)
+        """
+        mask = self.valid_data_mask
+        return self.displacement_data[mask], self.load_data[mask]
+
+    def get_ld_cycle_arrays(
+        self,
+        cycle_marker_column: Optional[str] = None,
+    ):
+        """荷重・変位・サイクルマーカーの numpy 配列を取得する。
+
+        サイクルマーカーカラムが存在しない場合は ``KeyError`` を raise します
+        （自動生成はオペレーション層の責務）。
+
+        Args:
+            cycle_marker_column: サイクルマーカーカラム名（None 時は自動検出）
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: (loads, displacements, markers)
+
+        Raises:
+            KeyError: サイクルマーカーカラムが見つからない場合
+
+        Examples:
+            >>> loads, disps, markers = col.get_ld_cycle_arrays()
+            >>> loads, disps, markers = col.get_ld_cycle_arrays(cycle_marker_column="cycle")
+        """
+        import numpy as np
+
+        loads = self.load_data
+        disps = self.displacement_data
+
+        # サイクルマーカー解決: 明示指定のみ。未指定・未存在の場合は KeyError
+        if cycle_marker_column is None:
+            raise KeyError(
+                "cycle_marker_column が指定されていません。"
+                "先に `col.ops.cycle_count()` を実行してマーカー列を作成するか、"
+                "cycle_marker_column を明示的に指定してください。"
+            )
+        if cycle_marker_column not in self.columns:
+            raise KeyError(f"サイクルマーカーカラム '{cycle_marker_column}' が見つかりません")
+        markers = np.array(self[cycle_marker_column].values)
+
+        return loads, disps, markers
+
 
 
 # ファクトリ関数の定義
 def create_load_displacement_collection(**kwargs: Any) -> LoadDisplacementCollection:
-    """荷重-変形コレクションを作成するファクトリ関数"""
+    """荷重-変形コレクションを作成するファクトリ関数
+    
+    Examples:
+        >>> from tascpy.domains.load_displacement import create_load_displacement_collection
+        >>> col = create_load_displacement_collection()
+        >>> type(col).__name__
+        'LoadDisplacementCollection'
+    """
     return LoadDisplacementCollection(**kwargs)
 
 

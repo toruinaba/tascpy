@@ -1,0 +1,3 @@
+"""
+Coordinate plotter module.
+"""
