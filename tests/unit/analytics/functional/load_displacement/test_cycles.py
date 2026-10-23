@@ -28,13 +28,19 @@ def test_compute_cycle_markers():
     # 1.0 -> 1.5 -> int=1. 1.5 -> 2.0 -> int=2
     np.testing.assert_array_equal(markers, [1, 1, 1, 1, 2, 2])
     
-    # test with None values
-    data_none = [10.0, None, -2.0]
-    markers_none = compute_cycle_markers(data_none, step=0.5)
-    # 0 -> 10.0 (1.0)
-    # 1 -> None (1.0)
-    # 2 -> -2.0 (1.0) - previous is None so no sign change detected
-    np.testing.assert_array_equal(markers_none, [1, 1, 1])
+    # 欠損 (None/NaN) と 0 は飛ばし、直前の有効値と符号を比べる
+    np.testing.assert_array_equal(compute_cycle_markers([10.0, None, -2.0], step=1.0), [1, 1, 2])
+
+
+@pytest.mark.parametrize("data, expected", [
+    ([10.0, 0.0, -10.0, 0.0, 10.0], [1, 1, 1, 1, 2]),
+    ([10.0, np.nan, -10.0, np.nan, 10.0], [1, 1, 1, 1, 2]),
+    ([10.0, 0.0, 0.0, 5.0, -5.0, 5.0], [1, 1, 1, 1, 1, 2]),  # 0 をはさんで同符号なら反転ではない
+    ([0.0, 0.0, -5.0, 5.0, -5.0], [1, 1, 1, 1, 2]),           # 先頭の 0 は直前の有効値がない
+    ([], []),
+])
+def test_compute_cycle_markers_skips_zero_and_missing(data, expected):
+    np.testing.assert_array_equal(compute_cycle_markers(np.array(data), step=0.5), expected)
 
 def test_calculate_polygon_area():
     x = np.array([0.0, 2.0, 2.0, 0.0])
@@ -111,11 +117,21 @@ def test_compute_energy_and_stats():
     assert np.isclose(energy, 20.0)
 
 def test_compute_stiffness_degradation_stats():
-    loads = np.array([0.0, 10.0, 10.0, 0.0])
-    disps = np.array([0.0, 0.0, 2.0, 2.0])
-    markers = np.array([2.0, 2.0, 2.0, 2.0])
-    
+    # 最大荷重点 (1.0, 100) と最小荷重点 (-1.0, -100) を結ぶ: 200 / 2 = 100
+    # 最大変位 (2.0) や最小変位 (-2.0) の点は使わない
+    loads = np.array([0.0, 100.0, 50.0, 0.0, -100.0, -50.0, 0.0])
+    disps = np.array([0.0, 1.0, 2.0, 0.5, -1.0, -2.0, -0.5])
+    markers = np.full(7, 2.0)
+
     c_num, k = compute_stiffness_degradation_stats(loads, disps, markers)
     assert c_num == 2.0
-    # secant stiffness: max_l=10, min_l=0, max_d=2, min_d=0 -> 10/2 = 5
-    assert np.isclose(k, 5.0)
+    assert np.isclose(k, 100.0)
+
+
+def test_compute_stiffness_degradation_stats_ignores_missing_and_degenerate():
+    loads = np.array([np.nan, 100.0, -100.0, 999.0])
+    disps = np.array([5.0, 1.0, -1.0, np.nan])
+    assert np.isclose(compute_stiffness_degradation_stats(loads, disps, np.ones(4))[1], 100.0)
+    # 最大・最小荷重点の変位が同じなら NaN
+    assert np.isnan(compute_stiffness_degradation_stats(np.array([0.0, 10.0]), np.array([1.0, 1.0]), np.ones(2))[1])
+    assert np.isnan(compute_stiffness_degradation_stats(np.array([1.0]), np.array([1.0]), np.ones(1))[1])

@@ -5,35 +5,31 @@ import numpy as np
 
 
 def compute_cycle_markers(data: np.ndarray, step: float = 0.5) -> np.ndarray:
-    """データの符号反転からサイクル数をカウントします。
-    
+    """データの符号反転からサイクル番号を数えます。
+
+    0 と欠損（NaN）は符号を持たない点として飛ばし、直前の有効な値と符号が変わった位置で
+    step だけ数を進めます（step=0.5 なら正負の往復で 1 サイクル）。サイクル番号は 1 から始まります。
+
     Args:
-        data: 対象データ配列
-        step: サイクルカウントの増分
-        
+        data: 対象データ配列（欠損は NaN または None）
+        step: 符号反転1回あたりの増分
+
     Returns:
-        np.ndarray: サイクルマーカーの配列
-        
+        np.ndarray: サイクル番号の配列（整数）
+
     Examples:
         >>> from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers
         >>> import numpy as np
-        >>> data = np.array([10, 5, -5, -10, 5, 10])
-        >>> compute_cycle_markers(data, step=0.5)
+        >>> compute_cycle_markers(np.array([10, 5, -5, -10, 5, 10]), step=0.5)
         array([1, 1, 1, 1, 2, 2])
+        >>> compute_cycle_markers(np.array([10, 0, -10, np.nan, 10]), step=0.5)
+        array([1, 1, 1, 1, 2])
     """
-    cycle = [1.0]
-    for i in range(1, len(data)):
-        if (
-            data[i] is not None
-            and data[i - 1] is not None
-            and data[i] * data[i - 1] < 0
-        ):
-            c = cycle[i - 1] + step
-            cycle.append(c)
-        else:
-            cycle.append(cycle[i - 1])
-            
-    return np.array([int(c) for c in cycle])
+    sign = np.nan_to_num(np.sign(np.asarray(data, dtype=float)))
+    nonzero = np.flatnonzero(sign)
+    flips = np.zeros(len(sign))
+    flips[nonzero[1:]] = sign[nonzero[1:]] != sign[nonzero[:-1]]
+    return np.floor(1 + step * np.cumsum(flips)).astype(int)
 
 
 def calculate_polygon_area(x: np.ndarray, y: np.ndarray) -> float:
@@ -105,35 +101,33 @@ def compute_hysteresis_energy(
 def compute_secant_stiffness(
     max_load: float,
     min_load: float,
-    max_disp: float,
-    min_disp: float
+    disp_at_max_load: float,
+    disp_at_min_load: float,
 ) -> float:
     """最大荷重点と最小荷重点を結ぶ直線の傾き（割線剛性）を計算します。
-    
+
     Args:
         max_load: 最大荷重
         min_load: 最小荷重
-        max_disp: 最大変位
-        min_disp: 最小変位
-        
+        disp_at_max_load: 最大荷重点の変位
+        disp_at_min_load: 最小荷重点の変位
+
     Returns:
         float: 割線剛性（計算不能時は np.nan）
-        
+
     Examples:
         >>> from tascpy.analytics.functional.load_displacement.cycles import compute_secant_stiffness
         >>> compute_secant_stiffness(100.0, -100.0, 1.0, -1.0)
         100.0
     """
-    if any(v is None or np.isnan(v) for v in (max_load, min_load, max_disp, min_disp)):
+    values = (max_load, min_load, disp_at_max_load, disp_at_min_load)
+    if any(v is None or np.isnan(v) for v in values):
         return np.nan
-        
-    delta_disp = max_disp - min_disp
-    delta_load = max_load - min_load
-    
+
+    delta_disp = disp_at_max_load - disp_at_min_load
     if abs(delta_disp) < 1e-9:
         return np.nan
-        
-    return delta_load / delta_disp
+    return (max_load - min_load) / delta_disp
 
 
 def compute_peaks_and_valleys(
@@ -213,8 +207,6 @@ def compute_energy_and_stats(
     loads: np.ndarray,
     disps: np.ndarray,
     markers: np.ndarray,
-    *args,
-    **kwargs
 ) -> Tuple[float, float, float, float, float, float]:
     """1サイクルのヒステリシス解析結果と各種統計情報をまとめて計算します。
     
@@ -244,29 +236,32 @@ def compute_stiffness_degradation_stats(
     loads: np.ndarray,
     disps: np.ndarray,
     markers: np.ndarray,
-    *args,
-    **kwargs
 ) -> Tuple[float, float]:
-    """1サイクルの剛性推移（割線剛性）を計算します。
-    
+    """1サイクルの割線剛性（最大荷重点と最小荷重点を結ぶ直線の傾き）を計算します。
+
     Args:
         loads: 荷重データ配列
         disps: 変位データ配列
         markers: サイクルマーカーの配列。先頭要素をサイクル番号として抽出します。
-        
+
     Returns:
-        Tuple: (サイクル番号, 割線剛性)
-        
+        Tuple: (サイクル番号, 割線剛性)。荷重・変位がともに有効な点が2点未満なら剛性は NaN
+
     Examples:
         >>> from tascpy.analytics.functional.load_displacement.cycles import compute_stiffness_degradation_stats
         >>> import numpy as np
         >>> loads = np.array([0, 100, 0, -100, 0])
-        >>> disps = np.array([0, 1, 2, 1, 0])
+        >>> disps = np.array([0, 1, 0, -1, 0])
         >>> markers = np.array([1, 1, 1, 1, 1])
         >>> compute_stiffness_degradation_stats(loads, disps, markers)
         (1.0, 100.0)
     """
-    energy, max_l, min_l, max_d, min_d = compute_hysteresis_energy(loads, disps)
-    k = compute_secant_stiffness(max_l, min_l, max_d, min_d)
     c_num = float(markers[0]) if len(markers) > 0 else 1.0
-    return c_num, k
+    loads = np.asarray(loads, dtype=float)
+    disps = np.asarray(disps, dtype=float)
+    valid = ~(np.isnan(loads) | np.isnan(disps))
+    if valid.sum() < 2:
+        return c_num, np.nan
+    l_arr, d_arr = loads[valid], disps[valid]
+    i_max, i_min = int(np.argmax(l_arr)), int(np.argmin(l_arr))
+    return c_num, compute_secant_stiffness(l_arr[i_max], l_arr[i_min], d_arr[i_max], d_arr[i_min])
