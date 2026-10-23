@@ -44,6 +44,11 @@ def compute_slopes(disp_data: np.ndarray, load_data: np.ndarray) -> np.ndarray:
     return np.array(slopes, dtype=float)
 
 
+def _peak_load(load_data: np.ndarray) -> float:
+    """絶対値が最大の荷重（符号付き）"""
+    return float(load_data[np.argmax(np.abs(load_data))])
+
+
 def compute_stiffness(
     disp_data: np.ndarray,
     load_data: np.ndarray,
@@ -59,6 +64,8 @@ def compute_stiffness(
         range_start: 最大荷重に対する計算開始点の割合
         range_end: 最大荷重に対する計算終了点の割合
         method: 計算方法 ("linear_regression" または "secant")
+
+    最大荷重は絶対値が最大の荷重（符号付き）です。圧縮側（負の荷重）のデータでも同じように計算できます。
 
     Returns:
         float: 計算された剛性値
@@ -80,11 +87,8 @@ def compute_stiffness(
     if len(load_data) < 2:
         raise ValueError("剛性計算に十分なデータがありません")
 
-    max_load = np.max(load_data)
-    start_load = max_load * range_start
-    end_load = max_load * range_end
-
-    range_mask = (load_data >= start_load) & (load_data <= end_load)
+    lower, upper = sorted((_peak_load(load_data) * range_start, _peak_load(load_data) * range_end))
+    range_mask = (load_data >= lower) & (load_data <= upper)
     range_disp = disp_data[range_mask]
     range_load = load_data[range_mask]
 
@@ -122,8 +126,8 @@ def compute_yield_point_offset(
     initial_slope: float,
     offset_value: float = 0.002
 ) -> Tuple[bool, float, float, Dict[str, Any]]:
-    """オフセット法による降伏点の計算"""
-    offset_amount = initial_slope * offset_value
+    """オフセット法による降伏点の計算（オフセットの向きは最大荷重の符号に合わせる）"""
+    offset_amount = initial_slope * offset_value * np.sign(_peak_load(load_data))
     offset_line = initial_slope * disp_data - offset_amount
     diff = load_data - offset_line
     
@@ -198,9 +202,17 @@ def compute_yield_point(
     range_start: float = 0.1,
     range_end: float = 0.3,
     factor: float = 0.33,
-    debug_mode: bool = False,
     fail_silently: bool = False,
 ) -> Tuple[bool, float, float, Dict[str, Any]]:
+    """降伏点を計算します
+
+    初期剛性を最大荷重（絶対値が最大の荷重）の range_start〜range_end の範囲から求め、
+    "offset" は初期剛性線を offset_value だけ平行移動した直線との交点、
+    "general" は接線剛性が初期剛性 × factor を下回る点を降伏点とします。
+
+    Returns:
+        (is_valid, 変位, 荷重, info)。info には method・initial_slope・parameters（失敗時は error）が入ります
+    """
     disp_data = np.asarray(disp_data, dtype=float)
     load_data = np.asarray(load_data, dtype=float)
     valid_mask = ~(np.isnan(disp_data) | np.isnan(load_data))

@@ -33,7 +33,7 @@ def test_integrate_functional():
     y = np.array([2.0, 2.0, 2.0])
     x = np.array([1.0, 2.0, 3.0])
     res = integrate(y, x, method="trapezoid")
-    np.testing.assert_allclose(res, [2.0, 4.0, 6.0])
+    np.testing.assert_allclose(res, [0.0, 2.0, 4.0])
 
 def test_evaluate_functional():
     data = {
@@ -68,3 +68,13 @@ def test_average_across_functional():
     # ignore_nan = False
     res_strict = average_across(arr1, arr2, ignore_nan=False)
     np.testing.assert_allclose(res_strict, [2.0, 3.0, np.nan])
+
+
+def test_integrate_starts_at_initial_value():
+    np.testing.assert_allclose(integrate(y=[1.0, 1.0, 1.0], x=[10.0, 11.0, 12.0]), [0.0, 1.0, 2.0])
+    np.testing.assert_allclose(integrate(y=[1.0, 1.0], x=[10.0, 11.0], initial_value=5.0), [5.0, 6.0])
+
+
+def test_integrate_follows_path_order():
+    # 往復する x でも並べ替えず経路に沿って積分する（戻り区間は面積が差し引かれる）
+    np.testing.assert_allclose(integrate(y=[0.0, 2.0, 2.0], x=[0.0, 1.0, 0.0]), [0.0, 1.0, -1.0])

@@ -22,8 +22,8 @@ def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nda
     """
     n_samples, _ = X.shape
     
-    np.random.seed(42)
-    centers = X[np.random.choice(n_samples, n_clusters, replace=False)]
+    rng = np.random.default_rng(42)
+    centers = X[rng.choice(n_samples, n_clusters, replace=False)]
     
     labels = np.zeros(n_samples, dtype=int)
     

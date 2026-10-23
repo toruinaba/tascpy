@@ -43,7 +43,7 @@ def _result_to_dict(result: AnalysisResult) -> Dict[str, Any]:
         return {"type": "xy_series", "name": result.name, **axes, "metadata": result.metadata}
     if isinstance(result, GridResult):
         return {"type": "grid", "name": result.name, "x": result.x, "y": result.y,
-                "values": np.where(np.isnan(result.values), None, result.values).tolist(),
+                "values": [[None if np.isnan(v) else float(v) for v in row] for row in result.values],
                 "unit": result.unit, "metadata": result.metadata}
     raise TypeError(f"Parquet に保存できない解析結果の型です: {type(result).__name__}")
 

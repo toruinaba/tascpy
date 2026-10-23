@@ -59,7 +59,6 @@ print("\nオフセット法による計算:")
 offset_result = ld_collection.ops.find_yield_point(
     method="offset",
     offset_value=0.002,  # 0.2%オフセット
-    debug_mode=True,
 ).end()
 
 # 計算が成功したことを確認します
@@ -142,7 +141,6 @@ print("\n一般降伏法による計算:")
 general_result = ld_collection.ops.find_yield_point(
     method="general",
     factor=0.33,  # 33%勾配低下
-    debug_mode=True,
 ).end()
 
 # 計算が成功したことを確認します
@@ -250,7 +248,6 @@ print("\nオフセット法による計算（失敗するケース）:")
 linear_offset_result = linear_data.ops.find_yield_point(
     method="offset",
     offset_value=0.002,
-    debug_mode=True,
     fail_silently=True,
 ).end()
 
@@ -358,7 +355,6 @@ print("\nオフセット法による計算（交点なしのケース）:")
 no_int_result = no_intersection_data.ops.find_yield_point(
     method="offset",
     offset_value=0.002,
-    debug_mode=True,
     fail_silently=True,
 ).end()
 
@@ -448,7 +444,6 @@ print("\n小さなオフセット値 (0.1%) での計算:")
 small_offset_result = elastic_data.ops.find_yield_point(
     method="offset",
     offset_value=0.001,  # 0.1%オフセット（小さい）
-    debug_mode=True,
     fail_silently=True,
 ).end()
 
@@ -522,7 +517,6 @@ print("\n大きなオフセット値 (1.0%) での計算:")
 large_offset_result = elastic_data.ops.find_yield_point(
     method="offset",
     offset_value=0.01,  # 1.0%オフセット（大きい）
-    debug_mode=True,
     fail_silently=True,
 ).end()
 
