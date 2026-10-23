@@ -107,12 +107,12 @@ def main():
     fig.savefig(os.path.join(IMGS_DIR, "coordinate_heatmap.png"), dpi=100)
     plt.close(fig)
 
-    # 4. ops による任意点での補間（各列の値を指定点へ補間した列を追加）
+    # 4. ops による任意点での補間（全センサーの値から、行ごとに指定点の値を補間した列を追加）
     print("\n## 4. ops.interpolate_at_point - 原点での補間値")
-    step_50 = data.ops.select(indices=[50])
-    interpolated = step_50.interpolate_at_point(x=0.0, y=0.0, target_columns=names[:3]).end()
-    for name in names[:3]:
-        print(f"- interp_{name}: {interpolated[f'interp_{name}'].values[0]:.3f}")
+    interpolated = data.ops.interpolate_at_point(x=0.0, y=0.0, result_column="origin").end()
+    origin = interpolated["origin"]
+    print(f"- ステップ50: {origin.values[50]:.3f} {origin.unit or ''}")
+    print(f"- 全ステップの範囲: {origin.min():.3f} 〜 {origin.max():.3f}")
 
     print(f"\n画像ファイルを保存しました: {IMGS_DIR}")
 

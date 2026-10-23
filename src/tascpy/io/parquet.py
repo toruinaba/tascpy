@@ -13,7 +13,7 @@ import polars as pl
 
 from ..core.collection import ColumnCollection
 from ..core.column import Column, ColumnMeta
-from ..core.result import AnalysisResult, PointResult, ScalarResult, XYSeriesResult
+from ..core.result import AnalysisResult, GridResult, PointResult, ScalarResult, XYSeriesResult
 
 METADATA_KEY = "tascpy"
 FORMAT_VERSION = 1
@@ -41,6 +41,10 @@ def _result_to_dict(result: AnalysisResult) -> Dict[str, Any]:
                        "attrs": dict(col.attrs)}
                 for axis, col in (("x", result.x), ("y", result.y))}
         return {"type": "xy_series", "name": result.name, **axes, "metadata": result.metadata}
+    if isinstance(result, GridResult):
+        return {"type": "grid", "name": result.name, "x": result.x, "y": result.y,
+                "values": np.where(np.isnan(result.values), None, result.values).tolist(),
+                "unit": result.unit, "metadata": result.metadata}
     raise TypeError(f"Parquet に保存できない解析結果の型です: {type(result).__name__}")
 
 
@@ -54,6 +58,9 @@ def _result_from_dict(data: Dict[str, Any]) -> AnalysisResult:
         x, y = (Column(d["name"], d["values"], unit=d["unit"], ch=d["ch"], attrs=d["attrs"])
                 for d in (data["x"], data["y"]))
         return XYSeriesResult(data["name"], x, y, data["metadata"])
+    if kind == "grid":
+        values = np.array(data["values"], dtype=float).reshape(len(data["y"]), len(data["x"]))
+        return GridResult(data["name"], data["x"], data["y"], values, data["unit"], data["metadata"])
     raise ValueError(f"未知の解析結果の型です: {kind}")
 
 

@@ -1,208 +1,72 @@
-"""座標ドメインの補間用純粋関数群"""
+"""座標に基づく空間補間の純粋関数"""
 
-from typing import Dict, Any, Optional, List
+from typing import Any
+
 import numpy as np
 
-def inverse_distance_weighting(
-    point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
-) -> float:
-    """逆距離加重法による補間を行います
-    
+METHODS = ("inverse_distance", "nearest")
+_EXACT = 1e-12
+
+
+def interpolate(points: Any, values: Any, targets: Any, method: str = "inverse_distance",
+                power: float = 2.0) -> np.ndarray:
+    """補間元の点の値から、補間先の座標での値を求めます
+
+    - "inverse_distance": 逆距離加重 Σ(w·v)/Σw（w = 1/距離^power）。補間先が補間元の点と一致する場合はその点の値
+    - "nearest": 最も近い補間元の点の値
+
+    値が欠損（NaN）の補間元は、その列（時刻）の計算から除きます。有効な補間元がなければ NaN です。
+
     Args:
-        point_data: 点のデータ（point, value, col_name）
-        x: 補間する X 座標
-        y: 補間する Y 座標
-        z: 補間する Z 座標（2 次元の場合は None）
-        power: 重み付けパワー
-        
+        points: 補間元の座標 (N, D)。D は 2 または 3
+        values: 補間元の値 (N,)、または時刻ごとの値 (N, T)
+        targets: 補間先の座標 (M, D)、または1点 (D,)
+        method: 補間方法 ("inverse_distance", "nearest")
+        power: 逆距離加重のべき指数
+
     Returns:
-        float: 補間値
-    """
-    px = point_data["point"]["x"]
-    py = point_data["point"]["y"]
-    pz = point_data["point"]["z"]
-    value = point_data["value"]
+        np.ndarray: 補間値。形は (M,) / (M, T)、補間先が1点なら () / (T,)
 
-    if z is not None and pz is not None:
-        distance = float(np.sqrt((x - px) ** 2 + (y - py) ** 2 + (z - pz) ** 2))
-    else:
-        distance = float(np.sqrt((x - px) ** 2 + (y - py) ** 2))
+    Raises:
+        ValueError: 座標の次元が合わない場合、または未対応の method の場合
 
-    if distance < 1e-10:
-        return float(value)
-
-    weight = 1.0 / (distance**power)
-    return float(value * weight)
-
-
-def nearest_neighbor(
-    point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
-) -> float:
-    """最近傍法による補間を行います
-    
-    Args:
-        point_data: 点のデータ
-        x: 補間する X 座標
-        y: 補間する Y 座標
-        z: 補間する Z 座標（2 次元の場合は None）
-        power: 使用しないパラメータ
-        
-    Returns:
-        float: 補間値
-    """
-    return float(point_data["value"])
-
-
-def linear_interpolation(
-    point_data: Dict[str, Any], x: float, y: float, z: Optional[float], power: float
-) -> float:
-    """線形補間（逆距離加重法 power=1.0）
-    
-    Args:
-        point_data: 点のデータ
-        x: 補間する X 座標
-        y: 補間する Y 座標
-        z: 補間する Z 座標（2 次元の場合は None）
-        power: 使用しないパラメータ
-        
-    Returns:
-        float: 補間値
-    """
-    return inverse_distance_weighting(point_data, x, y, z, 1.0)
-
-def compute_point_interpolation_values(
-    source_data: List[Dict[str, Any]],
-    x: float,
-    y: float,
-    z: Optional[float],
-    method: str,
-    power: float
-) -> List[float]:
-    """複数のソースデータに対して指定座標での補間値を一括計算します
-    
-    Args:
-        source_data: 点のデータリスト（point, value, col_name等を含む）
-        x: 補間する X 座標
-        y: 補間する Y 座標
-        z: 補間する Z 座標（2 次元の場合は None）
-        method: 補間方法 ("inverse_distance", "nearest", "linear")
-        power: 重み付けパワー
-        
-    Returns:
-        List[float]: 各ソースに対する補間値のリスト
-        
     Examples:
-        >>> from tascpy.analytics.functional.coordinate.interpolation import compute_point_interpolation_values
-        >>> src_data = [{"point": {"x": 0, "y": 0, "z": 0}, "value": 10}, {"point": {"x": 10, "y": 0, "z": 0}, "value": 20}]
-        >>> compute_point_interpolation_values(src_data, 5, 0, 0, method="linear", power=1.0)
-        [10.0, 20.0]
-    """
-    if method == "inverse_distance":
-        interp_func = inverse_distance_weighting
-    elif method == "nearest":
-        interp_func = nearest_neighbor
-    elif method == "linear":
-        interp_func = linear_interpolation
-    else:
-        raise ValueError(f"サポートされていない補間方法: {method}")
-
-    return [interp_func(p, x, y, z, power) for p in source_data]
-
-def compute_grid_interpolation_values(
-    source_point: Dict[str, Any],
-    x_grid: np.ndarray,
-    y_grid: np.ndarray,
-    method: str,
-    power: float
-) -> np.ndarray:
-    """指定されたグリッド上での補間値を計算します
-    
-    Args:
-        source_point: 基点となる1つのデータ
-        x_grid: X座標のグリッド配列 (1次元)
-        y_grid: Y座標のグリッド配列 (1次元)
-        method: 補間方法
-        power: 重み付けパワー
-        
-    Returns:
-        np.ndarray: 2次元の補間値グリッド (ny, nx)
-        
-    Examples:
-        >>> from tascpy.analytics.functional.coordinate.interpolation import compute_grid_interpolation_values
         >>> import numpy as np
-        >>> source_point = {"point": {"x": 5, "y": 5, "z": 0}, "value": 10}
-        >>> x_grid = np.array([0, 5, 10])
-        >>> y_grid = np.array([0, 5, 10])
-        >>> compute_grid_interpolation_values(source_point, x_grid, y_grid, method="linear", power=1.0)
-        array([[1.41421356, 2.        , 1.41421356],
-               [2.        , 10.       , 2.        ],
-               [1.41421356, 2.        , 1.41421356]])
+        >>> from tascpy.analytics.functional.coordinate.interpolation import interpolate
+        >>> points = np.array([[0.0, 0.0], [10.0, 0.0]])
+        >>> float(interpolate(points, [10.0, 20.0], [5.0, 0.0]))
+        15.0
+        >>> interpolate(points, [[10.0, 0.0], [20.0, 40.0]], [5.0, 0.0])
+        array([15., 20.])
     """
-    if method == "inverse_distance":
-        interp_func = inverse_distance_weighting
-    elif method == "nearest":
-        interp_func = nearest_neighbor
+    if method not in METHODS:
+        raise ValueError(f"サポートされていない補間方法: {method}（{', '.join(METHODS)} のいずれか）")
+    src = np.atleast_2d(np.asarray(points, dtype=float))
+    raw_values = np.asarray(values, dtype=float)
+    vals = raw_values.reshape(len(src), -1)
+    raw_targets = np.asarray(targets, dtype=float)
+    dst = np.atleast_2d(raw_targets)
+    if src.shape[1] != dst.shape[1]:
+        raise ValueError(f"補間元 ({src.shape[1]}次元) と補間先 ({dst.shape[1]}次元) の座標の次元が一致しません")
+
+    distance = np.linalg.norm(dst[:, None, :] - src[None, :, :], axis=2)  # (M, N)
+    valid = ~np.isnan(vals)  # (N, T)
+    filled = np.where(valid, vals, 0.0)
+
+    if method == "nearest":
+        masked = np.where(valid.T[None, :, :], distance[:, None, :], np.inf)  # (M, T, N)
+        nearest = np.argmin(masked, axis=2)
+        result = np.take_along_axis(vals.T[None, :, :], nearest[..., None], axis=2)[..., 0]
+        result = np.where(np.isinf(np.min(masked, axis=2)), np.nan, result)
     else:
-        interp_func = linear_interpolation
+        exact = distance < _EXACT
+        with np.errstate(divide="ignore"):
+            far_weight = np.where(exact, 0.0, 1.0 / distance**power)
+        exact_weight = exact.astype(float)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            far = (far_weight @ filled) / (far_weight @ valid)
+            at_point = (exact_weight @ filled) / (exact_weight @ valid)
+        result = np.where(np.isnan(at_point), far, at_point)
 
-    ny = len(y_grid)
-    nx = len(x_grid)
-    grid_values = np.zeros((ny, nx))
-    
-    for i, y in enumerate(y_grid):
-        for j, x in enumerate(x_grid):
-            grid_values[i, j] = interp_func(source_point, x, y, None, power)
-            
-    return grid_values
-
-def compute_spatial_interpolation_values(
-    source_data: List[Dict[str, Any]],
-    target_coords: List[Dict[str, Any]],
-    is_3d: bool,
-    method: str,
-    power: float
-) -> List[float]:
-    """複数のソースからの補間値の平均を各ターゲット位置について計算します
-    
-    Args:
-        source_data: 補間元となる点データのリスト
-        target_coords: 補間先となる座標情報のリスト [{'x':..., 'y':..., 'z':...}]
-        is_3d: 3D補間かどうか
-        method: 補間方法
-        power: 重み付けパワー
-        
-    Returns:
-        List[float]: ターゲットごとの平均補間値
-        
-    Examples:
-        >>> from tascpy.analytics.functional.coordinate.interpolation import compute_spatial_interpolation_values
-        >>> src_data = [{"point": {"x": 0, "y": 0, "z": 0}, "value": 10}, {"point": {"x": 10, "y": 0, "z": 0}, "value": 20}]
-        >>> tgt_coords = [{"x": 5, "y": 0, "z": 0}]
-        >>> compute_spatial_interpolation_values(src_data, tgt_coords, is_3d=False, method="linear", power=1.0)
-        [15.0]
-    """
-    if method == "inverse_distance":
-        interp_func = inverse_distance_weighting
-    elif method == "nearest":
-        interp_func = nearest_neighbor
-    else:
-        interp_func = linear_interpolation
-
-    results = []
-    for tgt in target_coords:
-        tx = tgt.get("x")
-        ty = tgt.get("y")
-        tz = tgt.get("z") if is_3d else None
-        
-        interp_values = []
-        for src in source_data:
-            val = interp_func(src, tx, ty, tz, power)
-            interp_values.append(val)
-            
-        if interp_values:
-            results.append(float(np.nanmean(interp_values)))
-        else:
-            results.append(float(np.nan))
-            
-    return results
-
+    result = result.reshape((len(dst),) + raw_values.shape[1:])
+    return result[0] if raw_targets.ndim == 1 else result
