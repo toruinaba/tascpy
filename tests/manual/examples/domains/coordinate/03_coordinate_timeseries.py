@@ -1,293 +1,131 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""座標ドメインの時系列可視化サンプル"""
+"""座標データの時系列可視化サンプル
+
+円軌道上を移動する熱源を 4x4 のセンサーで計測したデータを想定し、
+センサーごとの時系列・時刻ごとの空間分布・温度勾配を可視化します。
+"""
 
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-
-# 座標ドメインとその機能を明示的にインポート
 from tascpy.domains.coordinate import CoordinateCollection
-# 座標操作関連の機能をインポート
-from tascpy.analytics.operations.coordinate.basic import *
-from tascpy.analytics.operations.coordinate.plot import *
 
-# 出力画像用のディレクトリパスを設定
-IMGS_DIR = os.path.join(os.path.dirname(__file__), "imgs")
+IMGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "imgs")
 os.makedirs(IMGS_DIR, exist_ok=True)
 
-# サンプルデータの作成
-def create_sample_timeseries_data():
-    """サンプルの時系列データを作成"""
-    # ステップとタイムデータ
-    n_steps = 100
-    steps = list(range(n_steps))
-    time_data = np.linspace(0, 10, n_steps).tolist()  # 0〜10秒
-    
-    # グリッド上に配置された16個のセンサー
-    grid_size = 4
-    sensor_columns = {}
-    
-    # 時間列を追加
-    sensor_columns["time"] = Column(
-        ch=None,
-        name="time",
-        unit="s",
-        values=time_data
-    )
-    
-    # 温度分布の時間的変化（移動する熱源をシミュレート）
-    for i in range(grid_size):
-        for j in range(grid_size):
-            x = i * 3.0
-            y = j * 3.0
-            
-            # 各センサーのデータ（移動する熱源からの距離に基づく温度変化）
-            values = []
-            for t in range(n_steps):
-                # 熱源の位置（時間とともに移動）
-                source_x = 4.5 + 4.5 * np.cos(t * 2 * np.pi / n_steps)
-                source_y = 4.5 + 4.5 * np.sin(t * 2 * np.pi / n_steps)
-                
-                # センサーと熱源の距離
-                dist = np.sqrt((x - source_x)**2 + (y - source_y)**2)
-                
-                # 距離に反比例する温度（+ノイズ）
-                temperature = 25.0 + 50.0 / (1.0 + 0.5 * dist) + 0.5 * np.random.randn()
-                values.append(temperature)
-            
-            # 列を作成
-            col_name = f"sensor_{i+1}_{j+1}"
-            sensor_columns[col_name] = Column(
-                ch=None,
-                name=col_name,
-                unit="℃",  # 温度を想定
-                values=values
-            )
-    
-    # 通常のコレクションを作成
-    collection = ColumnCollection(steps, sensor_columns)
-    
-    # 座標ドメインに変換 (DomainFactoryを使わず直接作成)
-    coordinate_collection = CoordinateCollection(
-        step=collection.step, 
-        columns={name: col.clone() for name, col in collection.columns.items()},
-        metadata=collection.metadata.copy() if collection.metadata else {}
-    )
-    
-    # 各センサーに座標を設定
-    for i in range(grid_size):
-        for j in range(grid_size):
-            x = i * 3.0
-            y = j * 3.0
-            
-            col_name = f"sensor_{i+1}_{j+1}"
-            coordinate_collection.set_column_coordinates(col_name, x=x, y=y, z=0.0)
-    
-    return coordinate_collection
+N_STEPS = 100
+GRID = 4
+PITCH = 3.0
 
-# 特定のステップのデータだけを残す関数
-def extract_step_data(collection, step_index):
-    """特定のステップのデータだけを含む新しいコレクションを作成"""
-    result = collection.clone()
-    
-    # 各列のデータを指定ステップのものだけにする
-    for col_name, col in result.columns.items():
-        if hasattr(col, 'values') and len(col.values) > step_index:
-            # step_indexのデータだけを残す
-            col.values = [col.values[step_index]]
-    
-    return result
 
-# メイン処理
+def create_sample_timeseries_data() -> CoordinateCollection:
+    """移動する熱源の温度データを作成し、座標ドメインに変換"""
+    rng = np.random.default_rng(0)
+    t = np.arange(N_STEPS)
+    source_x = 4.5 + 4.5 * np.cos(t * 2 * np.pi / N_STEPS)
+    source_y = 4.5 + 4.5 * np.sin(t * 2 * np.pi / N_STEPS)
+
+    columns = {"time": Column(ch=None, name="time", unit="s", values=np.linspace(0, 10, N_STEPS).tolist())}
+    coordinates = {}
+    for i in range(GRID):
+        for j in range(GRID):
+            name = f"sensor_{i + 1}_{j + 1}"
+            x, y = i * PITCH, j * PITCH
+            dist = np.hypot(x - source_x, y - source_y)
+            values = 25.0 + 50.0 / (1.0 + 0.5 * dist) + 0.5 * rng.standard_normal(N_STEPS)
+            columns[name] = Column(ch=None, name=name, unit="℃", values=values.tolist())
+            coordinates[name] = {"x": x, "y": y, "z": 0.0}
+
+    collection = ColumnCollection(step=list(range(N_STEPS)), columns=columns)
+    # as_coordinate で座標ドメインに変換（型付きで CoordinateOps が返る）
+    return collection.ops.as_coordinate(coordinates=coordinates).end()
+
+
+def spatial_values(collection: CoordinateCollection, step_index: int):
+    """指定ステップでのセンサー座標と値を取得"""
+    points, names = collection.get_coordinate_matrix()
+    values = np.array([collection[n].values[step_index] for n in names], dtype=float)
+    return points, names, values
+
+
+def idw_grid(points: np.ndarray, values: np.ndarray, resolution=(40, 40), power: float = 2.0):
+    """逆距離加重法でセンサー範囲のグリッド上の値を補間"""
+    xs = np.linspace(points[:, 0].min(), points[:, 0].max(), resolution[0])
+    ys = np.linspace(points[:, 1].min(), points[:, 1].max(), resolution[1])
+    gx, gy = np.meshgrid(xs, ys)
+    d = np.hypot(gx[..., None] - points[:, 0], gy[..., None] - points[:, 1])
+    w = 1.0 / np.maximum(d, 1e-12) ** power
+    return gx, gy, (w * values).sum(axis=-1) / w.sum(axis=-1)
+
+
+def save(fig, filename: str) -> None:
+    fig.tight_layout()
+    fig.savefig(os.path.join(IMGS_DIR, filename), dpi=100)
+    plt.close(fig)
+
+
 def main():
-    # サンプルデータを作成
-    timeseries_data = create_sample_timeseries_data()
-    
-    print("作成した時系列座標データ:")
-    print(f"- ステップ数: {len(timeseries_data.step)}")
-    print(f"- 列数: {len(timeseries_data.columns)}")
-    print(f"- 時間範囲: {timeseries_data['time'].values[0]:.1f}〜{timeseries_data['time'].values[-1]:.1f} {timeseries_data['time'].unit}")
-    
-    # 座標情報を持つ列を表示
-    columns_with_coords = timeseries_data.get_columns_with_coordinates()
-    print(f"\n座標情報を持つ列: {len(columns_with_coords)} 個")
-    
-    print("\n# 時系列可視化機能のデモ")
-    
-    # 1. 時系列プロット
-    print("\n## 1. plot_coordinate_timeseries - 通常の時系列プロット")
-    fig1, ax1 = plt.subplots(figsize=(10, 6))
-    # 一部のセンサーだけを選択
-    selected_sensors = ["sensor_1_1", "sensor_2_2", "sensor_3_3", "sensor_4_4"]
-    # 新しいコレクションを作成
-    selected_data = CoordinateCollection(
-        step=timeseries_data.step,
-        columns={name: timeseries_data.columns[name].clone() 
-                for name in ["time"] + selected_sensors if name in timeseries_data.columns},
-        metadata=timeseries_data.metadata.copy() if timeseries_data.metadata else {}
-    )
-    # 座標情報をコピー
-    for name in selected_sensors:
-        if name in timeseries_data.columns:
-            x, y, z = timeseries_data.get_column_coordinates(name)
-            if x is not None or y is not None or z is not None:
-                selected_data.set_column_coordinates(name, x=x, y=y, z=z)
-    
-    plot_coordinate_timeseries(
-        selected_data,
-        value_column=selected_sensors[0],
-        time_column="time",
-        animate=False,
-        ax=ax1
-    )
-    plt.tight_layout()
-    plt.savefig(os.path.join(IMGS_DIR, "coordinate_timeseries.png"), dpi=100)
-    plt.close()
-    
-    # 2. 特定時点のコンター図
-    print("\n## 2. 特定時点の空間分布 - 複数時点のスナップショット")
-    fig2, axes = plt.subplots(2, 2, figsize=(14, 12))
-    axes = axes.flatten()
-    
-    # 4つの時点におけるスナップショット
-    time_points = [0, 25, 50, 75]  # ステップ
-    titles = ["t = 0.0s", "t = 2.5s", "t = 5.0s", "t = 7.5s"]
-    
-    for i, (time_point, title, ax) in enumerate(zip(time_points, titles, axes)):
-        # 特定のステップを抽出
-        step_data = extract_step_data(timeseries_data, time_point)
-        
-        plot_spatial_heatmap(
-            step_data,
-            value_column=selected_sensors[0],  # どのセンサーを使っても、対応する時点の値が表示される
-            resolution=(30, 30),
-            show_points=True,
-            ax=ax
-        )
-        ax.set_title(title)
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(IMGS_DIR, "coordinate_time_snapshots.png"), dpi=100)
-    plt.close()
-    
-    # 3. 時間とともに変化するベクトル場
-    print("\n## 3. 時間変化するベクトル場の例 - センサー間の温度勾配")
-    # センサー間の温度勾配をベクトル場として可視化
-    # 新しい列を作成してベクトル場を表現
-    grid_size = 4
-    
-    # ステップ50のデータを取得
-    step_data = extract_step_data(timeseries_data, 50)
-    
-    # 横方向と縦方向の温度勾配を計算
-    grad_x = []
-    grad_y = []
-    
-    for i in range(1, grid_size):
-        for j in range(1, grid_size):
-            # 現在の位置
-            curr = step_data[f"sensor_{i}_{j}"].values[0]
-            
-            # 右側と左側の温度差（X方向勾配）
-            if i < grid_size - 1:
-                right = step_data[f"sensor_{i+1}_{j}"].values[0]
-                dx = right - curr
-            else:
-                dx = 0
-                
-            # 上側と下側の温度差（Y方向勾配）
-            if j < grid_size - 1:
-                up = step_data[f"sensor_{i}_{j+1}"].values[0]
-                dy = up - curr
-            else:
-                dy = 0
-                
-            grad_x.append(dx)
-            grad_y.append(dy)
-    
-    # 勾配データをコレクションに追加
-    grad_collection = step_data.clone()
-    grad_collection.columns["grad_x"] = Column(
-        ch=None,
-        name="grad_x",
-        unit="℃/m",
-        values=[grad_x[0]] * len(step_data.step)  # 代表値として最初の勾配を使用
-    )
-    
-    grad_collection.columns["grad_y"] = Column(
-        ch=None,
-        name="grad_y",
-        unit="℃/m",
-        values=[grad_y[0]] * len(step_data.step)  # 代表値として最初の勾配を使用
-    )
-    
-    fig3, ax3 = plt.subplots(figsize=(10, 8))
-    plot_spatial_heatmap(
-        step_data,
-        value_column=selected_sensors[0],
-        resolution=(30, 30),
-        show_points=False,
-        ax=ax3
-    )
-    
-    # ベクトル場を重ねて表示
-    plot_vector_field(
-        grad_collection,
-        u_column="grad_x",
-        v_column="grad_y",
-        scale=0.1,
-        ax=ax3,
-        color="black",
-        linewidth=1
-    )
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(IMGS_DIR, "coordinate_gradient_field.png"), dpi=100)
-    plt.close()
-    
-    # 4. アニメーションGIFを生成（コメントアウト - 実行時間が長くなる場合があるため）
-    # アニメーションGIF用の設定
-    print("\n## 4. アニメーション生成のコード例 (コメントアウト状態)")
-    print("# アニメーションは実行時間が長くなる可能性があるためコメントアウトしています")
-    print("# 必要に応じてコードのコメントを解除して実行してください")
-    
-    """
-    # アニメーション生成コード
-    import matplotlib.animation as animation
-    
-    print("\n## 4. plot_coordinate_animation - アニメーションGIF生成")
-    fig4, ax4 = plt.subplots(figsize=(10, 8))
-    
-    # 間引いたステップでアニメーションを作成（処理を軽くするため）
-    selected_steps = list(range(0, 100, 5))  # 5ステップごと
-    # 選択したステップだけを含むコレクションを作成
-    selected_time_data = timeseries_data.clone()
-    
-    # アニメーションの作成（座標の色が時間とともに変化）
-    plot_coordinate_animation(
-        selected_time_data, 
-        value_column=selected_sensors[0],
-        time_column="time",
-        duration=5.0,
-        interval=200,
-        ax=ax4
-    )
-    
-    # アニメーションをGIFとして保存
-    ani = animation.FuncAnimation(
-        fig4, lambda i: None,  # ダミー関数
-        frames=len(selected_steps),
-        interval=200
-    )
-    ani.save(os.path.join(IMGS_DIR, "coordinate_animation.gif"), writer="pillow", dpi=80)
-    plt.close()
-    """
-    
-    print("\n画像ファイルを保存しました。")
-    print(f"保存先: {IMGS_DIR}")
-    
+    data = create_sample_timeseries_data()
+    print("時系列座標コレクション:")
+    print(f"- ステップ数: {len(data.step)}")
+    print(f"- 座標付きセンサー数: {len(data.get_columns_with_coordinates())}")
+
+    # 1. 角のセンサーの時系列（CorePlotter.plot を time 列に対して使用）
+    print("\n## 1. センサーごとの時系列プロット")
+    corners = ["sensor_1_1", "sensor_1_4", "sensor_4_1", "sensor_4_4"]
+    fig, ax = plt.subplots(figsize=(12, 6))
+    for name in corners:
+        data.plot.plot(y_column=name, x_column="time", ax=ax, label=name)
+    ax.set_ylabel("温度 [℃]")
+    ax.legend()
+    ax.set_title("角のセンサーの温度変化")
+    save(fig, "coordinate_timeseries.png")
+
+    # 2. 4 時刻の空間分布スナップショット
+    print("## 2. 時刻ごとの空間分布スナップショット")
+    snapshots = [0, 25, 50, 75]
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    vmin = min(spatial_values(data, s)[2].min() for s in snapshots)
+    vmax = max(spatial_values(data, s)[2].max() for s in snapshots)
+    for ax, step_index in zip(axes.flat, snapshots):
+        points, _, values = spatial_values(data, step_index)
+        gx, gy, grid = idw_grid(points, values)
+        mesh = ax.pcolormesh(gx, gy, grid, cmap="hot", vmin=vmin, vmax=vmax, shading="auto")
+        ax.scatter(points[:, 0], points[:, 1], c="b", s=15)
+        ax.set_aspect("equal")
+        ax.set_title(f"t = {data['time'].values[step_index]:.1f} s")
+    fig.colorbar(mesh, ax=axes, label="温度 [℃]")
+    fig.savefig(os.path.join(IMGS_DIR, "coordinate_time_snapshots.png"), dpi=100)
+    plt.close(fig)
+
+    # 3. 中間時刻の温度勾配
+    print("## 3. 温度勾配（ステップ 50）")
+    points, _, values = spatial_values(data, 50)
+    gx, gy, grid = idw_grid(points, values)
+    dy, dx = np.gradient(grid, gy[:, 0], gx[0, :])
+    sl = (slice(None, None, 4), slice(None, None, 4))
+    fig, ax = plt.subplots(figsize=(9, 8))
+    mesh = ax.pcolormesh(gx, gy, grid, cmap="hot", shading="auto")
+    ax.quiver(gx[sl], gy[sl], dx[sl], dy[sl], color="cyan")
+    fig.colorbar(mesh, ax=ax, label="温度 [℃]")
+    ax.set_aspect("equal")
+    ax.set_title("温度勾配（ステップ 50）")
+    save(fig, "coordinate_gradient_field.png")
+
+    # 4. 各時刻で最も温度が高いセンサー（熱源の追跡）
+    print("## 4. 最高温度センサーの推移")
+    for step_index in snapshots:
+        _, names, values = spatial_values(data, step_index)
+        hottest = names[int(np.argmax(values))]
+        print(f"   ステップ {step_index:3d}: {hottest} ({values.max():.1f} ℃)")
+
+    print(f"\n画像ファイルを保存しました: {IMGS_DIR}")
+
+
 if __name__ == "__main__":
     main()

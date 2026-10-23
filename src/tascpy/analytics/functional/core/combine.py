@@ -322,7 +322,7 @@ def custom_combine(
     v1: Any,
     v2: Any,
     combine_func: Callable[[Any, Any], Any],
-    **kwargs
+    **kwargs: Any
 ) -> Any:
     """カスタム関数を使用して2つの値または配列を結合します。
 

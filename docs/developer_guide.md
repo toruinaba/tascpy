@@ -60,13 +60,13 @@ visualization, io ──> core
 ```bash
 git clone https://github.com/toruinaba/tascpy.git
 cd tascpy
-pip install -e .
+pip install -e . -r requirements-dev.txt
 ```
 
 テストと型チェック:
 
 ```bash
-PYTHONPATH=src pytest tests/unit tests/func
+pytest   # 設定は pytest.ini
 pyright   # 設定は pyproject.toml
 ```
 

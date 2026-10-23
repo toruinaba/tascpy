@@ -14,9 +14,7 @@
    
    ```python
    # CSVファイルからのコレクション作成
-   collection = ColumnCollection.from_file(
-       filepath="sample.csv", format_name="csv", auto_detect_types=True
-   )
+   collection = tascpy.io.load("sample.csv", format_name="csv", auto_detect_types=True)
    
    # 直接インスタンス化
    collection = ColumnCollection(
@@ -88,8 +86,8 @@
    
    # チェーンメソッドを使った選択操作
    result = (
-       ops.select(columns=["Force1", "Displacement1"], steps=[4, 6, 8, 10])
-       .search_by_value("Displacement1", ">", 0)
+       collection.ops.select(columns=["Force1", "Displacement1"], steps=[4, 6, 8, 10])
+       .filter_by_condition("Displacement1", lambda x: x > 0)
        .divide("Force1", "Displacement1", result_column="Stiffness")
        .end()
    )
@@ -109,12 +107,19 @@
        .add("Force1", 1.0)  # 値の加算
        .subtract("Force2", "Force1")  # 列同士の減算
        .multiply("Displacement1", 10)  # 値の乗算
-       .divide("Force1", "Displacement1", handle_zero_division="none")  # 列同士の除算
+       .end()
+   )
+   
+   # 除算（有効な分子に対して分母が 0 だと ValueError になるため、先に 0 の行を除く）
+   result = (
+       collection.ops
+       .filter_by_condition("Displacement1", lambda x: x != 0)
+       .divide("Force1", "Displacement1")
        .end()
    )
    
    # 複合演算の例
-   result = ops.add("Force1", "Force2", result_column="TotalForce").end()
+   result = collection.ops.add("Force1", "Force2", result_column="TotalForce").end()
    ```
 
 6. **[06_filter_search.py](./06_filter_search.py)** - フィルタリングと検索
@@ -127,20 +132,8 @@
    # フィルタリング操作のチェーンメソッド例
    result = (
        collection.ops
-       .search_by_value("Force1", ">", 5.0)  # 5.0より大きい値を選択
-       .end()
-   )
-   ```
-
-7. **[07_interpolate.py](./07_interpolate.py)** - データの補間
-   - 線形補間
-
-   
-   ```python
-   # 補間処理のチェーンメソッド例
-   result = (
-       collection.ops
-       .interpolate(point_count=10, method="linear")  # 10点の線形補間
+       .filter_by_condition("Force1", lambda x: x > 5.0)  # 5.0より大きい値を選択
+       .filter_out_none(columns=["Displacement1"])  # 欠損値を含む行を除外
        .end()
    )
    ```
@@ -180,36 +173,30 @@
    - Matplotlibとの連携
    
    ```python
-   # 可視化の例（散布図）
+   # 可視化の例（散布図）: 抽出はチェーン、描画はコレクションの plot で行う
    fig, ax = plt.subplots(figsize=(8, 5))
-   (
-       collection.ops.select(columns=["Displacement1", "Force1"])
-       .plot(
-           x_column="Displacement1",
-           y_column="Force1",
-           plot_type="scatter",
-           label="試験体1",
-           ax=ax,
-       )
-       .end()
+   selected = collection.ops.select(columns=["Displacement1", "Force1"]).end()
+   selected.plot.plot(
+       y_column="Force1",
+       x_column="Displacement1",
+       marker="o",
+       linestyle="none",
+       label="試験体1",
+       ax=ax,
    )
    
-   # 線グラフプロットの例
+   # 線グラフプロットの例（2行おきに間引き）
    fig, ax = plt.subplots(figsize=(8, 5))
-   (
-       collection.ops.select(indices=list(range(0, len(collection), 2)))
-       .plot(
-           x_column="Displacement1",
-           y_column="Force1",
-           plot_type="line",
-           color="blue",
-           label="試験体1 (間引き)",
-           marker="o",
-           linestyle="-",
-           linewidth=2,
-           ax=ax,
-       )
-       .end()
+   thinned = collection.ops.select(indices=list(range(0, len(collection), 2))).end()
+   thinned.plot.plot(
+       y_column="Force1",
+       x_column="Displacement1",
+       color="blue",
+       label="試験体1 (間引き)",
+       marker="o",
+       linestyle="-",
+       linewidth=2,
+       ax=ax,
    )
    ```
 
@@ -223,15 +210,15 @@
     result = (
         collection.ops
         .switch_by_step(
-            column1="sin_wave",
-            column2="cos_wave",
+            "sin_wave",
+            "cos_wave",
             threshold=5.0,
             compare_mode="value",
             result_column="switch_at_5"
         )
         .blend_by_step(
-            column1="sin_wave",
-            column2="cos_wave",
+            "sin_wave",
+            "cos_wave",
             start=4.0,
             end=6.0,
             compare_mode="value",
@@ -239,9 +226,9 @@
             result_column="linear_blend"
         )
         .conditional_select(
-            column1="sin_wave",
-            column2="cos_wave",
-            condition_column="condition",
+            "sin_wave",
+            "cos_wave",
+            "condition",
             threshold=0.0,
             compare=">",
             result_column="conditional"
@@ -340,17 +327,9 @@ collection.ops.add("Force1", 10, result_column="Force1Plus10").end()
 ```python
 # 散布図と線グラフの組み合わせ例
 fig, ax = plt.subplots(figsize=(8, 5))
-(
-    collection.ops.select(columns=["Displacement1", "Force1"])
-    .plot(
-        x_column="Displacement1",
-        y_column="Force1",
-        plot_type="scatter",
-        label="試験体1",
-        ax=ax,
-    )
-    .end()
-)
+selected = collection.ops.select(columns=["Displacement1", "Force1"]).end()
+selected.plot.plot(y_column="Force1", x_column="Displacement1", marker="o", linestyle="none", label="試験体1", ax=ax)
+selected.plot.plot(y_column="Force1", x_column="Displacement1", label="試験体1（線）", ax=ax)
 ```
 
 ## tascpy の特徴

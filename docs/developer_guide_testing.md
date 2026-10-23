@@ -73,7 +73,7 @@ class TestMyNewCalculation:
 ## 4. 実行方法
 
 ```bash
-PYTHONPATH=src pytest tests/unit tests/func
+pytest
 pyright   # 型チェック（設定は pyproject.toml）
 ```
 

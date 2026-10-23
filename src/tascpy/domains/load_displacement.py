@@ -1,4 +1,6 @@
-from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Tuple, Union, TYPE_CHECKING
+
+import numpy as np
 from ..core.collection import ColumnCollection
 from ..core.step import Step
 from ..core.column import Column
@@ -269,7 +271,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return sorted(list(key_set))
 
     @property
-    def load_data(self):
+    def load_data(self) -> np.ndarray:
         """荷重データ配列を取得 (NaNを保持)
         
         Returns:
@@ -279,7 +281,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return np.array([v if v is not None else np.nan for v in self[self.load_column].values])
 
     @property
-    def displacement_data(self):
+    def displacement_data(self) -> np.ndarray:
         """変位データ配列を取得 (NaNを保持)
         
         Returns:
@@ -289,7 +291,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return np.array([v if v is not None else np.nan for v in self[self.displacement_column].values])
         
     @property
-    def valid_data_mask(self):
+    def valid_data_mask(self) -> np.ndarray:
         """NaNを含まない有効なデータのブールマスクを取得
         
         Returns:
@@ -299,7 +301,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return ~(np.isnan(self.load_data) | np.isnan(self.displacement_data))
         
     @property
-    def valid_data(self):
+    def valid_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """有効な(変位, 荷重)の配列の組を取得
         
         Returns:
@@ -311,7 +313,7 @@ class LoadDisplacementCollection(ColumnCollection):
     def get_ld_cycle_arrays(
         self,
         cycle_marker_column: Optional[str] = None,
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """荷重・変位・サイクルマーカーの numpy 配列を取得する。
 
         サイクルマーカーカラムが存在しない場合は ``KeyError`` を raise します

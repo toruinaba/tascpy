@@ -20,6 +20,7 @@ setup(
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
     include_package_data=True,
     install_requires=open("requirements.txt").read().splitlines(),
+    extras_require={"plotly": ["plotly"]},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",

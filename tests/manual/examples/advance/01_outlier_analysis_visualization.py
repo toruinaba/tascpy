@@ -154,9 +154,7 @@ print(
 # デバッグ情報を追加
 print("\n--- デバッグ情報 ---")
 print(f"データサイズ: {len(filtered_collection['data'].values)}")
-print(
-    f"None値の数: {filtered_collection['data'].values.count(None) if filtered_collection['data'].values.count(None) is not None else 0}"
-)
+print(f"None値の数: {int(np.isnan(np.asarray(filtered_collection['data'].values, dtype=float)).sum())}")
 
 # 2つの異なるしきい値で異常値を可視化
 plt.figure(figsize=(12, 10))
@@ -166,43 +164,32 @@ ax1 = plt.subplot(2, 1, 1)  # 最初のサブプロット
 ax2 = plt.subplot(2, 1, 2)  # 2つ目のサブプロット
 
 # 厳しいしきい値と緩いしきい値で異常値検出を行う
-# メソッドチェーンを使用し、axパラメータを渡してplt.showを自動呼び出しさせない
-result_vis = (
-    filtered_collection.ops.filter_out_none(columns=["data"])  # NaN値を除去
-    # 最初のサブプロットに厳しいしきい値での可視化
-    .visualize_outliers(
-        column="data",
-        window_size=15,
-        threshold=0.3,  # 厳しいしきい値
-        plot_type="line",
-        highlight_color="red",
-        outlier_marker="o",
-        ax=ax1,  # 明示的にaxを渡すのでplt.showは呼ばれない
-        normal_alpha=0.7,
-    )
-    # 次のサブプロットに緩いしきい値での可視化
-    .visualize_outliers(
-        column="data",
-        window_size=15,
-        threshold=0.9,  # 緩いしきい値
-        plot_type="line",
-        highlight_color="orange",
-        outlier_marker="^",
-        ax=ax2,  # 明示的にaxを渡すのでplt.showは呼ばれない
-        normal_alpha=0.7,
-    ).end()
+# 欠損除去はチェーンで行い、描画はコレクションの plot で行う（ax を渡すので plt.show は呼ばれない）
+vis_source = filtered_collection.ops.filter_out_none(columns=["data"]).end()
+vis_source.plot.visualize_outliers(
+    column="data", window_size=15, threshold=0.3, plot_type="line",
+    highlight_color="red", outlier_marker="o", ax=ax1, normal_alpha=0.7,
+)
+vis_source.plot.visualize_outliers(
+    column="data", window_size=15, threshold=0.9, plot_type="line",
+    highlight_color="orange", outlier_marker="^", ax=ax2, normal_alpha=0.7,
 )
 
-# 検出された異常値の数を確認する
-strict_outlier_count = sum(result_vis["_outlier_flags_data"].values)
-loose_outlier_count = 22  # デバッグ出力から確認した値
+# 検出された異常値の数を detect_outliers のフラグ列から数える
+def count_outliers(collection, **kwargs):
+    flagged = collection.ops.detect_outliers("data", result_column="flag", **kwargs).end()
+    return int(np.nansum(np.asarray(flagged["flag"].values, dtype=float)))
+
+
+strict_outlier_count = count_outliers(vis_source, window_size=15, threshold=0.3)
+loose_outlier_count = count_outliers(vis_source, window_size=15, threshold=0.9)
 
 # サブプロットのタイトルを設定
 ax1.set_title(f"標準データの異常値検出（厳しいしきい値: 0.3）")
 ax1.set_xlabel("ステップ")
 ax1.set_ylabel("データ値")
 
-ax2.set_title(f"標準データの異常値検出（緩いしきい値: 0.7）")
+ax2.set_title(f"標準データの異常値検出（緩いしきい値: 0.9）")
 ax2.set_xlabel("ステップ")
 ax2.set_ylabel("データ値")
 
@@ -402,40 +389,21 @@ plt.figure(figsize=(12, 12))
 ax1 = plt.subplot(2, 1, 1)  # 対称エッジ処理用
 ax2 = plt.subplot(2, 1, 2)  # 非対称エッジ処理用
 
-# 対称および非対称エッジ処理を1つのチェーンで比較
-# axを渡すことでplt.showは呼び出されない
-comparison_result = (
-    collection2.ops.filter_out_none(columns=["data"])  # NaN値を除去
-    # まずステップ範囲でサブセット抽出
-    .search_by_step_range(min=50, max=100)
-    # 対称エッジ処理による異常値検出
-    .visualize_outliers(
-        column="data",
-        window_size=15,
-        threshold=0.1,
-        edge_handling="symmetric",  # 対称エッジ処理
-        highlight_color="red",
-        ax=ax1,  # 明示的にaxを渡すのでplt.showは呼ばれない
-        normal_color="blue",
-        plot_type="scatter",
-    )
-    # 非対称エッジ処理による異常値検出
-    .visualize_outliers(
-        column="data",
-        window_size=15,
-        threshold=0.1,
-        edge_handling="asymmetric",  # 非対称エッジ処理
-        highlight_color="magenta",
-        ax=ax2,  # 明示的にaxを渡すのでplt.showは呼ばれない
-        normal_color="cyan",
-        plot_type="scatter",
-    ).end()
+# 対称および非対称エッジ処理を比較する
+# 欠損除去とステップ範囲の抽出はチェーンで行い、描画はコレクションの plot で行う
+edge_source = (
+    collection2.ops.filter_out_none(columns=["data"])
+    .select(steps=[s for s in collection2.step.values if 50 <= s <= 100])
+    .end()
 )
+for edge, ax, color, normal in [("symmetric", ax1, "red", "blue"), ("asymmetric", ax2, "magenta", "cyan")]:
+    edge_source.plot.visualize_outliers(
+        column="data", window_size=15, threshold=0.1, edge_handling=edge,
+        highlight_color=color, ax=ax, normal_color=normal, plot_type="scatter",
+    )
 
-# 検出された異常値の数を計算
-symmetric_outlier_count = sum(comparison_result["_outlier_flags_data"].values)
-# 非対称エッジ処理では同じ列名を使用するため、デバッグ出力から値を設定
-asymmetric_outlier_count = 1  # デバッグ出力から取得した値
+symmetric_outlier_count = count_outliers(edge_source, window_size=15, threshold=0.1, edge_handling="symmetric")
+asymmetric_outlier_count = count_outliers(edge_source, window_size=15, threshold=0.1, edge_handling="asymmetric")
 
 # サブプロットのタイトルと軸ラベルを設定
 ax1.set_title(

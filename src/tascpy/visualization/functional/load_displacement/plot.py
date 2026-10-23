@@ -30,7 +30,7 @@ def plot_load_displacement(
     y_label: str = "Load",
     title: Optional[str] = None,
     ax: Optional[Axes] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Axes:
     """荷重-変位曲線をプロットします
 
@@ -38,7 +38,11 @@ def plot_load_displacement(
     既存の軸オブジェクトを指定することも、新しく作成することもできます.
 
     Args:
-        collection: 荷重-変位コレクション
+        x_values: 変位データ配列
+        y_values: 荷重データ配列
+        x_label: X軸ラベル
+        y_label: Y軸ラベル
+        title: グラフタイトル（None の場合は既定のタイトル）
         ax: プロット先の軸(None の場合は新規作成)
         **kwargs: matplotlib の plot 関数に渡す追加引数
 
@@ -79,16 +83,15 @@ def plot_skeleton_curve(
     create_skeleton_curve 関数で作成したスケルトン曲線をプロットします.
     元の荷重-変位データと比較して表示することも可能です.
 
-    スケルトン曲線データは、列または metadata["curves"]["skeleton_curve"] から取得します.
+    スケルトン曲線データは、列または `metadata["curves"]["skeleton_curve"]` から取得します.
     メタデータに格納されている場合はそちらが優先されます.
 
-    # スケルトン曲線の配列と、オプションで元データをプロットします.
 
     Args:
         skeleton_x: スケルトン曲線の変位配列
         skeleton_y: スケルトン曲線の荷重配列
-        # x_values: 元データの変位配列(None の場合はプロットしない)
-        # y_values: 元データの荷重配列(None の場合はプロットしない)
+        x_values: 元データの変位配列(None の場合はプロットしない)
+        y_values: 元データの荷重配列(None の場合はプロットしない)
         x_label: X軸ラベル
         y_label: Y軸ラベル
         ax: プロット先の軸(None の場合は新規作成)
@@ -250,7 +253,7 @@ def plot_yield_point(
     plot_initial_slope: bool = True,
     plot_offset_line: bool = True,
     result_prefix: str = "yield",
-    **kwargs,
+    **kwargs: Any
 ) -> Axes:
     """降伏点解析結果をプロットします
 
@@ -375,7 +378,7 @@ def plot_yield_analysis_details(
     x_label: str = "Displacement",
     y_label: str = "Load",
     ax: Optional[Axes] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Axes:
     """降伏点解析の詳細情報をプロットします
 
@@ -388,8 +391,8 @@ def plot_yield_analysis_details(
         yield_method: 降伏点決定の手法
         initial_slope: 初期勾配
         yield_parameters: 分析のパラメータ
-        # x_values: 元の変位データ配列
-        # y_values: 元の荷重データ配列
+        x_values: 元の変位データ配列
+        y_values: 元の荷重データ配列
         x_label: X軸ラベル
         y_label: Y軸ラベル
         ax: プロット先の軸(None の場合は新規作成)
@@ -511,7 +514,7 @@ def compare_yield_methods(
     x_label: str = "Displacement",
     y_label: str = "Load",
     ax: Optional[Axes] = None,
-    **kwargs,
+    **kwargs: Any
 ) -> Axes:
     """複数の降伏点計算結果を比較してプロットします
 
@@ -637,7 +640,7 @@ def plot_multiple_curves(
     x_label: str = "Displacement",
     y_label: str = "Load",
     ax: Optional[Axes] = None,
-    **kwargs,
+    **kwargs: Any
 ) -> Axes:
     """複数の曲線を指定してプロットします
 

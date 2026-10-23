@@ -41,7 +41,7 @@ class LoadDisplacementPlotter(CorePlotter):
         ax: Optional[Axes] = None,
         x_label: Optional[str] = None,
         y_label: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Axes:
         """荷重-変位曲線をプロットします
         
@@ -208,7 +208,7 @@ class LoadDisplacementPlotter(CorePlotter):
         plot_initial_slope: bool = True,
         plot_offset_line: bool = True,
         result_prefix: str = "yield",
-        **kwargs
+        **kwargs: Any
     ) -> Axes:
         """降伏点解析結果をプロットします"""
         if yield_disp is None or yield_load is None:
@@ -283,7 +283,7 @@ class LoadDisplacementPlotter(CorePlotter):
         yield_point_kwargs: Optional[Dict[str, Any]] = None,
         lines_kwargs: Optional[Dict[str, Any]] = None,
         result_prefix: str = "yield",
-        **kwargs
+        **kwargs: Any
     ) -> Axes:
         """詳細な降伏点解析内容をプロットします"""
         if yield_disp is None or yield_load is None:
@@ -345,7 +345,7 @@ class LoadDisplacementPlotter(CorePlotter):
         x_label: Optional[str] = None,
         y_label: Optional[str] = None,
         ax: Optional[Axes] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Axes:
         """複数の降伏点手法を解析し、比較して表示します"""
         if methods is None:

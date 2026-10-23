@@ -405,21 +405,16 @@ class CoordinateCollection(ColumnCollection):
         if column not in self.columns:
             raise ValueError(f"指定されたカラム '{column}' が見つかりません。")
 
-        matrix, valid_cols = self.get_coordinate_matrix(include_z=True)
+        valid_cols = self.get_columns_with_coordinates()
         if len(valid_cols) <= 1:
             raise ValueError("十分な数の座標データがありません。")
-
-        try:
-            target_idx = valid_cols.index(column)
-        except ValueError:
+        if column not in valid_cols:
             raise ValueError(f"カラム '{column}' には有効な座標が設定されていません。")
 
-        # functionalロジックを呼び出し
-        distances, indices = find_nearest_neighbors_logic(matrix, target_idx, n_neighbors)
-
-        # numpy int/float を Python ネイティブに変換
-        nearest_cols = [valid_cols[i] for i in indices]
-        dist_list = [float(d) for d in distances]
+        candidates = [(name, self.calculate_distance(column, name)) for name in valid_cols if name != column]
+        neighbors = find_nearest_neighbors_logic(candidates, n_neighbors)
+        nearest_cols = [name for name, _ in neighbors]
+        dist_list = [float(d) for _, d in neighbors]
 
         # クローンして結果をメタデータとプロパティ列として保存
         new_col = self.clone()

@@ -106,12 +106,12 @@ if valid_slopes:
 # ===== 初期剛性の計算（線形領域からの推定） =====
 print("\n===== 初期剛性の計算 =====")
 
-# calculate_stiffnessは直接浮動小数点の剛性値を返す
+# calculate_stiffnessは剛性値を結果 "stiffness" (ScalarResult) に格納する
 stiffness = ld_collection.ops.calculate_stiffness(
     range_start=0.1,  # 初期10%（荷重範囲の相対位置）
     range_end=0.4,  # 40%まで（荷重範囲の相対位置）
     method="linear_regression",
-)
+).end().results["stiffness"].value
 
 print(
     f"線形回帰による初期剛性: {stiffness:.3f} {ld_collection[ld_collection.load_column].unit}/{ld_collection[ld_collection.displacement_column].unit}"
@@ -122,7 +122,7 @@ stiffness_alt = ld_collection.ops.calculate_stiffness(
     range_start=0.0,  # 最小荷重から
     range_end=0.2,  # 最大荷重の20%まで
     method="linear_regression",
-)
+).end().results["stiffness"].value
 
 print(
     f"小さい範囲での初期剛性: {stiffness_alt:.3f} {ld_collection[ld_collection.load_column].unit}/{ld_collection[ld_collection.displacement_column].unit}"
@@ -323,15 +323,11 @@ report_collection = (
         column=force_column, window_size=3, result_column="Force_Smooth"
     )  # 荷重データの平滑化
     # 平滑化したカラムを使用して新しいドメインコレクションを作成
-    .as_domain(
-        "load_displacement",
-        load_column="Force_Smooth",
-        displacement_column="Disp_Smooth",
-    )
-    # 複数の降伏点解析を実行
-    # 注: PointResultは "yield_point" という名前で上書きされますが、
-    # 直前の結果取得デモのため、それぞれ別々に実行してから表示します
+    .as_load_displacement(load_column="Force_Smooth", displacement_column="Disp_Smooth")
+    .end()
 )
+# 注: PointResult は "yield_point" という名前で上書きされるため、
+# 降伏点解析は手法ごとに別々に実行してから表示します
 
 # 前処理結果に対するオフセット法
 report_offset = report_collection.ops.find_yield_point(

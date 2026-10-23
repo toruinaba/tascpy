@@ -1,0 +1,8 @@
+-r requirements.txt
+plotly
+pytest
+pytest-cov
+pyright
+mkdocs==1.6.1
+mkdocs-material==9.6.5
+mkdocstrings[python]==0.28.2

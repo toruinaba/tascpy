@@ -135,8 +135,8 @@ try:
         .multiply(
             "Force1", 2, result_column="DoubleForce"
         )  # Force1を2倍して新しい列を作成
-        # Displacement1が0でない行のみをフィルタリング
-        .search_by_value("Displacement1", ">", 0)
+        # Displacement1が正の行のみをフィルタリング
+        .filter_by_condition("Displacement1", lambda x: x is not None and x > 0)
         .evaluate(
             "DoubleForce / Displacement1", result_column="Stiffness"
         )  # 剛性を計算

@@ -10,7 +10,9 @@ def inverse_distance_weighting(
     
     Args:
         point_data: 点のデータ（point, value, col_name）
-        x, y, z: 補間する座標位置
+        x: 補間する X 座標
+        y: 補間する Y 座標
+        z: 補間する Z 座標（2 次元の場合は None）
         power: 重み付けパワー
         
     Returns:
@@ -40,7 +42,9 @@ def nearest_neighbor(
     
     Args:
         point_data: 点のデータ
-        x, y, z: 補間する座標位置
+        x: 補間する X 座標
+        y: 補間する Y 座標
+        z: 補間する Z 座標（2 次元の場合は None）
         power: 使用しないパラメータ
         
     Returns:
@@ -56,7 +60,9 @@ def linear_interpolation(
     
     Args:
         point_data: 点のデータ
-        x, y, z: 補間する座標位置
+        x: 補間する X 座標
+        y: 補間する Y 座標
+        z: 補間する Z 座標（2 次元の場合は None）
         power: 使用しないパラメータ
         
     Returns:
@@ -76,7 +82,9 @@ def compute_point_interpolation_values(
     
     Args:
         source_data: 点のデータリスト（point, value, col_name等を含む）
-        x, y, z: 補間する座標位置
+        x: 補間する X 座標
+        y: 補間する Y 座標
+        z: 補間する Z 座標（2 次元の場合は None）
         method: 補間方法 ("inverse_distance", "nearest", "linear")
         power: 重み付けパワー
         

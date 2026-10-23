@@ -153,6 +153,5 @@ col.ops.as_domain("timeseries").resample("1H").end()
 メソッドチェーンの型が崩れていないことは pyright で検査します。設定は `pyproject.toml` の `[tool.pyright]` にあり、`tests/typecheck/ops_chains.py` の `assert_type` が検査対象です。操作の戻り値の型を変えた場合は、このファイルも更新してください。
 
 ```bash
-pip install pyright
-pyright
+pyright   # requirements-dev.txt に含まれています
 ```

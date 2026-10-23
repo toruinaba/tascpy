@@ -76,8 +76,8 @@ class ColumnCollection:
         self,
         step: Union[Step, List[Any], None],
         columns: Optional[Dict[str, Union[Column, List[Any]]]],
-        metadata=None,
-        auto_detect_types=False,
+        metadata: Optional[Dict[str, Any]] = None,
+        auto_detect_types: bool = False,
     ):
         """
         Args:

@@ -21,7 +21,35 @@
 
 ## Functional
 
-`functional.core` / `functional.load_displacement` / `functional.strain` は `__init__.py` を持たない名前空間パッケージのため、現在は API リファレンスに含まれていません。
+### Core Math
+::: tascpy.analytics.functional.core.math
+
+### Core Filters
+::: tascpy.analytics.functional.core.filters
+
+### Core Select
+::: tascpy.analytics.functional.core.select
+
+### Core Stats
+::: tascpy.analytics.functional.core.stats
+
+### Core Combine
+::: tascpy.analytics.functional.core.combine
+
+### Load Displacement Analysis
+::: tascpy.analytics.functional.load_displacement.analysis
+
+### Load Displacement Curves
+::: tascpy.analytics.functional.load_displacement.curves
+
+### Load Displacement Cycles
+::: tascpy.analytics.functional.load_displacement.cycles
+
+### Strain Rosette
+::: tascpy.analytics.functional.strain.rosette
+
+### Strain Stress-Strain
+::: tascpy.analytics.functional.strain.ss_analysis
 
 ### Coordinate Clustering
 ::: tascpy.analytics.functional.coordinate.clustering
