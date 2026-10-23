@@ -124,3 +124,25 @@ def test_show_plot():
     fig = MagicMock()
     bp.show_plot(fig)
     fig.show.assert_called_once()
+
+
+def test_plot_passes_extra_kwargs_and_updates_existing_figure():
+    pytest.importorskip("plotly")
+    from tascpy.visualization import backend_plotly as bp
+
+    fig = bp.plot([0, 1], [1, 2], plot_type="scatter", color="red", opacity=0.5, name="a")
+    trace = fig.data[0]
+    assert trace.marker.color == "red"
+    assert trace.opacity == 0.5
+
+    bp.plot([0, 1], [3, 4], fig=fig, name="b", x_label="t [s]", title="added")
+    assert len(fig.data) == 2
+    assert fig.layout.xaxis.title.text == "t [s]"
+    assert fig.layout.title.text == "added"
+
+
+def test_plot_accepts_mode_override():
+    pytest.importorskip("plotly")
+    from tascpy.visualization import backend_plotly as bp
+
+    assert bp.plot([0, 1], [1, 2], mode="lines+markers").data[0].mode == "lines+markers"

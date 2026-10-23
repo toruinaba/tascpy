@@ -1,8 +1,7 @@
-from typing import Optional, Any
-import numpy as np
+from typing import Any, Optional
 
-from tascpy.visualization import backend_mpl
 from tascpy.analytics.functional.strain.rosette import compute_rosette_vectors
+from tascpy.visualization.functional.core.plot import new_axes
 
 
 def plot_rosette_vectors(
@@ -39,28 +38,22 @@ def plot_rosette_vectors(
         >>> from tascpy.visualization.functional.strain.plot import plot_rosette_vectors
         >>> ax = plot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=0.785, rosette_name="R1")
     """
-    # 描画準備
     if ax is None:
-        ax = backend_mpl.plot(x_values=[], y_values=[], title=f"Rosette: {rosette_name} (Step: {step_index})")
-    
-    # 純粋関数を呼び出してベクトル成分を取得
+        ax = new_axes()
+        ax.set_title(f"Rosette: {rosette_name} (Step: {step_index})")
+
     v1_x, v1_y, v2_x, v2_y = compute_rosette_vectors(e1, e2, theta, scale)
-    
-    # e1: Red arrows
-    backend_mpl.draw_arrow(ax, x, y, v1_x, v1_y, head_width=scale*0.1, head_length=scale*0.1, fc='r', ec='r', label=f"e1: {e1:.2e}")
-    backend_mpl.draw_arrow(ax, x, y, -v1_x, -v1_y, head_width=scale*0.1, head_length=scale*0.1, fc='r', ec='r')
-    
-    # e2: Blue arrows
-    backend_mpl.draw_arrow(ax, x, y, v2_x, v2_y, head_width=scale*0.1, head_length=scale*0.1, fc='b', ec='b', label=f"e2: {e2:.2e}")
-    backend_mpl.draw_arrow(ax, x, y, -v2_x, -v2_y, head_width=scale*0.1, head_length=scale*0.1, fc='b', ec='b')
-    
-    # Center point
-    backend_mpl.scatter_points([x], [y], ax=ax, color='k', marker='o', s=25)
-    
-    ax.set_aspect('equal')
+    head = {"head_width": scale * 0.1, "head_length": scale * 0.1}
+    ax.arrow(x, y, v1_x, v1_y, fc="r", ec="r", label=f"e1: {e1:.2e}", **head)
+    ax.arrow(x, y, -v1_x, -v1_y, fc="r", ec="r", **head)
+    ax.arrow(x, y, v2_x, v2_y, fc="b", ec="b", label=f"e2: {e2:.2e}", **head)
+    ax.arrow(x, y, -v2_x, -v2_y, fc="b", ec="b", **head)
+    ax.scatter([x], [y], color="k", marker="o", s=25)
+
+    ax.set_aspect("equal")
     ax.grid(True)
-    backend_mpl.set_labels(ax, xlabel='X', ylabel='Y')
-    
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
     return ax
 
 
@@ -73,7 +66,7 @@ def iplot_rosette_vectors(
     rosette_name: str,
     step_index: int = 0,
     scale: float = 1.0,
-    fig: Optional[Any] = None
+    fig: Any = None
 ) -> Any:
     """ロゼットの主ひずみベクトルをインタラクティブにプロットする (Plotly)
     

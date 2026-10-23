@@ -73,3 +73,14 @@ class TestIPlot:
         sample_collection.plot.iplot(y_column="y1", x_column="x", name="Custom Name")
         args, kwargs = mock_plotly_plot.call_args
         assert kwargs.get("name") == "Custom Name"
+
+
+def test_plotter_iplot_argument_order_matches_plot():
+    pytest.importorskip("plotly")
+    from tascpy.core.collection import ColumnCollection
+
+    coll = ColumnCollection({"P": [0.0, 1.0], "d": [0.0, 2.0]}, units={"P": "kN", "d": "mm"})
+    fig = coll.plot.iplot("P", "d")
+    assert list(fig.data[0].y) == [0.0, 1.0]
+    assert fig.layout.xaxis.title.text == "d [mm]"
+    assert coll.plot.iplot("P").layout.xaxis.title.text == "Step"

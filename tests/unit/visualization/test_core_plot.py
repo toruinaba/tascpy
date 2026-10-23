@@ -34,16 +34,14 @@ class TestPlot:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # plot関数を呼び出す
-        # backend_mpl.plot defaults to "line" unless plot_type="scatter" is passed.
-        # But this test expects scatter.
         result = sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="scatter")
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         mock_ax.scatter.assert_called_once()
         mock_ax.set_xlabel.assert_called_with("x [m]")
         mock_ax.set_ylabel.assert_called_with("y1 [kg]")
-        # axがNoneの場合（新しい図を作成した場合）のみplt.showが呼ばれる
-        mock_show.assert_called_once()
+        # 図の表示は呼び出し側で行う（新しい図を作成しても plt.show は呼ばない）
+        mock_show.assert_not_called()
 
         # Axesオブジェクトが返されることを確認 (chaining broken)
         assert result is mock_ax
@@ -64,8 +62,8 @@ class TestPlot:
         mock_ax.plot.assert_called_once()
         mock_ax.set_xlabel.assert_called_with("x [m]")
         mock_ax.set_ylabel.assert_called_with("y1 [kg]")
-        # axがNoneの場合（新しい図を作成した場合）のみplt.showが呼ばれる
-        mock_show.assert_called_once()
+        # 図の表示は呼び出し側で行う（新しい図を作成しても plt.show は呼ばない）
+        mock_show.assert_not_called()
 
         # 元のコレクションではなくAxesが返されることを確認
         assert result is mock_ax
@@ -123,19 +121,10 @@ class TestPlot:
         with pytest.raises(KeyError, match="列 'nonexistent_y' が存在しません"):
             sample_collection.plot.plot(y_column="nonexistent_y", x_column="x")
 
-    @patch("matplotlib.pyplot.subplots")
-    def test_invalid_plot_type(self, mock_subplots, sample_collection):
-        """無効なプロットタイプを指定した場合、デフォルト（line）にフォールバックすることを確認"""
-        # モックの設定
-        mock_fig = MagicMock()
-        mock_ax = MagicMock()
-        mock_subplots.return_value = (mock_fig, mock_ax)
-
-        # 無効なプロットタイプでの呼び出し - エラーにならずline plotとして描画される
-        sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="invalid_type")
-        
-        # エラーが発生しなければOK、かつplotが呼ばれているはず
-        mock_ax.plot.assert_called()
+    def test_invalid_plot_type(self, sample_collection):
+        """無効な plot_type は ValueError"""
+        with pytest.raises(ValueError, match="plot_type"):
+            sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="invalid_type")
 
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
@@ -321,12 +310,11 @@ class TestVisualizeOutliers:
         mock_ax = MagicMock()
         mock_subplots.return_value = (mock_fig, mock_ax)
 
-        # visualize_outliers関数を呼び出す（異常値なし）
+        # visualize_outliers関数を呼び出す（異常値なし）。検出数はタイトルに表示し、print はしない
         with patch("builtins.print") as mock_print:
             result = sample_collection.plot.visualize_outliers(column="y1")
-
-            # 検証: 異常値がない旨のメッセージが出力されたか
-            mock_print.assert_any_call("visualize_outliers: 異常値は検出されませんでした")
+            mock_print.assert_not_called()
+        mock_ax.set_title.assert_called_with("異常値検出: y1 (検出数: 0個)")
 
         # 異常値がなくても、通常のデータポイントはプロットされるはず
         mock_ax.scatter.assert_called()
@@ -376,40 +364,27 @@ class TestVisualizeOutliers:
 
 
 class TestPlotConstX:
-    """plot_const_x関数のテスト"""
+    """plot_const_x: 指定した行の各列の値を、列ごとの位置に並べて描画する"""
 
-    @patch("tascpy.visualization.backend_mpl.plot")
-    def test_basic_plot_const_x(self, mock_plot, sample_collection):
-        """plot_const_xが正しく動作することを確認"""
-        # mock_plot returns what? usually ax.
-        mock_ax = MagicMock()
-        mock_plot.return_value = mock_ax
+    def test_basic_plot_const_x(self, sample_collection):
+        ax = sample_collection.plot.plot_const_x(x_values=[10, 20], y_columns=["y1", "y2"])
+        line = ax.lines[0]
+        np.testing.assert_array_equal(line.get_xdata(), [10.0, 20.0])
+        np.testing.assert_array_equal(line.get_ydata(), [10.0, 100.0])  # 先頭行
+        assert ax.get_ylabel() == "Value"  # 単位が異なる (kg, N) ので単位なし
+        plt.close(ax.figure)
 
-        x_values = [10, 20]
-        y_columns = ["y1", "y2"]
-        # y1[0]=10, y2[0]=100
+    def test_row_and_common_unit(self, sample_collection):
+        coll = sample_collection.with_meta("y2", unit="kg")
+        ax = coll.plot.plot_const_x(x_values=[10, 20], y_columns=["y1", "y2"], row=-1, x_label="Position [mm]")
+        np.testing.assert_array_equal(ax.lines[0].get_ydata(), [50.0, 500.0])
+        assert ax.get_ylabel() == "Value [kg]"
+        assert ax.get_xlabel() == "Position [mm]"
+        assert ax.get_title() == "Value at step 5"
+        plt.close(ax.figure)
 
-        # Call
-        result = sample_collection.plot.plot_const_x(x_values=x_values, y_columns=y_columns)
-
-        # Verify inject_columns extracted values passed to plot
-        mock_plot.assert_called_once()
-        args, kwargs = mock_plot.call_args
-        
-        # Check x_values
-        np.testing.assert_array_equal(kwargs["x_values"], np.array(x_values))
-        
-        # Check y_values (should be [y1[0], y2[0]] = [10, 100])
-        expected_y = np.array([10.0, 100.0])
-        np.testing.assert_array_equal(kwargs["y_values"], expected_y)
-        
-        assert result is mock_ax
-
-    @patch("tascpy.visualization.backend_mpl.plot")
-    def test_length_mismatch(self, mock_plot, sample_collection):
-        """長さが一致しない場合にエラーが発生することを確認"""
-        x_values = [10] # len 1
-        y_columns = ["y1", "y2"] # len 2
-        
+    def test_length_mismatch_and_row_range(self, sample_collection):
         with pytest.raises(ValueError, match="一致しません"):
-             sample_collection.plot.plot_const_x(x_values=x_values, y_columns=y_columns)
+            sample_collection.plot.plot_const_x(x_values=[10], y_columns=["y1", "y2"])
+        with pytest.raises(IndexError):
+            sample_collection.plot.plot_const_x(x_values=[10], y_columns=["y1"], row=5)

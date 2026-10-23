@@ -1,40 +1,36 @@
-from typing import TYPE_CHECKING, Optional, Any, Tuple, List, Dict, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Tuple
+
 import numpy as np
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
 from tascpy.visualization.functional.core import plot as core_plot
 
 if TYPE_CHECKING:
     from tascpy.core.collection import ColumnCollection
 
+
+def axis_label(name: str, unit: Optional[str]) -> str:
+    """"名前 [単位]"（単位がなければ名前のみ）"""
+    return f"{name} [{unit}]" if unit else name
+
+
 class CorePlotter:
-    """基本のデータ可視化を提供するPlotterクラス
-    
-    Collectionオブジェクトを受け取り、そこから明示的にデータを抽出して
-    純粋な可視化関数（tascpy.visualization.functional.core.plot）に渡します。
+    """コレクションの列を描画するプロッター（`collection.plot`）
+
+    列の値と単位付きの軸ラベルを取り出し、描画関数（tascpy.visualization.functional）に渡します。
+    どのメソッドも Axes（iplot は Plotly Figure）を返し、図の表示（plt.show）は呼び出し側で行います。
+    X 軸の列を省略した場合は step を使います。
     """
-    
+
     def __init__(self, collection: "ColumnCollection"):
-        """
-        Args:
-            collection: 描画対象のColumnCollectionオブジェクト
-        """
         self._collection = collection
-        
-    def _extract_axis(self, column_name: str) -> Tuple[np.ndarray, str]:
-        """指定されたカラムから1次元の変位配列とラベル名を抽出します
-        
-        Args:
-            column_name: カラム名
-            
-        Returns:
-            Tuple[np.ndarray, str]: (値の配列、ラベル文字列)
-        """
+
+    def _extract_axis(self, column_name: Optional[str]) -> Tuple[np.ndarray, str]:
+        """列の値と軸ラベル（列名が None なら step）"""
         if column_name is None:
             return self._collection.step, "Step"
         column = self._collection[column_name]
-        return column.values, f"{column.name} [{column.unit}]" if column.unit else column.name
+        return column.values, axis_label(column.name, column.unit)
 
     def plot(
         self,
@@ -45,75 +41,58 @@ class CorePlotter:
         y_label: Optional[str] = None,
         **kwargs: Any
     ) -> Axes:
-        """2次元の折れ線または散布図をプロットします
-        
+        """折れ線グラフ（plot_type="scatter" で散布図）を描画します
+
         Args:
-            y_column: Y軸データのカラム名
-            x_column: X軸データのカラム名（None時はインデックスを使用）
-            ax: 描画先のAxes（Noneの場合は新規作成）
-            x_label: X軸のラベル（Noneの場合は自動生成）
-            y_label: Y軸のラベル（Noneの場合は自動生成）
-            **kwargs: plot関数に渡す追加引数
-            
-        Returns:
-            描画されたAxes
-            
+            y_column: Y 軸の列名
+            x_column: X 軸の列名（省略時は step）
+            ax: 描画先の Axes（None の場合は新しい図を作成）
+            x_label: X 軸のラベル（省略時は "列名 [単位]"）
+            y_label: Y 軸のラベル（省略時は "列名 [単位]"）
+            **kwargs: 描画関数に渡す追加引数（plot_type, title, color など）
+
         Examples:
-            >>> ax = col.plot.plot(y_column="荷重", x_column="変位", x_label="Displacement (mm)", y_label="Load (kN)")
+            >>> ax = col.plot.plot("荷重", "変位")
         """
-        y_vals, auto_y_label = self._extract_axis(y_column)
-        x_vals, auto_x_label = self._extract_axis(x_column)
-        
-        return core_plot.plot(
-            x_values=x_vals,
-            y_values=y_vals,
-            ax=ax,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            **kwargs
-        )
+        y_vals, auto_y = self._extract_axis(y_column)
+        x_vals, auto_x = self._extract_axis(x_column)
+        return core_plot.plot(x_vals, y_vals, x_label=auto_x if x_label is None else x_label,
+                              y_label=auto_y if y_label is None else y_label, ax=ax, **kwargs)
 
     def plot_const_x(
         self,
-        x_values: Union[List[float], np.ndarray],
+        x_values: Sequence[float],
         y_columns: List[str],
+        row: int = 0,
         ax: Optional[Axes] = None,
-        x_label: str = "X Values",
-        y_label: str = "Values",
+        x_label: str = "Position",
+        y_label: Optional[str] = None,
         **kwargs: Any
     ) -> Axes:
-        """共通のX軸（位置など）に対して複数のY軸データ（センサー値など）をプロットします
-        
+        """指定した行の各列の値を、列ごとの位置（x_values）に並べて描画します（ひずみ分布など）
+
         Args:
-            x_values: 共通のX軸データの配列
-            y_columns: Y軸データのカラム名のリスト
-            ax: 描画先のAxes
-            x_label: X軸のラベル
-            y_label: Y軸のラベル
-            **kwargs: plot関数に渡す追加引数
-            
-        Returns:
-            描画されたAxes
-            
+            x_values: 各列の位置（y_columns と同じ数）
+            y_columns: 描画する列名
+            row: 描画する行のインデックス（負の値は末尾から）
+            ax: 描画先の Axes（None の場合は新しい図を作成）
+            x_label: X 軸のラベル
+            y_label: Y 軸のラベル（省略時は列の単位がすべて同じなら "Value [単位]"）
+            **kwargs: 描画関数に渡す追加引数
+
         Examples:
-            >>> axes = col.plot.plot_const_x(x_values=[1, 2, 3], y_columns=["CH1", "CH2"])
+            >>> ax = col.plot.plot_const_x([0.0, 50.0, 100.0], ["CH1", "CH2", "CH3"], row=-1)
         """
-        x_vals = np.array(x_values)
-        
-        # Y値はDictにする (core_plot.plot_const_x が Dict[str, np.ndarray] を期待しているため)
-        y_data_dict = {}
-        for col in y_columns:
-            y_vals, label = self._extract_axis(col)
-            y_data_dict[label] = y_vals
-            
-        return core_plot.plot_const_x(
-            y_data=y_data_dict,
-            x_values=x_vals,
-            ax=ax,
-            x_label=x_label,
-            y_label=y_label,
-            **kwargs
-        )
+        n = len(self._collection)
+        if not -n <= row < n:
+            raise IndexError(f"行インデックス {row} が範囲外です（行数 {n}）")
+        columns = [self._collection[name] for name in y_columns]
+        if y_label is None:
+            units = {c.unit for c in columns}
+            y_label = axis_label("Value", units.pop() if len(units) == 1 else None)
+        kwargs.setdefault("title", f"{y_label.split(' [')[0]} at step {self._collection.step[row]}")
+        return core_plot.plot_const_x({c.name: c[row] for c in columns}, np.asarray(x_values), x_label=x_label,
+                                      y_label=y_label, ax=ax, **kwargs)
 
     def visualize_outliers(
         self,
@@ -122,61 +101,36 @@ class CorePlotter:
         ax: Optional[Axes] = None,
         **kwargs: Any
     ) -> Axes:
-        """異常値を検出して可視化します
-        
-        Args:
-            column: 対象データのカラム名
-            x_column: X軸データのカラム名
-            ax: 描画先のAxes
-            **kwargs: 描画用の追加引数 (window_size, threshold 等)
-            
-        Returns:
-            描画されたAxes
-            
-        Examples:
-            >>> ax = col.plot.visualize_outliers(column="荷重")
-        """
-        y_vals, auto_y_label = self._extract_axis(column)
-        
-        if x_column is not None:
-            x_vals, auto_x_label = self._extract_axis(x_column)
-        else:
-            x_vals = np.arange(len(y_vals))
-            auto_x_label = "Index"
+        """外れ値を検出して色分けして描画します
 
-        return core_plot.visualize_outliers(
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=auto_x_label,
-            y_label=auto_y_label,
-            ax=ax,
-            **kwargs
-        )
+        Args:
+            column: 対象の列名
+            x_column: X 軸の列名（省略時は step）
+            ax: 描画先の Axes
+            **kwargs: 描画関数に渡す追加引数（window_size, threshold など）
+
+        Examples:
+            >>> ax = col.plot.visualize_outliers("荷重")
+        """
+        y_vals, auto_y = self._extract_axis(column)
+        x_vals, auto_x = self._extract_axis(x_column)
+        return core_plot.visualize_outliers(x_vals, y_vals, x_label=auto_x, y_label=auto_y, ax=ax, **kwargs)
 
     def iplot(
         self,
-        x_column: str,
         y_column: str,
+        x_column: Optional[str] = None,
         fig: Optional[Any] = None,
         x_label: Optional[str] = None,
         y_label: Optional[str] = None,
         **kwargs: Any
     ) -> Any:
-        """インタラクティブな出力をPlotlyで行います
-        
+        """Plotly でインタラクティブなグラフを描画します（引数の順序は plot と同じ）
+
         Examples:
-            >>> fig = col.plot.iplot(x_column="変位", y_column="荷重")
+            >>> fig = col.plot.iplot("荷重", "変位")
         """
-        from tascpy.visualization.functional.core.plot import iplot as core_iplot
-        
-        x_vals, auto_x_label = self._extract_axis(x_column)
-        y_vals, auto_y_label = self._extract_axis(y_column)
-        
-        return core_iplot(
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            fig=fig,
-            **kwargs
-        )
+        y_vals, auto_y = self._extract_axis(y_column)
+        x_vals, auto_x = self._extract_axis(x_column)
+        return core_plot.iplot(x_vals, y_vals, x_label=auto_x if x_label is None else x_label,
+                               y_label=auto_y if y_label is None else y_label, fig=fig, **kwargs)

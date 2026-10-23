@@ -2,14 +2,11 @@
 tascpy - 実験データ処理のためのPythonライブラリ
 """
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
-try:
-    from .visualization.config import configure_plotting
+from .visualization.config import enable_japanese_font
 
-    configure_plotting()
-except ImportError:
-    pass
+enable_japanese_font()
 
 from .core import Column, ColumnCollection, ColumnMeta
 from .domains import CoordinateCollection, LoadDisplacementCollection, StrainCollection
