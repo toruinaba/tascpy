@@ -32,7 +32,7 @@ collection = ColumnCollection(
 print(
     f"コレクションを作成しました。行数: {len(collection)}, 列数: {len(collection.columns)}"
 )
-print("列名:", list(collection.columns.keys()))
+print("列名:", collection.columns)
 
 # ----------------------------------------------------
 # 1. ステップによるカラム切り替え
@@ -49,7 +49,7 @@ step_switch_result = collection.ops.switch_by_step(
 ).end()
 
 print("ステップ5.0を基準に sin_wave と cos_wave を切り替えました")
-print(f"結果の列名: {list(step_switch_result.columns.keys())}")
+print(f"結果の列名: {step_switch_result.columns}")
 
 # ----------------------------------------------------
 # 2. ステップ範囲によるブレンド処理

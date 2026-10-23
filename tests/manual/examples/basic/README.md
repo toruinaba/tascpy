@@ -14,57 +14,57 @@
    
    ```python
    # CSVファイルからのコレクション作成
-   collection = tascpy.io.load("sample.csv", format_name="csv", auto_detect_types=True)
+   collection = tascpy.load("sample.csv", format_name="csv")
    
-   # 直接インスタンス化
+   # 直接インスタンス化（列ごとに単位・チャンネル名を指定）
    collection = ColumnCollection(
-       step=steps,
-       columns={
-           "Force1": NumberColumn(ch="CH0", name="Force1", unit="kN", values=[0.0, 2.9, 2.9]),
-           "Displacement1": NumberColumn(ch="CH2", name="Displacement1", unit="mm", values=[0.00, 0.08, 0.08])
+       {
+           "Force1": Column("Force1", [0.0, 2.9, 2.9], unit="kN", ch="CH0"),
+           "Displacement1": Column("Displacement1", [0.00, 0.08, 0.08], unit="mm", ch="CH2"),
        },
-       metadata={"title": "無題"}
+       step=steps,
+       metadata={"title": "無題"},
    )
+   print(collection.units)  # {'Force1': 'kN', 'Displacement1': 'mm'}
    ```
 
 2. **[02_data_access.py](./02_data_access.py)** - データアクセス方法
    - インデックス・列名を使ったアクセス
-   - 値の取得と設定
+   - 値・単位の取得
    - メタデータの利用
    
    ```python
    # 列名によるアクセス
    force_values = collection["Force1"].values
    
-   # インデックスによるアクセス
+   # インデックスによるアクセス（Row: 値は素のスカラー、単位は row.unit() で確認）
    step_3_data = collection[3]
+   print(step_3_data["Force1"], step_3_data.unit("Force1"))
    
    # メタデータアクセス
    test_title = collection.metadata.get("title", "")
    ```
 
 3. **[03_column_operations.py](./03_column_operations.py)** - 列操作
-   - 列の追加・削除・変更
-   - 列名の変更と複製
-   - データ型の変換
+   - 列の追加・削除・変更（コレクションは不変で、変更は新しいコレクションを返す）
+   - 別単位の列の作成（単位は自動変換しないため明示する）
    
    ```python
-   # 列操作の例
    # 新しい列の追加
-   collection.add_column("ElapsedMinutes", elapsed_minutes)
+   collection = collection.with_column("ElapsedMinutes", elapsed_minutes, unit="min")
    
    # カラムオブジェクトから新しい列を追加
-   test_id_column = StringColumn(ch="ID", name="TestID", unit="", values=["A001", "A001", "B001", "B001", "B001"])
-   collection.add_column("TestID", test_id_column)
+   test_id_column = Column("TestID", ["A001", "A001", "B001", "B001", "B001"], ch="ID")
+   collection = collection.with_column("TestID", test_id_column)
    
    # 列の削除
-   collection.remove_column("Displacement2")
+   collection = collection.drop("Displacement2")
    
-   # チェーンメソッドを使った列操作
+   # 続けて書くこともできる
    result = (
-       collection.clone()
-       .add_column("ElapsedMinutes", elapsed_minutes)
-       .remove_column("Displacement2")
+       collection
+       .with_column("ElapsedMinutes", elapsed_minutes, unit="min")
+       .drop("Displacement2")
    )
    ```
 
@@ -253,7 +253,7 @@
     median_value = load_column.median()
     std_value = load_column.std()
     sum_value = load_column.sum()
-    variance_value = load_column.variance()
+    print(load_column.unit)  # 単位も列から確認できる（欠損値は統計から自動的に除外される）
     
     # 分位数の計算
     q1 = load_column.quantile(0.25)

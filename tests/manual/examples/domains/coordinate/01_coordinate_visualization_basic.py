@@ -29,14 +29,14 @@ def create_sample_coordinate_data() -> CoordinateCollection:
         name = f"sensor_{i + 1}"
         angle = 2 * np.pi * i / n_sensors
         values = np.sin(t + i * np.pi / 5) * 5 + 10
-        columns[name] = Column(ch=None, name=name, unit="℃", values=values.tolist())
+        columns[name] = Column(name, values.tolist(), unit="℃")
         coordinates[name] = {
             "x": radius * np.cos(angle),
             "y": radius * np.sin(angle),
             "z": 0.0 if i % 2 == 0 else 1.0,
         }
 
-    return CoordinateCollection(step=list(range(n_steps)), columns=columns, coordinates=coordinates)
+    return CoordinateCollection(columns, step=list(range(n_steps)), coordinates=coordinates)
 
 
 def values_at_step(collection: CoordinateCollection, columns, step_index: int) -> np.ndarray:

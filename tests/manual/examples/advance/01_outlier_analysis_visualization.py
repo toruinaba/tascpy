@@ -24,7 +24,7 @@ import matplotlib
 matplotlib.use("Agg")  # 非インタラクティブバックエンド（ファイル出力向け）
 import matplotlib.pyplot as plt
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import NumberColumn, StringColumn
+from tascpy.core.column import Column
 
 # 出力画像用のディレクトリパスを設定
 IMGS_DIR = os.path.join(os.path.dirname(__file__), "imgs")
@@ -104,20 +104,20 @@ steps = list(range(1, size + 1))
 
 # コレクションを作成
 collection1 = ColumnCollection(
-    step=steps,
-    columns={
-        "data": NumberColumn("1", "標準データ", "", data1),
-        "category": StringColumn("2", "カテゴリ", "", ["A"] * size),
+    {
+        "data": Column("data", data1, unit="", ch="1"),
+        "category": Column("category", ["A"] * size, ch="2"),
     },
+    step=steps,
     metadata={"description": "Sample data with outliers (standard)"},
 )
 
 collection2 = ColumnCollection(
-    step=steps,
-    columns={
-        "data": NumberColumn("1", "スケール変更データ", "", data2),
-        "category": StringColumn("2", "カテゴリ", "", ["B"] * size),
+    {
+        "data": Column("data", data2, unit="", ch="1"),
+        "category": Column("category", ["B"] * size, ch="2"),
     },
+    step=steps,
     metadata={"description": "Sample data with outliers (scaled)"},
 )
 
@@ -154,7 +154,7 @@ print(
 # デバッグ情報を追加
 print("\n--- デバッグ情報 ---")
 print(f"データサイズ: {len(filtered_collection['data'].values)}")
-print(f"None値の数: {int(np.isnan(np.asarray(filtered_collection['data'].values, dtype=float)).sum())}")
+print(f"欠損値の数: {filtered_collection['data'].null_count()}")
 
 # 2つの異なるしきい値で異常値を可視化
 plt.figure(figsize=(12, 10))
@@ -335,7 +335,7 @@ ax1.grid(True, alpha=0.3)
 # プロット2: ヒストグラム比較
 # 異常値を含むデータのヒストグラム
 ax2.hist(
-    [x for x in collection2["data"].values if x is not None],
+    collection2["data"].values[collection2["data"].is_valid()],
     bins=20,
     alpha=0.5,
     label="異常値あり",
@@ -344,7 +344,7 @@ ax2.hist(
 
 # 異常値を除去したデータのヒストグラム
 ax2.hist(
-    [x for x in result_with_removal["data"].values if x is not None],
+    result_with_removal["data"].values[result_with_removal["data"].is_valid()],
     bins=20,
     alpha=0.5,
     label="異常値除去後",
@@ -393,7 +393,7 @@ ax2 = plt.subplot(2, 1, 2)  # 非対称エッジ処理用
 # 欠損除去とステップ範囲の抽出はチェーンで行い、描画はコレクションの plot で行う
 edge_source = (
     collection2.ops.filter_out_none(columns=["data"])
-    .select(steps=[s for s in collection2.step.values if 50 <= s <= 100])
+    .select(steps=[s for s in collection2.step if 50 <= s <= 100])
     .end()
 )
 for edge, ax, color, normal in [("symmetric", ax1, "red", "blue"), ("asymmetric", ax2, "magenta", "cyan")]:

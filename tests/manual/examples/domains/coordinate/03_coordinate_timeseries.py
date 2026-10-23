@@ -30,7 +30,8 @@ def create_sample_timeseries_data() -> CoordinateCollection:
     source_x = 4.5 + 4.5 * np.cos(t * 2 * np.pi / N_STEPS)
     source_y = 4.5 + 4.5 * np.sin(t * 2 * np.pi / N_STEPS)
 
-    columns = {"time": Column(ch=None, name="time", unit="s", values=np.linspace(0, 10, N_STEPS).tolist())}
+    # "time" はインデックス列（時刻）の予約名なので、経過時間の列は別名にする
+    columns = {"elapsed": Column("elapsed", np.linspace(0, 10, N_STEPS).tolist(), unit="s")}
     coordinates = {}
     for i in range(GRID):
         for j in range(GRID):
@@ -38,10 +39,10 @@ def create_sample_timeseries_data() -> CoordinateCollection:
             x, y = i * PITCH, j * PITCH
             dist = np.hypot(x - source_x, y - source_y)
             values = 25.0 + 50.0 / (1.0 + 0.5 * dist) + 0.5 * rng.standard_normal(N_STEPS)
-            columns[name] = Column(ch=None, name=name, unit="℃", values=values.tolist())
+            columns[name] = Column(name, values.tolist(), unit="℃")
             coordinates[name] = {"x": x, "y": y, "z": 0.0}
 
-    collection = ColumnCollection(step=list(range(N_STEPS)), columns=columns)
+    collection = ColumnCollection(columns, step=list(range(N_STEPS)))
     # as_coordinate で座標ドメインに変換（型付きで CoordinateOps が返る）
     return collection.ops.as_coordinate(coordinates=coordinates).end()
 
@@ -75,12 +76,12 @@ def main():
     print(f"- ステップ数: {len(data.step)}")
     print(f"- 座標付きセンサー数: {len(data.get_columns_with_coordinates())}")
 
-    # 1. 角のセンサーの時系列（CorePlotter.plot を time 列に対して使用）
+    # 1. 角のセンサーの時系列（CorePlotter.plot を elapsed 列に対して使用）
     print("\n## 1. センサーごとの時系列プロット")
     corners = ["sensor_1_1", "sensor_1_4", "sensor_4_1", "sensor_4_4"]
     fig, ax = plt.subplots(figsize=(12, 6))
     for name in corners:
-        data.plot.plot(y_column=name, x_column="time", ax=ax, label=name)
+        data.plot.plot(y_column=name, x_column="elapsed", ax=ax, label=name)
     ax.set_ylabel("温度 [℃]")
     ax.legend()
     ax.set_title("角のセンサーの温度変化")
@@ -98,7 +99,7 @@ def main():
         mesh = ax.pcolormesh(gx, gy, grid, cmap="hot", vmin=vmin, vmax=vmax, shading="auto")
         ax.scatter(points[:, 0], points[:, 1], c="b", s=15)
         ax.set_aspect("equal")
-        ax.set_title(f"t = {data['time'].values[step_index]:.1f} s")
+        ax.set_title(f"t = {data['elapsed'][step_index]:.1f} s")
     fig.colorbar(mesh, ax=axes, label="温度 [℃]")
     fig.savefig(os.path.join(IMGS_DIR, "coordinate_time_snapshots.png"), dpi=100)
     plt.close(fig)

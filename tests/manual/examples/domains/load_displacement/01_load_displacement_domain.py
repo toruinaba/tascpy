@@ -24,12 +24,10 @@ sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 print(f"CSVファイルパス: {sample_csv_path}")
 
 # CSVファイルからColumnCollectionを作成
-collection = tascpy.io.load(
-    filepath_or_stream=sample_csv_path, format_name="csv", auto_detect_types=True
-)
+collection = tascpy.load(sample_csv_path, format_name="csv")
 
 print(f"読み込んだデータの形状: {len(collection)} 行 × {len(collection.columns)} 列")
-print(f"列名: {list(collection.columns.keys())}")
+print(f"列名: {collection.columns}")
 
 # 荷重と変位のカラム名を設定
 force_column = "Force1"
@@ -46,13 +44,14 @@ print(collection[disp_column].values[:5])
 print("\n===== LoadDisplacementCollectionへの変換 =====")
 
 # チェーンメソッドを使用して荷重-変位ドメインに変換
-ld_collection = collection.ops.as_domain(
-    "load_displacement", load_column=force_column, displacement_column=disp_column
+ld_collection = collection.ops.as_load_displacement(
+    load_column=force_column, displacement_column=disp_column
 ).end()
 
 print(f"変換後のドメイン: {ld_collection.domain}")
 print(f"荷重カラム: {ld_collection.load_column}")
 print(f"変位カラム: {ld_collection.displacement_column}")
+print(f"荷重の単位: {ld_collection.load.unit}, 変位の単位: {ld_collection.displacement.unit}")
 
 # 利用可能なメソッドを確認
 print("\n利用可能なメソッド:")
@@ -140,7 +139,7 @@ yield_offset_result = ld_collection.ops.find_yield_point(
 ).end()
 
 # 結果を取得
-yield_pt_offset = yield_offset_result.get_result("yield_point")
+yield_pt_offset = yield_offset_result.results["yield_point"]
 yield_disp_offset = yield_pt_offset.x
 yield_load_offset = yield_pt_offset.y
 initial_slope_offset = yield_pt_offset.metadata.get("initial_slope", 0.0)
@@ -163,7 +162,7 @@ yield_general_result = ld_collection.ops.find_yield_point(
 ).end()
 
 # 結果を取得
-yield_pt_general = yield_general_result.get_result("yield_point")
+yield_pt_general = yield_general_result.results["yield_point"]
 yield_disp_general = yield_pt_general.x
 yield_load_general = yield_pt_general.y
 initial_slope_general = yield_pt_general.metadata.get("initial_slope", 0.0)
@@ -333,13 +332,13 @@ report_collection = (
 report_offset = report_collection.ops.find_yield_point(
     method="offset", offset_value=0.01
 ).end()
-yield_pt_std_offset = report_offset.get_result("yield_point")
+yield_pt_std_offset = report_offset.results["yield_point"]
 
 # 前処理結果に対する一般降伏法
 report_general = report_collection.ops.find_yield_point(
     method="general", factor=0.33
 ).end()
-yield_pt_std_general = report_general.get_result("yield_point")
+yield_pt_std_general = report_general.results["yield_point"]
 
 # 結果データから降伏点の情報を取得
 offset_yield_point = {

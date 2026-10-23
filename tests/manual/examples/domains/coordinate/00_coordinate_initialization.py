@@ -9,7 +9,6 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
-from tascpy.domains.factory import DomainCollectionFactory
 
 print("==== 座標コレクション (CoordinateCollection) の初期化サンプル ====")
 
@@ -21,15 +20,9 @@ print("\n===== CoordinateCollectionの直接初期化 =====")
 # ステップとカラムを準備
 steps = list(range(10))
 columns = {
-    "sensor1": Column(
-        ch=None, name="sensor1", unit="℃", values=[20 + i for i in range(10)]
-    ),
-    "sensor2": Column(
-        ch=None, name="sensor2", unit="℃", values=[25 + i * 0.5 for i in range(10)]
-    ),
-    "sensor3": Column(
-        ch=None, name="sensor3", unit="℃", values=[18 + i * 0.7 for i in range(10)]
-    ),
+    "sensor1": Column("sensor1", [20 + i for i in range(10)], unit="℃"),
+    "sensor2": Column("sensor2", [25 + i * 0.5 for i in range(10)], unit="℃"),
+    "sensor3": Column("sensor3", [18 + i * 0.7 for i in range(10)], unit="℃"),
 }
 
 # 座標情報を辞書で定義
@@ -40,13 +33,13 @@ coordinates = {
 }
 
 # 座標情報を初期化時に渡してインスタンス化
-collection1 = CoordinateCollection(step=steps, columns=columns, coordinates=coordinates)
+collection1 = CoordinateCollection(columns, step=steps, coordinates=coordinates)
 
 # 作成した情報を表示
 print(f"コレクション内のカラム数: {len(collection1.columns)}")
 
 # すべてのカラムの座標情報を表示
-for col_name in collection1.columns.keys():
+for col_name in collection1.columns:
     x, y, z = collection1.get_column_coordinates(col_name)
     print(f"カラム: {col_name}, 座標: ({x}, {y}, {z})")
 
@@ -59,22 +52,16 @@ distance = collection1.calculate_distance("sensor1", "sensor3")
 print(f"sensor1とsensor3の間の距離: {distance:.2f}")
 
 # --------------------------------------------------------------------------
-# サンプル2: ファクトリを使用した座標情報の初期化
+# サンプル2: 汎用コレクションから座標ドメインへ変換
 # --------------------------------------------------------------------------
-print("\n===== ファクトリによる初期化 =====")
+print("\n===== ops.as_coordinate による変換 =====")
 
 # ステップとカラムを準備
 steps = list(range(10))
 columns = {
-    "posX": Column(
-        ch=None, name="posX", unit="mm", values=[i * 0.1 for i in range(10)]
-    ),
-    "posY": Column(
-        ch=None, name="posY", unit="mm", values=[i * 0.2 for i in range(10)]
-    ),
-    "value": Column(
-        ch=None, name="value", unit="V", values=[5 + i * 0.5 for i in range(10)]
-    ),
+    "posX": Column("posX", [i * 0.1 for i in range(10)], unit="mm"),
+    "posY": Column("posY", [i * 0.2 for i in range(10)], unit="mm"),
+    "value": Column("value", [5 + i * 0.5 for i in range(10)], unit="V"),
 }
 
 # 座標情報を辞書で定義 - 正方形の頂点を模擬
@@ -84,9 +71,9 @@ coordinates = {
     "value": {"x": 5.0, "y": 5.0, "z": 1.0},
 }
 
-# ファクトリ関数を使用して座標情報付きのコレクションを作成
-collection2 = DomainCollectionFactory.create(
-    "coordinate", step=steps, columns=columns, coordinates=coordinates
+# 汎用コレクションを作成し、座標情報を渡して座標ドメインに変換
+collection2 = (
+    ColumnCollection(columns, step=steps).ops.as_coordinate(coordinates=coordinates).end()
 )
 
 # 作成した情報を表示
@@ -94,24 +81,20 @@ print(f"コレクション型: {type(collection2).__name__}")
 print(f"コレクション内のカラム数: {len(collection2.columns)}")
 
 # すべてのカラムの座標情報を表示
-for col_name in collection2.columns.keys():
+for col_name in collection2.columns:
     x, y, z = collection2.get_column_coordinates(col_name)
     print(f"カラム: {col_name}, 座標: ({x}, {y}, {z if z is not None else 'None'})")
 
 # --------------------------------------------------------------------------
-# サンプル3: カスタムメタデータキーと座標情報の同時設定
+# サンプル3: 座標情報の格納場所と変更
 # --------------------------------------------------------------------------
-print("\n===== カスタムメタデータキーと座標情報の同時設定 =====")
+print("\n===== 座標情報の格納場所と変更 =====")
 
 # ステップとカラムを準備
 steps = list(range(5))
 columns = {
-    "node1": Column(
-        ch=None, name="node1", unit="N", values=[100 * i for i in range(5)]
-    ),
-    "node2": Column(
-        ch=None, name="node2", unit="N", values=[150 * i for i in range(5)]
-    ),
+    "node1": Column("node1", [100 * i for i in range(5)], unit="N"),
+    "node2": Column("node2", [150 * i for i in range(5)], unit="N"),
 }
 
 # 座標情報を辞書で定義
@@ -120,28 +103,22 @@ coordinates = {
     "node2": {"x": 100.0, "y": 0.0, "z": 0.0},
 }
 
-# カスタムメタデータキーと座標情報を指定して初期化
-collection3 = CoordinateCollection(
-    step=steps,
-    columns=columns,
-    coordinate_metadata_key="position",  # 座標情報が格納されるキーを変更
-    coordinates=coordinates,
-)
+collection3 = CoordinateCollection(columns, step=steps, coordinates=coordinates)
 
-# 作成した情報を表示
-print(f"メタデータキー: {collection3.coordinate_metadata_key}")
+# 座標は各列のメタ情報 attrs["coordinates"] に格納されている
+print("\n列メタの構造:")
+for col_name in collection3.columns:
+    meta = collection3.meta[col_name]
+    print(f"カラム: {col_name}, 単位: {meta.unit}, coordinates: {meta.attrs['coordinates']}")
 
-# すべてのカラムの座標情報を表示
-for col_name in collection3.columns.keys():
-    x, y, z = collection3.get_column_coordinates(col_name)
-    print(f"カラム: {col_name}, 座標: ({x}, {y}, {z})")
+# 座標の変更は新しいコレクションを返す（None の軸は既存の値を残す）
+moved = collection3.with_coordinates("node2", x=120.0)
+print(f"変更前の node2: {collection3.get_column_coordinates('node2')}")
+print(f"変更後の node2: {moved.get_column_coordinates('node2')}")
 
-# メタデータを直接確認 (内部実装の確認)
-print("\n内部メタデータ構造:")
-for col_name, col in collection3.columns.items():
-    print(f"カラム: {col_name}")
-    if hasattr(col, "metadata") and "position" in col.metadata:
-        print(f"  - position: {col.metadata['position']}")
+# 列名を変更しても座標は列に追従する
+renamed = collection3.rename({"node1": "base"})
+print(f"改名後の base の座標: {renamed.get_column_coordinates('base')}")
 
 # --------------------------------------------------------------------------
 # サンプル4: メソッドチェーンを活用した座標情報の操作
@@ -151,15 +128,9 @@ print("\n===== メソッドチェーンを活用した座標情報の操作 ====
 # 基本的なデータの準備
 steps = list(range(5))
 columns = {
-    "point_a": Column(
-        ch=None, name="point_a", unit="V", values=[1.0, 1.2, 1.5, 1.8, 2.0]
-    ),
-    "point_b": Column(
-        ch=None, name="point_b", unit="V", values=[2.0, 2.5, 3.0, 3.5, 4.0]
-    ),
-    "point_c": Column(
-        ch=None, name="point_c", unit="V", values=[0.5, 0.6, 0.7, 0.8, 0.9]
-    ),
+    "point_a": Column("point_a", [1.0, 1.2, 1.5, 1.8, 2.0], unit="V"),
+    "point_b": Column("point_b", [2.0, 2.5, 3.0, 3.5, 4.0], unit="V"),
+    "point_c": Column("point_c", [0.5, 0.6, 0.7, 0.8, 0.9], unit="V"),
 }
 
 # 座標情報付きのコレクションを作成
@@ -170,7 +141,7 @@ coordinates = {
 }
 
 # コレクション作成
-collection4 = CoordinateCollection(step=steps, columns=columns, coordinates=coordinates)
+collection4 = CoordinateCollection(columns, step=steps, coordinates=coordinates)
 
 # メソッドチェーンを使用した操作
 result = (
@@ -181,7 +152,7 @@ result = (
 )
 
 print(f"メソッドチェーン実行後のカラム数: {len(result.columns)}")
-print("結果のカラム名:", list(result.columns.keys()))
+print("結果のカラム名:", result.columns)
 
 # 結果にも座標情報は保持されている
 coords_in_result = result.get_columns_with_coordinates()

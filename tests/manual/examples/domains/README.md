@@ -71,8 +71,11 @@
 #### 1. 座標定義と操作
 
 ```python
-# 座標の設定（既存の座標も上書き）
-collection.set_column_coordinates("sensor4", x=5.0, y=5.0, z=0.0)
+# 座標の設定（新しいコレクションを返す。None の軸は既存の値を残す）
+collection = collection.with_coordinates("sensor4", x=5.0, y=5.0, z=0.0)
+
+# 座標は各列のメタ情報 attrs["coordinates"] に格納され、列の改名・選択に追従する
+print(collection.meta["sensor4"].attrs["coordinates"])
 
 # 座標の取得
 x, y, z = collection.get_column_coordinates("sensor1")
@@ -142,7 +145,7 @@ result = collection.ops.interpolate_grid(x_range=(0, 10), y_range=(0, 10), grid_
        .create_cumulative_curve()
        .end()
    )
-   skeleton = curves.get_result("skeleton_curve")   # XYSeriesResult
+   skeleton = curves.results["skeleton_curve"]      # XYSeriesResult（x/y は単位付きの Column）
    ```
 
 3. **[03_yield_point_calculation.py](./load_displacement/03_yield_point_calculation.py)** - 降伏点の計算と評価
@@ -193,23 +196,24 @@ python load_displacement/01_load_displacement_domain.py
 
 新しいドメインコレクションを作成するには、一般的な `ColumnCollection` から変換するか、直接ドメイン特化クラスをインスタンス化します：
 
-### 1. as_domain メソッドを使用した変換
+### 1. ops の変換メソッドを使用した変換
 
 ```python
 # 一般的なコレクションからドメイン特化コレクションへの変換
-load_disp_collection = collection.ops.as_domain(
-    "load_displacement",
+load_disp_collection = collection.ops.as_load_displacement(
     load_column="Force1",
-    displacement_column="Displacement1"
+    displacement_column="Displacement1",
 ).end()
 
-coordinate_collection = collection.ops.as_domain(
-    "coordinate",
+coordinate_collection = collection.ops.as_coordinate(
     coordinates={
         "sensor1": {"x": 0.0, "y": 0.0, "z": 0.0},
         "sensor2": {"x": 10.0, "y": 0.0, "z": 0.0},
     }
 ).end()
+
+# ドメイン固有の設定を外して汎用コレクションに戻す
+core_collection = load_disp_collection.ops.as_core().end()
 ```
 
 ### 2. コンストラクタを使用した直接生成
@@ -219,45 +223,21 @@ coordinate_collection = collection.ops.as_domain(
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 
 ld_collection = LoadDisplacementCollection(
+    columns,
     step=steps,
-    columns=columns,
-    metadata=metadata,
+    units={"Force1": "kN", "Displacement1": "mm"},
     load_column="Force1",
-    displacement_column="Displacement1"
+    displacement_column="Displacement1",
 )
+print(ld_collection.load.unit)  # 'kN'
 
 # 座標ドメインの直接作成
 from tascpy.domains.coordinate import CoordinateCollection
 
 coord_collection = CoordinateCollection(
+    columns,
     step=steps,
-    columns=columns,
-    metadata=metadata,
-    coordinates=coordinate_dict
-)
-```
-
-### 3. ファクトリを使用した作成
-
-```python
-# ドメインコレクションファクトリを使用した作成
-from tascpy.domains.factory import DomainCollectionFactory
-
-ld_collection = DomainCollectionFactory.create(
-    "load_displacement",
-    step=steps,
-    columns=columns,
-    metadata=metadata,
-    load_column="Force1",
-    displacement_column="Displacement1"
-)
-
-coord_collection = DomainCollectionFactory.create(
-    "coordinate",
-    step=steps,
-    columns=columns,
-    metadata=metadata,
-    coordinates=coordinate_dict
+    coordinates=coordinate_dict,
 )
 ```
 

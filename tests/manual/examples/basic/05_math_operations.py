@@ -16,9 +16,7 @@ print("-- ColumnCollectionの数学演算操作 --\n")
 # サンプルデータの読み込み
 try:
     # CSVファイルからデータを読み込む
-    collection = tascpy.io.load(
-        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
-    )
+    collection = tascpy.load(SAMPLE_CSV_PATH, format_name="csv")
 except FileNotFoundError:
     print(f"ファイル '{SAMPLE_CSV_PATH}' が見つかりません。模擬データを作成します。")
     # CSVファイルがない場合の模擬データ作成
@@ -34,7 +32,9 @@ except FileNotFoundError:
         "time": ["17:21:36", "17:29:40", "13:22:11", "13:38:05", "13:38:10"],
         "title": "無題",
     }
-    collection = ColumnCollection(steps, columns, metadata, auto_detect_types=True)
+    collection = ColumnCollection(
+        columns, step=steps, date=metadata.pop("date"), time=metadata.pop("time"), metadata=metadata
+    )
 
 # 初期データを表示
 print("初期データ:")
@@ -42,6 +42,7 @@ print(f"Force1: {collection['Force1'].values}")
 print(f"Force2: {collection['Force2'].values}")
 print(f"Displacement1: {collection['Displacement1'].values}")
 print(f"Displacement2: {collection['Displacement2'].values}")
+print(f"単位: {collection.units}")
 print()
 
 # 操作プロキシを取得
@@ -67,6 +68,8 @@ result = (
     .end()
 )  # Force1 / Displacement1
 print(f"Force1 / Displacement1 = {result['Force1/Displacement1'].values}")
+# 列同士の割り算の単位は自動では決まらない（None）。必要なら unit= で指定する
+print(f"  単位: {result['Force1/Displacement1'].unit}")
 print()
 
 print("2. 複合演算と新しい列名の指定")
@@ -148,7 +151,7 @@ result = (
 )
 
 print("連鎖演算を適用した結果:")
-print(f"  選択したステップ: {result.step.values}")
+print(f"  選択したステップ: {result.step}")
 print(f"  合計荷重: {result['TotalForce'].values}")
 print(f"  平均荷重: {result['AverageForce'].values}")
 print(f"  平均荷重の平方根: {result['SqrtAvgForce'].values}")
@@ -174,7 +177,7 @@ advanced_result = (
 
 print("複合的なデータ解析パイプラインの結果:")
 print(f"  処理後の行数: {len(advanced_result)}行")
-print(f"  列名: {list(advanced_result.columns.keys())}")
+print(f"  列名: {advanced_result.columns}")
 if len(advanced_result) > 0:
     print(f"  合計荷重: {advanced_result['TotalForce'].values}")
     print(f"  全体剛性(丸め): {advanced_result['StiffnessRounded'].values}")

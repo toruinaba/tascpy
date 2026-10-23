@@ -24,9 +24,7 @@ print("-- ColumnCollectionのデータ可視化 --\n")
 # CSVファイルからデータを読み込む
 try:
     print("CSVファイルからデータを読み込みます...")
-    collection = tascpy.io.load(
-        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
-    )
+    collection = tascpy.load(SAMPLE_CSV_PATH, format_name="csv")
 
     # 試験体2のデータがない場合、合成データを作成して追加
     if "Force2" not in collection.columns:
@@ -37,19 +35,15 @@ try:
             force1_values = collection["Force1"].values
             disp1_values = collection["Displacement1"].values
 
-            # 2倍の力でほぼ同じ変位（剛性が大きい材料を模擬）
-            force2_values = [
-                val * 1.8 if val is not None else None for val in force1_values
-            ]
-            # 0.8倍の変位（より強い材料を模擬）
-            disp2_values = [
-                val * 0.85 if val is not None else None for val in disp1_values
-            ]
+            # 1.8倍の力（剛性が大きい材料を模擬）。欠損 (NaN) はそのまま欠損になる
+            force2_values = force1_values * 1.8
+            # 0.85倍の変位（より強い材料を模擬）
+            disp2_values = disp1_values * 0.85
 
-            # 新しいカラムを追加
-            collection = collection.clone()
-            collection.add_column("Force2", force2_values)
-            collection.add_column("Displacement2", disp2_values)
+            # 新しいカラムを追加した新しいコレクションを作る
+            collection = collection.with_column(
+                "Force2", force2_values, unit=collection["Force1"].unit
+            ).with_column("Displacement2", disp2_values, unit=collection["Displacement1"].unit)
             print("  試験体2の合成データを追加しました")
 except FileNotFoundError:
     print(f"ファイル '{SAMPLE_CSV_PATH}' が見つかりません。模擬データを作成します。")
@@ -160,8 +154,14 @@ except FileNotFoundError:
         "test_info": "2つの試験体の比較データ",
     }
 
-    # 自動型判定を使用してコレクションを作成
-    collection = ColumnCollection(steps, columns, metadata, auto_detect_types=True)
+    collection = ColumnCollection(
+        columns,
+        step=steps,
+        date=metadata.pop("date"),
+        time=metadata.pop("time"),
+        units={"Force1": "kN", "Force2": "kN", "Displacement1": "mm", "Displacement2": "mm"},
+        metadata=metadata,
+    )
 
 # データの前処理（None値を含まないデータに変換）
 print("データの前処理を行います...")
@@ -175,7 +175,7 @@ collection = ops.filter_out_none(columns=["Force1"]).end()
 # データの概要を表示
 print("\nプロット用データの概要:")
 print(f"行数: {len(collection)}")
-print(f"列名: {list(collection.columns.keys())}")
+print(f"列名: {collection.columns}")
 print(f"Force1サンプル: {collection['Force1'].values[:5]}...")
 print(f"Displacement1サンプル: {collection['Displacement1'].values[:5]}...")
 print()
@@ -258,8 +258,8 @@ print("3. 複数グラフの重ね描き（select_stepによる段階的な選�
 step_first_half = list(range(1, 11))  # 前半ステップ
 step_second_half = (
     list(range(11, 21))
-    if len(collection.step.values) >= 20
-    else list(range(11, len(collection.step.values) + 1))
+    if len(collection.step) >= 20
+    else list(range(11, len(collection.step) + 1))
 )  # 後半ステップ
 
 # 新しい図を作成
@@ -403,7 +403,7 @@ length_mm = 50.0  # 標点間距離 (mm)
 
 # 特定のステップ範囲だけを選択し、チェーンメソッドで応力-ひずみに変換する例
 # データの中間部分（有効データが含まれる）に注目
-step_middle = list(range(5, min(16, len(collection.step.values) + 1)))
+step_middle = list(range(5, min(16, len(collection.step) + 1)))
 
 # チェーンメソッドの連鎖で、選択→変換→プロットまでを一気に行う
 fig, ax = plt.subplots(figsize=(10, 6))

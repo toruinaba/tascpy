@@ -18,7 +18,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 # tascpyをインポートします
 import tascpy
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import NumberColumn, Column
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 
 # ===== 降伏点計算の詳細情報表示機能のデモ =====
@@ -34,13 +33,11 @@ data_dir = os.path.join(
 sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 
 # CSVファイルからColumnCollectionを作成します
-collection = tascpy.io.load(
-    filepath_or_stream=sample_csv_path, format_name="csv", auto_detect_types=True
-)
+collection = tascpy.load(sample_csv_path, format_name="csv")
 
 # 荷重-変位ドメインに変換します
-ld_collection = collection.ops.as_domain(
-    "load_displacement", load_column="Force1", displacement_column="Displacement1"
+ld_collection = collection.ops.as_load_displacement(
+    load_column="Force1", displacement_column="Displacement1"
 ).end()
 
 print(f"データ読み込み完了: {len(ld_collection)} 行 × {len(ld_collection.columns)} 列")
@@ -70,8 +67,8 @@ print("✅ 降伏点が正常に計算されました")
 
 # メタデータから降伏点情報を取得します
 # メタデータから降伏点情報を取得します
-# 新しいAPIでは、get_result() を使って PointResult オブジェクトを取得します
-yield_pt = offset_result.get_result("yield_point")
+# 解析結果は results から PointResult オブジェクトとして取得します
+yield_pt = offset_result.results["yield_point"]
 debug_info = yield_pt.metadata
 
 # 基本情報を表示します
@@ -152,7 +149,7 @@ general_result = ld_collection.ops.find_yield_point(
 print("✅ 降伏点が正常に計算されました")
 
 # メタデータから降伏点情報を取得します
-yield_pt_general = general_result.get_result("yield_point")
+yield_pt_general = general_result.results["yield_point"]
 debug_info_general = yield_pt_general.metadata
 
 # 基本情報を表示します
@@ -227,30 +224,22 @@ plt.close()
 print("\n\n【ケース2: 完全弾性データによる降伏点計算】")
 
 # 線形（完全弾性）データを作成します（降伏点が見つからないケース）
-linear_data = ld_collection.clone()
+linear_data = ld_collection
 
 # 荷重と変位のデータを取得します
 disp_column = linear_data.displacement_column
 load_column = linear_data.load_column
-disp_data = linear_data[disp_column].values.copy()
+disp_data = linear_data[disp_column].values
 
 # 完全な線形関係にするために荷重データを修正します
 stiffness = 5.0  # 一定の勾配
 load_data = [d * stiffness for d in disp_data]
 
-# 修正した荷重データをコレクションに反映します
-linear_data.columns[load_column] = Column(
-    ch=linear_data.columns[load_column].ch,
-    name=load_column,
-    unit=linear_data.columns[load_column].unit,
-    values=load_data,
-    metadata=linear_data.columns[load_column].metadata,
-)
+# 修正した荷重データで荷重列を上書きした新しいコレクションを作ります（単位などは引き継がれます）
+linear_data = linear_data.with_column(load_column, load_data)
 
 # データの説明をメタデータに追加します
-if linear_data.metadata is None:
-    linear_data.metadata = {}
-linear_data.metadata["description"] = "Modified data (linear)"
+linear_data = linear_data.with_metadata(description="Modified data (linear)")
 
 print(f"生成したデータのタイプ: {linear_data.metadata['description']}")
 
@@ -267,7 +256,7 @@ linear_offset_result = linear_data.ops.find_yield_point(
 
 # 計算が失敗した場合の詳細情報を表示します
 # エラーで結果がない場合も、PointResultとして返され、is_valid フラグなどが metadata に入る
-yield_pt_linear = linear_offset_result.get_result("yield_point")
+yield_pt_linear = linear_offset_result.results["yield_point"]
 debug_info = yield_pt_linear.metadata
 
 print("\n【計算失敗の詳細情報】")
@@ -342,31 +331,23 @@ plt.close()
 print("\n\n【ケース3: 交点なしデータによる降伏点計算】")
 
 # 交点がないデータを作成します
-no_intersection_data = ld_collection.clone()
+no_intersection_data = ld_collection
 
 # 荷重と変位のデータを取得します
 disp_column = no_intersection_data.displacement_column
 load_column = no_intersection_data.load_column
-disp_data = no_intersection_data[disp_column].values.copy()
+disp_data = no_intersection_data[disp_column].values
 
 # 交点がない関係にするため、荷重データを修正します
 stiffness = 5.0
 offset = 2.0  # 大きなオフセット
 load_data = [(d * stiffness - offset) for d in disp_data]
 
-# 修正した荷重データをコレクションに反映します
-no_intersection_data.columns[load_column] = Column(
-    ch=no_intersection_data.columns[load_column].ch,
-    name=load_column,
-    unit=no_intersection_data.columns[load_column].unit,
-    values=load_data,
-    metadata=no_intersection_data.columns[load_column].metadata,
-)
+# 修正した荷重データで荷重列を上書きした新しいコレクションを作ります（単位などは引き継がれます）
+no_intersection_data = no_intersection_data.with_column(load_column, load_data)
 
 # データの説明をメタデータに追加します
-if no_intersection_data.metadata is None:
-    no_intersection_data.metadata = {}
-no_intersection_data.metadata["description"] = "Modified data (no_intersection)"
+no_intersection_data = no_intersection_data.with_metadata(description="Modified data (no_intersection)")
 
 print(f"生成したデータのタイプ: {no_intersection_data.metadata['description']}")
 
@@ -382,7 +363,7 @@ no_int_result = no_intersection_data.ops.find_yield_point(
 ).end()
 
 # 計算が失敗した場合の詳細情報を表示します
-yield_pt_no_int = no_int_result.get_result("yield_point")
+yield_pt_no_int = no_int_result.results["yield_point"]
 debug_info = yield_pt_no_int.metadata
 
 print("\n【計算失敗の詳細情報】")
@@ -436,12 +417,12 @@ plt.close()
 print("\n\n【ケース4: 弾性に近いデータでの閾値調整による計算】")
 
 # わずかに非線形性のあるデータを作成します
-elastic_data = ld_collection.clone()
+elastic_data = ld_collection
 
 # 荷重と変位のデータを取得します
 disp_column = elastic_data.displacement_column
 load_column = elastic_data.load_column
-disp_data = elastic_data[disp_column].values.copy()
+disp_data = elastic_data[disp_column].values
 
 # わずかに非線形性を持たせた荷重データを作成します
 stiffness = 5.0
@@ -452,19 +433,11 @@ for i in range(len(disp_data)):
         disp_data[i] * stiffness * (1 - 0.01 * disp_data[i] / max(disp_data))
     )
 
-# 修正した荷重データをコレクションに反映します
-elastic_data.columns[load_column] = Column(
-    ch=elastic_data.columns[load_column].ch,
-    name=load_column,
-    unit=elastic_data.columns[load_column].unit,
-    values=load_data,
-    metadata=elastic_data.columns[load_column].metadata,
-)
+# 修正した荷重データで荷重列を上書きした新しいコレクションを作ります（単位などは引き継がれます）
+elastic_data = elastic_data.with_column(load_column, load_data)
 
 # データの説明をメタデータに追加します
-if elastic_data.metadata is None:
-    elastic_data.metadata = {}
-elastic_data.metadata["description"] = "Modified data (elastic)"
+elastic_data = elastic_data.with_metadata(description="Modified data (elastic)")
 
 print(f"生成したデータのタイプ: {elastic_data.metadata['description']}")
 
@@ -480,9 +453,9 @@ small_offset_result = elastic_data.ops.find_yield_point(
 ).end()
 
 # 計算結果を取得します
-if "yield_point" in small_offset_result.results and small_offset_result.get_result("yield_point").metadata.get("is_valid", False):
+if "yield_point" in small_offset_result.results and small_offset_result.results["yield_point"].metadata.get("is_valid", False):
     print("✅ 降伏点が正常に計算されました")
-    yield_pt_small = small_offset_result.get_result("yield_point")
+    yield_pt_small = small_offset_result.results["yield_point"]
     success = True
 else:
     print("❌ 降伏点計算に失敗しました")
@@ -501,7 +474,7 @@ ax5.plot(
 
 # デバッグ情報を取得します
 if "yield_point" in small_offset_result.results:
-    debug_info = small_offset_result.get_result("yield_point").metadata
+    debug_info = small_offset_result.results["yield_point"].metadata
 else:
     debug_info = {}
 
@@ -554,9 +527,9 @@ large_offset_result = elastic_data.ops.find_yield_point(
 ).end()
 
 # 計算結果を取得します
-if "yield_point" in large_offset_result.results and large_offset_result.get_result("yield_point").metadata.get("is_valid", False):
+if "yield_point" in large_offset_result.results and large_offset_result.results["yield_point"].metadata.get("is_valid", False):
     print("✅ 降伏点が正常に計算されました")
-    yield_pt_large = large_offset_result.get_result("yield_point")
+    yield_pt_large = large_offset_result.results["yield_point"]
     debug_info = yield_pt_large.metadata
     success = True
 
@@ -574,7 +547,7 @@ else:
     print("❌ 降伏点計算に失敗しました")
     
     if "yield_point" in large_offset_result.results:
-        yield_pt_large = large_offset_result.get_result("yield_point")
+        yield_pt_large = large_offset_result.results["yield_point"]
         debug_info = yield_pt_large.metadata
         print(f"失敗理由: {debug_info.get('reason', 'Unknown reason')}")
     else:

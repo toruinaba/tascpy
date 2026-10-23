@@ -29,13 +29,13 @@ def create_sample_coordinate_data() -> CoordinateCollection:
         for j in range(GRID):
             name = f"sensor_{i + 1}_{j + 1}"
             values = np.sin(t + i * np.pi / 5) * 5 + np.cos(1.5 * t + j * np.pi / 5) * 3 + 15
-            columns[name] = Column(ch=None, name=name, unit="℃", values=values.tolist())
+            columns[name] = Column(name, values.tolist(), unit="℃")
             coordinates[name] = {
                 "x": i * PITCH,
                 "y": j * PITCH,
                 "z": 5.0 * np.exp(-((i - GRID / 2) ** 2 + (j - GRID / 2) ** 2) / 8),
             }
-    return CoordinateCollection(step=list(range(100)), columns=columns, coordinates=coordinates)
+    return CoordinateCollection(columns, step=list(range(100)), coordinates=coordinates)
 
 
 def idw_grid(points: np.ndarray, values: np.ndarray, resolution=(50, 50), power: float = 2.0):

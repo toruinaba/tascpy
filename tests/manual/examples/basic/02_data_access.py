@@ -15,9 +15,7 @@ print("-- ColumnCollectionデータへのアクセス方法 --\n")
 # サンプルデータの読み込み
 try:
     # CSVファイルからデータを読み込む
-    collection = tascpy.io.load(
-        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
-    )
+    collection = tascpy.load(SAMPLE_CSV_PATH, format_name="csv")
 except FileNotFoundError:
     print(f"ファイル '{SAMPLE_CSV_PATH}' が見つかりません。模擬データを作成します。")
     # CSVファイルがない場合の模擬データ作成
@@ -28,16 +26,19 @@ except FileNotFoundError:
         "Displacement1": [None, None, 0.00, 0.08, 0.08],
         "Displacement2": [None, None, 0.00, 0.56, 0.61],
     }
-    metadata = {
-        "date": ["2020/11/30", "2020/11/30", "2020/12/01", "2020/12/01", "2020/12/01"],
-        "time": ["17:21:36", "17:29:40", "13:22:11", "13:38:05", "13:38:10"],
-        "title": "無題",
-    }
-    collection = ColumnCollection(steps, columns, metadata, auto_detect_types=True)
+    collection = ColumnCollection(
+        columns,
+        step=steps,
+        date=["2020/11/30", "2020/11/30", "2020/12/01", "2020/12/01", "2020/12/01"],
+        time=["17:21:36", "17:29:40", "13:22:11", "13:38:05", "13:38:10"],
+        units={"Force1": "kN", "Force2": "kN", "Displacement1": "mm", "Displacement2": "mm"},
+        metadata={"title": "無題"},
+    )
 
 # データの基本情報を表示
 print(f"読み込んだデータ: {len(collection)}行, {len(collection.columns)}列")
-print(f"列名: {list(collection.columns.keys())}")
+print(f"列名: {collection.columns}")
+print(f"単位: {collection.units}")
 print()
 
 print("1. 列全体へのアクセス")
@@ -50,7 +51,7 @@ print(f"Force1のチャンネル名: {force1_column.ch}")
 print(f"Force1の単位: {force1_column.unit}")
 
 # ステップ列へのアクセス
-steps = collection.step.values
+steps = collection.step
 print(f"ステップ値: {steps}")
 print()
 
@@ -59,9 +60,10 @@ print("2. 単一要素へのアクセス")
 first_row = collection[0]
 print(f"最初の行: {first_row}")
 print(f"最初の行のForce1値: {first_row['Force1']}")  # None
+print(f"最初の行のForce1の単位: {first_row.unit('Force1')}")
 
 # 特定の行、特定の列のデータにアクセス
-force2_at_row3 = collection.columns["Force2"].values[2]
+force2_at_row3 = collection["Force2"][2]
 print(f"3行目のForce2値: {force2_at_row3}")  # 0.0
 
 # 別の方法で特定のセルにアクセス
@@ -111,7 +113,7 @@ result = (
 )
 
 print(f"チェーンメソッド処理後のデータ: {len(result)}行, {len(result.columns)}列")
-print(f"選択された列: {list(result.columns.keys())}")
+print(f"選択された列: {result.columns}")
 print(f"Force1値: {result['Force1'].values}")
 print(f"Displacement1値: {result['Displacement1'].values}")
 print()
@@ -120,19 +122,20 @@ print("7. 複数のチェーンメソッドを使った高度な分析")
 # Force1とDisplacement1の関係を分析する例
 analysis_result = (
     result.ops.filter_by_condition("Force1", lambda x: x > 1.0)  # Force1が1.0より大きい行を選択
-    .multiply("Force1", 10, result_column="Force1_kgf")  # 単位変換 (kN→kgf)
-    .divide("Force1_kgf", "Displacement1", result_column="Stiffness")  # 剛性を計算
+    # 換算は自動では行われないため、換算後の単位は明示する
+    .multiply("Force1", 10, result_column="Force1_kgf", unit="kgf")  # 単位変換 (kN→kgf, 概算)
+    .divide("Force1_kgf", "Displacement1", result_column="Stiffness", unit="kgf/mm")  # 剛性を計算
     .end()
 )
 
 print(f"分析結果: {len(analysis_result)}行")
-print(f"作成された列: {list(analysis_result.columns.keys())}")
+print(f"作成された列: {analysis_result.columns}")
+print(f"単位: {analysis_result.units}")
 
 if len(analysis_result) > 0:
     # 結果を表示
-    for i in range(len(analysis_result)):
-        row = analysis_result[i]
-        step = row["step"]
+    for row in analysis_result.iter_rows():
+        step = row.step
         force = row["Force1"]
         disp = row["Displacement1"]
         stiff = row["Stiffness"]

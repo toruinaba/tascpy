@@ -29,23 +29,23 @@ Jupyter Notebook での対話的なプロット表示には、`ipywidgets` を�
 from ipywidgets import interact, FloatSlider, IntSlider
 
 # データの読み込み
-collection = ColumnCollection.from_file("../data/sample.csv", format_name="csv")
+collection = tascpy.load("../data/sample.csv", format_name="csv")
 
 # インタラクティブなプロット
 def plot_with_threshold(threshold):
     result = (
         collection.ops
-        .filter_by_value("Value", lambda x: x > threshold)
-        .plot(x_column="Time", y_column="Value")
+        .filter_by_condition("Force1", lambda x: x > threshold)
         .end()
     )
-    plt.title(f"しきい値: {threshold}以上のデータ")
-    plt.grid(True)
-    
+    ax = result.plot.plot(y_column="Force1", x_column="Displacement1", marker="o")
+    ax.set_title(f"しきい値: {threshold} {collection['Force1'].unit} 以上のデータ")
+    ax.grid(True)
+
 # スライダーでしきい値を調整可能に
 interact(
-    plot_with_threshold, 
-    threshold=FloatSlider(min=0, max=100, step=5, value=50)
+    plot_with_threshold,
+    threshold=FloatSlider(min=0, max=10, step=0.5, value=1.0)
 )
 ```
 
