@@ -37,3 +37,9 @@ def strain_inherits_coordinate(sc: StrainCollection) -> None:
 
 def coordinate_ops(cc: CoordinateCollection) -> None:
     assert_type(cc.ops, CoordinateOps[CoordinateCollection])
+
+
+def immutable_updates_keep_type(ld: LoadDisplacementCollection, cc: CoordinateCollection) -> None:
+    assert_type(ld.with_column("x", [1.0], unit="mm"), LoadDisplacementCollection)
+    assert_type(ld.take([0]).rename({"x": "y"}), LoadDisplacementCollection)
+    assert_type(cc.with_coordinates("x", 0.0, 0.0), CoordinateCollection)

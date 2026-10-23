@@ -74,7 +74,7 @@ class CoordinateCollection(ColumnCollection):
         self._set(configured._df, configured._meta, configured._metadata, configured._results)
 
     @classmethod
-    def from_collection(cls, collection: ColumnCollection, coordinates: Optional[Coordinates] = None) -> Self:
+    def from_collection(cls, collection: ColumnCollection, *, coordinates: Optional[Coordinates] = None) -> Self:
         return collection._as_class(cls)._with_coordinate_map(coordinates)
 
     def _with_coordinate_map(self, coordinates: Optional[Coordinates]) -> Self:
@@ -150,7 +150,7 @@ class CoordinateCollection(ColumnCollection):
         """2列の座標間のユークリッド距離（どちらかに z がなければ 2D）"""
         x1, y1, z1 = self.get_column_coordinates(column1)
         x2, y2, z2 = self.get_column_coordinates(column2)
-        if any(c is None for c in (x1, y1, x2, y2)):
+        if x1 is None or y1 is None or x2 is None or y2 is None:
             raise ValueError("距離計算に必要な座標情報が不足しています")
         if z1 is None or z2 is None:
             return float(np.hypot(x2 - x1, y2 - y1))

@@ -24,9 +24,9 @@ def japanese_sample_collection():
     return ColumnCollection(
         step=[1, 2, 3, 4, 5],
         columns={
-            "変位": Column("1", "変位", "mm", [1, 2, 3, 4, 5]),
-            "荷重": Column("2", "荷重", "kN", [10, 20, 30, 40, 50]),
-            "温度": Column("3", "温度", "℃", [25, 26, 27, 28, 29]),
+            "変位": Column("変位", [1, 2, 3, 4, 5], unit="mm", ch="1"),
+            "荷重": Column("荷重", [10, 20, 30, 40, 50], unit="kN", ch="2"),
+            "温度": Column("温度", [25, 26, 27, 28, 29], unit="℃", ch="3"),
         },
         metadata={"description": "日本語テスト用コレクション"},
     )
@@ -181,10 +181,8 @@ def test_visual_inspection_japanese():
     sample = ColumnCollection(
         step=list(range(1, 11)),
         columns={
-            "変位": Column("1", "変位", "mm", np.linspace(0, 10, 10)),
-            "荷重": Column(
-                "2", "荷重", "kN", np.sin(np.linspace(0, 2 * np.pi, 10)) * 50 + 50
-            ),
+            "変位": Column("変位", np.linspace(0, 10, 10), unit="mm", ch="1"),
+            "荷重": Column("荷重", np.sin(np.linspace(0, 2 * np.pi, 10)) * 50 + 50, unit="kN", ch="2"),
         },
     )
 

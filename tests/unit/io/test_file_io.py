@@ -24,20 +24,21 @@ def test_load_collection(sample_data_path):
     assert "Force" in collection.columns
     assert "Displacement" in collection.columns
     np.testing.assert_allclose(collection["Force"].values, [0.0, 1.5, 3.0, 4.5, 6.0])
+    assert collection.units == {"Force": "kN", "Displacement": "mm"}
+    assert collection["Force"].ch == "CH1"
+    assert list(collection.time)[:2] == ["00:00:00", "00:00:01"]
     assert collection.metadata["source"] == str(sample_data_path)
 
 def test_save_collection(tmp_path):
     """save_collection関数のテスト"""
     # データ作成
     from tascpy.core.column import Column
-    from tascpy.core.step import Step
-    
-    step = Step([1, 2, 3])
+
     columns = {
-        "A": Column("CH1", "A", "u1", [10, 20, 30]),
-        "B": Column("CH2", "B", "u2", [1.1, 2.2, 3.3])
+        "A": Column("A", [10, 20, 30], unit="u1", ch="CH1"),
+        "B": Column("B", [1.1, 2.2, 3.3], unit="u2", ch="CH2"),
     }
-    collection = ColumnCollection(step, columns)
+    collection = ColumnCollection(columns, step=[1, 2, 3])
     
     output_path = tmp_path / "output.txt"
     # format_name="tasc_txt" (デフォルト) は use_channel_name=True なので、
@@ -52,13 +53,21 @@ def test_save_collection(tmp_path):
     # 保存時の挙動により、キーがCH1, CH2になっていることを確認
     np.testing.assert_array_equal(loaded["CH1"].values, [10, 20, 30])
     np.testing.assert_allclose(loaded["CH2"].values, [1.1, 2.2, 3.3])
+    assert loaded["CH1"].unit == "u1"
+    assert loaded["CH2"].unit == "u2"
+    np.testing.assert_array_equal(loaded.step, [1, 2, 3])
 
-def test_legacy_compatibility(sample_data_path, tmp_path):
-    """ColumnCollectionのクラスメソッド経由での互換性テスト"""
-    # from_file
-    collection = tascpy.io.load(sample_data_path)
+def test_selected_columns(sample_data_path):
+    collection = tascpy.load(sample_data_path, selected_columns=["Force"])
+    assert collection.columns == ["Force"]
+    by_ch = tascpy.io.load(sample_data_path, selected_columns=["CH2"])
+    assert by_ch.columns == ["Displacement"]
+
+def test_public_load_and_save_roundtrip(sample_data_path, tmp_path):
+    """tascpy.load / collection.io.save による読み書き"""
+    collection = tascpy.load(sample_data_path)
     assert len(collection) == 5
-    
+
     # to_file
     output_path = tmp_path / "legacy_output.txt"
     collection.io.save(output_path)
@@ -67,3 +76,6 @@ def test_legacy_compatibility(sample_data_path, tmp_path):
     # 確認
     reloaded = tascpy.io.load(output_path)
     assert len(reloaded) == 5
+    assert list(reloaded.units.values()) == list(collection.units.values())
+    assert list(reloaded.date) == list(collection.date)
+    np.testing.assert_allclose(reloaded["CH1"].values, collection["Force"].values)

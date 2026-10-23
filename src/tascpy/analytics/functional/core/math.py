@@ -1,13 +1,13 @@
 
-from typing import Union, Optional, List, Dict, Any, Set
+from typing import Union, Optional, List, Dict, Any, Mapping, Set
 import numpy as np
 import ast
 import math
 
 def evaluate_expression(
-    data: Dict[str, Union[np.ndarray, List[Any]]],
+    data: Mapping[str, Union[np.ndarray, List[Any]]],
     expression: str,
-) -> List[Optional[float]]:
+) -> np.ndarray:
     """データ列を使用して数式を評価します。
 
     NumPyによるベクトル化評価を試み、失敗した場合はPythonのeval関数による行ごとの評価にフォールバックします。
@@ -18,7 +18,7 @@ def evaluate_expression(
         expression (str): 評価する数式文字列（例: "col1 + col2 * 2"）。
 
     Returns:
-        List[Optional[float]]: 計算結果のリスト（無効値やエラーはNone）。
+        np.ndarray: 計算結果の配列（無効値やエラーは NaN）。
 
     Raises:
         ValueError: 式の構文エラー、安全でない操作、未定義の関数使用、または評価中のエラーが発生した場合。
@@ -29,7 +29,7 @@ def evaluate_expression(
         >>> import numpy as np
         >>> data = {"A": np.array([1, 2]), "B": np.array([3, 4])}
         >>> evaluate_expression(data, "A + B * 2")
-        [7.0, 10.0]
+        array([ 7., 10.])
     """
     # ASTを使用して式の構文検証
     try:
@@ -158,21 +158,10 @@ def evaluate_expression(
                  # Let's handle generic case in fallback or assume data has columns.
                  pass
 
-        if isinstance(res, np.ndarray):
-             # 結果をリストに変換 (NaN -> None)
-             # Handle 0-d array
-             if res.ndim == 0:
-                 if length > 0:
-                      res = np.full(length, res)
-                 else:
-                      return [res.item() if not np.isnan(res) else None]
-
-             result_values = [None if np.isnan(v) else v for v in res.tolist()]
-             return result_values
-        elif isinstance(res, (int, float)):
-             return [res if not np.isnan(res) else None] # Constant result?
-        else:
-             raise ValueError("Vectorized evaluation returned non-array")
+        if isinstance(res, (np.ndarray, int, float)):
+            res = np.asarray(res, dtype=float)
+            return np.full(length, res) if res.ndim == 0 and length > 0 else np.atleast_1d(res)
+        raise ValueError("Vectorized evaluation returned non-array")
 
     except Exception:
         # ベクトル評価に失敗した場合は、従来の行ごとの評価にフォールバック
@@ -210,13 +199,13 @@ def evaluate_expression(
                     else:
                         val = None
                         
-                    if val is None:
+                    if val is None or (isinstance(val, float) and np.isnan(val)):
                         is_row_valid = False
                         break
                     row_data[col] = val
                     
                 if not is_row_valid:
-                     result_values.append(None)
+                     result_values.append(np.nan)
                      continue
     
                 eval_namespace = dict(row_data)
@@ -227,9 +216,9 @@ def evaluate_expression(
                      row_result = eval(expression, restricted_globals, eval_namespace)
                      result_values.append(row_result)
                 except (ValueError, TypeError, ZeroDivisionError):
-                     result_values.append(None)
-            
-            return result_values
+                     result_values.append(np.nan)
+
+            return np.asarray(result_values, dtype=float)
         
         except Exception as e:
              raise ValueError(f"式の評価中にエラーが発生しました: {str(e)}")

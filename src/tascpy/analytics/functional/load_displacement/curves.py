@@ -2,7 +2,16 @@
 
 from typing import List, Tuple, Any
 import numpy as np
-from ..core.select import split_list_by_integers
+
+
+def _group_by_markers(data: List[Any], markers: List[Any]) -> List[List[Any]]:
+    """マーカー値ごとに data をまとめる（マーカー値の昇順）"""
+    if len(data) != len(markers):
+        raise ValueError("データリストとマーカーリストの長さは一致する必要があります")
+    groups: dict = {}
+    for item, marker in zip(data, markers):
+        groups.setdefault(marker, []).append(item)
+    return [groups[key] for key in sorted(groups)]
 
 def extend_data_edge(
     x_data: List[float], 
@@ -88,8 +97,8 @@ def compute_skeleton_curve(
     disps_list = displacements.tolist()
     markers_list = markers.tolist()
 
-    splitted_loads = split_list_by_integers(loads_list, markers_list)
-    splitted_disps = split_list_by_integers(disps_list, markers_list)
+    splitted_loads = _group_by_markers(loads_list, markers_list)
+    splitted_disps = _group_by_markers(disps_list, markers_list)
 
     max_load_idx = np.nanargmax(loads)
     max_marker = int(markers[max_load_idx])
@@ -226,8 +235,8 @@ def compute_cumulative_curve(
     disps_list = displacements.tolist()
     markers_list = markers.tolist()
 
-    splitted_loads = split_list_by_integers(loads_list, markers_list)
-    splitted_displacements = split_list_by_integers(disps_list, markers_list)
+    splitted_loads = _group_by_markers(loads_list, markers_list)
+    splitted_displacements = _group_by_markers(disps_list, markers_list)
 
     p_cum = []
     d_cum = []

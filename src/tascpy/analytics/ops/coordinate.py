@@ -16,6 +16,7 @@ from ..functional.coordinate.interpolation import (
 from .core import CoreOps
 
 CC_co = TypeVar("CC_co", bound=CoordinateCollection, covariant=True)
+CC = TypeVar("CC", bound=CoordinateCollection)
 
 
 class CoordinateOps(CoreOps[CC_co]):
@@ -44,8 +45,8 @@ class CoordinateOps(CoreOps[CC_co]):
         return sources
 
     @staticmethod
-    def _with_constant(collection: CC_co, name: str, value: Any, unit: Optional[str],
-                       attrs: Dict[str, Any]) -> CC_co:
+    def _with_constant(collection: CC, name: str, value: Any, unit: Optional[str],
+                       attrs: Dict[str, Any]) -> CC:
         return collection.with_column(name, [value] * len(collection), unit=unit, attrs=attrs)
 
     def interpolate_at_point(self, x: float, y: float, z: Optional[float] = None,

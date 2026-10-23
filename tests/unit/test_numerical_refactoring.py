@@ -111,8 +111,8 @@ class TestNumericalRefactoring:
 
     def test_stats_detect_outliers(self, collection):
         # Create data with obvious outlier
-        col = Column("1", "X", "N", [10, 10, 10, 100, 10, 10])
-        c = ColumnCollection([1,2,3,4,5,6], {"X": col})
+        col = Column("X", ch="1", unit="N", values=[10, 10, 10, 100, 10, 10])
+        c = ColumnCollection({"X": col}, step=[1,2,3,4,5,6])
         
         # stats.detect_outliers
         # It creates a flag column (0/1)

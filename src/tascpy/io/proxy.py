@@ -12,7 +12,7 @@ class CollectionIO:
     def __init__(self, collection: Any):
         self._collection = collection
 
-    def save(self, output_path: Union[str, Path], format_name: str = "tasc_txt", **kwargs) -> None:
+    def save(self, output_path: Union[str, Path], format_name: str = "tasc_txt", **kwargs: Any) -> None:
         """データをファイルに保存する
         
         Args:
@@ -35,7 +35,7 @@ class CollectionIO:
             **kwargs
         )
 
-    def to_csv(self, path: Union[str, Path], **kwargs) -> None:
+    def to_csv(self, path: Union[str, Path], **kwargs: Any) -> None:
         """データをCSV形式でファイルに保存する
         
         Args:

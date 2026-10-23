@@ -1,6 +1,7 @@
 
 import pytest
 import numpy as np
+from collections.abc import Mapping
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 
@@ -12,13 +13,13 @@ def sample_collection():
     
     # Data columns
     columns = {
-        "col1": Column(ch=None, name="col1", unit=None, values=[10.0] * 10),
-        "col2": Column(ch=None, name="col2", unit=None, values=[20.0] * 10),
-        "cond": Column(ch=None, name="cond", unit=None, values=[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+        "col1": Column("col1", [10.0] * 10),
+        "col2": Column("col2", [20.0] * 10),
+        "cond": Column("cond", [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0])
     }
     
     # Initialize with required arguments
-    c = ColumnCollection(step=step_data, columns=columns)
+    c = ColumnCollection(columns, step=step_data)
     
     # Add extra column if needed, or just use what we have
     # The tests use col1, col2, cond.
@@ -37,8 +38,7 @@ def test_switch_by_step_structure(sample_collection):
     assert len(result_col) == 1
     
     col_name = result_col[0]
-    metadata = result[col_name].metadata
-    assert isinstance(metadata, dict)
+    assert isinstance(result[col_name].attrs, Mapping)
 
 def test_blend_by_step_structure(sample_collection):
     """Test blend_by_step structural properties"""
@@ -49,8 +49,7 @@ def test_blend_by_step_structure(sample_collection):
     result_col = [c for c in result.columns if "blend" in c]
     assert len(result_col) == 1
     
-    metadata = result[result_col[0]].metadata
-    assert isinstance(metadata, dict)
+    assert isinstance(result[result_col[0]].attrs, Mapping)
 
 def test_conditional_select_structure(sample_collection):
     """Test conditional_select structural properties"""

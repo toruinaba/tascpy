@@ -5,7 +5,7 @@ import numpy as np
 
 def moving_average(
     data: List[float], window_size: int = 3, edge_handling="asymmetric"
-) -> List[float]:
+) -> np.ndarray:
     # 入力をNumPy配列に変換 (NoneはNaNとして扱う)
     # 既に数値型のNumPy配列であればそのまま使用
     if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
@@ -24,7 +24,7 @@ def moving_average(
                  data_arr = np.array([x if isinstance(x, (int, float)) and x is not None else np.nan for x in data], dtype=float)
         
     if len(data_arr) == 0:
-        return []
+        return np.array([], dtype=float)
 
     half_window = window_size // 2
     n = len(data_arr)
@@ -113,8 +113,7 @@ def moving_average(
             
         result[denominator == 0] = np.nan
 
-    # 結果をリストに戻す（Noneを含む）
-    return [None if np.isnan(x) else x for x in result]
+    return result
 
 def detect_outliers(
     vals: Union[np.ndarray, List[float]],
@@ -123,7 +122,7 @@ def detect_outliers(
     edge_handling: str = "asymmetric",
     min_abs_value: float = 1e-10,
     scale_factor: float = 1.0,
-) -> List[int]:
+) -> np.ndarray:
     """移動平均を使用して外れ値を検出します。
 
     移動平均からの偏差率が閾値を超える場合を外れ値とみなします。
@@ -137,7 +136,7 @@ def detect_outliers(
         scale_factor (float, optional): 基準値（標準偏差等）のスケーリング係数。デフォルトは 1.0。
 
     Returns:
-        List[int]: 外れ値フラグのリスト（0: 正常, 1: 外れ値）。
+        np.ndarray: 外れ値フラグの配列（0: 正常, 1: 外れ値）。
 
     Raises:
         ValueError: 無効な引数、または有効なデータが存在しない場合。
@@ -188,10 +187,7 @@ def detect_outliers(
         
     is_outlier = (ratio > threshold) & (diff > min_abs_value)
     
-    # Return as list of 0/1 flags
-    outlier_flags = np.where(is_outlier, 1, 0).tolist()
-
-    return outlier_flags
+    return np.where(is_outlier, 1, 0)
 
 def gaussian_filter(
     vals: Union[np.ndarray, List[float]],

@@ -33,24 +33,11 @@ def csv_file_info(sample_data_path):
         pytest.skip(f"サンプルデータファイル {sample_data_path} が見つかりません")
 
     # CSVファイルを読み込み - ファイル構造に合わせて設定
-    collection = tascpy.io.load(
-        str(sample_data_path), format_name="csv", auto_detect_types=True
-    )
+    collection = tascpy.io.load(str(sample_data_path), format_name="csv")
 
-    # 自動的にカラム型を判定
-    collection = collection.auto_detect_column_types()
-
-    # テスト用に適切なカラム名を識別
-    force_columns = [
-        name
-        for name, col in collection.columns.items()
-        if getattr(col, "unit", "") == "kN"
-    ]
-    disp_columns = [
-        name
-        for name, col in collection.columns.items()
-        if getattr(col, "unit", "") == "mm"
-    ]
+    # テスト用に適切なカラム名を単位から識別
+    force_columns = [name for name, unit in collection.units.items() if unit == "kN"]
+    disp_columns = [name for name, unit in collection.units.items() if unit == "mm"]
 
     if force_columns and disp_columns:
         force_col = force_columns[0]
@@ -86,13 +73,8 @@ def load_displacement_data(sample_data_path, csv_file_info):
         data_start_col=3,
     )
 
-    # 自動的にカラム型を判定
-    collection = collection.auto_detect_column_types()
-
     # ドメインコレクションに変換
-    ld_collection = collection.ops.as_domain(
-        "load_displacement", load_column=force_col, displacement_column=disp_col
-    ).end()
+    ld_collection = collection.ops.as_load_displacement(force_col, disp_col).end()
 
     return ld_collection
 

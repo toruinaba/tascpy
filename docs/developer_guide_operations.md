@@ -40,7 +40,7 @@ result = (
 col.ops.as_load_displacement("荷重", "変位")   # -> LoadDisplacementOps
 col.ops.as_coordinate(coordinates={...})       # -> CoordinateOps
 col.ops.as_strain(rosettes={...})              # -> StrainOps
-col.ops.as_domain("load_displacement", ...)    # 汎用版（戻り値の型は CoreOps[Any]）
+ld.ops.as_core()                               # ドメインの設定を外す -> CoreOps
 ```
 
 `split_by_integers` / `split_at_indices` / `split_by_cycles` は `OpsList` を返します。
@@ -78,17 +78,19 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         return self._with_result(ScalarResult(name="peak_load", value=value))
 ```
 
-列を追加する操作であれば `_with_column` を使います。
+列を追加する操作であれば `_with_column` を使います。結果の単位は、明示された `unit` がなければ `default_unit` になります。`default_unit` は [単位の方針](developer_guide_design.md#単位の方針) に従って決め、自明でなければ `None` にします。
 
 ```python
     def scale_load(self, factor: float, result_column: Optional[str] = None,
-                   unit: Optional[str] = None) -> Self:
-        """荷重を factor 倍した列を追加します"""
+                   unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+        """荷重を factor 倍した列を追加します（単位は荷重の単位）"""
         load = self._c.load_column
         values = self._numeric(load) * factor
-        return self._with_column(result_column or f"{load}*{factor}", values, unit,
+        return self._with_column(result_column or f"{load}*{factor}", values, unit, ch,
                                  default_unit=self._unit_of(load))
 ```
+
+行の抽出・検索などの表操作は functional に置かず、ops の中で polars の式やコレクションのメソッド（`take` / `select` など）で実装します。
 
 ### 3. テストを書く
 
@@ -104,29 +106,44 @@ functional 関数のテストと、ops メソッドのテストを分けて書�
 | `_numeric(x)` | 列名・配列を float 配列に変換（`None` や `"*****"` などの欠損表記は NaN）。スカラーはそのまま |
 | `_raw(x)` | 列名を値の配列に変換（数値変換はしない）。文字列列の比較などに使う |
 | `_unit_of(x)` / `_first_unit(*xs)` | 列の単位を取得（結果列の単位を引き継ぐときに使う） |
-| `_with_column(name, values, unit, ch, default_unit=)` | 結果を列として追加。同名列があれば値を上書き。NaN は `None` として格納 |
-| `_with_rows(rows)` | 行インデックスまたはブールマスクで行を抽出 |
+| `_scaled_unit(a, b)` / `_compound_unit(y, x, sep)` | 列×スカラーの単位 / `"y/x"` のような合成表記 |
+| `_with_column(name, values, unit, ch, default_unit=)` | 結果を列として追加・上書き。NaN は欠損 (null) として格納 |
+| `_with_rows(rows, **metadata)` | 行インデックスまたはブールマスクで行を抽出 |
+| `_mask(expr)` | polars の式から行マスクを作る（欠損は False） |
 | `_with_result(result)` | `AnalysisResult`（`ScalarResult` など）を `results` に追加 |
-| `_with_point(name, (is_valid, x, y, info))` | `PointResult` を追加（降伏点など） |
-| `_with_curve(name, x, y)` | `XYSeriesResult` を追加（スケルトン曲線など） |
+| `_with_point(name, (is_valid, x, y, info), x_unit, y_unit)` | `PointResult` を追加（降伏点など） |
+| `_with_curve(name, x, y, x_unit, y_unit)` | `XYSeriesResult` を追加（スケルトン曲線など） |
 | `_split(row_groups)` | 行グループごとに分割して `OpsList` を返す |
 
-どのヘルパーも元のコレクションを変更せず、複製に対して処理します。
+コレクションは不変なので、どのヘルパーも新しいコレクションを返します。
 
 ## 新しいドメインを追加する
 
-コレクションのサブクラスと、`CoreOps` のサブクラスを対で作ります。
+コレクションのサブクラスと、`CoreOps` のサブクラスを対で作ります。ドメイン固有の設定は属性として持ちます。属性は `with_*` などの操作で自動的に引き継がれます。不変条件は `_validate` で検査します（操作のたびに呼ばれます）。
 
 ```python
 from typing import Self
 
 from tascpy.analytics.ops import CoreOps
 from tascpy.core.collection import ColumnCollection
-from tascpy.domains.factory import DomainCollectionFactory
 
 
 class TimeSeriesCollection(ColumnCollection):
     domain = "timeseries"
+
+    @classmethod
+    def from_collection(cls, collection: ColumnCollection, time_column: str) -> "TimeSeriesCollection":
+        new = collection._as_class(cls)
+        new._time_column = time_column
+        new._validate()
+        return new
+
+    def _validate(self) -> None:
+        if self._time_column not in self:
+            raise ValueError(f"列 '{self._time_column}' が存在しません")
+
+    def _apply_rename(self, mapping) -> None:
+        self._time_column = mapping.get(self._time_column, self._time_column)
 
     @property
     def ops(self) -> "TimeSeriesOps":
@@ -134,19 +151,11 @@ class TimeSeriesCollection(ColumnCollection):
 
 
 class TimeSeriesOps(CoreOps[TimeSeriesCollection]):
-    def resample(self, frequency: str) -> Self:
-        """リサンプリングします"""
-        result = self._c.clone()
-        result.metadata["frequency"] = frequency
-        return self._next(result)
-
-
-DomainCollectionFactory.register("timeseries", lambda **kw: TimeSeriesCollection(**kw))
-
-col.ops.as_domain("timeseries").resample("1H").end()
+    def mark_frequency(self, frequency: str) -> Self:
+        return self._next(self._c.with_metadata(frequency=frequency))
 ```
 
-`clone()` がサブクラスのインスタンスを返すように、必要に応じて `clone()` もオーバーライドしてください。ドメイン変換時の前処理が必要であれば、`tascpy.domains.converters.register_domain_converter` で変換関数を登録します。
+変換メソッド（`as_timeseries` など）が必要なら `CoreOps` に追加します。
 
 ## 型チェック
 

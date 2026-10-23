@@ -39,7 +39,7 @@ class StrainCollection(CoordinateCollection):
         self._rosettes = {name: _checked_rosette(name, info) for name, info in (rosettes or {}).items()}
 
     @classmethod
-    def from_collection(cls, collection: ColumnCollection, rosettes: Optional[Mapping[str, Rosette]] = None,
+    def from_collection(cls, collection: ColumnCollection, *, rosettes: Optional[Mapping[str, Rosette]] = None,
                         coordinates: Optional[Coordinates] = None) -> Self:
         new = super().from_collection(collection, coordinates=coordinates)
         new._rosettes = {name: _checked_rosette(name, info) for name, info in (rosettes or {}).items()}

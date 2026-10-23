@@ -11,8 +11,8 @@ def sample_collection():
     return ColumnCollection(
         step=[1, 2, 3, 4, 5],
         columns={
-            "x": Column("1", "X Values", "m", [1, 2, 3, 4, 5]),
-            "y1": Column("2", "Y1 Values", "kg", [10, 20, 30, 40, 50]),
+            "x": Column("x", [1, 2, 3, 4, 5], unit="m", ch="1"),
+            "y1": Column("y1", [10, 20, 30, 40, 50], unit="kg", ch="2"),
         },
         metadata={"description": "Test Collection for IPlot"},
     )
@@ -41,11 +41,11 @@ class TestIPlot:
         assert "y_label" in kwargs
         assert "title" in kwargs
         
-        np.testing.assert_array_equal(kwargs["x_values"], sample_collection.columns["x"].values)
-        np.testing.assert_array_equal(kwargs["y_values"], sample_collection.columns["y1"].values)
-        assert kwargs["x_label"] == "X Values [m]"
-        assert kwargs["y_label"] == "Y1 Values [kg]"
-        assert kwargs["title"] == "Y1 Values vs X Values"
+        np.testing.assert_array_equal(kwargs["x_values"], sample_collection["x"].values)
+        np.testing.assert_array_equal(kwargs["y_values"], sample_collection["y1"].values)
+        assert kwargs["x_label"] == "x [m]"
+        assert kwargs["y_label"] == "y1 [kg]"
+        assert kwargs["title"] == "y1 vs x"
         
         # 戻り値の検証
         assert result is mock_fig
@@ -62,12 +62,12 @@ class TestIPlot:
     @patch("tascpy.visualization.backend_plotly.plot")
     def test_iplot_name_extraction(self, mock_plotly_plot, sample_collection):
         """name引数またはy_labelからnameが抽出されることを確認"""
-        # 1. 自動抽出 (Y1 Values [kg] -> Y1 Values)
+        # 1. 自動抽出 (y1 [kg] -> y1)
         # Note: functional_plot may extract name, but here we just check if it gets passed.
         # functional_plot.iplot extracts name from y_label if not provided. This is in functional layer.
         sample_collection.plot.iplot(y_column="y1", x_column="x")
         args, kwargs = mock_plotly_plot.call_args
-        assert kwargs.get("name") == "Y1 Values"
+        assert kwargs.get("name") == "y1"
         
         # 2. 明示的指定
         sample_collection.plot.iplot(y_column="y1", x_column="x", name="Custom Name")

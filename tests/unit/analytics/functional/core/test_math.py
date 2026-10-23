@@ -41,7 +41,12 @@ def test_evaluate_functional():
         "B": np.array([3.0, 4.0])
     }
     res = evaluate_expression(data, "A + B * 2")
-    assert res == [7.0, 10.0]
+    np.testing.assert_allclose(res, [7.0, 10.0])
+
+
+def test_evaluate_missing_is_nan():
+    data = {"A": np.array([1.0, np.nan])}
+    np.testing.assert_array_equal(evaluate_expression(data, "A * 2"), [2.0, np.nan])
 
 def test_log_functions():
     res = log(np.array([1.0, math.e]))

@@ -210,8 +210,7 @@ class Column:
     def abs_max(self) -> Optional[float]:
         if not self.is_numeric:
             return None
-        value = self._series.abs().max()
-        return None if value is None else float(value)
+        return Column._wrap(self._series.abs(), self._meta).max()
 
     # ── 欠損 ──────────────────────────────────
 

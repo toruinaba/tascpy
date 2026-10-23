@@ -22,38 +22,30 @@ class TestCoordinateInterpolation:
         self.values5 = [50.0, 50.0, 50.0, 50.0, 50.0]  # 補間先用のポイント
 
         # Columnオブジェクトを作成
-        self.column1 = Column(ch=None, name="point1", unit="m", values=self.values1)
-        self.column2 = Column(ch=None, name="point2", unit="m", values=self.values2)
-        self.column3 = Column(ch=None, name="point3", unit="m", values=self.values3)
-        self.column4 = Column(ch=None, name="point4", unit="m", values=self.values4)
-        self.column5 = Column(
-            ch=None, name="target_point", unit="m", values=self.values5
+        self.column1 = Column("point1", unit="m", values=self.values1)
+        self.column2 = Column("point2", unit="m", values=self.values2)
+        self.column3 = Column("point3", unit="m", values=self.values3)
+        self.column4 = Column("point4", unit="m", values=self.values4)
+        self.column5 = Column("target_point", unit="m", values=self.values5
         )
 
         # 基本のコレクションを作成
-        self.collection = CoordinateCollection(
-            self.steps,
-            {
+        self.collection = CoordinateCollection({
                 "point1": self.column1,
                 "point2": self.column2,
                 "point3": self.column3,
                 "point4": self.column4,
                 "target_point": self.column5,
-            },
-        )
+            }, step=self.steps)
 
         # 明確な座標パターンで配置（単純な補間計算ができるように）
-        self.collection.set_column_coordinates("point1", x=0.0, y=0.0, z=0.0)  # 原点
-        self.collection.set_column_coordinates(
-            "point2", x=10.0, y=0.0, z=0.0
-        )  # X軸方向
-        self.collection.set_column_coordinates(
-            "point3", x=0.0, y=10.0, z=0.0
-        )  # Y軸方向
-        self.collection.set_column_coordinates("point4", x=10.0, y=10.0, z=0.0)  # 右上
-        self.collection.set_column_coordinates(
-            "target_point", x=5.0, y=5.0
-        )  # 中央（補間先）
+        self.collection = (
+            self.collection.with_coordinates("point1", x=0.0, y=0.0, z=0.0)  # 原点
+            .with_coordinates("point2", x=10.0, y=0.0, z=0.0)  # X軸方向
+            .with_coordinates("point3", x=0.0, y=10.0, z=0.0)  # Y軸方向
+            .with_coordinates("point4", x=10.0, y=10.0, z=0.0)  # 右上
+            .with_coordinates("target_point", x=5.0, y=5.0)  # 中央（補間先）
+        )
 
     def test_interpolate_at_point(self):
         """interpolate_at_point関数のテスト"""
@@ -68,6 +60,7 @@ class TestCoordinateInterpolation:
 
         # 補間結果列が正しく作成されていることを確認
         assert "interp_point1" in result.columns
+        assert result["interp_point1"].unit == "m"
         assert "interp_point2" in result.columns
         assert "interp_point3" in result.columns
         assert "interp_point4" in result.columns
@@ -103,10 +96,7 @@ class TestCoordinateInterpolation:
         assert "interp_point3" not in result_selected.columns
 
         # 座標がない列を指定した場合はその列がスキップされることを確認
-        test_coll = self.collection.clone()
-        test_coll.columns["no_coord"] = Column(
-            ch=None, name="no_coord", unit="m", values=[0.0] * 5
-        )
+        test_coll = self.collection.with_column("no_coord", [0.0] * 5, unit="m")
         result_skip = test_coll.ops.interpolate_at_point(
             x=5.0, y=5.0, target_columns=["no_coord", "point1"]
         ).end()
@@ -141,7 +131,7 @@ class TestCoordinateInterpolation:
         assert result.metadata["analysis"]["grid_interpolation"]["grid_size"] == (5, 5)
 
         # 列のメタデータを確認
-        grid_metadata = result["grid_point1_grid"].metadata
+        grid_metadata = result["grid_point1_grid"].attrs
         assert "grid" in grid_metadata
         assert grid_metadata["grid"]["nx"] == 5
         assert grid_metadata["grid"]["ny"] == 5
@@ -233,8 +223,6 @@ class TestCoordinateInterpolation:
 
     def test_requires_coordinates(self):
         """座標を持つ列がない場合は ValueError"""
-        no_coords = CoordinateCollection(
-            [0, 1], {"a": Column(ch=None, name="a", unit="m", values=[1.0, 2.0])}
-        )
+        no_coords = CoordinateCollection({"a": Column("a", unit="m", values=[1.0, 2.0])}, step=[0, 1])
         with pytest.raises(ValueError, match="有効な座標データがありません"):
             no_coords.ops.interpolate_at_point(x=0.0, y=0.0)

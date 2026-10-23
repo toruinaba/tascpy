@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.1.0-green)](https://github.com/toruinaba/tascpy)
+[![Version](https://img.shields.io/badge/version-0.2.0-green)](https://github.com/toruinaba/tascpy)
 
 **tascpy** は、計測アプリケーション「tasc」などから出力される計測データの分析・可視化を効率的に行うための Python ライブラリです。直感的なインターフェースと強力なデータ処理機能を備え、メソッドチェーン形式で複雑な操作を簡潔に記述できます。
 
@@ -40,7 +40,7 @@ pip install -e .
 import tascpy
 
 # ファイルからデータを読み込む（format_name: "tasc_txt" または "csv"）
-collection = tascpy.io.load("data.csv", format_name="csv", auto_detect_types=True)
+collection = tascpy.load("data.csv", format_name="csv")
 
 # メソッドチェーンでデータを処理
 result = (
@@ -56,6 +56,22 @@ print(f"処理後のデータ: {len(result)} 行 × {len(result.columns)} 列")
 print(f"最大値: {result['Ratio'].max():.2f}")
 ```
 
+### 単位の確認
+
+各列は単位（`unit`）とチャンネル名（`ch`）を持ちます。単位は記録・確認のためのもので、自動変換はしません。
+演算結果の単位は演算の種類から決まり、自明でない場合は `None`（不明）になります。`unit=` で明示することもできます。
+
+```python
+collection.units                 # {"Force": "kN", "Displacement": "mm", ...}
+result["AdjustedForce"].unit     # "kN"（加算は元の列の単位を引き継ぐ）
+result["Ratio"].unit             # None（列どうしの除算の単位は自明でない）
+collection[0]                    # <Row step=1, Force=0.0 kN, Displacement=0.0 mm, ...>
+
+# polars の DataFrame との相互変換
+df = collection.df
+again = tascpy.ColumnCollection.from_frame(df, units=collection.units)
+```
+
 ### 荷重-変位ドメインの分析
 
 ```python
@@ -69,10 +85,11 @@ ld = (
     .end()
 )
 
-print(f"初期剛性: {ld.results['stiffness'].value:.2f}")
+stiffness = ld.results["stiffness"]
+print(f"初期剛性: {stiffness.value:.2f} {stiffness.unit}")      # 例: kN/mm
 yield_pt = ld.results["yield_point"]
-print(f"降伏荷重: {yield_pt.y:.2f} kN")
-print(f"降伏変位: {yield_pt.x:.2f} mm")
+print(f"降伏荷重: {yield_pt.y:.2f} {yield_pt.y_unit}")
+print(f"降伏変位: {yield_pt.x:.2f} {yield_pt.x_unit}")
 ```
 
 `collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。ドメインに変換すると、そのドメイン固有の操作（`find_yield_point` など）も補完されます。
@@ -99,12 +116,14 @@ plt.show()
 - [高度なサンプル](./tests/manual/examples/advance/README.md) - 異常値分析など高度な分析テクニック
 - [ドメイン特化機能](./tests/manual/examples/domains/README.md) - 荷重-変位分析や座標データ処理の例
 - [開発者ガイド](./docs/developer_guide.md) - tascpy の拡張や独自ドメインの開発方法
+- [コアデータモデル設計](./docs/developer_guide_design.md) - データ保持・単位・欠損の規則
 
 ## 動作環境
 
 - Python 3.11 以上
 - 依存ライブラリ:
   - numpy
+  - polars
   - matplotlib
   - japanize-matplotlib（日本語フォントサポート用）
 
@@ -114,7 +133,7 @@ plt.show()
 tascpy/
 ├── src/
 │   └── tascpy/
-│       ├── core/             # 基本データ構造（ColumnCollection, Column, Step）
+│       ├── core/             # 基本データ構造（ColumnCollection, Column, ColumnMeta）
 │       ├── domains/          # ドメイン特化コレクション（荷重-変位・座標・ひずみ）
 │       ├── analytics/
 │       │   ├── functional/   # 純粋な計算関数
