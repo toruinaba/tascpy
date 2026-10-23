@@ -199,7 +199,8 @@ advanced_result = (
         "Displacement1", lambda x: 0.0 <= x <= 0.5
     )  # その中からDisplacement1が0～0.5の行を選択
     .select(columns=["Force1", "Displacement1", "Force2"])  # 必要な列のみ選択
-    .evaluate("Force1 / Displacement1", result_column="Stiffness", unit="kN/mm")  # 剛性を計算
+    .calculate(lambda Force1, Displacement1: Force1 / Displacement1,
+               result_column="Stiffness", unit="kN/mm")  # 剛性を計算
     .end()
 )
 

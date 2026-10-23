@@ -72,42 +72,17 @@ class TestNumericalRefactoring:
         assert np.isnan(vals[3]) # None
         assert abs(vals[4] - math.log(5.0)) < 1e-10
 
-    def test_math_evaluate_vectorized(self, collection):
-        # A + B * 2
-        res = collection.ops.evaluate("A + B * 2", result_column="result").end()
-        # 1+20=21, 2+40=42, 3+60=63, 4+80=84, 5+100=105
+    def test_math_calculate(self, collection):
+        res = collection.ops.calculate(lambda A, B: A + B * 2, result_column="result").end()
         np.testing.assert_array_equal(res["result"].values, [21.0, 42.0, 63.0, 84.0, 105.0])
 
-    def test_math_evaluate_fallback(self, collection):
-        # Expression with if logic (not vectorizable directly by simple eval usually, 
-        # unless written as numpy logic type)
-        # But 'if' statement is invalid syntax in eval expression.
-        # Ternary operator 'a if cond else b' WORKS in vectorization if a, b, cond are arrays!
-        # e.g. np.where(cond, a, b).
-        # But python's 'a if cond else b' evaluates `cond` as boolean. 
-        # If `cond` is an array, it raises "The truth value of an array is ambiguous".
-        # This will trigger the fallback!
-        
-        expr = "A if A > 3 else 0"
-        res = collection.ops.evaluate(expr, result_column="fallback_result").end()
-        # A: 1, 2, 3, 4, 5
-        # 1>3 F -> 0
-        # 2>3 F -> 0
-        # 3>3 F -> 0
-        # 4>3 T -> 4
-        # 5>3 T -> 5
-        np.testing.assert_array_equal(res["fallback_result"].values, [0, 0, 0, 4.0, 5.0])
+    def test_math_calculate_conditional(self, collection):
+        res = collection.ops.calculate(lambda A: np.where(A > 3, A, 0), result_column="r").end()
+        np.testing.assert_array_equal(res["r"].values, [0, 0, 0, 4.0, 5.0])
 
-    def test_math_evaluate_none_handling(self, collection):
-        # C * 2. C has None.
-        res = collection.ops.evaluate("C * 2", result_column="result_none").end()
-        # 1->2, -1->-2, 0->0, None->None, 5->10
-        vals = res["result_none"].values
-        assert vals[0] == 2.0
-        assert vals[1] == -2.0
-        assert vals[2] == 0.0
-        assert np.isnan(vals[3])
-        assert vals[4] == 10.0
+    def test_math_calculate_none_handling(self, collection):
+        vals = collection.ops.calculate(lambda C: C * 2, result_column="result_none").end()["result_none"].values
+        np.testing.assert_array_equal(vals, [2.0, -2.0, 0.0, np.nan, 10.0])
 
     def test_stats_detect_outliers(self, collection):
         # Create data with obvious outlier

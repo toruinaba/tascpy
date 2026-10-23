@@ -80,7 +80,7 @@ clean_data = (
 processed_data = (
     clean_data.ops
     .moving_average("Measurement", window_size=5, result_column="MA5")
-    .evaluate("Measurement - MA5", result_column="Deviation")
+    .calculate(lambda Measurement, MA5: Measurement - MA5, result_column="Deviation")
     .end()
 )
 

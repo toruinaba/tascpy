@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import math
 from tascpy.analytics.functional.core.math import (
-    add, subtract, multiply, divide, diff, integrate, evaluate_expression,
+    add, subtract, multiply, divide, diff, integrate,
     log, sqrt, power, abs_values, round_values, normalize,
 )
 
@@ -34,19 +34,6 @@ def test_integrate_functional():
     res = integrate(y, x, method="trapezoid")
     np.testing.assert_allclose(res, [0.0, 2.0, 4.0])
 
-def test_evaluate_functional():
-    data = {
-        "A": np.array([1.0, 2.0]),
-        "B": np.array([3.0, 4.0])
-    }
-    res = evaluate_expression(data, "A + B * 2")
-    np.testing.assert_allclose(res, [7.0, 10.0])
-
-
-def test_evaluate_missing_is_nan():
-    data = {"A": np.array([1.0, np.nan])}
-    np.testing.assert_array_equal(evaluate_expression(data, "A * 2"), [2.0, np.nan])
-
 def test_log_functions():
     res = log(np.array([1.0, math.e]))
     np.testing.assert_allclose(res, [0.0, 1.0])
@@ -64,74 +51,3 @@ def test_integrate_starts_at_initial_value():
 def test_integrate_follows_path_order():
     # 往復する x でも並べ替えず経路に沿って積分する（戻り区間は面積が差し引かれる）
     np.testing.assert_allclose(integrate(y=[0.0, 2.0, 2.0], x=[0.0, 1.0, 0.0]), [0.0, 1.0, -1.0])
-
-
-@pytest.mark.parametrize("expression, expected", [
-    ("A if A > 3 else 0", [0.0, 0.0, 0.0, 4.0, 5.0]),
-    ("1 < A < 4", [0.0, 1.0, 1.0, 0.0, 0.0]),
-    ("(A > 1) and not (A > 4)", [0.0, 1.0, 1.0, 1.0, 0.0]),
-    ("A > 4 or A < 2", [1.0, 0.0, 0.0, 0.0, 1.0]),
-    ("max(A, 3) + pi * 0", [3.0, 3.0, 3.0, 4.0, 5.0]),
-    ("2", [2.0] * 5),
-])
-def test_evaluate_vectorized_syntax(expression, expected):
-    data = {"A": np.array([1.0, 2.0, 3.0, 4.0, 5.0])}
-    np.testing.assert_allclose(evaluate_expression(data, expression), expected)
-
-
-def test_evaluate_invalid_results_and_missing_rows_are_nan():
-    data = {"A": np.array([0.0, -1.0, np.nan, 4.0])}
-    np.testing.assert_array_equal(evaluate_expression(data, "1 / A"), [np.nan, -1.0, np.nan, 0.25])
-    np.testing.assert_array_equal(evaluate_expression(data, "log(A)"), [np.nan, np.nan, np.nan, np.log(4.0)])
-    np.testing.assert_array_equal(evaluate_expression(data, "A if A > 3 else 0"), [0.0, 0.0, np.nan, 4.0])
-
-
-@pytest.mark.parametrize("expression", [
-    "A.__class__", '__import__("os")', "(lambda: 1)()", "A[0]", "[A]", "log(x=A)", "open('f')",
-])
-def test_evaluate_rejects_unsafe_syntax(expression):
-    with pytest.raises(ValueError):
-        evaluate_expression({"A": np.array([1.0])}, expression)
-
-
-def test_evaluate_errors():
-    with pytest.raises(KeyError):
-        evaluate_expression({"A": np.array([1.0])}, "B + 1")
-    with pytest.raises(ValueError, match="構文"):
-        evaluate_expression({"A": np.array([1.0])}, "A +")
-    with pytest.raises(ValueError, match="数値に変換できません"):
-        evaluate_expression({"s": np.array(["x"])}, "s * 2")
-
-
-@pytest.mark.parametrize("expression, expected", [
-    ("max(A, 3, 5)", [5.0, 5.0]),
-    ("max(A, B, C)", [5.0, 2.0]),
-    ("min(A, B, 0)", [0.0, 0.0]),
-    ("A or 10", [10.0, 2.0]),     # Python と同じくオペランドの値を返す
-    ("A and 10", [0.0, 10.0]),
-    ("not A", [1.0, 0.0]),
-    ("round(B * 1.26, 1)", [6.3, 1.3]),
-])
-def test_evaluate_functions_and_boolean_operands(expression, expected):
-    data = {"A": np.array([0.0, 2.0]), "B": np.array([5.0, 1.0]), "C": np.array([-1.0, -1.0])}
-    np.testing.assert_allclose(evaluate_expression(data, expression), expected)
-
-
-@pytest.mark.parametrize("expression", ["abs(A, B)", "max(A)", "pow(A)", "log(A, B, A)", "A + 'x'"])
-def test_evaluate_rejects_wrong_arguments(expression):
-    with pytest.raises(ValueError):
-        evaluate_expression({"A": np.array([1.0]), "B": np.array([2.0])}, expression)
-
-
-def test_evaluate_does_not_modify_inputs():
-    data = {"A": np.array([0.0, 2.0]), "B": np.array([5.0, 1.0]), "C": np.array([-1.0, -1.0])}
-    before = {k: v.copy() for k, v in data.items()}
-    evaluate_expression(data, "max(A, B, C) + abs(C)")
-    for name, values in data.items():
-        np.testing.assert_array_equal(values, before[name])
-
-
-def test_evaluate_scalar_division_by_zero_is_nan():
-    data = {"A": np.array([5.0, 1.0])}
-    np.testing.assert_array_equal(evaluate_expression(data, "1 / 0"), [np.nan, np.nan])
-    np.testing.assert_array_equal(evaluate_expression(data, "A if A > 3 else 1 / 0"), [5.0, np.nan])

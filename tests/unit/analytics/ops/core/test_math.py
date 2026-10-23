@@ -63,12 +63,52 @@ class TestDivideOperation:
         result = sample_collection.ops.divide("C", "A").end()
         assert "C/A" in result.columns
 
-class TestEvaluateOperation:
-    """evaluate関数の構造テスト"""
-    def test_simple_expression(self, sample_collection):
-        result = sample_collection.ops.evaluate("A + B * 2").end()
-        assert "expression_result" in result.columns
-        assert isinstance(result["expression_result"].attrs, Mapping)
+class TestCalculateOperation:
+    """calculate: 関数の引数名を列名として値を渡す"""
+
+    def test_lambda(self, sample_collection):
+        result = sample_collection.ops.calculate(lambda A, B: A + B * 2, result_column="C", unit="kN").end()
+        a, b = sample_collection["A"].values, sample_collection["B"].values
+        np.testing.assert_allclose(result["C"].values, a + b * 2)
+        assert result["C"].unit == "kN"
+
+    def test_default_names(self, sample_collection):
+        def doubled(A):
+            return A * 2
+
+        assert "doubled" in sample_collection.ops.calculate(doubled).end().columns
+        assert "calculate" in sample_collection.ops.calculate(lambda A: A).end().columns
+
+    def test_missing_values_are_nan_and_scalar_broadcasts(self):
+        coll = ColumnCollection({"A": [1.0, None, 3.0]})
+        np.testing.assert_array_equal(coll.ops.calculate(lambda A: A * 2).end()["calculate"].values,
+                                      [2.0, np.nan, 6.0])
+        assert coll.ops.calculate(lambda: 5.0).end()["calculate"].to_list() == [5.0, 5.0, 5.0]
+
+    def test_column_mapping(self):
+        coll = ColumnCollection({"Force 1": [1.0, 2.0]})
+        result = coll.ops.calculate(lambda f: f * 10, columns={"f": "Force 1"}, result_column="F").end()
+        assert result["F"].to_list() == [10.0, 20.0]
+
+    def test_inputs_are_not_modified(self):
+        coll = ColumnCollection({"A": [1.0, 2.0]})
+
+        def mutate(A):
+            A[:] = 0
+            return A
+
+        coll.ops.calculate(mutate)
+        assert coll["A"].to_list() == [1.0, 2.0]
+
+    def test_errors(self, sample_collection):
+        with pytest.raises(KeyError, match="'X'"):
+            sample_collection.ops.calculate(lambda X: X)
+        with pytest.raises(ValueError, match="可変長引数"):
+            sample_collection.ops.calculate(lambda *cols: cols[0])
+        with pytest.raises(ValueError, match="行数"):
+            sample_collection.ops.calculate(lambda A: A[:2])
+        with pytest.raises(TypeError, match="数値列ではありません"):
+            ColumnCollection({"S": ["x"]}).ops.calculate(lambda S: S)
 
 class TestDiffOperation:
     """diff関数の構造テスト"""
@@ -204,7 +244,7 @@ class TestUnitPropagation:
     def test_units_follow_design_rules(self):
         c = ColumnCollection({"P": [1.0, 2.0], "d": [0.5, 1.0]}, units={"P": "kN", "d": "mm"})
         r = (c.ops.add("P", "P").multiply("P", 2).multiply("P", "d").divide("P", 2, result_column="half")
-             .pow("P", 2).normalize("P").diff("P", "d").evaluate("P * 2").end())
+             .pow("P", 2).normalize("P").diff("P", "d").calculate(lambda P: P * 2).end())
         assert r["P+P"].unit == "kN"
         assert r["P*2"].unit == "kN"
         assert r["P*d"].unit is None
@@ -212,7 +252,7 @@ class TestUnitPropagation:
         assert r["P^2"].unit is None
         assert r["norm_minmax(P)"].unit == ""
         assert r["d(P)/d(d)"].unit == "kN/mm"
-        assert r["expression_result"].unit is None
+        assert r["calculate"].unit is None
 
     def test_explicit_unit_wins(self):
         c = ColumnCollection({"P": [1.0, 2.0], "d": [0.5, 1.0]}, units={"P": "kN", "d": "mm"})

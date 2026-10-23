@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import math
 from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, List, Optional, Self, Sequence, TypeVar, Union
 
@@ -350,16 +351,45 @@ class CoreOps(Generic[C_co]):
         return self._with_column(result_column or f"∫{y_column}d{x_column}", values, unit, ch,
                                  self._compound_unit(y_column, x_column, "*"))
 
-    def evaluate(self, expression: str, result_column: Optional[str] = None,
-                 unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """列名を変数とした数式を評価し、新しい列として追加します（単位は unit で指定、省略時は None）
+    def calculate(self, func: Callable[..., Any], result_column: Optional[str] = None,
+                  columns: Optional[Dict[str, str]] = None, unit: Optional[str] = None,
+                  ch: Optional[str] = None) -> Self:
+        """関数の引数名を列名として各列の値（float の numpy 配列、欠損は NaN）を渡し、戻り値を新しい列として追加します
+
+        Args:
+            func: 列の値を受け取って配列（またはスカラー）を返す関数
+            result_column: 結果列名（省略時は関数名、lambda なら "calculate"）
+            columns: 引数名と列名が異なる場合の対応 {引数名: 列名}（列名が識別子として使えない場合など）
+            unit: 結果の単位（省略時は None）
+            ch: 結果のチャンネル名
+
+        Raises:
+            ValueError: func が可変長引数を持つ場合、または戻り値の長さが行数と一致しない場合
+            KeyError: 引数に対応する列がない場合
+            TypeError: 数値列でない列を使った場合
 
         Examples:
-            >>> col.ops.evaluate("荷重 * 2.0 + 10.0", result_column="補正荷重", unit="kN").end()
+            >>> col.ops.calculate(lambda 荷重, 変位: 荷重 / 変位, result_column="剛性", unit="kN/mm").end()
+            >>> col.ops.calculate(lambda p: p * 2, columns={"p": "Force 1"}, result_column="P2").end()
+            >>> col.ops.calculate(lambda A: np.where(A > 3, A, 0), result_column="clipped").end()
         """
-        data = {name: self._column_values(name) for name in self._c.columns}
-        values = f_math.evaluate_expression(data, expression)
-        return self._with_column(result_column or "expression_result", values, unit, ch)
+        mapping = dict(columns or {})
+        args = {}
+        for param in inspect.signature(func).parameters.values():
+            if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+                raise ValueError("calculate の関数には可変長引数 (*args / **kwargs) を使えません")
+            name = mapping.get(param.name, param.name)
+            if name not in self._c:
+                raise KeyError(f"引数 '{param.name}' に対応する列 '{name}' が存在しません")
+            args[param.name] = np.array(self._numeric(name))
+
+        values = np.asarray(func(**args), dtype=float)
+        if values.ndim == 0:
+            values = np.full(len(self._c), float(values))
+        if values.shape != (len(self._c),):
+            raise ValueError(f"関数の戻り値の形 {values.shape} が行数 ({len(self._c)}) と一致しません")
+        name = getattr(func, "__name__", "<lambda>")
+        return self._with_column(result_column or ("calculate" if name == "<lambda>" else name), values, unit, ch)
 
     # ── 単項変換 ─────────────────────────────────
 
