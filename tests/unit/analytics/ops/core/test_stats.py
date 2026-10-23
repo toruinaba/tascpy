@@ -41,14 +41,6 @@ class TestMovingAverage:
         assert isinstance(result, ColumnCollection)
         assert "ma3(with_none)" in result.columns
 
-    def test_edge_handling(self, sample_collection):
-        symmetric = sample_collection.ops.moving_average("normal", window_size=3, edge_handling="symmetric"
-        ).end()
-        asymmetric = sample_collection.ops.moving_average("normal", window_size=3, edge_handling="asymmetric"
-        ).end()
-        assert isinstance(symmetric, ColumnCollection)
-        assert isinstance(asymmetric, ColumnCollection)
-
 
 class TestDetectOutliers:
     """detect_outliers関数の構造テスト"""

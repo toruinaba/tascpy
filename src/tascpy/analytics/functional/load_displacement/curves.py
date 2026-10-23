@@ -72,7 +72,7 @@ def compute_skeleton_curve(
     markers: np.ndarray,
     has_decrease: bool = False,
     decrease_type: str = "envelope",
-) -> Tuple[List[float], List[float]]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """荷重-変位データからスケルトン曲線を計算します。
     
     Args:
@@ -83,7 +83,7 @@ def compute_skeleton_curve(
         decrease_type: 減少部分の処理方法 ('envelope', 'continuous_only', 'both')
         
     Returns:
-        Tuple[List[float], List[float]]: スケルトン曲線の(変位, 荷重)リスト
+        Tuple[np.ndarray, np.ndarray]: スケルトン曲線の (変位, 荷重)
         
     Examples:
         >>> from tascpy.analytics.functional.load_displacement.curves import compute_skeleton_curve
@@ -98,7 +98,7 @@ def compute_skeleton_curve(
 
     keys, groups = _cycle_groups(loads, displacements, markers)
     if len(keys) == 0:
-        return [], []
+        return np.array([]), np.array([])
     marker_arr = np.asarray(markers, dtype=float)
     has_marker = ~np.isnan(marker_arr)
     max_marker = marker_arr[has_marker][np.nanargmax(np.asarray(loads, dtype=float)[has_marker])]
@@ -115,7 +115,7 @@ def compute_skeleton_curve(
         d_offset = 0.0
 
         for i in range(len(load)):
-            if load[i] is not None and not np.isnan(load[i]) and load[i] > p_max:
+            if not np.isnan(load[i]) and load[i] > p_max:
                 p_max = load[i]
                 if d_offset == 0.0 and len(p_ske) >= 2:
                     x, _ = extend_data_edge(d_ske, p_ske, load[i], "y", "end")
@@ -131,7 +131,7 @@ def compute_skeleton_curve(
 
             valid_indices = [
                 i for i, (l, d) in enumerate(zip(load, disp))
-                if l is not None and not np.isnan(l) and d is not None and not np.isnan(d)
+                if not np.isnan(l) and not np.isnan(d)
             ]
 
             if not valid_indices:
@@ -151,7 +151,7 @@ def compute_skeleton_curve(
             if decrease_type == "envelope":
                 p_end = load[disp_max_idx]
                 d_end = disp[disp_max_idx]
-                if p_end is not None and not np.isnan(p_end) and d_end is not None and not np.isnan(d_end):
+                if not np.isnan(p_end) and not np.isnan(d_end):
                     p_ske.append(p_end)
                     d_ske.append(d_end + d_offset)
 
@@ -159,7 +159,7 @@ def compute_skeleton_curve(
                 if load_max_idx == disp_max_idx:
                     continue
                 for i in range(min(load_max_idx, disp_max_idx), max(load_max_idx, disp_max_idx) + 1):
-                    if load[i] is None or np.isnan(load[i]) or disp[i] is None or np.isnan(disp[i]):
+                    if np.isnan(load[i]) or np.isnan(disp[i]):
                         continue
                     if p_ske and load[i] == p_ske[-1] and disp[i] + d_offset == d_ske[-1]:
                         continue
@@ -168,26 +168,26 @@ def compute_skeleton_curve(
 
             elif decrease_type == "both":
                 if load_max_idx == disp_max_idx:
-                    if load[disp_max_idx] is not None and not np.isnan(load[disp_max_idx]) and disp[disp_max_idx] is not None and not np.isnan(disp[disp_max_idx]):
+                    if not np.isnan(load[disp_max_idx]) and not np.isnan(disp[disp_max_idx]):
                         p_ske.append(load[disp_max_idx])
                         d_ske.append(disp[disp_max_idx] + d_offset)
                 else:
                     for i in range(min(load_max_idx, disp_max_idx), max(load_max_idx, disp_max_idx) + 1):
-                        if load[i] is None or np.isnan(load[i]) or disp[i] is None or np.isnan(disp[i]):
+                        if np.isnan(load[i]) or np.isnan(disp[i]):
                             continue
                         if p_ske and load[i] == p_ske[-1] and disp[i] + d_offset == d_ske[-1]:
                             continue
                         p_ske.append(load[i])
                         d_ske.append(disp[i] + d_offset)
 
-    return d_ske, p_ske
+    return np.asarray(d_ske, dtype=float), np.asarray(p_ske, dtype=float)
 
 
 def compute_cumulative_curve(
     loads: np.ndarray,
     displacements: np.ndarray,
     markers: np.ndarray,
-) -> Tuple[List[float], List[float]]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """荷重-変位データから累積曲線を計算します。
     
     Args:
@@ -196,7 +196,7 @@ def compute_cumulative_curve(
         markers: サイクルマーカー
         
     Returns:
-        Tuple[List[float], List[float]]: 累積曲線の(変位, 荷重)リスト
+        Tuple[np.ndarray, np.ndarray]: 累積曲線の (変位, 荷重)
         
     Examples:
         >>> from tascpy.analytics.functional.load_displacement.curves import compute_cumulative_curve
@@ -215,7 +215,7 @@ def compute_cumulative_curve(
 
         valid_indices = [
             j for j, (l, d) in enumerate(zip(load, displacement))
-            if (l is not None and not np.isnan(l) and d is not None and not np.isnan(d))
+            if (not np.isnan(l) and not np.isnan(d))
         ]
         valid_load = [load[j] for j in valid_indices]
         valid_disp = [displacement[j] for j in valid_indices]
@@ -242,4 +242,4 @@ def compute_cumulative_curve(
         p_cum.extend(p_extended)
         d_cum.extend(d_offsetted)
 
-    return d_cum, p_cum
+    return np.asarray(d_cum, dtype=float), np.asarray(p_cum, dtype=float)

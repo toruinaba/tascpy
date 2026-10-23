@@ -87,10 +87,31 @@ def test_compute_yield_point():
     with pytest.raises(ValueError):
         compute_yield_point(disp, load, method="unknown", range_start=0.1, range_end=0.8)
 
-    # Fail silently
-    is_valid, x, y, dbg = compute_yield_point(disp, load, method="unknown", fail_silently=True, range_start=0.1, range_end=0.8)
-    assert not is_valid
-    assert np.isnan(x)
+    # 未知の method は呼び出しの誤りなので fail_silently でも例外
+    with pytest.raises(ValueError, match="未知"):
+        compute_yield_point(disp, load, method="unknown", fail_silently=True)
+
+
+def test_compute_yield_point_failures_have_consistent_info():
+    from tascpy.analytics.functional.load_displacement.analysis import YieldPoint
+
+    # 範囲内に点がない（剛性を求められない）
+    result = compute_yield_point(np.array([0.0, 1.0]), np.array([0.0, 1.0]), range_start=0.5, range_end=0.6,
+                                 fail_silently=True)
+    assert isinstance(result, YieldPoint)
+    assert not result.is_valid and np.isnan(result.displacement) and np.isnan(result.load)
+    assert result.info["method"] == "offset"
+    assert np.isnan(result.info["initial_slope"])
+    assert result.info["parameters"] == {"range_start": 0.5, "range_end": 0.6, "offset_value": 0.002}
+    assert "error" in result.info
+
+    # 一般降伏法の内部エラーも fail_silently で捕まえる
+    disp = np.array([0.0, 1.0, 2.0, 3.0])
+    load = np.array([0.0, 10.0, 20.0, 30.0])
+    general = compute_yield_point(disp, load, method="general", factor=0.0, range_start=0.0, range_end=1.0,
+                                  fail_silently=True)
+    assert set(general.info) >= {"method", "initial_slope", "parameters"}
+    assert general.info["parameters"]["factor"] == 0.0
 
 
 def test_stiffness_and_yield_are_symmetric_for_compression():

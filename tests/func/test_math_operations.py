@@ -3,7 +3,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 
-def test_average_across():
+def test_average_columns():
     steps = [1, 2, 3, 4]
     
     col1 = Column("A", [1.0, 2.0, np.nan, 4.0], unit="V", ch="CH1")
@@ -19,7 +19,7 @@ def test_average_across():
     collection = ColumnCollection(columns, step=steps)
     
     # 1. ignore_nan=True (default)
-    result1 = collection.ops.average_across("A", "B", "C", result_column="avg_ignore").end()
+    result1 = collection.ops.average_columns(["A", "B", "C"], result_column="avg_ignore").end()
     assert "avg_ignore" in result1.columns
     
     avg_vals1 = result1["avg_ignore"].values
@@ -31,7 +31,7 @@ def test_average_across():
     assert result1["avg_ignore"].unit == "V"
     
     # 2. ignore_nan=False
-    result2 = collection.ops.average_across("A", "B", "C", result_column="avg_strict", ignore_nan=False).end()
+    result2 = collection.ops.average_columns(["A", "B", "C"], result_column="avg_strict", ignore_nan=False).end()
     assert "avg_strict" in result2.columns
     
     avg_vals2 = result2["avg_strict"].values
@@ -45,26 +45,16 @@ def test_average_across():
     assert np.isnan(avg_vals2[3])
     
     # 3. Automatic naming
-    result3 = collection.ops.average_across("A", "B").end()
-    assert any(col.startswith("average_across") for col in result3.columns)
+    result3 = collection.ops.average_columns(["A", "B"]).end()
+    assert "average_columns(A,B)" in result3.columns
 
-def test_average_across_string_coercion():
-    steps = [1, 2, 3]
-    
-    col1 = Column("A", ["1.0", "none", "3.0"], unit="V", ch="CH1")
-    col2 = Column("B", ["none", "2.0", "na"], unit="V", ch="CH2")
-    
-    columns = {
-        "A": col1,
-        "B": col2
-    }
-    
-    collection = ColumnCollection(columns, step=steps)
-    
-    result = collection.ops.average_across("A", "B", result_column="avg_str").end()
-    avg_vals = result["avg_str"].values
-    
-    # row0: ["1.0", "none"] -> 1.0
-    # row1: ["none", "2.0"] -> 2.0
-    # row2: ["3.0", "na"] -> 3.0
-    np.testing.assert_allclose(avg_vals, [1.0, 2.0, 3.0])
+def test_average_columns_rejects_non_numeric_columns():
+    collection = ColumnCollection({"A": [1.0, 2.0], "S": ["x", "y"]}, step=[1, 2])
+
+    with pytest.raises(TypeError, match="数値列ではありません"):
+        collection.ops.average_columns(["A", "S"])
+    # 列を省略した場合は数値列だけが対象
+    result = collection.ops.average_columns(result_column="avg").end()
+    np.testing.assert_allclose(result["avg"].values, [1.0, 2.0])
+    result = collection.ops.sum_columns(result_column="total").end()
+    np.testing.assert_allclose(result["total"].values, [1.0, 2.0])

@@ -1,6 +1,7 @@
 """荷重-変位データ解析用の純粋関数群"""
 
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Any, Dict, NamedTuple, Tuple
+
 import numpy as np
 
 
@@ -22,26 +23,17 @@ def compute_slopes(disp_data: np.ndarray, load_data: np.ndarray) -> np.ndarray:
         >>> compute_slopes(disp, load)
         array([nan, 10., 10.,  5.])
     """
-    if len(disp_data) != len(load_data):
+    disp = np.asarray(disp_data, dtype=float)
+    load = np.asarray(load_data, dtype=float)
+    if len(disp) != len(load):
         raise ValueError("変位と荷重データの長さは一致する必要があります")
-    if len(disp_data) < 2:
+    if len(disp) < 2:
         raise ValueError("2つ以上のデータポイントが必要です")
-        
-    slopes = [np.nan]
-    for i in range(1, len(disp_data)):
-        if (
-            disp_data[i] is not None
-            and disp_data[i - 1] is not None
-            and load_data[i] is not None
-            and load_data[i - 1] is not None
-            and disp_data[i] != disp_data[i - 1]
-        ):
-            slope = (load_data[i] - load_data[i - 1]) / (disp_data[i] - disp_data[i - 1])
-            slopes.append(slope)
-        else:
-            slopes.append(np.nan)
-            
-    return np.array(slopes, dtype=float)
+
+    d_disp = np.diff(disp)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        slopes = np.where(d_disp != 0, np.diff(load) / d_disp, np.nan)
+    return np.concatenate([[np.nan], slopes])
 
 
 def _peak_load(load_data: np.ndarray) -> float:
@@ -194,6 +186,22 @@ def compute_yield_point_general(
     return False, np.nan, np.nan, debug_info
 
 
+class YieldPoint(NamedTuple):
+    """降伏点の計算結果（タプルとして (is_valid, displacement, load, info) に分解できる）
+
+    info には常に method・initial_slope（求められなければ NaN）・parameters が入り、
+    失敗時は error、成功時は手法ごとの診断情報（diff_stats / slopes_stats など）も入ります。
+    """
+
+    is_valid: bool
+    displacement: float
+    load: float
+    info: Dict[str, Any]
+
+
+YIELD_METHODS = ("offset", "general")
+
+
 def compute_yield_point(
     disp_data: np.ndarray,
     load_data: np.ndarray,
@@ -203,52 +211,41 @@ def compute_yield_point(
     range_end: float = 0.3,
     factor: float = 0.33,
     fail_silently: bool = False,
-) -> Tuple[bool, float, float, Dict[str, Any]]:
+) -> YieldPoint:
     """降伏点を計算します
 
     初期剛性を最大荷重（絶対値が最大の荷重）の range_start〜range_end の範囲から求め、
     "offset" は初期剛性線を offset_value だけ平行移動した直線との交点、
     "general" は接線剛性が初期剛性 × factor を下回る点を降伏点とします。
 
-    Returns:
-        (is_valid, 変位, 荷重, info)。info には method・initial_slope・parameters（失敗時は error）が入ります
+    Args:
+        fail_silently: True なら計算できない場合も例外にせず、is_valid=False と info["error"] を返す
+
+    Raises:
+        ValueError: method が未知の場合、または fail_silently=False で計算できない場合
     """
-    disp_data = np.asarray(disp_data, dtype=float)
-    load_data = np.asarray(load_data, dtype=float)
-    valid_mask = ~(np.isnan(disp_data) | np.isnan(load_data))
-    disp_data = disp_data[valid_mask]
-    load_data = load_data[valid_mask]
+    if method not in YIELD_METHODS:
+        raise ValueError(f"未知の降伏点の計算方法です: {method}（{', '.join(YIELD_METHODS)} のいずれか）")
+    parameters = {"range_start": range_start, "range_end": range_end,
+                  **({"offset_value": offset_value} if method == "offset" else {"factor": factor})}
+    info: Dict[str, Any] = {"method": method, "initial_slope": np.nan, "parameters": parameters}
+
+    disp = np.asarray(disp_data, dtype=float)
+    load = np.asarray(load_data, dtype=float)
+    valid = ~(np.isnan(disp) | np.isnan(load))
+    disp, load = disp[valid], load[valid]
 
     try:
-        initial_slope = compute_stiffness(
-            disp_data, load_data, range_start=range_start, range_end=range_end
-        )
+        initial_slope = compute_stiffness(disp, load, range_start=range_start, range_end=range_end)
+        if not np.isfinite(initial_slope):
+            raise ValueError("初期剛性(initial_slope)が NaN または Inf となりました。")
+        info["initial_slope"] = initial_slope
+        if method == "offset":
+            is_valid, x, y, details = compute_yield_point_offset(disp, load, initial_slope, offset_value)
+        else:
+            is_valid, x, y, details = compute_yield_point_general(disp, load, initial_slope, factor)
     except ValueError as e:
-        if fail_silently:
-            return False, np.nan, np.nan, {"error": str(e), "method": method}
-        raise
-
-    if np.isnan(initial_slope) or np.isinf(initial_slope):
-        err_msg = "初期剛性(initial_slope)が NaN または Inf となりました。"
-        if fail_silently:
-            return False, np.nan, np.nan, {"error": err_msg, "method": method}
-        raise ValueError(err_msg)
-    if method == "offset":
-        res_tuple = compute_yield_point_offset(disp_data, load_data, initial_slope, offset_value)
-    elif method == "general":
-        res_tuple = compute_yield_point_general(disp_data, load_data, initial_slope, factor)
-    else:
-        if fail_silently:
-            return False, np.nan, np.nan, {"error": f"Unknown method: {method}", "method": method, "initial_slope": initial_slope}
-        raise ValueError(f"Unknown yield calculation method: {method}")
-
-    is_valid, x, y, debug_info = res_tuple
-    debug_info["method"] = method
-    debug_info["initial_slope"] = initial_slope
-    
-    if method == "offset":
-        debug_info["parameters"] = {"offset_value": offset_value, "range_start": range_start, "range_end": range_end}
-    elif method == "general":
-        debug_info["parameters"] = {"factor": factor, "range_start": range_start, "range_end": range_end}
-
-    return is_valid, x, y, debug_info
+        if not fail_silently:
+            raise
+        return YieldPoint(False, np.nan, np.nan, {**info, "error": str(e)})
+    return YieldPoint(is_valid, x, y, {**details, **info})
