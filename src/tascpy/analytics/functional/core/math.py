@@ -1,26 +1,58 @@
 
-from typing import Union, Optional, List, Dict, Any, Mapping, Set
+from functools import reduce
+from typing import Union, Optional, List, Dict, Any, Mapping, Set, Tuple, Callable
 import numpy as np
 import ast
 import math
 
-_EXPR_FUNCTIONS = {
-    "log": np.log, "sqrt": np.sqrt, "abs": np.abs, "max": np.maximum, "min": np.minimum,
-    "pow": np.power, "round": np.round,
+
+def _maximum(*args: Any) -> Any:
+    return reduce(np.maximum, args)
+
+
+def _minimum(*args: Any) -> Any:
+    return reduce(np.minimum, args)
+
+
+def _round(values: Any, decimals: Any = 0) -> Any:
+    return np.round(values, int(decimals))
+
+
+def _truthy(value: Any) -> Any:
+    """Python の真偽判定と同じく 0 以外（NaN を含む）を真とする"""
+    return np.asarray(value) != 0
+
+
+# 関数名: (実装, 最小の引数の数, 最大の引数の数（None は無制限）)
+_EXPR_FUNCTIONS: Dict[str, Tuple[Callable[..., Any], int, Optional[int]]] = {
+    "log": (np.log, 1, 1), "sqrt": (np.sqrt, 1, 1), "abs": (np.abs, 1, 1),
+    "max": (_maximum, 2, None), "min": (_minimum, 2, None),
+    "pow": (np.power, 2, 2), "round": (_round, 1, 2),
 }
 _EXPR_CONSTANTS = {"pi": np.pi, "e": np.e}
 _EXPR_NODES = (
     ast.Expression, ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.IfExp, ast.Call, ast.Name,
     ast.Load, ast.Constant, ast.operator, ast.unaryop, ast.boolop, ast.cmpop,
 )
+_EXPR_HELPERS: Dict[str, Callable[..., Any]] = {
+    "__num": np.float64,
+    "__where": np.where,
+    "__and": lambda a, b: np.where(_truthy(a), b, a),
+    "__or": lambda a, b: np.where(_truthy(a), a, b),
+    "__not": lambda a: ~_truthy(a),
+}
 
 
 class _Vectorize(ast.NodeTransformer):
-    """配列で評価できない構文（三項演算子・and/or/not・連続比較）を numpy の関数呼び出しに置き換える"""
+    """配列で評価できない構文（三項演算子・and/or/not・連続比較）を numpy の関数呼び出しに置き換え、
+    数値定数を numpy のスカラーにする（スカラーどうしの演算も numpy で行い、1 / 0 を例外にしないため）"""
 
     @staticmethod
     def _call(name: str, *args: ast.expr) -> ast.Call:
         return ast.Call(func=ast.Name(id=name, ctx=ast.Load()), args=list(args), keywords=[])
+
+    def visit_Constant(self, node: ast.Constant) -> ast.AST:
+        return self._call("__num", node)
 
     def visit_IfExp(self, node: ast.IfExp) -> ast.AST:
         self.generic_visit(node)
@@ -55,8 +87,10 @@ def evaluate_expression(
     """列名を変数とした数式を、numpy で要素ごとに評価します。
 
     使える構文は四則演算・べき乗・比較・and / or / not・三項演算子（a if 条件 else b）と、
-    関数 log, sqrt, abs, max, min, pow, round、定数 pi, e です。属性アクセスなどそれ以外の構文は使えません。
-    欠損 (NaN / None) を含む行や、計算結果が無限大・未定義になる行は NaN になります。
+    関数 log(x), sqrt(x), abs(x), pow(x, y), round(x[, 桁数]), max(a, b, ...), min(a, b, ...)、定数 pi, e です。
+    属性アクセスなどそれ以外の構文は使えません。and / or は Python と同じく真偽値ではなくオペランドの値を返します。
+    欠損 (NaN / None) を含む行や、計算結果が無限大・未定義になる行（1 / 0 など）は NaN になります。
+    三項演算子は両方の分岐を計算するため、選ばれなかった分岐が無効でも結果には影響しません。
 
     Args:
         data: {列名: 値の配列}
@@ -89,6 +123,13 @@ def evaluate_expression(
         if isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name) or node.func.id not in _EXPR_FUNCTIONS or node.keywords:
                 raise ValueError(f"許可されていない関数呼び出しです: {ast.unparse(node.func)}")
+            _, lo, hi = _EXPR_FUNCTIONS[node.func.id]
+            if len(node.args) < lo or (hi is not None and len(node.args) > hi):
+                expected = f"{lo}個以上" if hi is None else (f"{lo}個" if lo == hi else f"{lo}〜{hi}個")
+                raise ValueError(f"関数 {node.func.id} の引数は{expected}です: {ast.unparse(node)}")
+        elif isinstance(node, ast.Constant) and (
+                isinstance(node.value, (str, bytes, complex)) or node.value is None or node.value is ...):
+            raise ValueError(f"式に使えない定数が含まれています: {node.value!r}")
         elif isinstance(node, ast.Name) and node.id not in _EXPR_FUNCTIONS and node.id not in _EXPR_CONSTANTS:
             names.add(node.id)
 
@@ -97,12 +138,11 @@ def evaluate_expression(
         raise KeyError(f"式に存在しないカラム名が含まれています: {', '.join(sorted(missing))}")
 
     namespace: Dict[str, Any] = {
-        **_EXPR_FUNCTIONS, **_EXPR_CONSTANTS,
-        "__where": np.where, "__and": np.logical_and, "__or": np.logical_or, "__not": np.logical_not,
+        **{name: func for name, (func, _, _) in _EXPR_FUNCTIONS.items()}, **_EXPR_CONSTANTS, **_EXPR_HELPERS,
     }
     for name in names:
         try:
-            namespace[name] = np.asarray(data[name], dtype=float)
+            namespace[name] = np.array(data[name], dtype=float)  # 入力を書き換えないようコピーする
         except (TypeError, ValueError) as e:
             raise ValueError(f"列 '{name}' は数値に変換できません") from e
 

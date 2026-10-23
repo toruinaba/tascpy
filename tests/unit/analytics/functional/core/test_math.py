@@ -101,3 +101,37 @@ def test_evaluate_errors():
         evaluate_expression({"A": np.array([1.0])}, "A +")
     with pytest.raises(ValueError, match="数値に変換できません"):
         evaluate_expression({"s": np.array(["x"])}, "s * 2")
+
+
+@pytest.mark.parametrize("expression, expected", [
+    ("max(A, 3, 5)", [5.0, 5.0]),
+    ("max(A, B, C)", [5.0, 2.0]),
+    ("min(A, B, 0)", [0.0, 0.0]),
+    ("A or 10", [10.0, 2.0]),     # Python と同じくオペランドの値を返す
+    ("A and 10", [0.0, 10.0]),
+    ("not A", [1.0, 0.0]),
+    ("round(B * 1.26, 1)", [6.3, 1.3]),
+])
+def test_evaluate_functions_and_boolean_operands(expression, expected):
+    data = {"A": np.array([0.0, 2.0]), "B": np.array([5.0, 1.0]), "C": np.array([-1.0, -1.0])}
+    np.testing.assert_allclose(evaluate_expression(data, expression), expected)
+
+
+@pytest.mark.parametrize("expression", ["abs(A, B)", "max(A)", "pow(A)", "log(A, B, A)", "A + 'x'"])
+def test_evaluate_rejects_wrong_arguments(expression):
+    with pytest.raises(ValueError):
+        evaluate_expression({"A": np.array([1.0]), "B": np.array([2.0])}, expression)
+
+
+def test_evaluate_does_not_modify_inputs():
+    data = {"A": np.array([0.0, 2.0]), "B": np.array([5.0, 1.0]), "C": np.array([-1.0, -1.0])}
+    before = {k: v.copy() for k, v in data.items()}
+    evaluate_expression(data, "max(A, B, C) + abs(C)")
+    for name, values in data.items():
+        np.testing.assert_array_equal(values, before[name])
+
+
+def test_evaluate_scalar_division_by_zero_is_nan():
+    data = {"A": np.array([5.0, 1.0])}
+    np.testing.assert_array_equal(evaluate_expression(data, "1 / 0"), [np.nan, np.nan])
+    np.testing.assert_array_equal(evaluate_expression(data, "A if A > 3 else 1 / 0"), [5.0, np.nan])
