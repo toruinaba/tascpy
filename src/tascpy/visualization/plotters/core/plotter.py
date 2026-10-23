@@ -32,14 +32,9 @@ class CorePlotter:
             Tuple[np.ndarray, str]: (値の配列、ラベル文字列)
         """
         if column_name is None:
-            val_list, name, unit = self._collection.step.values, "Step", ""
-        else:
-            if column_name not in self._collection.columns:
-                raise KeyError(f"列 '{column_name}' は存在しません")
-            column = self._collection.columns[column_name]
-            val_list, name, unit = column.values, column.name, column.unit
-        label = f"{name} [{unit}]" if unit else name
-        return np.array(val_list), label
+            return self._collection.step, "Step"
+        column = self._collection[column_name]
+        return column.values, f"{column.name} [{column.unit}]" if column.unit else column.name
 
     def plot(
         self,

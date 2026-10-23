@@ -1,201 +1,77 @@
-from typing import Dict, Any, List, Optional, Tuple, Union, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
+
 from ..core.collection import ColumnCollection
-from ..core.step import Step
 from ..core.column import Column
-from .factory import DomainCollectionFactory
 
 if TYPE_CHECKING:
     from ..analytics.ops import LoadDisplacementOps
     from ..visualization.plotters.load_displacement.plotter import LoadDisplacementPlotter
 
+LOAD_KEYWORDS = ("load", "force", "荷重", "力")
+DISPLACEMENT_KEYWORDS = ("disp", "displacement", "変位", "変形")
+
+
+def _guess_column(collection: ColumnCollection, keywords: Sequence[str]) -> Optional[str]:
+    for keyword in keywords:
+        for name in collection.columns:
+            if keyword.lower() in name.lower():
+                return name
+    return None
+
 
 class LoadDisplacementCollection(ColumnCollection):
-    """荷重と変形のデータセットを扱うための特化コレクションクラス
-    
+    """荷重と変位の列を指定したコレクション
+
     Examples:
-        >>> from tascpy.domains.load_displacement import LoadDisplacementCollection
-        >>> from tascpy.core.column import NumberColumn
-        >>> cols = {"load": NumberColumn("load", "Load", "kN", [0.0, 10.0]), "disp": NumberColumn("disp", "Disp", "mm", [0.0, 1.0])}
-        >>> col = LoadDisplacementCollection(columns=cols, load_column="load", displacement_column="disp")
-        >>> col["load"].values
-        [0.0, 10.0]
+        >>> col = LoadDisplacementCollection(
+        ...     {"P": [0.0, 10.0], "d": [0.0, 1.0]}, units={"P": "kN", "d": "mm"},
+        ...     load_column="P", displacement_column="d",
+        ... )
+        >>> col.load.unit
+        'kN'
     """
 
-    def __init__(
-        self,
-        step: Union[Step, List[Any], None] = None,
-        columns: Optional[Dict[str, Union[Column, List[Any]]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        load_column: str = "load",
-        displacement_column: str = "displacement",
-        **kwargs: Any,
-    ):
-        """初期化
+    domain = "load_displacement"
 
-        Args:
-            step: ステップデータ
-            columns: カラムデータ
-            metadata: メタデータ
-            load_column: 荷重データを含むカラム名（デフォルト: "load"）
-            displacement_column: 変形データを含むカラム名（デフォルト: "displacement"）
-        """
-        if load_column is None:
-            raise ValueError("load_column は必須です。荷重データのカラム名を指定してください。")
-        if displacement_column is None:
-            raise ValueError("displacement_column は必須です。変形データのカラム名を指定してください。")
+    def __init__(self, columns: Optional[Mapping[str, Any]] = None, *, load_column: str,
+                 displacement_column: str, **kwargs: Any) -> None:
+        super().__init__(columns, **kwargs)
+        self._load_column = load_column
+        self._displacement_column = displacement_column
+        self._validate()
 
-        super().__init__(step=step, columns=columns, metadata=metadata)
-
-        # 荷重と変形のカラム名をメタデータに保存
-        # 操作関数がこの情報を使用する
-        self.metadata.update(
-            {
-                "load_displacement_domain": {
-                    "load_column": load_column,
-                    "displacement_column": displacement_column,
-                }
-            }
-        )
-
-        # カラムが存在するかチェック (データがある場合のみ)
-        if columns:
-            if load_column not in columns:
-                raise ValueError(
-                    f"load_column に指定したカラム '{load_column}' が見つかりません"
-                )
-            if displacement_column not in columns:
-                raise ValueError(
-                    f"displacement_column に指定したカラム '{displacement_column}' が見つかりません"
-                )
-
-    def __getitem__(self, key: str) -> Any:
-        """項目へのアクセスを提供するメソッド
-
-        通常のカラムアクセスに加え、ドット区切りのパス形式でメタデータやカーブデータへのアクセスをサポート。
-        例:
-            collection["load"] -> 荷重カラム (通常のアクセス)
-            collection["curves.skeleton_curve"] -> スケルトン曲線データ辞書
-            collection["curves.skeleton_curve.y"] -> スケルトン曲線のy座標データ
-            collection["curves.skeleton_curve.columns.y"] -> スケルトン曲線のy座標カラムオブジェクト
-            collection["analysis.yield_point"] -> メタデータ内の降伏点情報（analysisキーを直接指定）
-            collection["metadata.analysis.yield_point"] -> 上と同じ（metadataキーを明示）
-
-        Args:
-            key: カラム名またはドット区切りのアクセスパス
-
-        Returns:
-            Any: 取得したデータ（カラム、リスト、辞書など）
+    @classmethod
+    def from_collection(cls, collection: ColumnCollection, load_column: Optional[str] = None,
+                        displacement_column: Optional[str] = None) -> "LoadDisplacementCollection":
+        """既存のコレクションから作成する（列名省略時は列名のキーワードから推測）
 
         Raises:
-            KeyError: 指定されたキーまたはパスが見つからない場合
+            ValueError: 列を推測できない、または列が数値でない場合
         """
-        if isinstance(key, int):
-            return super().__getitem__(key)
+        load_column = load_column or _guess_column(collection, LOAD_KEYWORDS)
+        displacement_column = displacement_column or _guess_column(collection, DISPLACEMENT_KEYWORDS)
+        if not load_column or not displacement_column:
+            raise ValueError("荷重列・変位列を指定してください（列名から推測できませんでした）")
+        new = collection._as_class(cls)
+        new._load_column = load_column
+        new._displacement_column = displacement_column
+        new._validate()
+        return new
 
-        # キーにドットが含まれる場合はパスアクセスとして処理
-        if "." in key:
-            path_parts = key.split(".")
+    def _validate(self) -> None:
+        for role, name in (("load_column", self._load_column), ("displacement_column", self._displacement_column)):
+            if name not in self:
+                raise ValueError(f"{role} に指定した列 '{name}' が存在しません")
+            if not self[name].is_numeric:
+                raise ValueError(f"{role} に指定した列 '{name}' は数値列ではありません")
 
-            # メタデータへの直接アクセスをチェック
-            # metadata キーなしでもメタデータ内の要素にアクセスできるようにする
-            if path_parts[0] in self.metadata and path_parts[0] not in [
-                "curves",
-                "metadata",
-            ]:
-                current = self.metadata
-                try:
-                    for part in path_parts:
-                        if isinstance(current, dict):
-                            if part not in current:
-                                raise KeyError(
-                                    f"'{part}' というキーはパス '{key}' の中に存在しません"
-                                )
-                            current = current[part]
-                        else:
-                            raise KeyError(
-                                f"'{part}' にアクセスしようとしましたが、現在のオブジェクトは辞書ではありません"
-                            )
-                    return current
-                except KeyError as e:
-                    raise KeyError(f"{str(e)}")
-
-            # 以下は既存のパス処理コード
-            current = self
-
-            # パスを辿って再帰的にアクセス
-            for part in path_parts:
-                if isinstance(current, dict):
-                    if part not in current:
-                        raise KeyError(
-                            f"'{part}' というキーはパス '{key}' の中に存在しません"
-                        )
-                    current = current[part]
-                elif isinstance(current, LoadDisplacementCollection):
-                    try:
-                        # 次の部分がメタデータの場合
-                        if part == "metadata":
-                            current = current.metadata
-                        # 次の部分がカーブデータの場合
-                        elif part == "curves":
-                            # curves キーがなくても空辞書を返す
-                            current = current.metadata.get("curves", {})
-                        # 次の部分が通常のカラムの場合
-                        else:
-                            current = current[part]  # 通常のカラムアクセス
-                    except KeyError:
-                        raise KeyError(
-                            f"'{part}' というキーはコレクションに存在しません"
-                        )
-                else:
-                    # リストやその他のオブジェクトにインデックスとしてアクセス試行
-                    try:
-                        if isinstance(current, list) and part.isdigit():
-                            current = current[int(part)]
-                        elif hasattr(current, part):
-                            current = getattr(current, part)
-                        else:
-                            raise KeyError(
-                                f"'{part}' というキーまたは属性が存在しません"
-                            )
-                    except (IndexError, AttributeError):
-                        raise KeyError(
-                            f"パス '{key}' の '{part}' 部分でアクセスエラーが発生しました"
-                        )
-
-            return current
-
-        # 特殊ショートカットキーの処理
-        if key == "load":
-            return super().__getitem__(self.load_column)
-        elif key == "displacement":
-            return super().__getitem__(self.displacement_column)
-        elif key == "curves":
-            # curves キーがなくても空辞書を返す
-            return self.metadata.get("curves", {})
-        # メタデータへの直接アクセス（単一キー）
-        elif key in self.metadata and key not in self.columns:
-            return self.metadata[key]
-
-        # 通常のカラムアクセス
-        try:
-            return super().__getitem__(key)
-        except KeyError:
-            # カーブデータへの直接アクセス試行
-            if (
-                self.metadata
-                and "curves" in self.metadata
-                and key in self.metadata["curves"]
-            ):
-                return self.metadata["curves"][key]
-            # それ以外はエラー
-            raise KeyError(f"'{key}' というカラムまたはカーブデータが見つかりません")
-
-    @property
-    def domain(self) -> str:
-        """ドメイン識別子を返す"""
-        return "load_displacement"
+    def _apply_rename(self, mapping: Mapping[str, str]) -> None:
+        self._load_column = mapping.get(self._load_column, self._load_column)
+        self._displacement_column = mapping.get(self._displacement_column, self._displacement_column)
 
     @property
     def ops(self) -> "LoadDisplacementOps":
@@ -206,166 +82,48 @@ class LoadDisplacementCollection(ColumnCollection):
 
     @property
     def plot(self) -> "LoadDisplacementPlotter":
-        """荷重-変位データの可視化プロキシクラスを返す
-        
-        Returns:
-            LoadDisplacementPlotter: 荷重-変位用の可視化機能を提供するPlotter
-        """
-        if not hasattr(self, "_plotter"):
-            from tascpy.visualization.plotters.load_displacement.plotter import LoadDisplacementPlotter
-            
-            self._plotter = LoadDisplacementPlotter(self)
-        return self._plotter
+        """荷重-変位データのプロッター"""
+        from ..visualization.plotters.load_displacement.plotter import LoadDisplacementPlotter
+
+        return LoadDisplacementPlotter(self)
 
     @property
     def load_column(self) -> str:
-        """荷重データを含むカラム名を返す
-
-        Returns:
-            str: 荷重カラム名
-        """
-        return self.metadata["load_displacement_domain"]["load_column"]
+        return self._load_column
 
     @property
     def displacement_column(self) -> str:
-        """変形データを含むカラム名を返す
+        return self._displacement_column
 
-        Returns:
-            str: 変形カラム名
-        """
-        return self.metadata["load_displacement_domain"]["displacement_column"]
+    @property
+    def load(self) -> Column:
+        return self[self._load_column]
 
-    def clone(self) -> "LoadDisplacementCollection":
-        """コレクションの複製を作成
-
-        Returns:
-            LoadDisplacementCollection: 複製されたコレクション
-        """
-        new_collection = LoadDisplacementCollection(
-            step=self.step.clone() if self.step else None,
-            columns={name: column.clone() for name, column in self.columns.items()},
-            metadata=self.metadata.copy(),
-            load_column=self.load_column,
-            displacement_column=self.displacement_column,
-        )
-        new_collection._results = self._results.copy()
-        return new_collection
-
-    def keys(self) -> list[str]:
-        """利用可能なキーのリストを返す
-
-        通常のカラム名に加えて、メタデータのトップレベルキーも含める
-        ただし、カラム名と衝突するメタデータのキーは優先度が低くなる
-
-        Returns:
-            list[str]: カラム名とアクセス可能なメタデータキーのリスト
-        """
-        key_set = set(super().keys())
-        key_set.add("step")
-        key_set.add("curves")
-        # メタデータのトップレベルキーを追加（カラム名と衝突しないもの）
-        if self.metadata:
-            for meta_key in self.metadata.keys():
-                if meta_key not in key_set and meta_key not in ["curves", "metadata"]:
-                    key_set.add(meta_key)
-        return sorted(list(key_set))
+    @property
+    def displacement(self) -> Column:
+        return self[self._displacement_column]
 
     @property
     def load_data(self) -> np.ndarray:
-        """荷重データ配列を取得 (NaNを保持)
-        
-        Returns:
-            np.ndarray: 荷重データの配列
-        """
-        import numpy as np
-        return np.array([v if v is not None else np.nan for v in self[self.load_column].values])
+        """荷重の配列（欠損は NaN）"""
+        return self.load.values
 
     @property
     def displacement_data(self) -> np.ndarray:
-        """変位データ配列を取得 (NaNを保持)
-        
-        Returns:
-            np.ndarray: 変位データの配列
-        """
-        import numpy as np
-        return np.array([v if v is not None else np.nan for v in self[self.displacement_column].values])
-        
+        """変位の配列（欠損は NaN）"""
+        return self.displacement.values
+
     @property
     def valid_data_mask(self) -> np.ndarray:
-        """NaNを含まない有効なデータのブールマスクを取得
-        
-        Returns:
-            np.ndarray: 有効なデータのブールマスク
-        """
-        import numpy as np
+        """荷重・変位がともに欠損でない行のマスク"""
         return ~(np.isnan(self.load_data) | np.isnan(self.displacement_data))
-        
+
     @property
     def valid_data(self) -> Tuple[np.ndarray, np.ndarray]:
-        """有効な(変位, 荷重)の配列の組を取得
-        
-        Returns:
-            tuple[np.ndarray, np.ndarray]: (変位データ, 荷重データ)
-        """
+        """有効な行の (変位, 荷重)"""
         mask = self.valid_data_mask
         return self.displacement_data[mask], self.load_data[mask]
 
-    def get_ld_cycle_arrays(
-        self,
-        cycle_marker_column: Optional[str] = None,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """荷重・変位・サイクルマーカーの numpy 配列を取得する。
-
-        サイクルマーカーカラムが存在しない場合は ``KeyError`` を raise します
-        （自動生成はオペレーション層の責務）。
-
-        Args:
-            cycle_marker_column: サイクルマーカーカラム名（None 時は自動検出）
-
-        Returns:
-            tuple[np.ndarray, np.ndarray, np.ndarray]: (loads, displacements, markers)
-
-        Raises:
-            KeyError: サイクルマーカーカラムが見つからない場合
-
-        Examples:
-            >>> loads, disps, markers = col.get_ld_cycle_arrays()
-            >>> loads, disps, markers = col.get_ld_cycle_arrays(cycle_marker_column="cycle")
-        """
-        import numpy as np
-
-        loads = self.load_data
-        disps = self.displacement_data
-
-        # サイクルマーカー解決: 明示指定のみ。未指定・未存在の場合は KeyError
-        if cycle_marker_column is None:
-            raise KeyError(
-                "cycle_marker_column が指定されていません。"
-                "先に `col.ops.cycle_count()` を実行してマーカー列を作成するか、"
-                "cycle_marker_column を明示的に指定してください。"
-            )
-        if cycle_marker_column not in self.columns:
-            raise KeyError(f"サイクルマーカーカラム '{cycle_marker_column}' が見つかりません")
-        markers = np.array(self[cycle_marker_column].values)
-
-        return loads, disps, markers
-
-
-
-# ファクトリ関数の定義
-def create_load_displacement_collection(**kwargs: Any) -> LoadDisplacementCollection:
-    """荷重-変形コレクションを作成するファクトリ関数
-    
-    Examples:
-        >>> from tascpy.domains.load_displacement import create_load_displacement_collection
-        >>> col = create_load_displacement_collection()
-        >>> type(col).__name__
-        'LoadDisplacementCollection'
-    """
-    return LoadDisplacementCollection(**kwargs)
-
-
-# ドメインファクトリーへの登録
-DomainCollectionFactory.register(
-    "load_displacement", create_load_displacement_collection
-)
+    def __repr__(self) -> str:
+        return (super().__repr__()[:-1]
+                + f" load={self._load_column!r} displacement={self._displacement_column!r}>")

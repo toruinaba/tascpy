@@ -6,22 +6,22 @@ from typing import List, Optional, Self
 
 import numpy as np
 
-from tascpy.core.column import Column
 from tascpy.domains.strain import StrainCollection
 
 from ..functional.load_displacement.analysis import compute_yield_point
 from ..functional.strain.rosette import compute_rosette_strains
 from ..functional.strain.ss_analysis import compute_stress
 from .coordinate import CoordinateOps
+from .core import to_float_array
 
 
 class StrainOps(CoordinateOps[StrainCollection]):
     """ひずみコレクションの操作（汎用操作・座標操作も全て利用可能）"""
 
     def _float_column(self, name: Optional[str], label: str) -> np.ndarray:
-        if not name or name not in self._c.columns:
+        if not name or name not in self._c:
             raise ValueError(f"{label} '{name}' が見つかりません")
-        return np.array(self._c.columns[name].values, dtype=float)
+        return to_float_array(self._column_values(name))
 
     def calculate_rosette_strains(self, rosette_name: Optional[str] = None, columns: Optional[List[str]] = None,
                                   rosette_type: str = "rectangular", orientation: float = 0.0,
@@ -56,8 +56,8 @@ class StrainOps(CoordinateOps[StrainCollection]):
             e1, e2, e3, r_type=rosette_type, angle_offset=orientation,
         )
 
-        result = self._c.clone()
-        unit = self._c.columns[columns[0]].unit
+        result = self._c
+        unit = self._unit_of(columns[0])
         x, y, z = self._c.get_column_coordinates(columns[0])
         for suffix, values, description in [
             ("e1", e_max, "Max Principal Strain"),
@@ -66,11 +66,10 @@ class StrainOps(CoordinateOps[StrainCollection]):
             ("theta", theta, "Principal Direction Angle (deg)"),
         ]:
             name = f"{prefix}_{suffix}"
-            result.columns[name] = Column(
-                ch=None, name=name, unit="deg" if suffix == "theta" else unit, values=values,
-                metadata={"description": description, "source_rosette": rosette_name or "manual"},
-            )
-            result.set_column_coordinates(name, x, y, z)
+            result = result.with_column(
+                name, values, unit="deg" if suffix == "theta" else unit,
+                attrs={"description": description, "source_rosette": rosette_name or "manual"},
+            ).with_coordinates(name, x, y, z)
         return self._next(result)
 
     def calculate_stress(self, load_column: str, area: float, result_column: str = "stress",
@@ -81,10 +80,9 @@ class StrainOps(CoordinateOps[StrainCollection]):
             >>> col.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力").end()
         """
         stress = compute_stress(self._float_column(load_column, "荷重カラム"), area)
-        result = self._c.clone()
-        result.columns[result_column] = Column(
-            ch=None, name=result_column, unit=unit, values=stress.tolist(),
-            metadata={
+        result = self._c.with_column(
+            result_column, stress, unit=unit,
+            attrs={
                 "description": f"Calculated Stress (Load: {load_column}, Area: {area})",
                 "source_load": load_column,
                 "area": area,
@@ -106,4 +104,5 @@ class StrainOps(CoordinateOps[StrainCollection]):
             range_start=range_start, range_end=range_end, factor=factor,
             debug_mode=debug_mode, fail_silently=fail_silently,
         )
-        return self._with_point("yield_point", outcome)
+        return self._with_point("yield_point", outcome, x_unit=self._unit_of(strain_column),
+                                y_unit=self._unit_of(stress_column))

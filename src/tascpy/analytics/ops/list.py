@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any, Callable, Generic, Iterator, List, TypeVar, Union, overload
 
-import numpy as np
+from tascpy.core.collection import concat
 
-from tascpy.core.collection import ColumnCollection
-from tascpy.core.step import Step
-
-from .core import CoreOps, _rebuild
+from .core import CoreOps
 
 O = TypeVar("O", bound=CoreOps[Any])
 O2 = TypeVar("O2", bound=CoreOps[Any])
@@ -71,25 +67,4 @@ class OpsList(Generic[O]):
         """
         if not self._items:
             raise ValueError("連結するコレクションがありません")
-
-        collections: List[ColumnCollection] = self.end()
-        names: List[str] = []
-        for c in collections:
-            names.extend(n for n in c.columns if n not in names)
-
-        merged = {}
-        for name in names:
-            base = next(c.columns[name] for c in collections if name in c.columns)
-            numeric = np.issubdtype(np.asarray(base.values).dtype, np.number)
-            parts = [
-                np.asarray(c.columns[name].values) if name in c.columns
-                else np.full(len(c), np.nan if numeric else None)
-                for c in collections
-            ]
-            merged[name] = _rebuild(base, np.concatenate(parts))
-
-        result = collections[0].clone()
-        result.metadata = deepcopy(collections[0].metadata)
-        result.columns = merged
-        result.step = Step(values=np.concatenate([np.asarray(c.step.values) for c in collections]).tolist())
-        return self._items[0]._next(result)
+        return self._items[0]._next(concat(self.end()))
