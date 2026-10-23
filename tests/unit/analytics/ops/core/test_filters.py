@@ -147,7 +147,6 @@ class TestRemoveOutliers:
         result = outlier_collection.ops.remove_outliers(column="Data",
             window_size=3,
             threshold=0.3,
-            edge_handling="asymmetric",
         ).end()
         assert isinstance(result, ColumnCollection)
 
@@ -155,7 +154,6 @@ class TestRemoveOutliers:
         result = outlier_collection.ops.remove_outliers(column="Data",
             window_size=5,
             threshold=0.8,
-            edge_handling="symmetric",
         ).end()
         assert isinstance(result, ColumnCollection)
 

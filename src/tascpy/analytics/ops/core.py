@@ -103,9 +103,16 @@ class CoreOps(Generic[C_co]):
         return operand
 
     def _numeric(self, operand: Any) -> Any:
-        """列名・配列を欠損 NaN の float 配列に変換する（スカラーはそのまま）"""
+        """列名・配列を欠損 NaN の float 配列に変換する（スカラーはそのまま）
+
+        Raises:
+            TypeError: 数値列でない列を指定した場合
+        """
         if isinstance(operand, str):
-            return to_float_array(self._column_values(operand))
+            column = self._c[operand]
+            if not column.is_numeric:
+                raise TypeError(f"列 '{operand}' は数値列ではありません (dtype={column.dtype})")
+            return column.values
         if isinstance(operand, (list, tuple, np.ndarray)):
             return to_float_array(operand)
         return operand
@@ -127,6 +134,15 @@ class CoreOps(Generic[C_co]):
         if self._is_column(value2) and np.ndim(value1) == 0 and not isinstance(value1, str):
             return self._unit_of(value2)
         return None
+
+    def _numeric_columns(self, columns: Optional[List[str]]) -> List[str]:
+        """指定した列（省略時は全数値列）。数値でない列を指定すると TypeError"""
+        if columns is None:
+            return [name for name in self._c.columns if self._c[name].is_numeric]
+        names = self._check_columns(columns)
+        for name in names:
+            self._numeric(name)
+        return names
 
     def _check_columns(self, columns: Optional[List[str]]) -> List[str]:
         names = self._c.columns if columns is None else list(columns)
@@ -390,36 +406,24 @@ class CoreOps(Generic[C_co]):
         return self._unary(f"norm_{method}({values})", f_math.normalize(self._numeric(values), method=method),
                            result_column, unit, ch, "")
 
-    def average_across(self, *columns: str, ignore_nan: bool = True, result_column: Optional[str] = None,
-                       unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """複数列を行ごとに平均した値を新しい列として追加します
-
-        Examples:
-            >>> col.ops.average_across("センサ1", "センサ2", "センサ3", result_column="平均").end()
-        """
-        values = f_math.average_across(*[self._numeric(c) for c in columns], ignore_nan=ignore_nan)
-        return self._with_column(result_column or f"average_across({','.join(map(str, columns))})", values,
-                                 unit, ch, self._first_unit(*columns))
-
     # ── 統計 ──────────────────────────────────
 
-    def moving_average(self, column: Operand, window_size: int = 3, edge_handling: str = "asymmetric",
+    def moving_average(self, column: Operand, window_size: int = 3,
                        result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """移動平均を新しい列として追加します
 
         Args:
             window_size: ウィンドウサイズ
-            edge_handling: 端の処理 ("asymmetric", "symmetric")
         """
-        values = f_stats.moving_average(self._numeric(column), window_size=window_size, edge_handling=edge_handling)
+        values = f_stats.moving_average(self._numeric(column), window_size=window_size)
         return self._unary(f"ma{window_size}({column})", values, result_column, unit, ch, self._unit_of(column))
 
     def detect_outliers(self, column: Operand, window_size: int = 3, threshold: float = 0.5,
-                        edge_handling: str = "asymmetric", min_abs_value: float = 1e-10, scale_factor: float = 1.0,
+                        min_abs_value: float = 1e-10, scale_factor: float = 1.0,
                         result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """外れ値フラグ（0: 正常, 1: 外れ値）を新しい列として追加します"""
         flags = f_stats.detect_outliers(
-            self._numeric(column), window_size=window_size, threshold=threshold, edge_handling=edge_handling,
+            self._numeric(column), window_size=window_size, threshold=threshold,
             min_abs_value=min_abs_value, scale_factor=scale_factor,
         )
         return self._unary(f"outlier({column})", flags, result_column, unit, ch, "")
@@ -460,17 +464,26 @@ class CoreOps(Generic[C_co]):
 
     def sum_columns(self, columns: Optional[List[str]] = None, result_column: Optional[str] = None,
                     unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """複数列の要素ごとの合計を新しい列として追加します（省略時は全列）"""
-        names = self._check_columns(columns)
-        values = f_combine.sum_columns([self._column_values(n) for n in names])
+        """複数列を行ごとに合計した列を追加します（省略時は全数値列、欠損を含む行は欠損）"""
+        names = self._numeric_columns(columns)
+        values = f_combine.sum_columns([self._numeric(n) for n in names])
         return self._unary(f"sum_columns({','.join(names)})", values, result_column, unit, ch,
                            self._first_unit(*names))
 
-    def average_columns(self, columns: Optional[List[str]] = None, result_column: Optional[str] = None,
-                        unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """複数列の要素ごとの平均を新しい列として追加します（省略時は全列）"""
-        names = self._check_columns(columns)
-        values = f_combine.average_columns([self._column_values(n) for n in names])
+    def average_columns(self, columns: Optional[List[str]] = None, ignore_nan: bool = True,
+                        result_column: Optional[str] = None, unit: Optional[str] = None,
+                        ch: Optional[str] = None) -> Self:
+        """複数列を行ごとに平均した列を追加します（省略時は全数値列）
+
+        Args:
+            columns: 平均する列
+            ignore_nan: True なら欠損を除いて平均（全て欠損の行は欠損）、False なら欠損を含む行は欠損
+
+        Examples:
+            >>> col.ops.average_columns(["センサ1", "センサ2", "センサ3"], result_column="平均").end()
+        """
+        names = self._numeric_columns(columns)
+        values = f_combine.average_columns([self._numeric(n) for n in names], ignore_nan=ignore_nan)
         return self._unary(f"average_columns({','.join(names)})", values, result_column, unit, ch,
                            self._first_unit(*names))
 
@@ -600,12 +613,11 @@ class CoreOps(Generic[C_co]):
         return self._with_rows(self._mask(first | pl.any_horizontal(changed)))
 
     def remove_outliers(self, column: str, window_size: int = 3, threshold: float = 0.5,
-                        edge_handling: str = "asymmetric", min_abs_value: float = 1e-10,
-                        scale_factor: float = 1.0) -> Self:
+                        min_abs_value: float = 1e-10, scale_factor: float = 1.0) -> Self:
         """外れ値と判定された行を除外します"""
         flags = f_stats.detect_outliers(
             self._numeric(column), window_size=window_size, threshold=threshold,
-            edge_handling=edge_handling, min_abs_value=min_abs_value, scale_factor=scale_factor,
+            min_abs_value=min_abs_value, scale_factor=scale_factor,
         )
         return self._with_rows(np.asarray(flags) == 0)
 

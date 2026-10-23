@@ -41,8 +41,7 @@
 
 1. **outlier_visualization_comparison.png** - 異なるしきい値での異常値検出の比較
 2. **outlier_removal_effect.png** - 異常値除去前後のデータの比較
-3. **edge_handling_outlier_comparison.png** - 異なるエッジ処理方法の効果比較
-4. **cleaned_data_trend.png** - クリーニング後のデータトレンド分析
+3. **cleaned_data_trend.png** - クリーニング後のデータトレンド分析
 
 ![異常値の可視化比較](./imgs/outlier_visualization_comparison.png)
 
@@ -77,18 +76,9 @@ collection.plot.visualize_outliers(
 # 異常値と判定された行を除外する
 cleaned_collection = (
     collection.ops
-    .remove_outliers("data", window_size=15, threshold=0.5, edge_handling="symmetric")
+    .remove_outliers("data", window_size=15, threshold=0.5)
     .end()
 )
-```
-
-### 3. エッジ処理方法
-
-
-```python
-# データ端の窓の取り方を指定する（"asymmetric": 端では片側の窓、"symmetric": 対称な窓）
-result_asym = collection.ops.remove_outliers("data", window_size=15, threshold=0.5, edge_handling="asymmetric").end()
-result_sym = collection.ops.remove_outliers("data", window_size=15, threshold=0.5, edge_handling="symmetric").end()
 ```
 
 ## 実践的なワークフロー例

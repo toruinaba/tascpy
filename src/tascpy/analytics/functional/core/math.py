@@ -4,224 +4,120 @@ import numpy as np
 import ast
 import math
 
+_EXPR_FUNCTIONS = {
+    "log": np.log, "sqrt": np.sqrt, "abs": np.abs, "max": np.maximum, "min": np.minimum,
+    "pow": np.power, "round": np.round,
+}
+_EXPR_CONSTANTS = {"pi": np.pi, "e": np.e}
+_EXPR_NODES = (
+    ast.Expression, ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.IfExp, ast.Call, ast.Name,
+    ast.Load, ast.Constant, ast.operator, ast.unaryop, ast.boolop, ast.cmpop,
+)
+
+
+class _Vectorize(ast.NodeTransformer):
+    """配列で評価できない構文（三項演算子・and/or/not・連続比較）を numpy の関数呼び出しに置き換える"""
+
+    @staticmethod
+    def _call(name: str, *args: ast.expr) -> ast.Call:
+        return ast.Call(func=ast.Name(id=name, ctx=ast.Load()), args=list(args), keywords=[])
+
+    def visit_IfExp(self, node: ast.IfExp) -> ast.AST:
+        self.generic_visit(node)
+        return self._call("__where", node.test, node.body, node.orelse)
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> ast.AST:
+        self.generic_visit(node)
+        name = "__and" if isinstance(node.op, ast.And) else "__or"
+        result = node.values[0]
+        for value in node.values[1:]:
+            result = self._call(name, result, value)
+        return result
+
+    def visit_UnaryOp(self, node: ast.UnaryOp) -> ast.AST:
+        self.generic_visit(node)
+        return self._call("__not", node.operand) if isinstance(node.op, ast.Not) else node
+
+    def visit_Compare(self, node: ast.Compare) -> ast.AST:
+        self.generic_visit(node)
+        operands = [node.left, *node.comparators]
+        parts = [ast.Compare(left=l, ops=[op], comparators=[r]) for l, op, r in zip(operands, node.ops, operands[1:])]
+        result: ast.expr = parts[0]
+        for part in parts[1:]:
+            result = self._call("__and", result, part)
+        return result
+
+
 def evaluate_expression(
     data: Mapping[str, Union[np.ndarray, List[Any]]],
     expression: str,
 ) -> np.ndarray:
-    """データ列を使用して数式を評価します。
+    """列名を変数とした数式を、numpy で要素ごとに評価します。
 
-    NumPyによるベクトル化評価を試み、失敗した場合はPythonのeval関数による行ごとの評価にフォールバックします。
-    安全のため、使用できる関数や操作は制限されています。
+    使える構文は四則演算・べき乗・比較・and / or / not・三項演算子（a if 条件 else b）と、
+    関数 log, sqrt, abs, max, min, pow, round、定数 pi, e です。属性アクセスなどそれ以外の構文は使えません。
+    欠損 (NaN / None) を含む行や、計算結果が無限大・未定義になる行は NaN になります。
 
     Args:
-        data (Dict[str, Union[np.ndarray, List[Any]]]): 評価に使用するデータの辞書（キー: カラム名, 値: データ列）。
-        expression (str): 評価する数式文字列（例: "col1 + col2 * 2"）。
+        data: {列名: 値の配列}
+        expression: 数式（例: "A + B * 2", "A if A > 3 else 0"）
 
     Returns:
-        np.ndarray: 計算結果の配列（無効値やエラーは NaN）。
+        np.ndarray: 計算結果の配列
 
     Raises:
-        ValueError: 式の構文エラー、安全でない操作、未定義の関数使用、または評価中のエラーが発生した場合。
-        KeyError: 式に含まれるカラム名がデータに存在しない場合。
-        
+        ValueError: 構文エラー、使えない構文・関数、または数値に変換できない列を使った場合
+        KeyError: 式に含まれる列名が data にない場合
+
     Examples:
-        >>> from tascpy.analytics.functional.math import evaluate_expression
         >>> import numpy as np
-        >>> data = {"A": np.array([1, 2]), "B": np.array([3, 4])}
-        >>> evaluate_expression(data, "A + B * 2")
+        >>> from tascpy.analytics.functional.core.math import evaluate_expression
+        >>> evaluate_expression({"A": np.array([1, 2]), "B": np.array([3, 4])}, "A + B * 2")
         array([ 7., 10.])
+        >>> evaluate_expression({"A": np.array([1.0, 5.0])}, "A if A > 3 else 0")
+        array([0., 5.])
     """
-    # ASTを使用して式の構文検証
     try:
-        parsed_ast = ast.parse(expression, mode="eval")
-
-        # 安全でない操作や関数呼び出しをチェック
-        for node in ast.walk(parsed_ast):
-            # 属性アクセス（例：os.system）をブロック
-            if isinstance(node, ast.Attribute):
-                raise ValueError(
-                    f"式に安全でない属性アクセスが含まれています: {expression}"
-                )
-
-            # 関数呼び出しが安全かチェック（数学関数以外をブロック）
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                func_name = node.func.id
-                safe_funcs = {
-                    "log",
-                    "sqrt",
-                    "abs",
-                    "max",
-                    "min",
-                    "pow",
-                    "round",
-                    
-                }
-                if func_name not in safe_funcs:
-                    raise ValueError(
-                        f"許可されていない関数が使用されています: {func_name}"
-                    )
-
+        tree = ast.parse(expression, mode="eval")
     except SyntaxError as e:
-        line_no = getattr(e, "lineno", "不明")
-        col_offset = getattr(e, "offset", "不明")
-        raise ValueError(f"式の構文エラー (行:{line_no}, 列:{col_offset}): {str(e)}")
+        raise ValueError(f"式の構文エラー (行:{e.lineno}, 列:{e.offset}): {e.msg}") from e
 
-    # 式からカラム名を抽出
-    column_names = []
-    # Note: pi and e are constants, not columns.
-    constants = {"pi", "e"}
-    
-    for node in ast.walk(parsed_ast):
-        if isinstance(node, ast.Name) and node.id not in {
-            "log", "sqrt", "abs",
-            "max", "min", "pow", "round"
-        } and node.id not in constants:
-            column_names.append(node.id)
+    names = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, _EXPR_NODES):
+            raise ValueError(f"式に使えない構文が含まれています ({type(node).__name__}): {expression}")
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name) or node.func.id not in _EXPR_FUNCTIONS or node.keywords:
+                raise ValueError(f"許可されていない関数呼び出しです: {ast.unparse(node.func)}")
+        elif isinstance(node, ast.Name) and node.id not in _EXPR_FUNCTIONS and node.id not in _EXPR_CONSTANTS:
+            names.add(node.id)
 
-    # 重複を削除し、データに存在するカラム名のみをフィルタリング
-    # Verify all referenced columns exist (except safe functions and constants)
-    column_names = list(set(column_names))
-    
-    # Check for missing columns
-    available_columns = set(data.keys())
-    missing_columns = set(column_names) - available_columns
-    
-    if missing_columns:
-        # 類似したカラム名の提案 logic omitted for pure function simplicity? 
-        # Or keep it? Let's keep a simple error message.
-        # The operation wrapper can do suggestion logic if it inspects the expression BEFORE calling this?
-        # No, duplicate logic is bad. 
-        # Let's keep simple error here.
-        raise KeyError(f"式に存在しないカラム名が含まれています: {', '.join(missing_columns)}")
+    missing = names - set(data)
+    if missing:
+        raise KeyError(f"式に存在しないカラム名が含まれています: {', '.join(sorted(missing))}")
 
-    # 評価に使用する変数名のみを抽出
-    used_cols = column_names
-
-    # NumPyによるベクトル化評価を試みる
-    try:
-        # 名前空間の構築
-        namespace = {
-            "log": np.log,
-            "sqrt": np.sqrt,
-            "abs": np.abs,
-            "max": np.maximum,
-            "min": np.minimum,
-            "pow": np.power,
-            "round": np.round,
-            "pi": np.pi,
-            "e": np.e,
-        }
-        
-        # データの準備（None -> NaN）
-        # data values might be lists or arrays.
-        length = 0
-        for col_name in used_cols:
-            vals = data[col_name]
-            if length == 0:
-                length = len(vals)
-            
-            if isinstance(vals, np.ndarray) and np.issubdtype(vals.dtype, np.number):
-                arr = vals.astype(float)
-            else:
-                # Handle None in list
-                arr = np.array([v if v is not None else np.nan for v in vals], dtype=float)
-            namespace[col_name] = arr
-            
-        if length == 0 and not used_cols:
-             # Constant expression? Need length from somewhere? 
-             # Or just return scalar?
-             # If no columns used, we can't infer length easily unless passed.
-             # But 'evaluate' operates on a collection, so it implies 1 result per row.
-             # If completely constant "1 + 1", we might need length.
-             # For now assume at least one column or we can't vectorize over rows properly without knowing count.
-             # Return scalar if no columns?
-             pass
-
-        # 評価実行
-        with np.errstate(all='ignore'):
-            res = eval(expression, {"__builtins__": {}}, namespace)
-            
-        # 結果がNumPy配列でなければ（スカラー等）、配列にブロードキャスト
-        # If scalar and we know length, broadcast.
-        if np.isscalar(res):
-            # If no columns used "1+1", we need length.
-            # But the pure function interface takes 'data'.
-            # If 'data' is empty (no columns used), we don't know length.
-            # Maybe pass length explicitly?
-            # For now focus on column usage.
-            # If used_cols was empty, length is 0 from loop above.
-            if length > 0:
-                 res = np.full(length, res)
-            else:
-                 # If no columns, return single value list? Or raise?
-                 # If passed empty data dict but expected len N.. 
-                 # Let's handle generic case in fallback or assume data has columns.
-                 pass
-
-        if isinstance(res, (np.ndarray, int, float)):
-            res = np.asarray(res, dtype=float)
-            return np.full(length, res) if res.ndim == 0 and length > 0 else np.atleast_1d(res)
-        raise ValueError("Vectorized evaluation returned non-array")
-
-    except Exception:
-        # ベクトル評価に失敗した場合は、従来の行ごとの評価にフォールバック
+    namespace: Dict[str, Any] = {
+        **_EXPR_FUNCTIONS, **_EXPR_CONSTANTS,
+        "__where": np.where, "__and": np.logical_and, "__or": np.logical_or, "__not": np.logical_not,
+    }
+    for name in names:
         try:
-            # Need length
-            length = 0
-            if data:
-                 length = len(next(iter(data.values())))
-            
-            result_values = []
-            
-            math_funcs = {
-                "log": math.log,
-                "sqrt": math.sqrt,
-                "abs": abs,
-                "max": max,
-                "min": min,
-                "pow": math.pow,
-                "round": round,
-                "pi": math.pi,
-                "e": math.e,
-            }
-    
-            # 各行に対して式を評価
-            cols_data = {col: data[col] for col in used_cols}
-            
-            for i in range(length):
-                row_data = {}
-                is_row_valid = True
-                
-                # 値の取得とNoneチェック
-                for col in used_cols:
-                    if i < len(cols_data[col]):
-                        val = cols_data[col][i]
-                    else:
-                        val = None
-                        
-                    if val is None or (isinstance(val, float) and np.isnan(val)):
-                        is_row_valid = False
-                        break
-                    row_data[col] = val
-                    
-                if not is_row_valid:
-                     result_values.append(np.nan)
-                     continue
-    
-                eval_namespace = dict(row_data)
-                eval_namespace.update(math_funcs)
-    
-                restricted_globals = {"__builtins__": {}}
-                try:
-                     row_result = eval(expression, restricted_globals, eval_namespace)
-                     result_values.append(row_result)
-                except (ValueError, TypeError, ZeroDivisionError):
-                     result_values.append(np.nan)
+            namespace[name] = np.asarray(data[name], dtype=float)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"列 '{name}' は数値に変換できません") from e
 
-            return np.asarray(result_values, dtype=float)
-        
-        except Exception as e:
-             raise ValueError(f"式の評価中にエラーが発生しました: {str(e)}")
+    code = compile(ast.fix_missing_locations(_Vectorize().visit(tree)), "<expression>", "eval")
+    with np.errstate(all="ignore"):
+        result = np.asarray(eval(code, {"__builtins__": {}}, namespace), dtype=float)
+
+    length = len(next(iter(data.values()))) if data else 1
+    if result.ndim == 0:
+        result = np.full(length, float(result))
+    missing = np.zeros(len(result), dtype=bool)
+    for name in names:
+        missing |= np.isnan(namespace[name])
+    return np.where(np.isfinite(result) & ~missing, result, np.nan)
+
 
 # --- 変換操作 (transform.pyから統合) ---
 
@@ -529,29 +425,3 @@ def integrate(
 
     areas = np.diff(x_arr) * (y_arr[1:] + y_arr[:-1]) / 2.0
     return initial_value + np.concatenate([[0.0], np.cumsum(areas)])
-
-
-def average_across(*columns: np.ndarray, ignore_nan: bool = True) -> np.ndarray:
-    """複数列間で、各行ごとの平均値を計算します。
-
-    Args:
-        *columns (np.ndarray): 対象となる複数列のNumPy配列
-        ignore_nan (bool, optional): 欠損値（NaN）を無視して平均するかどうか。
-            Trueの場合、NaNが含まれていても他の有効な値から平均を計算します。
-            Falseの場合、NaNが含まれる行の結果はNaNになります。デフォルトは True。
-
-    Returns:
-        np.ndarray: 計算された行ごとの平均値を含む配列。
-    """
-    if not columns:
-        raise ValueError("少なくとも1つの列を指定する必要があります。")
-        
-    # Stack arrays horizontally to form a 2D matrix
-    stacked = np.column_stack(columns)
-    
-    # Calculate row-wise mean with or without ignoring nans
-    with np.errstate(invalid='ignore'):  # Ignore empty slice warnings for all-NaN rows
-        if ignore_nan:
-            return np.nanmean(stacked, axis=1)
-        else:
-            return np.mean(stacked, axis=1)

@@ -89,7 +89,6 @@ def visualize_outliers(
     outlier_marker: str = "o",
     outlier_size: int = 50,
     ax: Optional[Axes] = None,
-    edge_handling: str = "asymmetric",
     min_abs_value: float = 1e-10,
     scale_factor: float = 1.0,
     **kwargs: Any
@@ -111,7 +110,6 @@ def visualize_outliers(
         outlier_marker: 外れ値のマーカー形状
         outlier_size: 外れ値のマーカーサイズ
         ax: 描画先の Axes（None の場合は新しい図を作成）
-        edge_handling: 端の処理方法
         min_abs_value: ゼロ除算防止の最小絶対値
         scale_factor: スケールファクタ
         **kwargs: 正常値の描画に渡す追加引数
@@ -120,7 +118,7 @@ def visualize_outliers(
         Axes: 描画した Axes（タイトルに検出数を表示）
     """
     flags = functional_stats.detect_outliers(
-        y_values, window_size=window_size, threshold=threshold, edge_handling=edge_handling,
+        y_values, window_size=window_size, threshold=threshold,
         min_abs_value=min_abs_value, scale_factor=scale_factor,
     )
     x_normal, y_normal, x_out, y_out, outlier_count = plot_utils.prepare_outlier_data(x_values, y_values, flags)

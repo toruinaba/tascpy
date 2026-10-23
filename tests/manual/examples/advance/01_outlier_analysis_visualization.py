@@ -8,8 +8,7 @@
 2. 移動平均の計算と可視化
 3. 異常値の検出と可視化（visualize_outliers メソッドの使用）
 4. 異常値の除去（remove_outliers メソッド）と効果の確認
-5. 異なるエッジ処理方法とパラメータによる効果の比較
-6. クリーニング後のデータ分析とトレンド可視化
+5. クリーニング後のデータ分析とトレンド可視化
 
 このサンプルを通じて、データ前処理における異常値処理の重要性と、
 tascpyが提供する異常値分析機能の使い方を理解できます。
@@ -378,55 +377,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(IMGS_DIR, "outlier_removal_effect.png"), dpi=150)
 
 # ----------------------------------------------------
-# 5. エッジ処理と様々なパラメータの比較
+# 5. クリーニング後のデータ分析
 # ----------------------------------------------------
-print("\n5. エッジ処理と様々なパラメータの比較")
-
-# データセット2のサブセットを作成（特定範囲の抽出）
-plt.figure(figsize=(12, 12))
-
-# サブプロットを作成
-ax1 = plt.subplot(2, 1, 1)  # 対称エッジ処理用
-ax2 = plt.subplot(2, 1, 2)  # 非対称エッジ処理用
-
-# 対称および非対称エッジ処理を比較する
-# 欠損除去とステップ範囲の抽出はチェーンで行い、描画はコレクションの plot で行う
-edge_source = (
-    collection2.ops.filter_out_none(columns=["data"])
-    .select(steps=[s for s in collection2.step if 50 <= s <= 100])
-    .end()
-)
-for edge, ax, color, normal in [("symmetric", ax1, "red", "blue"), ("asymmetric", ax2, "magenta", "cyan")]:
-    edge_source.plot.visualize_outliers(
-        column="data", window_size=15, threshold=0.1, edge_handling=edge,
-        highlight_color=color, ax=ax, normal_color=normal, plot_type="scatter",
-    )
-
-symmetric_outlier_count = count_outliers(edge_source, window_size=15, threshold=0.1, edge_handling="symmetric")
-asymmetric_outlier_count = count_outliers(edge_source, window_size=15, threshold=0.1, edge_handling="asymmetric")
-
-# サブプロットのタイトルと軸ラベルを設定
-ax1.set_title(
-    f"異常値検出 - 対称エッジ処理（検出数: {symmetric_outlier_count}個）", fontsize=12
-)
-ax1.set_xlabel("ステップ", fontsize=10)
-ax1.set_ylabel("データ値", fontsize=10)
-
-ax2.set_title(
-    f"異常値検出 - 非対称エッジ処理（検出数: {asymmetric_outlier_count}個）",
-    fontsize=12,
-)
-ax2.set_xlabel("ステップ", fontsize=10)
-ax2.set_ylabel("データ値", fontsize=10)
-
-plt.tight_layout()
-# 明示的にplt.showを呼び出さずに画像ファイルとして保存
-plt.savefig(os.path.join(IMGS_DIR, "edge_handling_outlier_comparison.png"), dpi=150)
-
-# ----------------------------------------------------
-# 6. クリーニング後のデータ分析
-# ----------------------------------------------------
-print("\n6. クリーニング後のデータ分析")
+print("\n5. クリーニング後のデータ分析")
 
 # 移動平均を適用して滑らかなトレンドを確認
 cleaned_result = (
@@ -478,5 +431,4 @@ print(f"\n画像ファイルを保存しました。")
 print(f"保存先: {IMGS_DIR}")
 print(f"- outlier_visualization_comparison.png")
 print(f"- outlier_removal_effect.png")
-print(f"- edge_handling_outlier_comparison.png")
 print(f"- cleaned_data_trend.png")

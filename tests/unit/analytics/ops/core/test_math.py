@@ -175,23 +175,23 @@ class TestOperationChaining:
         )
         assert isinstance(result, ColumnCollection)
 
-class TestAverageAcrossOperation:
-    def test_average_across_basic(self, sample_collection):
+class TestAverageColumnsOperation:
+    def test_average_columns_basic(self, sample_collection):
         # A=[1,2,3,4,5], B=[5,4,3,2,1]
-        result = sample_collection.ops.average_across("A", "B", result_column="avg_AB").end()
+        result = sample_collection.ops.average_columns(["A", "B"], result_column="avg_AB").end()
         assert "avg_AB" in result.columns
         np.testing.assert_allclose(result["avg_AB"].values, [3.0, 3.0, 3.0, 3.0, 3.0])
 
-    def test_average_across_with_none(self, sample_collection):
+    def test_average_columns_with_none(self, sample_collection):
         # A=[1,2,3,4,5], with_none=[1,None,3,None,5]
-        result = sample_collection.ops.average_across("A", "with_none", result_column="avg_A_none").end()
+        result = sample_collection.ops.average_columns(["A", "with_none"], result_column="avg_A_none").end()
         # Defaults to ignore_nan=True
         # Row 1: (2 + None) -> 2.0
         # Row 3: (4 + None) -> 4.0
         np.testing.assert_allclose(result["avg_A_none"].values, [1.0, 2.0, 3.0, 4.0, 5.0])
 
-    def test_average_across_strict_nan(self, sample_collection):
-        result = sample_collection.ops.average_across("A", "with_none", ignore_nan=False, result_column="avg_A_none_strict").end()
+    def test_average_columns_strict_nan(self, sample_collection):
+        result = sample_collection.ops.average_columns(["A", "with_none"], ignore_nan=False, result_column="avg_A_none_strict").end()
         # Row 1 and 3 should be NaN
         vals = result["avg_A_none_strict"].values
         assert vals[0] == 1.0
