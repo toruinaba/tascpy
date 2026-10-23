@@ -107,6 +107,7 @@ def compute_skeleton_curve(
     p_ske = []
     d_ske = []
     p_max = 0.0
+    d_offset = 0.0
 
     # 増加部分
     for cyc in range(1, max_marker + 1):

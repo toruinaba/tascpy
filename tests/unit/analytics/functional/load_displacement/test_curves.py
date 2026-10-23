@@ -56,6 +56,17 @@ def test_compute_skeleton_curve():
     with pytest.raises(ValueError):
          compute_skeleton_curve(loads, disps, markers, has_decrease=True, decrease_type="invalid")
 
+
+@pytest.mark.parametrize("decrease_type", ["envelope", "continuous_only", "both"])
+def test_compute_skeleton_curve_decrease_without_increase_cycles(decrease_type):
+    loads = np.array([0.0, 10.0, 20.0, 15.0, 0.0])
+    disps = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    markers = np.array([0, 0, 0, 0, 0])
+
+    d_ske, p_ske = compute_skeleton_curve(loads, disps, markers, has_decrease=True, decrease_type=decrease_type)
+
+    assert len(d_ske) == len(p_ske)
+
 def test_compute_cumulative_curve():
     loads = np.array([0.0, 10.0, 0.0, -10.0, 0.0, 15.0, 0.0])
     disps = np.array([0.0, 1.0, 2.0, 1.0, 0.0, 2.0, 3.0])
