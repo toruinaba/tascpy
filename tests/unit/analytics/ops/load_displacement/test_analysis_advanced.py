@@ -191,7 +191,6 @@ class TestFindYieldPoint:
         res = bilinear_collection.ops.find_yield_point(
             method="offset",
             offset_value=1.0,
-            debug_mode=True
         ).end()
         debug_info = res.results["yield_point"].metadata
         assert "initial_slope" in debug_info

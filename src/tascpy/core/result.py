@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union, List
+
+import numpy as np
+
 from .column import Column
 
 class AnalysisResult(ABC):
@@ -148,3 +151,51 @@ class PointResult(AnalysisResult):
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name='{self.name}' x={self.x} y={self.y}>"
+
+
+class GridResult(AnalysisResult):
+    """2次元グリッド上の値（空間補間の結果など）
+
+    Attributes:
+        x: グリッドの X 座標 (nx,)
+        y: グリッドの Y 座標 (ny,)
+        values: グリッド上の値 (ny, nx)
+        unit: values の単位
+
+    Examples:
+        >>> import numpy as np
+        >>> from tascpy.core.result import GridResult
+        >>> res = GridResult("grid", np.array([0.0, 1.0]), np.array([0.0]), np.array([[1.0, 2.0]]), unit="ue")
+        >>> res.values.shape
+        (1, 2)
+    """
+
+    def __init__(
+        self,
+        name: str,
+        x: Any,
+        y: Any,
+        values: Any,
+        unit: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(name, metadata)
+        self.x = np.asarray(x, dtype=float)
+        self.y = np.asarray(y, dtype=float)
+        self.values = np.asarray(values, dtype=float)
+        if self.values.shape != (len(self.y), len(self.x)):
+            raise ValueError(f"values の形 {self.values.shape} が (len(y), len(x)) = {(len(self.y), len(self.x))} と一致しません")
+        self.unit = unit
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "type": "grid",
+            "name": self.name,
+            "data": {"x": self.x, "y": self.y, "values": self.values},
+            "unit": self.unit,
+            "metadata": self.metadata,
+        }
+
+    def __repr__(self) -> str:
+        unit = f" unit={self.unit!r}" if self.unit else ""
+        return f"<{self.__class__.__name__} name='{self.name}' shape={self.values.shape}{unit}>"

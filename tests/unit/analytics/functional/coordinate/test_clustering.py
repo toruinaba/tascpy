@@ -34,3 +34,11 @@ def test_find_nearest_neighbors_logic():
     # Test more neighbors than available valid
     neighbors_all = find_nearest_neighbors_logic(distances, n_neighbors=10)
     assert len(neighbors_all) == 3
+
+
+def test_simple_kmeans_does_not_touch_global_random_state():
+    np.random.seed(123)
+    expected = np.random.random()
+    np.random.seed(123)
+    simple_kmeans(np.array([[0.0, 0.0], [0.1, 0.0], [10.0, 0.0], [10.1, 0.0]]), 2)
+    assert np.random.random() == expected

@@ -126,3 +126,10 @@ def test_compute_cumulative_curve():
     d_cum, p_cum = compute_cumulative_curve(loads, disps, markers)
     assert len(d_cum) > 0
     assert len(p_cum) > 0
+
+
+def test_unknown_keyword_is_rejected():
+    with pytest.raises(TypeError):
+        compute_skeleton_curve(CYCLIC_LOADS, CYCLIC_DISPS, ONE_BASED, decrease_typ="both")
+    with pytest.raises(TypeError):
+        compute_cumulative_curve(CYCLIC_LOADS, CYCLIC_DISPS, ONE_BASED, extra=1)

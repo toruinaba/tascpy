@@ -47,179 +47,115 @@ class TestCoordinateInterpolation:
             .with_coordinates("target_point", x=5.0, y=5.0)  # 中央（補間先）
         )
 
-    def test_interpolate_at_point(self):
-        """interpolate_at_point関数のテスト"""
-        # 基本的な補間テスト（4点の真ん中で補間）
-        result = self.collection.ops.interpolate_at_point(
-            x=5.0, y=5.0, z=0.0, method="inverse_distance", power=2.0
-        ).end()
+    CORNERS = ["point1", "point2", "point3", "point4"]
 
-        # 結果が新しいオブジェクトであることを確認
+    def test_interpolate_at_point(self):
+        """4 隅から等距離の中心では 4 点の平均になる（z を指定すると z を持つ列だけが補間元）"""
+        result = self.collection.ops.interpolate_at_point(x=5.0, y=5.0, z=0.0).end()
+
         assert result is not self.collection
         assert isinstance(result, CoordinateCollection)
+        assert result.columns[-1] == "interp(5, 5, 0)"
+        col = result["interp(5, 5, 0)"]
+        np.testing.assert_allclose(col.values, [25.0] * 5)
+        assert col.unit == "m"
+        assert result.get_column_coordinates("interp(5, 5, 0)") == (5.0, 5.0, 0.0)
+        assert col.attrs["interpolation"]["source_columns"] == self.CORNERS
 
-        # 補間結果列が正しく作成されていることを確認
-        assert "interp_point1" in result.columns
-        assert result["interp_point1"].unit == "m"
-        assert "interp_point2" in result.columns
-        assert "interp_point3" in result.columns
-        assert "interp_point4" in result.columns
+    def test_interpolate_at_point_uses_coincident_source(self):
+        """補間点に補間元の点があればその値（target_point は (5, 5) に値 50）"""
+        result = self.collection.ops.interpolate_at_point(x=5.0, y=5.0, result_column="c").end()
+        np.testing.assert_allclose(result["c"].values, [50.0] * 5)
 
-        # 現実の実装では、各点の値に距離の逆数を掛けた値が返されるため
-        # 値の範囲は実装方法によって異なる
-        # ここでは実際の値が0付近であることを確認
-        assert result["interp_point1"].values[0] > 0
-        assert result["interp_point2"].values[0] > 0
-        assert result["interp_point3"].values[0] > 0
-        assert result["interp_point4"].values[0] > 0
-
-        # 異なる補間方法でのテスト
-        result_nearest = self.collection.ops.interpolate_at_point(
-            x=1.0, y=1.0, method="nearest"
+    def test_interpolate_at_point_inverse_distance_value(self):
+        result = self.collection.ops.interpolate_at_point(
+            x=2.5, y=0.0, source_columns=["point1", "point2"], result_column="v",
         ).end()
-        # 最も近い点1の値(10.0)が採用されるはず
-        assert pytest.approx(result_nearest["interp_point1"].values[0]) == 10.0
+        w1, w2 = 1 / 2.5**2, 1 / 7.5**2
+        np.testing.assert_allclose(result["v"].values, (10 * w1 + 20 * w2) / (w1 + w2))
 
-        # カスタム結果プレフィックスのテスト
-        result_custom = self.collection.ops.interpolate_at_point(
-            x=5.0, y=5.0, result_prefix="custom_"
-        ).end()
-        assert "custom_point1" in result_custom.columns
-        assert "interp_point1" not in result_custom.columns
+    def test_interpolate_at_point_nearest(self):
+        result = self.collection.ops.interpolate_at_point(x=1.0, y=1.0, method="nearest", result_column="n").end()
+        np.testing.assert_allclose(result["n"].values, [10.0] * 5)
 
-        # 特定列のみを対象とするテスト
-        result_selected = self.collection.ops.interpolate_at_point(
-            x=5.0, y=5.0, target_columns=["point1", "point2"]
+    def test_interpolate_at_point_per_row_and_missing(self):
+        """行ごとに補間し、欠損の補間元はその行だけ除く"""
+        coll = self.collection.with_column("point1", [10.0, None, 10.0, 10.0, 10.0])
+        result = coll.ops.interpolate_at_point(
+            x=5.0, y=0.0, source_columns=["point1", "point2"], result_column="v",
         ).end()
-        assert "interp_point1" in result_selected.columns
-        assert "interp_point2" in result_selected.columns
-        assert "interp_point3" not in result_selected.columns
+        np.testing.assert_allclose(result["v"].values, [15.0, 20.0, 15.0, 15.0, 15.0])
 
-        # 座標がない列を指定した場合はその列がスキップされることを確認
-        test_coll = self.collection.with_column("no_coord", [0.0] * 5, unit="m")
-        result_skip = test_coll.ops.interpolate_at_point(
-            x=5.0, y=5.0, target_columns=["no_coord", "point1"]
+    def test_interpolate_at_point_skips_columns_without_coordinates(self):
+        coll = self.collection.with_column("no_coord", [0.0] * 5, unit="m")
+        result = coll.ops.interpolate_at_point(
+            x=0.0, y=0.0, source_columns=["no_coord", "point1"], result_column="v",
         ).end()
-        # 座標のない列はスキップされるが、座標のある列は補間されるはず
-        assert "interp_no_coord" not in result_skip.columns
-        assert "interp_point1" in result_skip.columns
+        np.testing.assert_allclose(result["v"].values, [10.0] * 5)
+
+    def test_interpolate_at_point_mixed_units_is_none(self):
+        coll = self.collection.with_meta("point2", unit="mm")
+        result = coll.ops.interpolate_at_point(x=1.0, y=0.0, source_columns=["point1", "point2"]).end()
+        assert result[result.columns[-1]].unit is None
+
+    def test_invalid_method(self):
+        with pytest.raises(ValueError, match="inverse_distance"):
+            self.collection.ops.interpolate_at_point(x=0.0, y=0.0, method="linear")
 
     def test_interpolate_grid(self):
-        """interpolate_grid関数のテスト"""
-        # 基本的なグリッド補間テスト
+        """グリッドの値を GridResult として格納する"""
         result = self.collection.ops.interpolate_grid(
-            x_range=(0.0, 10.0),
-            y_range=(0.0, 10.0),
-            grid_size=(5, 5),
-            target_column="point1",
+            x_range=(0.0, 10.0), y_range=(0.0, 10.0), grid_size=(3, 3), source_columns=self.CORNERS,
         ).end()
 
-        # 結果が新しいオブジェクトであることを確認
-        assert result is not self.collection
-        assert isinstance(result, CoordinateCollection)
+        grid = result.results["grid"]
+        np.testing.assert_allclose(grid.x, [0.0, 5.0, 10.0])
+        np.testing.assert_allclose(grid.y, [0.0, 5.0, 10.0])
+        assert grid.values.shape == (3, 3)
+        # 隅は補間元の値、中心は 4 点の平均
+        assert grid.values[0, 0] == 10.0
+        assert grid.values[0, 2] == 20.0
+        assert grid.values[2, 0] == 30.0
+        assert grid.values[2, 2] == 40.0
+        assert np.isclose(grid.values[1, 1], 25.0)
+        assert grid.unit == "m"
+        assert grid.metadata["row"] == 0
+        assert result.columns == self.collection.columns
 
-        # 結果列が作成されていることを確認
-        assert "grid_point1_grid" in result.columns
-
-        # メタデータが正しく設定されていることを確認
-        assert "analysis" in result.metadata
-        assert "grid_interpolation" in result.metadata["analysis"]
-        assert result.metadata["analysis"]["grid_interpolation"]["x_range"] == (
-            0.0,
-            10.0,
-        )
-        assert result.metadata["analysis"]["grid_interpolation"]["grid_size"] == (5, 5)
-
-        # 列のメタデータを確認
-        grid_metadata = result["grid_point1_grid"].attrs
-        assert "grid" in grid_metadata
-        assert grid_metadata["grid"]["nx"] == 5
-        assert grid_metadata["grid"]["ny"] == 5
-
-        # カスタム結果プレフィックスのテスト
-        result_custom = self.collection.ops.interpolate_grid(
-            x_range=(0.0, 10.0),
-            y_range=(0.0, 10.0),
-            target_column="point1",
-            result_prefix="custom_grid_",
+    def test_interpolate_grid_row_and_name(self):
+        coll = self.collection.with_column("point1", [10.0, 10.0, 10.0, 10.0, 100.0])
+        result = coll.ops.interpolate_grid(
+            x_range=(0.0, 0.0), y_range=(0.0, 0.0), grid_size=(1, 1), source_columns=self.CORNERS,
+            row=-1, method="nearest", result_name="last",
         ).end()
-        assert "custom_grid_point1_grid" in result_custom.columns
-        assert "grid_point1_grid" not in result_custom.columns
-
-        # 異なる補間方法のテスト
-        result_nearest = self.collection.ops.interpolate_grid(
-            x_range=(0.0, 10.0),
-            y_range=(0.0, 10.0),
-            target_column="point1",
-            method="nearest",
-        ).end()
-        assert "grid_point1_grid" in result_nearest.columns
-
-        # 無効な列を指定した場合のエラーテスト
-        with pytest.raises(ValueError):
-            self.collection.ops.interpolate_grid(
-                x_range=(0, 10),
-                y_range=(0, 10),
-                target_column="nonexistent",
-            ).end()
+        assert result.results["last"].values[0, 0] == 100.0
+        assert result.results["last"].metadata["step"] == 4
+        with pytest.raises(IndexError):
+            coll.ops.interpolate_grid((0, 1), (0, 1), row=5)
 
     def test_spatial_interpolation_to_points(self):
-        """spatial_interpolation_to_points関数のテスト"""
-        # 基本的な補間テスト（point1-4の値をtarget_pointの位置に補間）
+        """補間先の列の座標位置で、補間元の列から行ごとに補間する"""
         result = self.collection.ops.spatial_interpolation_to_points(
-            source_columns=["point1", "point2", "point3", "point4"],
-            target_columns=["target_point"],
+            source_columns=self.CORNERS, target_columns=["target_point"],
         ).end()
 
-        # 結果が新しいオブジェクトであることを確認
-        assert result is not self.collection
         assert isinstance(result, CoordinateCollection)
+        np.testing.assert_allclose(result["interp_target_point"].values, [25.0] * 5)
+        assert result["interp_target_point"].unit == "m"
+        assert result.get_column_coordinates("interp_target_point") == (5.0, 5.0, None)
 
-        # 結果列が作成されていることを確認
-        assert "interp_target_point" in result.columns
-
-        # 補間値が出力されることを確認
-        # 実際の値は実装によって異なるが、正の値であることを確認
-        assert result["interp_target_point"].values[0] > 0
-
-        # 異なる補間方法でのテスト
-        result_nearest = self.collection.ops.spatial_interpolation_to_points(
-            source_columns=["point1", "point2", "point3", "point4"],
-            target_columns=["target_point"],
-            method="nearest",
+        nearest = self.collection.ops.spatial_interpolation_to_points(
+            source_columns=["point1", "point2"], target_columns=["target_point"], method="nearest",
+            result_prefix="sp_",
         ).end()
-        assert "interp_target_point" in result_nearest.columns
+        assert "sp_target_point" in nearest.columns
 
-        # カスタム結果プレフィックスのテスト
-        result_custom = self.collection.ops.spatial_interpolation_to_points(
-            source_columns=["point1", "point2"],
-            target_columns=["target_point"],
-            result_prefix="sp_interp_",
-        ).end()
-        assert "sp_interp_target_point" in result_custom.columns
-        assert "interp_target_point" not in result_custom.columns
-
-        # ソースが指定されていない場合のテスト（デフォルトで全座標列）
-        result_default = self.collection.ops.spatial_interpolation_to_points(
-            target_columns=["target_point"]
-        ).end()
-        assert "interp_target_point" in result_default.columns
-
-        # ターゲットが指定されていない場合は
-        # ソースと重複しない座標列が選択されるテスト
-        result_no_target = self.collection.ops.spatial_interpolation_to_points(
-            source_columns=["point1", "point2", "point3", "point4"]
-        ).end()
-        assert "interp_target_point" in result_no_target.columns
-
-        # ソースとターゲットが重複する場合のテスト
-        # 現在の実装では、エラーではなく、空の結果が返される
-        result_overlap = self.collection.ops.spatial_interpolation_to_points(
-            source_columns=["point1", "point2", "point3", "point4", "target_point"],
-            target_columns=["target_point"],
-        ).end()
-        # 結果のメタデータやその他の検証
-        assert isinstance(result_overlap, CoordinateCollection)
+    def test_spatial_interpolation_default_targets(self):
+        """補間先を省略すると、補間元以外の座標を持つ列が補間先になる"""
+        result = self.collection.ops.spatial_interpolation_to_points(source_columns=self.CORNERS).end()
+        assert result.columns[-1] == "interp_target_point"
+        with pytest.raises(ValueError, match="補間先"):
+            self.collection.ops.spatial_interpolation_to_points()
 
     def test_requires_coordinates(self):
         """座標を持つ列がない場合は ValueError"""

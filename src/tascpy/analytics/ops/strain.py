@@ -92,7 +92,7 @@ class StrainOps(CoordinateOps[StrainCollection]):
 
     def find_yield_point(self, stress_column: str, strain_column: str, method: str = "offset",
                          offset_value: float = 0.002, range_start: float = 0.1, range_end: float = 0.3,
-                         factor: float = 0.33, debug_mode: bool = False, fail_silently: bool = False) -> Self:
+                         factor: float = 0.33, fail_silently: bool = False) -> Self:
         """応力-ひずみ関係から降伏点を検出し、結果 "yield_point" (x: ひずみ, y: 応力) に格納します
 
         アルゴリズムは荷重-変位ドメインの find_yield_point と同じです。
@@ -102,7 +102,7 @@ class StrainOps(CoordinateOps[StrainCollection]):
         outcome = compute_yield_point(
             disp_data=strain, load_data=stress, method=method, offset_value=offset_value,
             range_start=range_start, range_end=range_end, factor=factor,
-            debug_mode=debug_mode, fail_silently=fail_silently,
+            fail_silently=fail_silently,
         )
         return self._with_point("yield_point", outcome, x_unit=self._unit_of(strain_column),
                                 y_unit=self._unit_of(stress_column))

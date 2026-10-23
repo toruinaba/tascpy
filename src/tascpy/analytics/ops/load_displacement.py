@@ -71,7 +71,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         return self._with_result(ScalarResult(name="stiffness", value=value, unit=self._ld_unit("/")))
 
     def find_yield_point(self, method: str = "offset", offset_value: float = 0.002, range_start: float = 0.1,
-                         range_end: float = 0.3, factor: float = 0.33, debug_mode: bool = False,
+                         range_end: float = 0.3, factor: float = 0.33,
                          fail_silently: bool = False) -> Self:
         """降伏点を検出し、結果 "yield_point" (PointResult) に格納します
 
@@ -85,7 +85,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """
         outcome = compute_yield_point(
             *self._ld_arrays(), method=method, offset_value=offset_value, range_start=range_start,
-            range_end=range_end, factor=factor, debug_mode=debug_mode, fail_silently=fail_silently,
+            range_end=range_end, factor=factor, fail_silently=fail_silently,
         )
         return self._with_point("yield_point", outcome, x_unit=self._c.displacement.unit, y_unit=self._c.load.unit)
 

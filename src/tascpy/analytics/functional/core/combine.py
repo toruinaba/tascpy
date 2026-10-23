@@ -317,7 +317,6 @@ def custom_combine(
     v1: Any,
     v2: Any,
     combine_func: Callable[[Any, Any], Any],
-    **kwargs: Any
 ) -> Any:
     """カスタム関数を使用して2つの値または配列を結合します。
 
@@ -325,7 +324,6 @@ def custom_combine(
         v1 (Any): 最初の値または配列。
         v2 (Any): 2番目の値または配列。
         combine_func (Callable[[Any, Any], Any]): 2つの引数を取る結合関数。
-        **kwargs: 任意の追加引数（ここでは使用されません）。
 
     Returns:
         Any: 結合結果（配列またはリスト）。

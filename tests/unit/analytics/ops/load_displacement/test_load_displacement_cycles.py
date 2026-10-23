@@ -37,8 +37,8 @@ class TestLoadDisplacementCycles:
         # サイクル列の値を確認
         cycles = result["load_cycle"].values
 
-        # 期待されるサイクル値（実装に合わせて修正）
-        expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        # 正→負→正の往復で 2 サイクル目に入る（0 をはさむ反転も数える）
+        expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2]
         np.testing.assert_array_equal(cycles, expected_cycles)
 
     def test_cycle_count_with_custom_column(self):
@@ -55,8 +55,7 @@ class TestLoadDisplacementCycles:
 
         # 値の確認
         cycles = result["cycle_marker"].values
-        # 実装に合わせて期待値を修正
-        expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2]
         np.testing.assert_array_equal(cycles, expected_cycles)
 
     def test_cycle_count_with_custom_step(self):
@@ -68,8 +67,8 @@ class TestLoadDisplacementCycles:
         # サイクル列の値を確認（列名はload_cycle）
         cycles = result["load_cycle"].values
 
-        # 期待される値を実装に合わせて修正
-        expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        # 反転ごとに 1 進む
+        expected_cycles = [1, 1, 1, 1, 2, 2, 2, 2, 3, 3]
         np.testing.assert_array_equal(cycles, expected_cycles)
 
         # ステップ増分を0.25に設定
@@ -78,7 +77,7 @@ class TestLoadDisplacementCycles:
         # サイクル列の値を確認
         cycles = result["load_cycle"].values
 
-        # 期待される値を実装に合わせて修正
+        # 反転 2 回で 1.5 なので、すべてサイクル 1
         expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         np.testing.assert_array_equal(cycles, expected_cycles)
 
@@ -93,15 +92,9 @@ class TestLoadDisplacementCycles:
         # 結果がリストであることを確認
         assert isinstance(result, list)
 
-        # 実装では全データが1サイクルになっているため長さは1
-        assert len(result) == 1
-
-        # サイクル1のデータを確認
-        cycle1 = result[0]
-        # 実装ではColumnCollectionを返していることを確認
-        assert isinstance(cycle1, ColumnCollection)
-        # すべてのデータが含まれる
-        assert len(cycle1) == 10
+        assert len(result) == 2
+        assert all(isinstance(c, ColumnCollection) for c in result)
+        assert [len(c) for c in result] == [8, 2]
 
     def test_split_by_cycles_custom_column(self):
         """カスタムサイクル列でのsplit_by_cycles関数テスト"""
@@ -111,10 +104,7 @@ class TestLoadDisplacementCycles:
         # カスタム列名を指定してsplit_by_cycles関数を呼び出し
         result = with_cycles.ops.split_by_cycles(cycle_column="cycle_marker").end()
 
-        # 実装では全データが1サイクルになるため長さは1
-        assert len(result) == 1
-        # すべてのデータが含まれる
-        assert len(result[0]) == 10
+        assert [len(c) for c in result] == [8, 2]
 
     def test_split_by_cycles_without_cycle_column(self):
         """サイクル列がないときのsplit_by_cycles関数テスト"""
@@ -138,8 +128,8 @@ class TestLoadDisplacementCycles:
         # 列名をcycleからload_cycleに修正
         cycles = result["load_cycle"].values
 
-        # 期待されるサイクル値を実装に合わせて修正
-        expected_cycles = [1, 1, 1, 1, 1, 1, 1]
+        # 5 → (0) → -2 と -5 → (0) → 5 の 2 回の反転で 2 サイクル目に入る
+        expected_cycles = [1, 1, 1, 1, 1, 1, 2]
         np.testing.assert_array_equal(cycles, expected_cycles)
 
 

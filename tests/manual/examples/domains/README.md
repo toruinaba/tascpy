@@ -94,16 +94,17 @@ clustered = collection.spatial_clustering(n_clusters=3)
 #### 2. 空間補間（CoordinateOps）
 
 ```python
-# 任意点 (x, y) での補間値を "interp_{列名}" 列として追加
-result = collection.ops.interpolate_at_point(x=5.0, y=5.0, method="inverse_distance").end()
+# 任意点 (x, y) での値を、座標を持つ全列から行ごとに逆距離加重で補間した列を追加
+result = collection.ops.interpolate_at_point(x=5.0, y=5.0, result_column="center").end()
 
-# 補間元の列の値から、ターゲット列の座標位置の値を補間
+# 補間元の列の値から、ターゲット列の座標位置の値を行ごとに補間（"interp_sensor3" 列）
 result = collection.ops.spatial_interpolation_to_points(
     source_columns=["sensor1", "sensor2"], target_columns=["sensor3"]
 ).end()
 
-# 矩形領域のグリッド補間（結果は "grid_{列名}_grid" 列とメタデータ）
-result = collection.ops.interpolate_grid(x_range=(0, 10), y_range=(0, 10), grid_size=(20, 20)).end()
+# 指定行の値を矩形グリッド上に補間（結果は results["grid"] の GridResult）
+grid = collection.ops.interpolate_grid(x_range=(0, 10), y_range=(0, 10), grid_size=(20, 20), row=-1).end().results["grid"]
+grid.values  # (ny, nx)
 ```
 
 ## 2. 荷重-変位データ処理ドメイン (load_displacement)

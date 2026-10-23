@@ -325,7 +325,7 @@ class CoreOps(Generic[C_co]):
         """離散積分 ∫y dx を新しい列として追加します（欠損を含む場合は全て欠損、単位は "y*x"）
 
         Args:
-            method: 積分手法 ("trapezoid", "cumulative_sum")
+            method: 積分手法 ("trapezoid" のみ。データの並び順に沿って積分)
             initial_value: 積分定数
         """
         y, x, has_missing = self._strict_pair(y_column, x_column)
