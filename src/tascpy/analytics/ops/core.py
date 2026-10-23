@@ -322,7 +322,7 @@ class CoreOps(Generic[C_co]):
 
     def integrate(self, y_column: Operand, x_column: Operand, method: str = "trapezoid", initial_value: float = 0.0,
                   result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """離散積分 ∫y dx を新しい列として追加します（欠損を含む場合は全て欠損、単位は "y·x"）
+        """離散積分 ∫y dx を新しい列として追加します（欠損を含む場合は全て欠損、単位は "y*x"）
 
         Args:
             method: 積分手法 ("trapezoid", "cumulative_sum")
@@ -331,8 +331,8 @@ class CoreOps(Generic[C_co]):
         y, x, has_missing = self._strict_pair(y_column, x_column)
         values = (np.full(len(y), np.nan) if has_missing
                   else f_math.integrate(y=y, x=x, method=method, initial_value=initial_value))
-        return self._with_column(result_column or f"∫{y_column}·d{x_column}", values, unit, ch,
-                                 self._compound_unit(y_column, x_column, "·"))
+        return self._with_column(result_column or f"∫{y_column}d{x_column}", values, unit, ch,
+                                 self._compound_unit(y_column, x_column, "*"))
 
     def evaluate(self, expression: str, result_column: Optional[str] = None,
                  unit: Optional[str] = None, ch: Optional[str] = None) -> Self:

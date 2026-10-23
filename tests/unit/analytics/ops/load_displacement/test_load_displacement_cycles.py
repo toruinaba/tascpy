@@ -171,7 +171,7 @@ class TestLoadDisplacementUnits:
         table = self.ld.ops.cycle_count().analyze_hysteresis().end()
         assert "cycle" not in table.columns
         assert table.step.tolist() == sorted(set(table.step.tolist()))
-        assert table.units == {"energy": "kN·mm", "max_load": "kN", "min_load": "kN",
+        assert table.units == {"energy": "kN*mm", "max_load": "kN", "min_load": "kN",
                                "max_disp": "mm", "min_disp": "mm"}
 
     def test_stiffness_degradation_table(self):

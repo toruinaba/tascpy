@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -68,6 +68,9 @@ class LoadDisplacementCollection(ColumnCollection):
                 raise ValueError(f"{role} に指定した列 '{name}' が存在しません")
             if not self[name].is_numeric:
                 raise ValueError(f"{role} に指定した列 '{name}' は数値列ではありません")
+
+    def _domain_config(self) -> Dict[str, Any]:
+        return {"load_column": self._load_column, "displacement_column": self._displacement_column}
 
     def _apply_rename(self, mapping: Mapping[str, str]) -> None:
         self._load_column = mapping.get(self._load_column, self._load_column)

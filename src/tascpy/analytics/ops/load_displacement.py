@@ -143,11 +143,11 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def analyze_hysteresis(self, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの履歴エネルギーと最大・最小荷重/変位を集計した表を返します
 
-        戻り値のステップはサイクル番号、列は energy（単位は "荷重·変位"）/ max_load / min_load / max_disp / min_disp です。
+        戻り値のステップはサイクル番号、列は energy（単位は "荷重*変位"）/ max_load / min_load / max_disp / min_disp です。
         """
         load_unit, disp_unit = self._c.load.unit, self._c.displacement.unit
         return self._per_cycle(cycle_column, compute_energy_and_stats, [
-            {"name": "energy", "unit": self._ld_unit("·"), "attrs": {"description": "Hysteresis loop area"}},
+            {"name": "energy", "unit": self._ld_unit("*"), "attrs": {"description": "Hysteresis loop area"}},
             {"name": "max_load", "unit": load_unit},
             {"name": "min_load", "unit": load_unit},
             {"name": "max_disp", "unit": disp_unit},

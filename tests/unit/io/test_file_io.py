@@ -41,21 +41,15 @@ def test_save_collection(tmp_path):
     collection = ColumnCollection(columns, step=[1, 2, 3])
     
     output_path = tmp_path / "output.txt"
-    # format_name="tasc_txt" (デフォルト) は use_channel_name=True なので、
-    # 保存時にName行にチャンネル名(CH1, CH2)が書き込まれる
     save_collection(collection, output_path)
-    
-    assert output_path.exists()
-    
-    # 読み込んで確認
+
     loaded = load_collection(output_path)
-    assert len(loaded) == 3
-    # 保存時の挙動により、キーがCH1, CH2になっていることを確認
-    np.testing.assert_array_equal(loaded["CH1"].values, [10, 20, 30])
-    np.testing.assert_allclose(loaded["CH2"].values, [1.1, 2.2, 3.3])
-    assert loaded["CH1"].unit == "u1"
-    assert loaded["CH2"].unit == "u2"
+    assert loaded.columns == ["A", "B"]
+    assert loaded.meta == collection.meta
+    np.testing.assert_array_equal(loaded["A"].values, [10, 20, 30])
+    np.testing.assert_allclose(loaded["B"].values, [1.1, 2.2, 3.3])
     np.testing.assert_array_equal(loaded.step, [1, 2, 3])
+    assert loaded.df.equals(collection.df)
 
 def test_selected_columns(sample_data_path):
     collection = tascpy.load(sample_data_path, selected_columns=["Force"])
@@ -78,4 +72,6 @@ def test_public_load_and_save_roundtrip(sample_data_path, tmp_path):
     assert len(reloaded) == 5
     assert list(reloaded.units.values()) == list(collection.units.values())
     assert list(reloaded.date) == list(collection.date)
-    np.testing.assert_allclose(reloaded["CH1"].values, collection["Force"].values)
+    assert reloaded.columns == collection.columns
+    assert reloaded.meta == collection.meta
+    np.testing.assert_allclose(reloaded["Force"].values, collection["Force"].values)

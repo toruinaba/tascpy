@@ -156,6 +156,10 @@ class ColumnCollection:
     def _apply_rename(self, mapping: Mapping[str, str]) -> None:
         """列名の変更をドメイン固有の設定に反映する（サブクラスで拡張、構築中のコピーにのみ呼ばれる）"""
 
+    def _domain_config(self) -> Dict[str, Any]:
+        """ドメイン固有の設定（from_collection のキーワード引数として復元できる形、サブクラスで拡張）"""
+        return {}
+
     @staticmethod
     def _require(name: str, names: Iterable[str]) -> None:
         if name not in names:

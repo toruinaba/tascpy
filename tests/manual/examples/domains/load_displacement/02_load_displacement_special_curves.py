@@ -33,20 +33,7 @@ print("■ 荷重-変位データの特殊曲線プロットサンプル")
 
 # 1. サンプルデータの読み込みを行います
 print("1. サンプルデータの読み込み")
-collection = tascpy.load(
-    str(DATA_PATH),
-    format_name="csv",
-    delimiter=",",
-    title_row=0,
-    ch_row=1,
-    name_row=2,
-    unit_row=3,
-    data_start_row=4,
-    step_col=0,
-    date_col=1,
-    time_col=2,
-    data_start_col=3,
-)  # 数値の列は自動的に Float64 になります
+collection = tascpy.load(str(DATA_PATH), format_name="csv")  # 数値の列は自動的に Float64 になります
 print(f"   - 単位: {collection.units}")
 
 # 2. 荷重-変位ドメインに変換し、曲線生成に必要なサイクル列（"Force1_cycle"）を作成します

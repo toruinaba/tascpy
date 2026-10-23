@@ -81,8 +81,8 @@ class TestIntegrateOperation:
     """integrate関数の構造テスト"""
     def test_integrate_constant(self, sample_collection):
         result = sample_collection.ops.integrate("A", "B").end()
-        assert "∫A·dB" in result.columns
-        assert isinstance(result["∫A·dB"].attrs, Mapping)
+        assert "∫AdB" in result.columns
+        assert isinstance(result["∫AdB"].attrs, Mapping)
 
 class TestExponentialAndLogarithmicFunctions:
     def test_log_natural(self, sample_collection):

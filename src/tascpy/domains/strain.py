@@ -45,6 +45,9 @@ class StrainCollection(CoordinateCollection):
         new._rosettes = {name: _checked_rosette(name, info) for name, info in (rosettes or {}).items()}
         return new
 
+    def _domain_config(self) -> Dict[str, Any]:
+        return {"rosettes": self.rosettes}
+
     @property
     def ops(self) -> "StrainOps":
         """ひずみドメインの操作オブジェクト"""

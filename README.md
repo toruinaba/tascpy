@@ -70,6 +70,11 @@ collection[0]                    # <Row step=1, Force=0.0 kN, Displacement=0.0 m
 # polars の DataFrame との相互変換
 df = collection.df
 again = tascpy.ColumnCollection.from_frame(df, units=collection.units)
+
+# 保存
+collection.io.save("out.txt")             # TASC 形式（列名・ch・単位を保持）
+collection.io.to_parquet("out.parquet")   # 単位・属性・解析結果まで保持
+restored = tascpy.io.load_parquet("out.parquet")
 ```
 
 ### 荷重-変位ドメインの分析
