@@ -24,12 +24,6 @@
 ### Core Math
 ::: tascpy.analytics.functional.core.math
 
-### Core Filters
-::: tascpy.analytics.functional.core.filters
-
-### Core Select
-::: tascpy.analytics.functional.core.select
-
 ### Core Stats
 ::: tascpy.analytics.functional.core.stats
 

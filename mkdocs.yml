@@ -34,6 +34,7 @@ nav:
   - Home: index.md
   - Developer Guide: 
       - General: developer_guide.md
+      - Core Design: developer_guide_design.md
       - Adding Operations: developer_guide_operations.md
       - Testing Strategy: developer_guide_testing.md
   - API Reference:

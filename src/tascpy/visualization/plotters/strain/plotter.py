@@ -1,11 +1,11 @@
 from typing import Optional, Any
 from matplotlib.axes import Axes
 
-from tascpy.visualization.plotters.core.plotter import CorePlotter
+from tascpy.visualization.plotters.coordinate.plotter import CoordinatePlotter
 from tascpy.visualization.functional.strain import plot as strain_plot
 
 
-class StrainPlotter(CorePlotter):
+class StrainPlotter(CoordinatePlotter):
     """ひずみドメイン特化の可視化クラス
     
     CorePlotterの機能に加え、ロゼット主ひずみベクトルの描画等

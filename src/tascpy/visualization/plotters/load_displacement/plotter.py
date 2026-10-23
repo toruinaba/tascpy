@@ -34,6 +34,19 @@ class LoadDisplacementPlotter(CorePlotter):
 
         return x_col, y_col
 
+    def _curve(self, name: str) -> tuple[np.ndarray, np.ndarray]:
+        """解析結果 (XYSeriesResult) から曲線の (x, y) を取得します"""
+        result = self._collection.results.get(name)
+        if result is None:
+            raise ValueError(f"コレクションに解析結果 '{name}' がありません")
+        return result.x.values, result.y.values
+
+    def _yield_point(self, result_prefix: str):
+        point = self._collection.results.get(f"{result_prefix}_point")
+        if point is None:
+            raise ValueError("コレクションに降伏点の解析結果が含まれていません")
+        return point
+
     def plot_load_displacement(
         self,
         x_column: Optional[str] = None,
@@ -91,24 +104,7 @@ class LoadDisplacementPlotter(CorePlotter):
             y_column: 元データの荷重カラム名
         """
         if skeleton_x is None or skeleton_y is None:
-            try:
-                res = self._collection.results.get("skeleton_curve")
-                if res is not None:
-                    curve_info = res.to_dict()
-                    skeleton_x = np.array(curve_info["data"]["x"])
-                    skeleton_y = np.array(curve_info["data"]["y"])
-                else:
-                    curve_info = self._collection["curves"]["skeleton_curve"]
-                    if "data" in curve_info:
-                        skeleton_x = np.array(curve_info["data"]["x"])
-                        skeleton_y = np.array(curve_info["data"]["y"])
-                    elif "columns" in curve_info:
-                        x_col = curve_info["columns"]["x"]
-                        y_col = curve_info["columns"]["y"]
-                        skeleton_x = np.array(self._collection[x_col].values)
-                        skeleton_y = np.array(self._collection[y_col].values)
-            except (KeyError, TypeError) as e:
-                raise ValueError("skeleton_x and skeleton_y must be provided or exist in collection curves.") from e
+            skeleton_x, skeleton_y = self._curve("skeleton_curve")
 
         if plot_original:
             try:
@@ -149,24 +145,7 @@ class LoadDisplacementPlotter(CorePlotter):
     ) -> Axes:
         """累積曲線をプロットします"""
         if cumulative_x is None or cumulative_y is None:
-            try:
-                res = self._collection.results.get("cumulative_curve")
-                if res is not None:
-                    curve_info = res.to_dict()
-                    cumulative_x = np.array(curve_info["data"]["x"])
-                    cumulative_y = np.array(curve_info["data"]["y"])
-                else:
-                    curve_info = self._collection["curves"]["cumulative_curve"]
-                    if "data" in curve_info:
-                        cumulative_x = np.array(curve_info["data"]["x"])
-                        cumulative_y = np.array(curve_info["data"]["y"])
-                    elif "columns" in curve_info:
-                        x_col = curve_info["columns"]["x"]
-                        y_col = curve_info["columns"]["y"]
-                        cumulative_x = np.array(self._collection[x_col].values)
-                        cumulative_y = np.array(self._collection[y_col].values)
-            except (KeyError, TypeError) as e:
-                raise ValueError("cumulative_x and cumulative_y must be provided or exist in collection curves.") from e
+            cumulative_x, cumulative_y = self._curve("cumulative_curve")
 
         if plot_original:
             try:
@@ -212,19 +191,7 @@ class LoadDisplacementPlotter(CorePlotter):
     ) -> Axes:
         """降伏点解析結果をプロットします"""
         if yield_disp is None or yield_load is None:
-            yp = None
-            if hasattr(self._collection, "results"):
-                yp = self._collection.results.get(f"{result_prefix}_point")
-
-            if yp is None and hasattr(self._collection, "__getitem__"):
-                try:
-                    yp = self._collection[f"analysis.{result_prefix}_point"]
-                except KeyError:
-                    pass
-            
-            if yp is None:
-                raise ValueError("コレクションに降伏点の解析結果が含まれていません")
-
+            yp = self._yield_point(result_prefix)
             yield_disp = yp.x
             yield_load = yp.y
             md = yp.metadata or {}
@@ -287,19 +254,7 @@ class LoadDisplacementPlotter(CorePlotter):
     ) -> Axes:
         """詳細な降伏点解析内容をプロットします"""
         if yield_disp is None or yield_load is None:
-            yp = None
-            if hasattr(self._collection, "results"):
-                yp = self._collection.results.get(f"{result_prefix}_point")
-
-            if yp is None and hasattr(self._collection, "__getitem__"):
-                try:
-                    yp = self._collection[f"analysis.{result_prefix}_point"]
-                except KeyError:
-                    pass
-            
-            if yp is None:
-                raise ValueError("コレクションに降伏点の解析結果が含まれていません")
-
+            yp = self._yield_point(result_prefix)
             yield_disp = yp.x
             yield_load = yp.y
             md = yp.metadata or {}
@@ -419,23 +374,7 @@ class LoadDisplacementPlotter(CorePlotter):
                     item["x"] = x_vals
                     item["y"] = y_vals
                 elif curve_type in ["skeleton", "cumulative"]:
-                    curve_info = self._collection["curves"].get(f"{curve_type}_curve")
-                    if curve_info is None:
-                        res = self._collection.results.get(f"{curve_type}_curve")
-                        if res is not None:
-                            curve_info = res.to_dict()
-                    
-                    if curve_info and "data" in curve_info:
-                        item["x"] = np.array(curve_info["data"]["x"])
-                        item["y"] = np.array(curve_info["data"]["y"])
-                    elif curve_info and "columns" in curve_info:
-                        x_col = curve_info["columns"]["x"]
-                        y_col = curve_info["columns"]["y"]
-                        item["x"] = np.array(self._collection[x_col].values)
-                        item["y"] = np.array(self._collection[y_col].values)
-                    else:
-                        print(f"Warning: Data for {curve_type}_curve not found in curves. Skipping.")
-                        continue
+                    item["x"], item["y"] = self._curve(f"{curve_type}_curve")
             except Exception as e:
                 print(f"Warning: Could not extract data for type '{curve_type}': {e}")
                 continue

@@ -1,4 +1,5 @@
 from pathlib import Path
+import numpy as np
 import tascpy as tp
 from matplotlib import pyplot as plt
 
@@ -89,7 +90,7 @@ class Test_results:
             
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            max_index = d_removed_outliers["梁変位ﾜｲﾔ"].max_index
+            max_index = int(np.nanargmax(d_removed_outliers["梁変位ﾜｲﾔ"].values))
             splitted = d_removed_outliers.ops.split_at_indices(max_index + 1).end()
             # Check if split was successful
             if len(splitted) >= 2:
@@ -111,7 +112,6 @@ class Test_results:
                 
                 # ax.plot(d_smooth, p_smooth, label="smoothed")
                 try:
-                    import numpy as np
                     is_valid, yield_disp, yield_load, debug_info = compute_yield_point(
                         d_val, p, method="offset", offset_value=2, range_start=0.1, range_end=0.3
                     )
@@ -196,7 +196,7 @@ class Test_results:
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()
         pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(
-            columns=["P_total", "梁変位ﾜｲﾔ"], dup_type="all"
+            columns=["P_total", "梁変位ﾜｲﾔ"]
         ).end()
         p = pd_rmdup["P_total"].values
         d_val = pd_rmdup["梁変位ﾜｲﾔ"].values

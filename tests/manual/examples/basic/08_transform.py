@@ -7,6 +7,7 @@ ColumnCollectionのデータ変換を示すサンプルコード
 
 import os
 import math
+import numpy as np
 from tascpy.core.collection import ColumnCollection
 import tascpy
 
@@ -23,9 +24,7 @@ print("-- ColumnCollectionのデータ変換 --\n")
 
 # CSVファイルからデータを読み込む
 try:
-    collection = tascpy.io.load(
-        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
-    )
+    collection = tascpy.load(SAMPLE_CSV_PATH, format_name="csv")
     print("CSVファイルからデータを読み込みました")
 except FileNotFoundError:
     # サンプルファイルがない場合は模擬データを作成
@@ -127,12 +126,15 @@ except FileNotFoundError:
         ],
         "title": "無題",
     }
-    collection = ColumnCollection(steps, columns, metadata, auto_detect_types=True)
+    collection = ColumnCollection(
+        columns, step=steps, date=metadata.pop("date"), time=metadata.pop("time"), metadata=metadata
+    )
 
 # データの初期状態を表示
 print("\n初期データ:")
 print(f"行数: {len(collection)}")
-print(f"カラム: {list(collection.columns.keys())}")
+print(f"カラム: {collection.columns}")
+print(f"単位: {collection.units}")
 print(f"Force1の例: {collection['Force1'].values[:5]}...")
 print(f"Displacement1の例: {collection['Displacement1'].values[:5]}...")
 
@@ -143,13 +145,14 @@ print("\n1. 前処理：欠損値(None)のフィルタリングとゼロ置換")
 
 # フィルタリング条件を緩和: None値を持つデータも含めて処理する
 # 代わりにNoneをゼロに置き換える前処理に重点を置く
-preprocessed = collection.clone()
+# コレクションは不変なので、置換した列で上書きした新しいコレクションを作る（単位は引き継がれる）
+preprocessed = collection
 columns_to_convert = ["Force1", "Force2", "Displacement1", "Displacement2"]
 for column in columns_to_convert:
-    if column in preprocessed.columns:
-        preprocessed.columns[column].values = [
-            0 if v is None else v for v in preprocessed.columns[column].values
-        ]
+    if column in preprocessed:
+        preprocessed = preprocessed.with_column(
+            column, np.nan_to_num(preprocessed[column].values, nan=0.0)
+        )
 
 print(f"処理後の行数: {len(preprocessed)}")
 print(f"処理後のForce1: {preprocessed['Force1'].values}")
@@ -164,9 +167,10 @@ print("\n2. 単位変換：チェーンメソッドを活用")
 # selectで関連する列だけを選択し、そのまま単位変換の処理チェーンにつなげる
 unit_converted = (
     preprocessed.ops.select(columns=["Force1", "Displacement1"])
-    .multiply("Force1", 1000, result_column="Force1_N")  # kN -> N （1000倍）
+    # 単位は自動変換されないため、換算後の単位を unit= で明示する
+    .multiply("Force1", 1000, result_column="Force1_N", unit="N")  # kN -> N （1000倍）
     .multiply(
-        "Displacement1", 0.001, result_column="Displacement1_m"
+        "Displacement1", 0.001, result_column="Displacement1_m", unit="m"
     )  # mm -> m （0.001倍）
     .end()
 )
@@ -193,7 +197,7 @@ step_result = (
     .end()
 )
 
-print(f"選択したステップ値: {step_result.step.values}")
+print(f"選択したステップ値: {step_result.step}")
 print(f"  変換後Force1_N: {step_result['Force1_N'].values}")
 print(f"  変換後Displacement1_m: {step_result['Displacement1_m'].values}")
 
@@ -204,8 +208,8 @@ print("\n4. 物理量の計算：応力・ひずみ計算")
 
 # 全データで単位変換したコレクションを用意
 full_converted = (
-    preprocessed.ops.multiply("Force1", 1000, result_column="Force1_N")
-    .multiply("Displacement1", 0.001, result_column="Displacement1_m")
+    preprocessed.ops.multiply("Force1", 1000, result_column="Force1_N", unit="N")
+    .multiply("Displacement1", 0.001, result_column="Displacement1_m", unit="m")
     .end()
 )
 
@@ -217,11 +221,12 @@ length_m = 0.05  # 初期長さ (m)
 physical_result = (
     full_converted.ops
     # 応力計算 (σ = F/A)
-    .divide("Force1_N", area_m2, result_column="Stress_Pa")  # Pa = N/m²
-    .divide("Stress_Pa", 1e6, result_column="Stress_MPa")  # MPa = Pa/1e6
+    # スカラーで割った結果は元の列の単位を引き継ぐため、物理量が変わる計算では unit= を指定する
+    .divide("Force1_N", area_m2, result_column="Stress_Pa", unit="Pa")  # Pa = N/m²
+    .divide("Stress_Pa", 1e6, result_column="Stress_MPa", unit="MPa")  # MPa = Pa/1e6
     # ひずみ計算 (ε = ΔL/L)
-    .divide("Displacement1_m", length_m, result_column="Strain")  # 無次元
-    .multiply("Strain", 100, result_column="Strain_percent")  # % = 無次元 * 100
+    .divide("Displacement1_m", length_m, result_column="Strain", unit="")  # 無次元
+    .multiply("Strain", 100, result_column="Strain_percent", unit="%")  # % = 無次元 * 100
     .end()
 )
 
@@ -229,6 +234,7 @@ print(f"応力計算: σ = F/A (断面積 = {area_mm2} mm²)")
 print(f"  応力 (MPa): {physical_result['Stress_MPa'].values[:5]}...")
 print(f"ひずみ計算: ε = ΔL/L (初期長さ = {length_m*1000} mm)")
 print(f"  ひずみ (%): {physical_result['Strain_percent'].values[:5]}...")
+print(f"  単位: {physical_result.units}")
 
 # ----------------------------------------------------
 # 5. 特定データの対数変換
@@ -247,7 +253,7 @@ log_result = (
 )
 
 print(f"選択したステップの対数変換:")
-print(f"  選択したステップ: {log_result.step.values}")
+print(f"  選択したステップ: {log_result.step}")
 print(f"  対数ひずみ: {log_result['LogStrain'].values}")
 print(f"  対数応力: {log_result['LogStress'].values}")
 
@@ -377,7 +383,7 @@ try:
 
         print("複合処理の結果:")
         print(f"  処理後の行数: {len(positive_strain)}")
-        print(f"  選択されたステップ: {positive_strain.step.values}")
+        print(f"  選択されたステップ: {positive_strain.step}")
         print(f"  応力値 (MPa): {positive_strain['Stress_MPa'].values[:5]}...")
         print(f"  対数ひずみ: {positive_strain['LogStrain'].values[:5]}...")
     else:
@@ -385,7 +391,7 @@ try:
             "複合処理の結果: 条件を満たすデータがないため対数変換はスキップされました"
         )
         print(f"  処理後の行数: {len(complex_result)}")
-        print(f"  選択されたステップ: {complex_result.step.values}")
+        print(f"  選択されたステップ: {complex_result.step}")
         print(f"  応力値 (MPa): {complex_result['Stress_MPa'].values[:5]}...")
 except Exception as e:
     print(f"複合操作の実行中にエラーが発生しました: {str(e)}")

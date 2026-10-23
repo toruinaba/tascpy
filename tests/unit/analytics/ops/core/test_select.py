@@ -15,9 +15,9 @@ def sample_collection():
     return ColumnCollection(
         step=[1, 2, 3, 4, 5],
         columns={
-            "A": Column("1", "Column A", "", [10, 20, 30, 40, 50]),
-            "B": Column("2", "Column B", "", [1.1, 2.2, 3.3, 4.4, 5.5]),
-            "C": Column("3", "Column C", "", ["a", "b", "c", "d", "e"]),
+            "A": Column("Column A", ch="1", unit="", values=[10, 20, 30, 40, 50]),
+            "B": Column("Column B", ch="2", unit="", values=[1.1, 2.2, 3.3, 4.4, 5.5]),
+            "C": Column("Column C", ch="3", unit="", values=["a", "b", "c", "d", "e"]),
         },
         metadata={"description": "Test Collection for Select Operations"},
     )
@@ -35,7 +35,7 @@ class TestSelect:
     def test_select_columns(self, sample_collection):
         result = sample_collection.ops.select(columns=["A", "C"]).end()
         assert isinstance(result, ColumnCollection)
-        assert list(result.columns.keys()) == ["A", "C"]
+        assert result.columns == ["A", "C"]
         assert len(result) == 5
 
     def test_select_indices(self, sample_collection):
@@ -46,14 +46,14 @@ class TestSelect:
     def test_select_both(self, sample_collection):
         result = sample_collection.ops.select(columns=["B", "C"], indices=[1, 3]).end()
         assert isinstance(result, ColumnCollection)
-        assert list(result.columns.keys()) == ["B", "C"]
+        assert result.columns == ["B", "C"]
         assert len(result) == 2
 
     def test_select_by_steps(self, sample_collection):
         result = sample_collection.ops.select(steps=[1, 3, 5]).end()
         assert isinstance(result, ColumnCollection)
         assert len(result) == 3
-        assert result.metadata["operation"] == "select_step"
+        assert result.metadata["selected_steps"] == [1, 3, 5]
 
     def test_select_with_tolerance(self, sample_collection):
         result = sample_collection.ops.select(steps=[1.2, 3.1, 4.95], tolerance=0.2).end()
@@ -75,7 +75,7 @@ class TestSelect:
             sample_collection.ops.select(indices=[0, 10]).end()
 
     def test_both_indices_and_steps_not_allowed(self, sample_collection):
-        with pytest.raises(ValueError, match="indicesとstepsは同時に指定できません"):
+        with pytest.raises(ValueError, match="indices と steps は同時に指定できません"):
             sample_collection.ops.select(indices=[0, 1], steps=[2, 3]).end()
 
 
@@ -88,9 +88,12 @@ def test_split_by_integers_structure(sample_collection):
         assert isinstance(r, ColumnCollection)
 
 def test_split_by_integers_preserves_metadata(sample_collection):
-    sample_collection.metadata = {"source": "test", "date": "2025-05-03"}
+    collection = ColumnCollection(
+        {name: sample_collection[name] for name in sample_collection.columns},
+        step=sample_collection.step, metadata={"source": "test", "date": "2025-05-03"},
+    )
     markers = [1, 2, 1, 2, 1]
-    result = sample_collection.ops.split_by_integers(markers).end()
+    result = collection.ops.split_by_integers(markers).end()
     assert len(result) == 2
     assert result[0].metadata == {"source": "test", "date": "2025-05-03"}
 
@@ -102,6 +105,18 @@ def test_split_by_integers_with_proxy(sample_collection):
     first_two = result[:2]
     assert isinstance(first_two, OpsList)
     assert len(first_two) == 2
+
+def test_select_records_missing_steps(sample_collection):
+    result = sample_collection.ops.select(steps=[1, 99]).end()
+    assert result.metadata["missing_steps"] == [99]
+    assert result.step.tolist() == [1]
+
+
+def test_split_preserves_units(sample_collection):
+    with_units = sample_collection.with_meta("A", unit="kN")
+    parts = with_units.ops.split_by_integers([1, 1, 2, 2, 2]).end()
+    assert all(p["A"].unit == "kN" for p in parts)
+
 
 def test_split_at_indices_structure(sample_collection):
     result = sample_collection.ops.split_at_indices(indices=[2]).end()

@@ -13,9 +13,9 @@ def sample_collection():
     return ColumnCollection(
         step=[1, 2, 3, 4, 5],
         columns={
-            "x": Column("1", "X Values", "m", [1, 2, 3, 4, 5]),
-            "y1": Column("2", "Y1 Values", "kg", [10, 20, 30, 40, 50]),
-            "y2": Column("3", "Y2 Values", "N", [100, 200, 300, 400, 500]),
+            "x": Column("x", [1, 2, 3, 4, 5], unit="m", ch="1"),
+            "y1": Column("y1", [10, 20, 30, 40, 50], unit="kg", ch="2"),
+            "y2": Column("y2", [100, 200, 300, 400, 500], unit="N", ch="3"),
         },
         metadata={"description": "Test Collection for Plot"},
     )
@@ -40,8 +40,8 @@ class TestPlot:
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         mock_ax.scatter.assert_called_once()
-        mock_ax.set_xlabel.assert_called_with("X Values [m]")
-        mock_ax.set_ylabel.assert_called_with("Y1 Values [kg]")
+        mock_ax.set_xlabel.assert_called_with("x [m]")
+        mock_ax.set_ylabel.assert_called_with("y1 [kg]")
         # axがNoneの場合（新しい図を作成した場合）のみplt.showが呼ばれる
         mock_show.assert_called_once()
 
@@ -62,8 +62,8 @@ class TestPlot:
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         mock_ax.plot.assert_called_once()
-        mock_ax.set_xlabel.assert_called_with("X Values [m]")
-        mock_ax.set_ylabel.assert_called_with("Y1 Values [kg]")
+        mock_ax.set_xlabel.assert_called_with("x [m]")
+        mock_ax.set_ylabel.assert_called_with("y1 [kg]")
         # axがNoneの場合（新しい図を作成した場合）のみplt.showが呼ばれる
         mock_show.assert_called_once()
 
@@ -81,14 +81,14 @@ class TestPlot:
 
         # 検証: 新しいサブプロットを作らず、既存のaxesオブジェクトが使用されるか
         mock_ax.scatter.assert_called_once()
-        mock_ax.set_xlabel.assert_called_with("X Values [m]")
-        mock_ax.set_ylabel.assert_called_with("Y1 Values [kg]")
+        mock_ax.set_xlabel.assert_called_with("x [m]")
+        mock_ax.set_ylabel.assert_called_with("y1 [kg]")
         # 既存のAxesオブジェクトを使用する場合はplt.showは呼ばれない
         mock_show.assert_not_called()
 
         # Axesオブジェクトが返されることを確認
         assert result is mock_ax
-        mock_ax.set_ylabel.assert_called_with("Y1 Values [kg]")
+        mock_ax.set_ylabel.assert_called_with("y1 [kg]")
         # 既存のAxesオブジェクトを使用する場合はplt.showは呼ばれない
         mock_show.assert_not_called()
 
@@ -116,11 +116,11 @@ class TestPlot:
     def test_nonexistent_column(self, sample_collection):
         """存在しない列名を指定した場合にKeyErrorが発生することを確認"""
         # 存在しないx列
-        with pytest.raises(KeyError, match="列 'nonexistent_x' は存在しません"):
+        with pytest.raises(KeyError, match="列 'nonexistent_x' が存在しません"):
             sample_collection.plot.plot(y_column="y1", x_column="nonexistent_x")
 
         # 存在しないy列
-        with pytest.raises(KeyError, match="列 'nonexistent_y' は存在しません"):
+        with pytest.raises(KeyError, match="列 'nonexistent_y' が存在しません"):
             sample_collection.plot.plot(y_column="nonexistent_y", x_column="x")
 
     @patch("matplotlib.pyplot.subplots")
@@ -150,12 +150,12 @@ class TestPlot:
         sample_collection.plot.plot(y_column="y1", x_column="x", plot_type="scatter")
 
         # 検証: タイトルが正しく設定されたか
-        mock_ax.set_title.assert_called_with("Y1 Values vs X Values")
+        mock_ax.set_title.assert_called_with("y1 vs x")
 
         # 線グラフでも確認
         mock_ax.reset_mock()
         sample_collection.plot.plot(y_column="y2", x_column="x", plot_type="line")
-        mock_ax.set_title.assert_called_with("Y2 Values vs X Values")
+        mock_ax.set_title.assert_called_with("y2 vs x")
 
     @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
@@ -173,12 +173,12 @@ class TestPlot:
         mock_ax.scatter.assert_called_once()
         # 第1引数（x値）がstep.valuesである
         args, kwargs = mock_ax.scatter.call_args
-        np.testing.assert_array_equal(args[0], sample_collection.step.values)
+        np.testing.assert_array_equal(args[0], sample_collection.step)
 
         # 軸ラベルとタイトルの検証
         mock_ax.set_xlabel.assert_called_with("Step")
-        mock_ax.set_ylabel.assert_called_with("Y1 Values [kg]")
-        mock_ax.set_title.assert_called_with("Y1 Values vs Step")
+        mock_ax.set_ylabel.assert_called_with("y1 [kg]")
+        mock_ax.set_title.assert_called_with("y1 vs Step")
 
         # Axesオブジェクトが返されることを確認
         assert result is mock_ax
@@ -199,12 +199,12 @@ class TestPlot:
         mock_ax.scatter.assert_called_once()
         # 第2引数（y値）がstep.valuesである
         args, kwargs = mock_ax.scatter.call_args
-        np.testing.assert_array_equal(args[1], sample_collection.step.values)
+        np.testing.assert_array_equal(args[1], sample_collection.step)
 
         # 軸ラベルとタイトルの検証
-        mock_ax.set_xlabel.assert_called_with("X Values [m]")
+        mock_ax.set_xlabel.assert_called_with("x [m]")
         mock_ax.set_ylabel.assert_called_with("Step")
-        mock_ax.set_title.assert_called_with("Step vs X Values")
+        mock_ax.set_title.assert_called_with("Step vs x")
 
         # Axesオブジェクトが返されることを確認
         assert result is mock_ax
@@ -225,8 +225,8 @@ class TestPlot:
         mock_ax.scatter.assert_called_once()
         # 両方の引数がstep.valuesである
         args, kwargs = mock_ax.scatter.call_args
-        np.testing.assert_array_equal(args[0], sample_collection.step.values)
-        np.testing.assert_array_equal(args[1], sample_collection.step.values)
+        np.testing.assert_array_equal(args[0], sample_collection.step)
+        np.testing.assert_array_equal(args[1], sample_collection.step)
 
         # 軸ラベルとタイトルの検証
         mock_ax.set_xlabel.assert_called_with("Step")
@@ -266,7 +266,7 @@ class TestVisualizeOutliers:
         call_args = mock_detect_outliers.call_args
         assert call_args is not None
         # args[0]にはy列の値(numpy array)が入っているはず
-        np.testing.assert_array_equal(call_args[0][0], sample_collection.columns["y1"].values)
+        np.testing.assert_array_equal(call_args[0][0], sample_collection["y1"].values)
 
         # 検証: matplotlibの適切なメソッドが呼ばれたか
         # 正常値と異常値で少なくとも2回scatterが呼ばれる

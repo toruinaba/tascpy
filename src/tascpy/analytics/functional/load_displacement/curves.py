@@ -2,7 +2,18 @@
 
 from typing import List, Tuple, Any
 import numpy as np
-from ..core.select import split_list_by_integers
+
+
+def _cycle_groups(loads: np.ndarray, displacements: np.ndarray,
+                  markers: np.ndarray) -> Tuple[np.ndarray, List[Tuple[List[float], List[float]]]]:
+    """サイクル番号（昇順）と、サイクルごとの (荷重, 変位) リスト。サイクル番号が欠損の行は除く"""
+    loads = np.asarray(loads, dtype=float)
+    displacements = np.asarray(displacements, dtype=float)
+    markers = np.asarray(markers, dtype=float)
+    keys = np.unique(markers[~np.isnan(markers)])
+    groups = [(loads[markers == k].tolist(), displacements[markers == k].tolist()) for k in keys]
+    return keys, groups
+
 
 def extend_data_edge(
     x_data: List[float], 
@@ -84,36 +95,25 @@ def compute_skeleton_curve(
         >>> markers = np.array([1, 1, 1, 1, 1])
         >>> d_ske, p_ske = compute_skeleton_curve(loads, disps, markers, has_decrease=True)
     """
-    loads_list = loads.tolist()
-    disps_list = displacements.tolist()
-    markers_list = markers.tolist()
+    if decrease_type not in ("envelope", "continuous_only", "both"):
+        raise ValueError("decrease_typeは'envelope', 'continuous_only', 'both'のいずれかである必要があります")
 
-    splitted_loads = split_list_by_integers(loads_list, markers_list)
-    splitted_disps = split_list_by_integers(disps_list, markers_list)
-
-    max_load_idx = np.nanargmax(loads)
-    max_marker = int(markers[max_load_idx])
-    end_marker = int(np.nanmax(markers))
+    keys, groups = _cycle_groups(loads, displacements, markers)
+    if len(keys) == 0:
+        return [], []
+    marker_arr = np.asarray(markers, dtype=float)
+    has_marker = ~np.isnan(marker_arr)
+    max_marker = marker_arr[has_marker][np.nanargmax(np.asarray(loads, dtype=float)[has_marker])]
 
     p_ske = []
     d_ske = []
     p_max = 0.0
+    d_offset = 0.0
 
-    # 増加部分
-    for cyc in range(1, max_marker + 1):
-        cyc_indices = np.where(markers == cyc)[0]
-        if len(cyc_indices) == 0:
-            continue
-        cyc_idx = cyc - 1
-        if cyc_idx >= len(splitted_loads) or cyc_idx >= len(splitted_disps):
-            continue
-
-        load = splitted_loads[cyc_idx]
-        disp = splitted_disps[cyc_idx]
-
-        if not load or not disp:
-            continue
-
+    # 増加部分（最大荷重のサイクルまで）
+    for key, (load, disp) in zip(keys, groups):
+        if key > max_marker:
+            break
         d_offset = 0.0
 
         for i in range(len(load)):
@@ -125,20 +125,10 @@ def compute_skeleton_curve(
                 p_ske.append(load[i])
                 d_ske.append(disp[i] + d_offset)
 
-    # 減少部分
-    if has_decrease and max_marker <= end_marker:
-        for cyc in range(max_marker, end_marker + 1):
-            cyc_indices = np.where(markers == cyc)[0]
-            if len(cyc_indices) == 0:
-                continue
-            cyc_idx = cyc - 1
-            if cyc_idx >= len(splitted_loads) or cyc_idx >= len(splitted_disps):
-                continue
-
-            load = splitted_loads[cyc_idx]
-            disp = splitted_disps[cyc_idx]
-
-            if not load or not disp:
+    # 減少部分（最大荷重のサイクル以降）
+    if has_decrease:
+        for key, (load, disp) in zip(keys, groups):
+            if key < max_marker:
                 continue
 
             valid_indices = [
@@ -191,8 +181,6 @@ def compute_skeleton_curve(
                             continue
                         p_ske.append(load[i])
                         d_ske.append(disp[i] + d_offset)
-            else:
-                raise ValueError("decrease_typeは'envelope', 'continuous_only', 'both'のいずれかである必要があります")
 
     return d_ske, p_ske
 
@@ -222,19 +210,12 @@ def compute_cumulative_curve(
         >>> markers = np.array([1, 1, 1, 1, 1, 2, 2])
         >>> d_cum, p_cum = compute_cumulative_curve(loads, disps, markers)
     """
-    loads_list = loads.tolist()
-    disps_list = displacements.tolist()
-    markers_list = markers.tolist()
-
-    splitted_loads = split_list_by_integers(loads_list, markers_list)
-    splitted_displacements = split_list_by_integers(disps_list, markers_list)
+    _, groups = _cycle_groups(loads, displacements, markers)
 
     p_cum = []
     d_cum = []
 
-    for i in range(len(splitted_loads)):
-        load = splitted_loads[i]
-        displacement = splitted_displacements[i]
+    for load, displacement in groups:
 
         valid_indices = [
             j for j, (l, d) in enumerate(zip(load, displacement))

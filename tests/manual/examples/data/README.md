@@ -26,30 +26,19 @@
 ### サンプルデータの読み込み
 
 ```python
-from tascpy.core.collection import ColumnCollection
+import tascpy
 
-# 基本サンプルデータの読み込み
-basic_data = ColumnCollection.from_file(
-    filepath="./sample.csv", 
-    format_name="csv", 
-    auto_detect_types=True
-)
+# 基本サンプルデータの読み込み（ヘッダーのチャンネル・名前・単位行が列メタになる）
+basic_data = tascpy.load("./sample.csv", format_name="csv")
+print(basic_data.units)  # {'Force1': 'kN', ...}
 
 # 荷重-変位サンプルデータの読み込み
-ld_data = ColumnCollection.from_file(
-    filepath="./load_displacement_sample.csv", 
-    format_name="csv", 
-    auto_detect_types=True
-)
+ld_data = tascpy.load("./load_displacement_sample.csv", format_name="csv")
 ```
 
 ### サンプルデータの生成
 
 ```python
-# モジュールのインポート
-import os
-import numpy as np
-
 # 荷重-変位サンプルデータ生成スクリプトの実行
 exec(open("./create_load_displacement_sample.py").read())
 
@@ -59,34 +48,31 @@ exec(open("./create_load_displacement_sample.py").read())
 
 ## 独自データの使い方
 
-tascpy は様々なデータ形式に対応しています。独自のデータを使用する場合は、以下の点に注意してください：
+`tascpy.load` は TASC 形式（タブ区切り / CSV）のヘッダー構成を前提にしています。独自のデータを使用する場合は、以下の点に注意してください：
 
-1. **サポートされる形式**:
-   - CSV ファイル（カンマ区切り）
-   - タブ区切りテキストファイル
-   - Excel ファイル（xlsx）
-   - 特定の形式の実験データファイル
+1. **サポートされる形式** (`format_name`):
+   - `"tasc_txt"` / `"tasc_csv"`: TASC 出力（Shift-JIS）
+   - `"standard"` / `"csv"`: 同じ構成の UTF-8 ファイル
+   - 独自形式は `tascpy.io.register_format` で登録できます
 
-2. **列型の自動検出**:
-   - `auto_detect_types=True` オプションを使用すると、数値や文字列などの型が自動検出されます
-   - 特定の列の型を明示的に指定したい場合は、`column_types` パラメータを使用できます
+2. **列の型と欠損値**:
+   - 数値の列は自動的に Float64 になります
+   - `none` / `null` / `nan` / 空欄 / `*` で始まる値は欠損として読み込まれます
+   - 単位行が空欄の列の単位は `None`（不明）になります
 
-3. **ヘッダー行の扱い**:
-   - デフォルトでは最初の行がヘッダーとして扱われます
-   - ヘッダーがない場合や別の行をヘッダーとして使用する場合は、`header` パラメータで指定できます
+3. **ヘッダー行の位置**:
+   - チャンネル行・名前行・単位行・データ開始行・データ開始列などはキーワード引数で上書きできます
+   - 日付・時刻の列はインデックス列 `date` / `time` として読み込まれます
 
 ```python
 # 独自データの読み込み例
-custom_data = ColumnCollection.from_file(
-    filepath="./your_data.csv",
+custom_data = tascpy.load(
+    "./your_data.csv",
     format_name="csv",
-    auto_detect_types=True,
-    header=0,  # 最初の行をヘッダーとして使用
-    delimiter=",",  # 区切り文字の指定
-    column_types={  # 特定の列の型を明示的に指定
-        "Time": "number",
-        "Category": "string"
-    }
+    encoding="shift_jis",  # 文字コードの指定
+    unit_row=3,  # 単位行の位置 (0 始まり)
+    data_start_row=4,  # データ開始行
+    selected_columns=["Force1", "Displacement1"],  # 読み込む列（列名またはチャンネル名）
 )
 ```
 

@@ -1,23 +1,23 @@
 """
-NumberColumnの基本統計量を取得する方法を示すサンプルコード
+Column の基本統計量を取得する方法を示すサンプルコード
 
-このサンプルではtascpyライブラリのNumberColumnクラスに実装された
-統計関数（max, min, mean, median, std, sum, variance, quantile）を
-使用してデータの分析を行う方法を示します。
+このサンプルでは tascpy の Column に実装された
+統計関数（max, min, mean, median, std, sum, quantile）を
+使用してデータの分析を行う方法を示します。欠損値は自動的に除外されます。
 """
 
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import NumberColumn
+from tascpy.core.column import Column
 import tascpy
 
 # 現在のスクリプトからの相対パスでデータファイルを取得
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 SAMPLE_CSV_PATH = os.path.join(DATA_DIR, "load_displacement_sample.csv")
 
-print("-- NumberColumnの統計関数の使用例 --\n")
+print("-- Column の統計関数の使用例 --\n")
 
 # ----------------------------------------------------
 # データの準備
@@ -25,9 +25,7 @@ print("-- NumberColumnの統計関数の使用例 --\n")
 
 # CSVファイルからデータを読み込む
 try:
-    collection = tascpy.io.load(
-        filepath_or_stream=SAMPLE_CSV_PATH, format_name="csv", auto_detect_types=True
-    )
+    collection = tascpy.load(SAMPLE_CSV_PATH, format_name="csv")
 except FileNotFoundError:
     # サンプルデータが存在しない場合はダミーデータを作成
     print("サンプルデータが見つかりません。ダミーデータを生成します。")
@@ -40,25 +38,23 @@ except FileNotFoundError:
     load_data = np.linspace(0, 100, 100) + np.random.normal(0, 5, 100)
     disp_data = np.linspace(0, 20, 100) + np.random.normal(0, 1, 100)
 
-    # 一部にNone値を含めて実際のデータに近づける
-    load_data[10:15] = None
-    disp_data[80:85] = None
+    # 一部に欠損値 (NaN) を含めて実際のデータに近づける
+    load_data[10:15] = np.nan
+    disp_data[80:85] = np.nan
 
     # ColumnCollectionの作成
     collection = ColumnCollection(
-        step=steps,
-        columns={
-            "Load": NumberColumn(None, "Load", "N", load_data.tolist()),
-            "Displacement": NumberColumn(
-                None, "Displacement", "mm", disp_data.tolist()
-            ),
+        {
+            "Load": Column("Load", load_data, unit="N"),
+            "Displacement": Column("Displacement", disp_data, unit="mm"),
         },
+        step=steps,
         metadata={"description": "基本統計量サンプル"},
-        auto_detect_types=True,
     )
 
 # データの簡単な確認
-print(f"列名: {list(collection.columns.keys())}")
+print(f"列名: {collection.columns}")
+print(f"単位: {collection.units}")
 print(f"行数: {len(collection)}")
 print()
 
@@ -70,10 +66,8 @@ print("1. 基本的な統計量の取得")
 print("-----------------------")
 
 # サンプルデータから最初の数値列を取得
-column_names = list(collection.columns.keys())
-numeric_columns = [
-    name for name, col in collection.columns.items() if isinstance(col, NumberColumn)
-]
+column_names = collection.columns
+numeric_columns = [name for name in collection.columns if collection[name].is_numeric]
 
 if not numeric_columns:
     print("数値型の列が見つかりません。処理を中止します。")
@@ -83,7 +77,7 @@ if not numeric_columns:
 load_column_name = numeric_columns[0]
 print(f"使用する列名: {load_column_name}")
 
-# Load列を取得（NumberColumnオブジェクト）
+# Load列を取得（Columnオブジェクト）
 load_column = collection[load_column_name]
 
 # 各種統計量を計算
@@ -93,9 +87,10 @@ mean_value = load_column.mean()
 median_value = load_column.median()
 std_value = load_column.std()
 sum_value = load_column.sum()
-variance_value = load_column.variance()
+variance_value = std_value**2
 
 # 結果を表示
+print(f"単位: {load_column.unit}")
 print(f"最大値 (max): {max_value:.2f}")
 print(f"最小値 (min): {min_value:.2f}")
 print(f"平均値 (mean): {mean_value:.2f}")
@@ -120,20 +115,19 @@ for q in q_values:
 print()
 
 # ----------------------------------------------------
-# None値の扱いの確認
+# 欠損値の扱いの確認
 # ----------------------------------------------------
 
-print("3. None値の扱いの確認")
+print("3. 欠損値の扱いの確認")
 print("--------------------")
 
-# None値の確認
-none_count = load_column.count_nones()
-none_indices = load_column.none_indices()
-has_none = load_column.has_none()
+# 欠損値の確認
+none_count = load_column.null_count()
+none_indices = np.flatnonzero(~load_column.is_valid()).tolist()
 
-print(f"None値の数: {none_count}")
-print(f"None値の位置: {none_indices}")
-print(f"None値を含むか: {has_none}")
+print(f"欠損値の数: {none_count}")
+print(f"欠損値の位置: {none_indices}")
+print(f"欠損値を含むか: {none_count > 0}")
 print()
 
 # ----------------------------------------------------
@@ -145,8 +139,9 @@ print("------------------")
 
 # 各列の統計量を取得
 stats_comparison = {}
-for col_name, column in collection.columns.items():
-    if isinstance(column, NumberColumn):
+for col_name in collection.columns:
+    column = collection[col_name]
+    if column.is_numeric:
         stats_comparison[col_name] = {
             "max": column.max(),
             "min": column.min(),
@@ -157,7 +152,7 @@ for col_name, column in collection.columns.items():
 
 # 結果を表形式で表示
 for col_name, stats in stats_comparison.items():
-    print(f"列名: {col_name}")
+    print(f"列名: {col_name} [{collection[col_name].unit}]")
     for stat_name, value in stats.items():
         print(f"  {stat_name}: {value:.2f}")
     print()
@@ -228,21 +223,17 @@ try:
     plt.figure(figsize=(12, 7))
 
     # 元データをプロット
-    valid_indices = [
-        i for i, v in enumerate(collection[load_column_name].values) if v is not None
-    ]
-    valid_steps = [collection.step.values[i] for i in valid_indices]
-    valid_loads = [collection[load_column_name].values[i] for i in valid_indices]
+    valid = collection[load_column_name].is_valid()
+    valid_steps = collection.step[valid]
+    valid_loads = collection[load_column_name].values[valid]
 
     plt.plot(valid_steps, valid_loads, "o-", alpha=0.5, label="元データ", color="blue")
 
     # フィルタリングしたデータをプロット (前のセクションで作成した result を使用)
     if "result" in locals() and len(result) > 0:
-        filtered_indices = [
-            i for i, v in enumerate(result[load_column_name].values) if v is not None
-        ]
-        filtered_steps = [result.step.values[i] for i in filtered_indices]
-        filtered_loads = [result[load_column_name].values[i] for i in filtered_indices]
+        filtered = result[load_column_name].is_valid()
+        filtered_steps = result.step[filtered]
+        filtered_loads = result[load_column_name].values[filtered]
 
         plt.plot(
             filtered_steps,

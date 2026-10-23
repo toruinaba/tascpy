@@ -65,7 +65,7 @@ import matplotlib.pyplot as plt
 import tascpy
 
 # 1. CSVファイルからデータを読み込む
-collection = tascpy.io.load("data.csv", format_name="csv", auto_detect_types=True)
+collection = tascpy.load("data.csv", format_name="csv")
 
 # 2. 必要な列を選択し、データをクリーニング
 clean_data = (
@@ -107,7 +107,7 @@ import matplotlib.pyplot as plt
 import tascpy
 
 # 1. データの読み込みと荷重-変位ドメインへの変換
-collection = tascpy.io.load("load_displacement_data.csv", format_name="csv", auto_detect_types=True)
+collection = tascpy.load("load_displacement_data.csv", format_name="csv")
 ld_ops = collection.ops.as_load_displacement(load_column="Force", displacement_column="Displacement")
 
 # 2. 特性解析（初期剛性、降伏点）
@@ -196,7 +196,7 @@ tascpy の実際の使用シナリオを示す実践的なワークフロー例�
 import tascpy
 
 # 1. データ読み込み
-collection = tascpy.io.load("sample.csv", format_name="csv", auto_detect_types=True)
+collection = tascpy.load("sample.csv", format_name="csv")
 
 # 2. データ前処理（選択、欠損除去、重複除去）
 ld_ops = (

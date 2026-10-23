@@ -23,12 +23,12 @@ class XYSeriesResult(AnalysisResult):
     
     Examples:
         >>> from tascpy.core.result import XYSeriesResult
-        >>> from tascpy.core.column import NumberColumn
-        >>> x = NumberColumn("X", "X-Axis", "mm", [0, 1])
-        >>> y = NumberColumn("Y", "Y-Axis", "N", [0, 10])
+        >>> from tascpy.core.column import Column
+        >>> x = Column("x", [0, 1], unit="mm")
+        >>> y = Column("y", [0, 10], unit="N")
         >>> res = XYSeriesResult("Curve", x, y)
-        >>> res.x.name
-        'X-Axis'
+        >>> res.x.unit
+        'mm'
     """
     
     def __init__(
@@ -73,9 +73,6 @@ class XYSeriesResult(AnalysisResult):
                 x = x_vals[i] if i < len(x_vals) else None
                 y = y_vals[i] if i < len(y_vals) else None
                 writer.writerow([x, y])
-
-# Alias for backward compatibility or clarity if needed, though we will use XYSeriesResult primarily
-Curve = XYSeriesResult
 
 
 class ScalarResult(AnalysisResult):

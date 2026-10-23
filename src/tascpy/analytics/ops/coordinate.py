@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional, Self, Tuple, TypeVar
 
 import numpy as np
 
-from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
 
 from ..functional.coordinate.interpolation import (
@@ -17,6 +16,7 @@ from ..functional.coordinate.interpolation import (
 from .core import CoreOps
 
 CC_co = TypeVar("CC_co", bound=CoordinateCollection, covariant=True)
+CC = TypeVar("CC", bound=CoordinateCollection)
 
 
 class CoordinateOps(CoreOps[CC_co]):
@@ -29,12 +29,10 @@ class CoordinateOps(CoreOps[CC_co]):
         return names
 
     def _representative(self, name: str) -> Any:
-        values = self._c.columns[name].values
-        if len(values) == 0:
+        column = self._c[name]
+        if len(column) == 0:
             return None
-        if isinstance(values[0], (int, float, np.number)):
-            return np.nanmean([v for v in values if v is not None and not np.isnan(v)])
-        return values[0]
+        return column.mean() if column.is_numeric else column[0]
 
     def _sources(self, names: List[str]) -> List[Dict[str, Any]]:
         sources = []
@@ -46,8 +44,10 @@ class CoordinateOps(CoreOps[CC_co]):
             sources.append({"point": {"x": x, "y": y, "z": z}, "value": value, "col_name": name})
         return sources
 
-    def _constant_column(self, name: str, value: Any, unit: Optional[str], metadata: Dict[str, Any]) -> Column:
-        return Column(ch=None, name=name, unit=unit, values=[value] * len(self._c.step), metadata=metadata)
+    @staticmethod
+    def _with_constant(collection: CC, name: str, value: Any, unit: Optional[str],
+                       attrs: Dict[str, Any]) -> CC:
+        return collection.with_column(name, [value] * len(collection), unit=unit, attrs=attrs)
 
     def interpolate_at_point(self, x: float, y: float, z: Optional[float] = None,
                              target_columns: Optional[List[str]] = None, method: str = "inverse_distance",
@@ -67,18 +67,17 @@ class CoordinateOps(CoreOps[CC_co]):
             sources = [s for s in sources if s["point"]["z"] is not None]
 
         values = compute_point_interpolation_values(sources, x, y, z, method, power)
-        result = self._c.clone()
+        result = self._c
         for source, value in zip(sources, values):
             name = source["col_name"]
-            result.columns[f"{result_prefix}{name}"] = self._constant_column(
-                f"{result_prefix}{name}", value, self._c.columns[name].unit, {
-                    "description": f"Interpolated value at ({x}, {y}{', ' + str(z) if is_3d else ''})",
-                    "interpolation": {
-                        "method": method,
-                        "power": power if method == "inverse_distance" else None,
-                        "target": {"x": x, "y": y, "z": z if is_3d else None},
-                    },
-                })
+            result = self._with_constant(result, f"{result_prefix}{name}", value, self._unit_of(name), {
+                "description": f"Interpolated value at ({x}, {y}{', ' + str(z) if is_3d else ''})",
+                "interpolation": {
+                    "method": method,
+                    "power": power if method == "inverse_distance" else None,
+                    "target": {"x": x, "y": y, "z": z if is_3d else None},
+                },
+            })
         return self._next(result)
 
     def interpolate_grid(self, x_range: Tuple[float, float], y_range: Tuple[float, float],
@@ -86,9 +85,9 @@ class CoordinateOps(CoreOps[CC_co]):
                          method: str = "inverse_distance", power: float = 2.0, result_prefix: str = "grid_") -> Self:
         """矩形領域のグリッド上で補間し、"{prefix}{列名}_grid" 列とメタデータ analysis.grid_interpolation に格納します"""
         target_column = target_column or self._require_coordinates()[0]
-        if target_column not in self._c.columns:
+        if target_column not in self._c:
             raise ValueError(f"列 '{target_column}' が見つかりません")
-        if len(self._c.columns[target_column].values) == 0:
+        if len(self._c) == 0:
             raise ValueError(f"列 '{target_column}' に値がありません")
         sources = self._sources([target_column])
         if not sources:
@@ -99,14 +98,15 @@ class CoordinateOps(CoreOps[CC_co]):
             sources[0], np.linspace(x_range[0], x_range[1], nx), np.linspace(y_range[0], y_range[1], ny), method, power,
         )
 
-        result = self._c.clone()
-        result.metadata.setdefault("analysis", {})["grid_interpolation"] = {
+        analysis = dict(self._c.metadata.get("analysis", {}))
+        analysis["grid_interpolation"] = {
             "x_range": x_range, "y_range": y_range, "grid_size": grid_size,
             "method": method, "target_column": target_column,
         }
         name = f"{result_prefix}{target_column}_grid"
-        result.columns[name] = self._constant_column(
-            name, np.array2string(grid, precision=4, suppress_small=True), None, {
+        result = self._with_constant(
+            self._c.with_metadata(analysis=analysis), name,
+            np.array2string(grid, precision=4, suppress_small=True), None, {
                 "description": f"Grid interpolation of {target_column}",
                 "grid": {
                     "x_min": float(x_range[0]), "x_max": float(x_range[1]),
@@ -142,16 +142,15 @@ class CoordinateOps(CoreOps[CC_co]):
             coords.append({"x": tx, "y": ty, "z": tz if tz is not None and is_3d else None})
 
         values = compute_spatial_interpolation_values(sources, coords, is_3d, method, power)
-        result = self._c.clone()
+        result = self._c
         for name, value in zip(targets, values):
-            result.columns[f"{result_prefix}{name}"] = self._constant_column(
-                f"{result_prefix}{name}", value, None, {
-                    "description": f"Interpolated value at {name} position",
-                    "interpolation": {
-                        "method": method,
-                        "power": power if method == "inverse_distance" else None,
-                        "source_columns": source_columns,
-                        "target_column": name,
-                    },
-                })
+            result = self._with_constant(result, f"{result_prefix}{name}", value, None, {
+                "description": f"Interpolated value at {name} position",
+                "interpolation": {
+                    "method": method,
+                    "power": power if method == "inverse_distance" else None,
+                    "source_columns": source_columns,
+                    "target_column": name,
+                },
+            })
         return self._next(result)

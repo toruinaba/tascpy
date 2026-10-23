@@ -48,15 +48,10 @@ def tasc_file(test_data_dir):
 @pytest.fixture
 def large_collection():
     """Create a large ColumnCollection for testing"""
-    steps = list(range(100))
     columns = {
-        "Time": Column("1", "Time", "s", list(range(100))),
-        "Force": Column("2", "Force", "N", [i * 0.5 for i in range(100)]),
-        "Displacement": Column(
-            "3", "Displacement", "mm", [i * 0.01 for i in range(100)]
-        ),
-        "Temperature": Column(
-            "4", "Temperature", "C", [20 + i * 0.1 for i in range(100)]
-        ),
+        "Time": Column("Time", list(range(100)), unit="s", ch="1"),
+        "Force": Column("Force", [i * 0.5 for i in range(100)], unit="N", ch="2"),
+        "Displacement": Column("Displacement", [i * 0.01 for i in range(100)], unit="mm", ch="3"),
+        "Temperature": Column("Temperature", [20 + i * 0.1 for i in range(100)], unit="C", ch="4"),
     }
-    return ColumnCollection(step=steps, columns=columns)
+    return ColumnCollection(columns, step=list(range(100)))

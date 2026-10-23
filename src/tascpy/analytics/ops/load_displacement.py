@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Self, Tuple
 import numpy as np
 
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import detect_column_type
+from tascpy.core.column import Column
 from tascpy.core.result import ScalarResult
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 
@@ -41,12 +41,16 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def _ld_arrays(self) -> Tuple[np.ndarray, np.ndarray]:
         return self._c.displacement_data, self._c.load_data
 
+    def _ld_unit(self, sep: str) -> Optional[str]:
+        return self._compound_unit(self._c.load_column, self._c.displacement_column, sep)
+
     # ── 解析 ──────────────────────────────────
 
     def calculate_slopes(self, result_column: Optional[str] = None, unit: Optional[str] = None,
                          ch: Optional[str] = None) -> Self:
-        """区間ごとの傾き (dP/dδ) を新しい列として追加します"""
-        return self._with_column(result_column or "slope_data", compute_slopes(*self._ld_arrays()), unit, ch)
+        """区間ごとの傾き (dP/dδ) を新しい列として追加します（単位は "荷重/変位"）"""
+        return self._with_column(result_column or "slope_data", compute_slopes(*self._ld_arrays()), unit, ch,
+                                 self._ld_unit("/"))
 
     def calculate_stiffness(self, range_start: float = 0.2, range_end: float = 0.8,
                             method: str = "linear_regression") -> Self:
@@ -64,7 +68,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             >>> col.ops.calculate_stiffness(0.1, 0.4).end().results["stiffness"].value
         """
         value = compute_stiffness(*self._ld_arrays(), range_start=range_start, range_end=range_end, method=method)
-        return self._with_result(ScalarResult(name="stiffness", value=value))
+        return self._with_result(ScalarResult(name="stiffness", value=value, unit=self._ld_unit("/")))
 
     def find_yield_point(self, method: str = "offset", offset_value: float = 0.002, range_start: float = 0.1,
                          range_end: float = 0.3, factor: float = 0.33, debug_mode: bool = False,
@@ -83,7 +87,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             *self._ld_arrays(), method=method, offset_value=offset_value, range_start=range_start,
             range_end=range_end, factor=factor, debug_mode=debug_mode, fail_silently=fail_silently,
         )
-        return self._with_point("yield_point", outcome)
+        return self._with_point("yield_point", outcome, x_unit=self._c.displacement.unit, y_unit=self._c.load.unit)
 
     # ── サイクル ──────────────────────────────
 
@@ -101,7 +105,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
     def split_by_cycles(self, cycle_column: Optional[str] = None) -> OpsList[Self]:
         """サイクル番号ごとに分割します（サイクル列は省略時に自動検出）"""
-        return self.split_by_integers(self._c.columns[self._cycle_column(cycle_column)].values)
+        return self.split_by_integers(self._cycle_column(cycle_column))
 
     def find_peaks_and_valleys(self, column: Optional[str] = None, distance: int = 1,
                                threshold: Optional[float] = None, result_column: Optional[str] = None,
@@ -115,43 +119,35 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """
         values = self._c.load_data if column is None else to_float_array(self._column_values(column))
         flags = compute_peaks_and_valleys(values, distance=distance, threshold=threshold)
-        return self._with_column(result_column or "peak_valley", flags, unit, ch, default_unit=self._unit_of(column))
+        return self._with_column(result_column or "peak_valley", flags, unit, ch, default_unit="")
 
     def _per_cycle(self, cycle_column: Optional[str],
                    func: Callable[[np.ndarray, np.ndarray, np.ndarray], tuple],
                    outputs: List[Dict[str, Any]]) -> CoreOps[ColumnCollection]:
         name = self._cycle_column(cycle_column)
-        cycle_values = self._c.columns[name].values
-        keys: List[Any] = []
-        for v in cycle_values:
-            if v is not None and not (isinstance(v, float) and np.isnan(v)) and v not in keys:
-                keys.append(v)
+        markers = to_float_array(self._column_values(name))
+        keys = list(dict.fromkeys(v for v in markers if not np.isnan(v)))
+        rows = [func(*self._cycle_arrays(markers, markers == k)) for k in keys]
 
-        rows = [func(*self._cycle_arrays(name, [i for i, v in enumerate(cycle_values) if v == k])) for k in keys]
+        columns = {
+            spec["name"]: Column(spec["name"], [row[i] for row in rows], unit=spec.get("unit"),
+                                 attrs=spec.get("attrs"))
+            for i, spec in enumerate(outputs, start=1)
+        }
+        steps = [int(k) if float(k).is_integer() else k for k in keys]
+        return CoreOps(ColumnCollection(columns, step=steps, metadata=dict(self._c.metadata, grouped_by=name)))
 
-        specs: List[Dict[str, Any]] = [{"name": "cycle"}, *outputs]
-        columns = {}
-        for i, spec in enumerate(specs):
-            column = detect_column_type(None, spec["name"], spec.get("unit"), [row[i] for row in rows])
-            column.metadata.update(spec.get("metadata", {}))
-            columns[spec["name"]] = column
-        metadata = dict(self._c.metadata, grouped_by=name)
-        return CoreOps(ColumnCollection(step=keys, columns=columns, metadata=metadata))
-
-    def _cycle_arrays(self, cycle_column: str, rows: List[int]):
-        loads, disps = self._c.load_data[rows], self._c.displacement_data[rows]
-        markers = np.asarray(self._c.columns[cycle_column].values)[rows]
-        return loads, disps, markers
+    def _cycle_arrays(self, markers: np.ndarray, rows: np.ndarray):
+        return self._c.load_data[rows], self._c.displacement_data[rows], markers[rows]
 
     def analyze_hysteresis(self, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの履歴エネルギーと最大・最小荷重/変位を集計した表を返します
 
-        戻り値のステップはサイクル番号、列は energy / max_load / min_load / max_disp / min_disp です。
+        戻り値のステップはサイクル番号、列は energy（単位は "荷重*変位"）/ max_load / min_load / max_disp / min_disp です。
         """
-        load_unit = self._unit_of(self._c.load_column)
-        disp_unit = self._unit_of(self._c.displacement_column)
+        load_unit, disp_unit = self._c.load.unit, self._c.displacement.unit
         return self._per_cycle(cycle_column, compute_energy_and_stats, [
-            {"name": "energy", "unit": "J", "metadata": {"description": "Hysteresis loop area"}},
+            {"name": "energy", "unit": self._ld_unit("*"), "attrs": {"description": "Hysteresis loop area"}},
             {"name": "max_load", "unit": load_unit},
             {"name": "min_load", "unit": load_unit},
             {"name": "max_disp", "unit": disp_unit},
@@ -161,7 +157,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def analyze_stiffness_degradation(self, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの割線剛性を集計した表を返します（列: stiffness）"""
         return self._per_cycle(cycle_column, compute_stiffness_degradation_stats, [
-            {"name": "stiffness", "metadata": {"description": "Secant stiffness"}},
+            {"name": "stiffness", "unit": self._ld_unit("/"), "attrs": {"description": "Secant stiffness"}},
         ])
 
     # ── 特殊曲線 ──────────────────────────────
@@ -171,13 +167,16 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """スケルトン曲線を生成し、結果 "skeleton_curve" (XYSeriesResult) に格納します"""
         loads, disps, markers = self._all_cycle_arrays(cycle_column)
         x, y = compute_skeleton_curve(loads, disps, markers, has_decrease=has_decrease, decrease_type=decrease_type)
-        return self._with_curve("skeleton_curve", x, y)
+        return self._with_curve("skeleton_curve", x, y, *self._curve_units())
 
     def create_cumulative_curve(self, cycle_column: Optional[str] = None) -> Self:
         """累積塑性変形-荷重曲線を生成し、結果 "cumulative_curve" (XYSeriesResult) に格納します"""
         x, y = compute_cumulative_curve(*self._all_cycle_arrays(cycle_column))
-        return self._with_curve("cumulative_curve", x, y)
+        return self._with_curve("cumulative_curve", x, y, *self._curve_units())
+
+    def _curve_units(self) -> Tuple[Optional[str], Optional[str]]:
+        return self._c.displacement.unit, self._c.load.unit
 
     def _all_cycle_arrays(self, cycle_column: Optional[str]):
         name = self._cycle_column(cycle_column)
-        return self._c.load_data, self._c.displacement_data, np.asarray(self._c.columns[name].values)
+        return self._c.load_data, self._c.displacement_data, to_float_array(self._column_values(name))

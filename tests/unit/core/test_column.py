@@ -1,435 +1,116 @@
-import pytest
 import numpy as np
-from tascpy.core.column import (
-    Column,
-    NumberColumn,
-    StringColumn,
-    InvalidColumn,
-    detect_column_type,
-    create_column_from_values,
-)
-from tascpy.core.collection import ColumnCollection
-import unittest.mock as mock
-import tascpy
+import polars as pl
+import pytest
+
+from tascpy.core.column import KEEP, Column, ColumnMeta, to_series
 
 
-class TestColumnTypes:
-    """各カラム型のテストクラス"""
+class TestToSeries:
+    def test_numbers_become_float64_with_null(self):
+        s = to_series("a", [1, None, 3])
+        assert s.dtype == pl.Float64
+        assert s.to_list() == [1.0, None, 3.0]
 
-    def test_number_column_creation(self):
-        """NumberColumnの作成テスト"""
-        # 正常なケース
-        column = NumberColumn("ch1", "temperature", "°C", [1, 2.5, None, 3])
-        assert column.ch == "ch1"
-        assert column.name == "temperature"
-        assert column.unit == "°C"
-        # assert column.values == [1, 2.5, None, 3] -> None becomes nan
-        np.testing.assert_array_equal(column.values, [1, 2.5, np.nan, 3])
+    def test_nan_becomes_null(self):
+        assert to_series("a", np.array([1.0, np.nan])).null_count() == 1
+        assert to_series("a", [1.0, float("nan")]).null_count() == 1
 
-        # エラーケース - 文字列が含まれる
-        with pytest.raises((TypeError, ValueError)):
-            NumberColumn("ch1", "temperature", "°C", [1, "invalid", None, 3])
+    def test_int_array_becomes_float(self):
+        assert to_series("a", np.arange(3)).dtype == pl.Float64
 
-        # エラーケース - リストが含まれる
-        with pytest.raises((TypeError, ValueError)):
-            NumberColumn("ch1", "temperature", "°C", [1, [2, 3], None])
+    def test_all_missing_is_numeric(self):
+        assert to_series("a", [None, None]).dtype == pl.Float64
 
-    def test_string_column_creation(self):
-        """StringColumnの作成テスト"""
-        # 正常なケース
-        column = StringColumn("ch2", "status", "", ["OK", None, "Error"])
-        assert column.ch == "ch2"
-        assert column.name == "status"
-        assert column.unit == ""
-        np.testing.assert_array_equal(column.values, ["OK", None, "Error"])
+    def test_strings_and_bools_keep_dtype(self):
+        assert to_series("a", ["x", None]).dtype == pl.String
+        assert to_series("a", [True, None]).dtype == pl.Boolean
 
-        # エラーケース - 数値が含まれる
-        with pytest.raises(TypeError):
-            StringColumn("ch2", "status", "", ["OK", 123, None])
+    def test_mixed_numbers_and_strings_become_strings(self):
+        s = to_series("a", [1.0, "x", None])
+        assert s.dtype == pl.String
+        assert s.to_list() == ["1.0", "x", None]
 
-        # エラーケース - 辞書が含まれる
-        with pytest.raises(TypeError):
-            StringColumn("ch2", "status", "", ["OK", {"key": "value"}, None])
+    def test_renames_series(self):
+        assert to_series("b", pl.Series("a", [1.0])).name == "b"
 
-    def test_invalid_column_creation(self):
-        """InvalidColumnの作成テスト"""
-        # 正常なケース - すべてNone
-        column = InvalidColumn("ch3", "empty", "", [None, None, None])
-        assert column.ch == "ch3"
-        assert column.name == "empty"
-        assert column.unit == ""
-        assert all(v is None for v in column.values)
 
-        # エラーケース - None以外の値を含む
+class TestColumnMeta:
+    def test_updated_keeps_unspecified(self):
+        meta = ColumnMeta(unit="kN", ch="CH1")
+        assert meta.updated(unit="N") == ColumnMeta(unit="N", ch="CH1")
+        assert meta.updated(unit=KEEP) == meta
+
+    def test_updated_can_clear_to_none(self):
+        assert ColumnMeta(unit="kN").updated(unit=None).unit is None
+
+    def test_is_frozen(self):
+        with pytest.raises(AttributeError):
+            ColumnMeta().unit = "x"  # type: ignore[misc]
+
+
+class TestColumn:
+    def test_values_numeric_nan(self):
+        col = Column("load", [1.0, None, 3.0], unit="kN", ch="CH1")
+        np.testing.assert_array_equal(col.values, [1.0, np.nan, 3.0])
+        assert col.values.dtype == np.float64
+        assert (col.name, col.unit, col.ch) == ("load", "kN", "CH1")
+
+    def test_values_object_none(self):
+        col = Column("s", ["a", None])
+        assert list(col.values) == ["a", None]
+
+    def test_values_are_read_only(self):
+        col = Column("a", [1.0, 2.0])
         with pytest.raises(ValueError):
-            InvalidColumn("ch3", "empty", "", [None, 1, None])
+            col.values[0] = 9.0
 
-        # エラーケース - 空の文字列を含む
+    def test_scalar_access(self):
+        col = Column("a", [1.0, None])
+        assert col[0] == 1.0
+        assert col[1] is None
+        assert col.to_list() == [1.0, None]
+        assert list(col) == [1.0, None]
+
+    def test_stats_ignore_missing(self):
+        col = Column("a", [1.0, None, 3.0, -4.0])
+        assert col.max() == 3.0
+        assert col.min() == -4.0
+        assert col.mean() == 0.0
+        assert col.sum() == 0.0
+        assert col.median() == 1.0
+        assert col.ptp() == 7.0
+        assert col.abs_max() == 4.0
+        assert col.quantile(0.5) == 1.0
+        assert col.std() == pytest.approx(np.std([1.0, 3.0, -4.0], ddof=1))
+
+    def test_stats_all_missing(self):
+        col = Column("a", [None, None])
+        assert col.max() is None
+        assert col.mean() is None
+        assert col.ptp() is None
+
+    def test_numeric_stats_on_strings_are_none(self):
+        col = Column("s", ["b", "a"])
+        assert col.mean() is None
+        assert col.max() == "b"
+
+    def test_quantile_range(self):
         with pytest.raises(ValueError):
-            InvalidColumn("ch3", "empty", "", [None, "", None])
-
-    def test_column_clone(self):
-        """各カラム型のclone()メソッドのテスト"""
-        # NumberColumnのクローン
-        num_col = NumberColumn("ch1", "temp", "°C", [1, 2.5, None, 3])
-        num_clone = num_col.clone()
-        assert isinstance(num_clone, NumberColumn)
-        assert num_clone is not num_col
-        np.testing.assert_array_equal(num_clone.values, num_col.values)
-        assert num_clone.values is not num_col.values  # ディープコピーの確認
-
-        # StringColumnのクローン
-        str_col = StringColumn("ch2", "status", "", ["OK", None, "Error"])
-        str_clone = str_col.clone()
-        assert isinstance(str_clone, StringColumn)
-        assert str_clone is not str_col
-        np.testing.assert_array_equal(str_clone.values, str_col.values)
-        assert str_clone.values is not str_col.values
-
-        # InvalidColumnのクローン
-        inv_col = InvalidColumn("ch3", "empty", "", [None, None, None])
-        inv_clone = inv_col.clone()
-        assert isinstance(inv_clone, InvalidColumn)
-        assert inv_clone is not inv_col
-        np.testing.assert_array_equal(inv_clone.values, inv_col.values)
-        assert inv_clone.values is not inv_col.values
-
-
-class TestNoneHandling:
-    """None値処理のテストクラス"""
-
-    def test_count_nones(self):
-        """count_nones()メソッドのテスト"""
-        # NumberColumnでのテスト
-        num_col = NumberColumn("ch1", "temp", "°C", [1, None, 3, None])
-        assert num_col.count_nones() == 2
-
-        # StringColumnでのテスト
-        str_col = StringColumn("ch2", "status", "", [None, "OK", None])
-        assert str_col.count_nones() == 2
-
-        # InvalidColumnでのテスト
-        inv_col = InvalidColumn("ch3", "empty", "", [None, None, None])
-        assert inv_col.count_nones() == 3
-
-        # 空のカラムでのテスト
-        empty_col = Column("ch4", "empty", "", [])
-        assert empty_col.count_nones() == 0
-
-        # Noneを含まないカラムでのテスト
-        no_none_col = NumberColumn("ch5", "non_empty", "", [1, 2, 3])
-        assert no_none_col.count_nones() == 0
-
-    def test_none_indices(self):
-        """none_indices()メソッドのテスト"""
-        # NumberColumnでのテスト
-        num_col = NumberColumn("ch1", "temp", "°C", [1, None, 3, None, 5])
-        assert num_col.none_indices() == [1, 3]
-
-        # StringColumnでのテスト
-        str_col = StringColumn("ch2", "status", "", ["A", None, "B", "C", None, None])
-        assert str_col.none_indices() == [1, 4, 5]
-
-        # InvalidColumnでのテスト
-        inv_col = InvalidColumn("ch3", "empty", "", [None, None, None])
-        assert inv_col.none_indices() == [0, 1, 2]
-
-        # Noneを含まないカラムでのテスト
-        no_none_col = StringColumn("ch4", "non_empty", "", ["A", "B", "C"])
-        assert no_none_col.none_indices() == []
-
-        # 空のカラムでのテスト
-        empty_col = Column("ch5", "empty", "", [])
-        assert empty_col.none_indices() == []
-
-    def test_has_none(self):
-        """has_none()メソッドのテスト"""
-        # Noneを含む場合
-        num_col = NumberColumn("ch1", "temp", "°C", [1, None, 3])
-        assert bool(num_col.has_none()) is True
-
-        # Noneを含まない場合
-        num_col2 = NumberColumn("ch1", "temp", "°C", [1, 2, 3])
-        assert bool(num_col2.has_none()) is False
-
-        # すべてNoneの場合（InvalidColumn）
-        inv_col = InvalidColumn("ch3", "empty", "", [None, None])
-        assert bool(inv_col.has_none()) is True
-
-        # 空のカラムの場合
-        empty_col = Column("ch4", "empty", "", [])
-        assert bool(empty_col.has_none()) is False
-
-
-class TestTypeDetection:
-    """型検出機能のテストクラス"""
-
-    def test_detect_column_type_numeric(self):
-        """数値型検出のテスト"""
-        # 整数のみの場合
-        column = detect_column_type("ch1", "temp", "°C", [1, 2, 3])
-        assert isinstance(column, NumberColumn)
-
-        # 浮動小数点のみの場合
-        column = detect_column_type("ch1", "temp", "°C", [1.1, 2.2, 3.3])
-        assert isinstance(column, NumberColumn)
-
-        # 整数と浮動小数点の混合
-        column = detect_column_type("ch1", "temp", "°C", [1, 2.5, 3])
-        assert isinstance(column, NumberColumn)
-
-        # 数値とNoneの混合
-        column = detect_column_type("ch1", "temp", "°C", [1, None, 3.5, None])
-        assert isinstance(column, NumberColumn)
-
-    def test_detect_column_type_string(self):
-        """文字列型検出のテスト"""
-        # 文字列のみ
-        column = detect_column_type("ch2", "status", "", ["OK", "Error", "Success"])
-        assert isinstance(column, StringColumn)
-
-        # 文字列とNoneの混合
-        column = detect_column_type("ch2", "status", "", ["OK", None, "Error", None])
-        assert isinstance(column, StringColumn)
-
-        # 空の文字列を含む
-        column = detect_column_type("ch2", "status", "", ["OK", "", "Error"])
-        assert isinstance(column, StringColumn)
-
-    def test_detect_column_type_invalid(self):
-        """無効カラムの検出テスト"""
-        # すべてNone
-        column = detect_column_type("ch3", "empty", "", [None, None, None])
-        assert isinstance(column, InvalidColumn)
-
-        # 空のリスト
-        column = detect_column_type("ch3", "empty", "", [])
-        assert not isinstance(column, InvalidColumn)  # 空のリストは無効カラムではない
-        assert isinstance(column, Column)
-
-    def test_detect_column_type_mixed(self):
-        """混合型の検出テスト"""
-        # 数値と文字列の混合
-        column = detect_column_type("ch4", "mixed", "", [1, "text", 3])
-        assert not isinstance(column, NumberColumn)
-        assert not isinstance(column, StringColumn)
-        assert isinstance(column, Column)  # 基本のColumnになる
-
-        # 数値、文字列、None、リスト、辞書などの混合
-        column = detect_column_type(
-            "ch4", "mixed", "", [1, "text", None, [1, 2], {"a": 1}]
-        )
-        assert isinstance(column, Column)
-
-    def test_create_column_from_values(self):
-        """create_column_from_values関数のテスト"""
-        # 型を明示的に指定 - 数値型
-        column = create_column_from_values(
-            "ch1", "temp", "°C", [1, 2, 3], column_type="number"
-        )
-        assert isinstance(column, NumberColumn)
-
-        # 数値データでも文字列型を指定すると文字列として扱う（エラーになる）
-        with pytest.raises(TypeError):
-            create_column_from_values("ch2", "ids", "", [1, 2, 3], column_type="string")
-
-        # 文字列データに数値型を指定するとエラーになる
-        with pytest.raises(TypeError):
-            create_column_from_values(
-                "ch3", "status", "", ["A", "B", "C"], column_type="number"
-            )
-
-        # InvalidColumnを明示的に指定
-        column = create_column_from_values(
-            "ch4", "empty", "", [None, None], column_type="invalid"
-        )
-        assert isinstance(column, InvalidColumn)
-
-        # 無効な型名を指定した場合は標準のColumnを返す
-        column = create_column_from_values(
-            "ch5", "data", "", [1, 2, 3], column_type="unknown_type"
-        )
-        assert type(column) == Column
-
-        # 型を指定しない場合は自動判定
-        column = create_column_from_values("ch6", "temp", "°C", [1, 2, 3])
-        assert isinstance(column, NumberColumn)
-
-        column = create_column_from_values("ch7", "status", "", ["OK", "Error"])
-        assert isinstance(column, StringColumn)
-
-
-class TestColumnCollectionAutoDetection:
-    """ColumnCollectionの自動判定機能のテスト"""
-
-    def test_column_collection_auto_detect_init(self):
-        """初期化時の自動判定テスト"""
-        # 初期化時に自動判定
-        columns = {
-            "temp": [1, 2, 3, None],
-            "status": ["OK", "Error", "OK", None],
-            "empty": [None, None, None, None],
-            "mixed": [1, "Error", 3, 4],
-        }
-        collection = ColumnCollection([1, 2, 3, 4], columns, auto_detect_types=True)
-
-        # 自動判定の結果を検証
-        assert isinstance(collection.columns["temp"], NumberColumn)
-        assert isinstance(collection.columns["status"], StringColumn)
-        assert isinstance(collection.columns["empty"], InvalidColumn)
-        assert type(collection.columns["mixed"]) == Column  # 混在型は基本のColumn
-
-        # 自動判定を無効にした場合
-        collection2 = ColumnCollection([1, 2, 3, 4], columns, auto_detect_types=False)
-        assert type(collection2.columns["temp"]) == Column
-        assert type(collection2.columns["status"]) == Column
-        assert type(collection2.columns["empty"]) == Column
-
-    def test_column_collection_auto_detect_method(self):
-        """auto_detect_column_types()メソッドのテスト"""
-        # 通常のColumnで初期化
-        columns = {
-            "temp": Column(None, "temp", "°C", [1, 2, 3]),
-            "status": Column(None, "status", "", ["OK", "Error", "OK"]),
-            "empty": Column(None, "empty", "", [None, None, None]),
-            "mixed": Column(None, "mixed", "", [1, "Error", 3]),
-        }
-        collection = ColumnCollection([1, 2, 3], columns)
-
-        # 初期状態ではすべて標準のColumn
-        assert type(collection.columns["temp"]) == Column
-        assert type(collection.columns["status"]) == Column
-        assert type(collection.columns["empty"]) == Column
-
-        # 型を自動判定
-        collection.auto_detect_column_types()
-
-        # 判定後は適切な型に変換されている
-        assert isinstance(collection.columns["temp"], NumberColumn)
-        assert isinstance(collection.columns["status"], StringColumn)
-        assert isinstance(collection.columns["empty"], InvalidColumn)
-        assert isinstance(collection.columns["mixed"], StringColumn)  # NumPy変換で文字列になるため
-        assert not isinstance(collection.columns["mixed"], NumberColumn)
-
-    def test_column_collection_from_file_with_auto_detect(self):
-        """from_fileメソッドでの自動判定フラグの伝播テスト"""
-        # loadをモック (__init__.pyでloadとして公開されているため)
-        with mock.patch("tascpy.io.file_io._load_from_file") as mock_load:
-            # モックの戻り値を設定
-            mock_collection = ColumnCollection([1, 2, 3], {})
-            mock_load.return_value = mock_collection
-
-            # auto_detect_typesをTrueにして呼び出し
-            result = tascpy.io.load("dummy.csv", auto_detect_types=True)
-
-            # load_collectionが正しい引数で呼ばれたか確認
-            mock_load.assert_called_once()
-            args, kwargs = mock_load.call_args
-            assert args[0] == "dummy.csv"
-            assert args[2] is True  # auto_detect_types is the 3rd positional argument now
-            assert result is mock_collection
-
-
-class TestNumberColumnStats:
-    """NumberColumnの統計メソッドのテストクラス"""
-
-    def setup_method(self):
-        """テスト環境の準備"""
-        # テスト用のNumberColumnインスタンスを作成
-        self.normal_col = NumberColumn("ch1", "normal", "unit", [1, 2, 3, 4, 5])
-        self.with_none_col = NumberColumn(
-            "ch2", "with_none", "unit", [1, None, 3, None, 5]
-        )
-        self.all_none_col = NumberColumn("ch3", "all_none", "unit", [None, None, None])
-        self.empty_col = NumberColumn("ch4", "empty", "unit", [])
-        self.single_col = NumberColumn("ch5", "single", "unit", [10])
-        self.float_col = NumberColumn("ch6", "float", "unit", [1.1, 2.2, 3.3, 4.4, 5.5])
-        self.invalid_col = InvalidColumn("ch7", "invalid", "unit", [None, None, None])
-
-    def test_max(self):
-        """max()メソッドのテスト"""
-        assert float(self.normal_col.max()) == 5
-        assert float(self.with_none_col.max()) == 5
-        assert self.all_none_col.max() is None
-        assert self.empty_col.max() is None
-        assert self.single_col.max() == 10
-        assert self.float_col.max() == 5.5
-        assert self.invalid_col.max() is None
-
-    def test_min(self):
-        """min()メソッドのテスト"""
-        assert float(self.normal_col.min()) == 1
-        assert float(self.with_none_col.min()) == 1
-        assert self.all_none_col.min() is None
-        assert self.empty_col.min() is None
-        assert self.single_col.min() == 10
-        assert self.float_col.min() == 1.1
-        assert self.invalid_col.min() is None
-
-    def test_mean(self):
-        """mean()メソッドのテスト"""
-        assert float(self.normal_col.mean()) == 3
-        assert float(self.with_none_col.mean()) == 3
-        assert self.all_none_col.mean() is None
-        assert self.empty_col.mean() is None
-        assert self.single_col.mean() == 10
-        assert pytest.approx(float(self.float_col.mean()), 0.01) == 3.3
-        assert self.invalid_col.mean() is None
-
-    def test_median(self):
-        """median()メソッドのテスト"""
-        assert float(self.normal_col.median()) == 3
-        assert float(self.with_none_col.median()) == 3
-        assert self.all_none_col.median() is None
-        assert self.empty_col.median() is None
-        assert self.single_col.median() == 10
-        assert float(self.float_col.median()) == 3.3
-        assert self.invalid_col.median() is None
-
-    def test_std(self):
-        """std()メソッドのテスト"""
-        assert pytest.approx(float(self.normal_col.std()), 0.01) == 1.58
-        assert pytest.approx(float(self.with_none_col.std()), 0.01) == 2.0
-        assert self.all_none_col.std() is None
-        assert self.empty_col.std() is None
-        assert self.single_col.std() is None
-        assert pytest.approx(float(self.float_col.std()), 0.01) == 1.74  # 値を修正
-        assert self.invalid_col.std() is None
-
-    def test_variance(self):
-        """variance()メソッドのテスト"""
-        assert pytest.approx(float(self.normal_col.variance()), 0.01) == 2.5
-        assert pytest.approx(float(self.with_none_col.variance()), 0.01) == 4.0
-        assert self.all_none_col.variance() is None
-        assert self.empty_col.variance() is None
-        assert self.single_col.variance() is None
-        assert pytest.approx(float(self.float_col.variance()), 0.01) == 3.03  # 値を修正
-        assert self.invalid_col.variance() is None
-
-    def test_quantile(self):
-        """quantile()メソッドのテスト"""
-        # 基本的な動作確認
-        assert float(self.normal_col.quantile(0)) == 1
-        assert float(self.normal_col.quantile(0.5)) == 3
-        assert float(self.normal_col.quantile(1)) == 5
-
-        # None値を含むケース
-        assert float(self.with_none_col.quantile(0)) == 1
-        assert float(self.with_none_col.quantile(0.5)) == 3
-        assert float(self.with_none_col.quantile(1)) == 5
-
-        # エラーケース
-        assert self.all_none_col.quantile(0.5) is None
-        assert self.empty_col.quantile(0.5) is None
-        assert self.single_col.quantile(0.5) == 10
-        assert self.invalid_col.quantile(0.5) is None
-
-        # 浮動小数点値
-        assert pytest.approx(float(self.float_col.quantile(0.25)), 0.01) == 2.2
-        assert pytest.approx(float(self.float_col.quantile(0.75)), 0.01) == 4.4
-
-        # 不正なq値
-        with pytest.raises(ValueError):
-            self.normal_col.quantile(-0.1)
-        with pytest.raises(ValueError):
-            self.normal_col.quantile(1.1)
+            Column("a", [1.0]).quantile(1.5)
+
+    def test_missing_helpers(self):
+        col = Column("a", [None, 1.0, None, 2.0])
+        assert col.null_count() == 2
+        assert col.n_valid == 2
+        np.testing.assert_array_equal(col.is_valid(), [False, True, False, True])
+        assert col.first_valid_index == 1
+        assert col.first_invalid_index == 0
+
+    def test_nearest_index(self):
+        col = Column("a", [0.0, None, 10.0, 20.0])
+        assert col.nearest_index(12.0) == 2
+        assert Column("a", [None]).nearest_index(1.0) is None
+        assert Column("s", ["x"]).nearest_index(1.0) is None
+
+    def test_repr_shows_unit(self):
+        assert "unit='kN'" in repr(Column("a", [1.0], unit="kN"))

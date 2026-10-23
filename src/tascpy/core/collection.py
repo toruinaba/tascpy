@@ -1,557 +1,394 @@
-from typing import (
-    Dict,
-    List,
-    Any,
-    Optional,
-    Union,
-    TypeVar,
-    Callable,
-    TextIO,
-    TYPE_CHECKING,
-)
-from pathlib import Path
-from copy import deepcopy
-from .step import Step
-from .column import (
-    Column,
-    NumberColumn,
-    StringColumn,
-    InvalidColumn,
-    detect_column_type,
-)
+"""ColumnCollection: 単位などの列メタデータ付きの不変な表"""
+
+from __future__ import annotations
+
+import copy
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional, Self, Sequence, TypeVar, Union
+
+import numpy as np
+import polars as pl
+
+from .column import KEEP, Column, ColumnMeta, to_series
 from .result import AnalysisResult
+from .row import Row
 
 if TYPE_CHECKING:
     from ..analytics.ops import CoreOps
     from ..io.proxy import CollectionIO
     from ..visualization.plotters.core.plotter import CorePlotter
 
-T = TypeVar("T")
+INDEX_COLUMNS = ("step", "date", "time")
+
+C = TypeVar("C", bound="ColumnCollection")
+
+
+def _index_series(name: str, values: Any) -> pl.Series:
+    if isinstance(values, pl.Series):
+        return values.alias(name)
+    if isinstance(values, np.ndarray) and values.dtype.kind == "f":
+        return pl.Series(name, values, nan_to_null=True)
+    return pl.Series(name, list(values), strict=False)
+
+
+def _check_data_name(name: str) -> None:
+    if name in INDEX_COLUMNS:
+        raise ValueError(f"'{name}' はインデックス列の予約名のため、データ列名には使えません")
 
 
 class ColumnCollection:
-    """複数のColumn（データ列）とインデックスとなるStepを保持し、操作するための中心的なデータ構造クラス。
-    
-    PandasのDataFrameに似た役割を持ちますが、数値解析や実験データに特化しています。
-    データは各列ごとに `Column` インスタンスとして保持され、全体を通じたインデックスとして `Step` が管理されます。
-    
-    Attributes:
-        step (Step): 全データ行のインデックス（X軸・時間軸など）となるステップ列
-        columns (dict[str, Column]): カラム名をキー、Columnオブジェクトを値とする辞書
-        metadata (dict): 解析情報や日付などを格納する辞書
-        
+    """列メタデータ（単位・チャンネル・属性）付きの不変な表
+
+    データは polars の DataFrame に、列メタデータは `ColumnMeta` として別に保持します。
+    変更操作はすべて新しいコレクションを返します。
+
     Examples:
-        >>> from tascpy.core.collection import ColumnCollection
-        >>> col = ColumnCollection(step=[0.0, 1.0, 2.0], columns={"CH1": [10.0, 20.0, 30.0]})
-        >>> col.head(2)
-        <ColumnCollection shape=(2, 1) columns=['CH1']>
+        >>> coll = ColumnCollection({"P": [0.0, 10.0], "d": [0.0, 1.0]}, step=[1, 2], units={"P": "kN", "d": "mm"})
+        >>> coll["P"].unit
+        'kN'
+        >>> coll2 = coll.with_column("P2", coll["P"].values * 2, unit="kN")
     """
 
     domain: str = "core"
 
+    def __init__(
+        self,
+        columns: Optional[Mapping[str, Any]] = None,
+        *,
+        step: Any = None,
+        date: Any = None,
+        time: Any = None,
+        units: Optional[Mapping[str, Optional[str]]] = None,
+        meta: Optional[Mapping[str, ColumnMeta]] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
+    ) -> None:
+        """
+        Args:
+            columns: {列名: 値の並び または Column}
+            step: ステップ値（省略時は 0..n-1）
+            date: 日付（任意）
+            time: 時刻（任意）
+            units: {列名: 単位}（Column で渡したメタを上書き）
+            meta: {列名: ColumnMeta}（Column で渡したメタを上書き）
+            metadata: コレクション全体のメタデータ
+        """
+        series: List[pl.Series] = []
+        metas: Dict[str, ColumnMeta] = {}
+        for name, values in (columns or {}).items():
+            _check_data_name(name)
+            series.append(to_series(name, values))
+            metas[name] = values.meta if isinstance(values, Column) else ColumnMeta()
+
+        n_rows = len(series[0]) if series else (len(step) if step is not None else 0)
+        index = [_index_series("step", step if step is not None else range(n_rows))]
+        index += [_index_series(n, v) for n, v in (("date", date), ("time", time)) if v is not None]
+        for s in index + series:
+            if len(s) != n_rows:
+                raise ValueError(f"列 '{s.name}' の長さ ({len(s)}) が行数 ({n_rows}) と一致しません")
+
+        for name, m in (meta or {}).items():
+            self._require(name, metas)
+            metas[name] = m
+        for name, unit in (units or {}).items():
+            self._require(name, metas)
+            metas[name] = metas[name].updated(unit=unit)
+
+        self._set(pl.DataFrame(index + series), metas, dict(metadata or {}), {})
+
+    @classmethod
+    def from_frame(
+        cls,
+        df: pl.DataFrame,
+        *,
+        step: Optional[str] = None,
+        units: Optional[Mapping[str, Optional[str]]] = None,
+        meta: Optional[Mapping[str, ColumnMeta]] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
+    ) -> Self:
+        """polars の DataFrame から作成する
+
+        Args:
+            df: 元データ（"step" / "date" / "time" 列はインデックス列として扱う）
+            step: ステップとして使う列名（省略時は "step" 列、なければ 0..n-1）
+        """
+        if step is not None:
+            if "step" in df.columns and step != "step":
+                raise ValueError("df に 'step' 列があるため、別の列を step に指定できません")
+            df = df.rename({step: "step"})
+        index = {n: df[n] for n in INDEX_COLUMNS if n in df.columns}
+        columns = {n: df[n] for n in df.columns if n not in INDEX_COLUMNS}
+        return cls(columns, step=index.get("step"), date=index.get("date"), time=index.get("time"),
+                   units=units, meta=meta, metadata=metadata)
+
+    # ── 内部 ──────────────────────────────────
+
+    def _set(self, df: pl.DataFrame, meta: Dict[str, ColumnMeta],
+             metadata: Dict[str, Any], results: Dict[str, AnalysisResult]) -> None:
+        self._df = df
+        self._meta = meta
+        self._metadata = metadata
+        self._results = results
+
+    def _replace(self, *, df: Optional[pl.DataFrame] = None, meta: Optional[Dict[str, ColumnMeta]] = None,
+                 metadata: Optional[Dict[str, Any]] = None,
+                 results: Optional[Dict[str, AnalysisResult]] = None, validate: bool = True) -> Self:
+        """一部を差し替えた新しいコレクション（ドメイン固有の属性は引き継ぐ）"""
+        new = copy.copy(self)
+        new._set(
+            self._df if df is None else df,
+            dict(self._meta) if meta is None else meta,
+            dict(self._metadata) if metadata is None else metadata,
+            dict(self._results) if results is None else results,
+        )
+        if validate:
+            new._validate()
+        return new
+
+    def _as_class(self, cls: type["C"]) -> "C":
+        """同じデータを持つ別クラス（ドメイン）のコレクション。ドメイン固有の属性は引き継がない"""
+        new = cls.__new__(cls)
+        new._set(self._df, dict(self._meta), dict(self._metadata), dict(self._results))
+        return new
+
+    def _validate(self) -> None:
+        """ドメインごとの不変条件の検証（サブクラスで拡張）"""
+
+    def _apply_rename(self, mapping: Mapping[str, str]) -> None:
+        """列名の変更をドメイン固有の設定に反映する（サブクラスで拡張、構築中のコピーにのみ呼ばれる）"""
+
+    def _domain_config(self) -> Dict[str, Any]:
+        """ドメイン固有の設定（from_collection のキーワード引数として復元できる形、サブクラスで拡張）"""
+        return {}
+
+    @staticmethod
+    def _require(name: str, names: Iterable[str]) -> None:
+        if name not in names:
+            raise KeyError(f"列 '{name}' が存在しません")
+
+    # ── アクセサ ───────────────────────────────
+
     @property
-    def ops(self) -> "CoreOps[ColumnCollection]":
-        """メソッドチェーンで演算・抽出を行う操作オブジェクト (例: `collection.ops.add("A", "B").end()`)"""
+    def ops(self) -> "CoreOps[Self]":
+        """メソッドチェーンで演算・抽出を行う操作オブジェクト (例: `coll.ops.add("A", "B").end()`)"""
         from ..analytics.ops import CoreOps
 
         return CoreOps(self)
 
     @property
     def plot(self) -> "CorePlotter":
-        """可視化を行うプロッター (例: `collection.plot.plot("CH1")`)"""
-        if not hasattr(self, "_plotter"):
-            from ..visualization.plotters.core.plotter import CorePlotter
+        """可視化を行うプロッター (例: `coll.plot.plot("CH1")`)"""
+        from ..visualization.plotters.core.plotter import CorePlotter
 
-            self._plotter = CorePlotter(self)
-        return self._plotter
+        return CorePlotter(self)
 
     @property
     def io(self) -> "CollectionIO":
-        """ファイル入出力 (例: `collection.io.to_csv("out.csv")`)"""
+        """ファイル入出力 (例: `coll.io.to_csv("out.csv")`)"""
         from ..io.proxy import CollectionIO
 
         return CollectionIO(self)
 
-    def __init__(
-        self,
-        step: Union[Step, List[Any], None],
-        columns: Optional[Dict[str, Union[Column, List[Any]]]],
-        metadata: Optional[Dict[str, Any]] = None,
-        auto_detect_types: bool = False,
-    ):
-        """
-        Args:
-            step: Stepオブジェクトまたはステップ値のリスト
-            columns: {名前: Column}の辞書または{名前: 値リスト}の辞書
-            metadata: メタデータの辞書
-            auto_detect_types: カラム型を自動判定するかどうか
-        """
-        # ステップの初期化
-        if isinstance(step, Step):
-            self._step: Step = step
-        else:
-            self._step: Step = Step(values=step if step is not None else [])
-
-        # 列の初期化
-        self.columns = {}
-        if columns:
-            step_len = len(self.step)
-            for name, column in columns.items():
-                if isinstance(column, Column):
-                    self.columns[name] = column
-                else:
-                    # 自動判定が有効な場合は型を自動判定
-                    if auto_detect_types:
-                        self.columns[name] = detect_column_type(
-                            None, name, None, column
-                        )
-                    else:
-                        self.columns[name] = Column(None, name, None, column)
-                
-                # Check length immediately
-                if len(self.columns[name]) != step_len:
-                    raise ValueError(
-                        f"Column '{name}' length ({len(self.columns[name])}) does not match Step length ({step_len})"
-                    )
-
-        self.metadata = metadata if metadata is not None else {}
-        self._results: Dict[str, AnalysisResult] = {}
-        
-        # メタデータから結果を復元（もしあれば）
-        # 注: 現状の実装ではメタデータ内の辞書構造からAnalysisResultを復元するロジックは
-        # 各ドメインのサブクラスやファクトリに委ねられる可能性があります。
-        # ここではプレースホルダーとして空の辞書を初期化します。
+    # ── 読み取り ───────────────────────────────
 
     @property
-    def step(self) -> Step:
-        return self._step
-    
-    @step.setter
-    def step(self, value: Union[Step, List[Any]]):
-        if isinstance(value, Step):
-            new_step = value
-        else:
-            new_step = Step(values=value if value is not None else [])
-            
-        # Validate length against existing columns
-        # If no columns exist, any length is fine
-        if self.columns:
-            # Check against arbitrary existing column (all should be same length due to invariants)
-            # Or iterate all to be safe?
-            # Let's iterate all to ensure full consistency
-            step_len = len(new_step)
-            for name, col in self.columns.items():
-                if len(col) != step_len:
-                    raise ValueError(
-                        f"New step length ({step_len}) does not match existing columns length ({len(col)} for '{name}')"
-                    )
-        
-        self._step = new_step
+    def df(self) -> pl.DataFrame:
+        """インデックス列とデータ列を含む DataFrame"""
+        return self._df
+
+    @property
+    def meta(self) -> Mapping[str, ColumnMeta]:
+        return MappingProxyType(self._meta)
+
+    @property
+    def metadata(self) -> Mapping[str, Any]:
+        return MappingProxyType(self._metadata)
+
+    @property
+    def results(self) -> Mapping[str, AnalysisResult]:
+        return MappingProxyType(self._results)
+
+    @property
+    def columns(self) -> List[str]:
+        """データ列名のリスト"""
+        return list(self._meta)
+
+    @property
+    def units(self) -> Dict[str, Optional[str]]:
+        return {name: m.unit for name, m in self._meta.items()}
+
+    @property
+    def step(self) -> np.ndarray:
+        return self._df["step"].to_numpy()
+
+    @property
+    def date(self) -> Optional[np.ndarray]:
+        return self._df["date"].to_numpy() if "date" in self._df.columns else None
+
+    @property
+    def time(self) -> Optional[np.ndarray]:
+        return self._df["time"].to_numpy() if "time" in self._df.columns else None
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return len(self), len(self._meta)
 
     def __len__(self) -> int:
-        return len(self.step)
+        return self._df.height
 
-    def __getitem__(self, key) -> Union["ColumnCollection", Column, Dict[str, Any]]:
-        """キーに基づいてデータにアクセス
-        Args:
-            key: 列名、チャンネル名、またはインデックス(整数/スライス)
+    def __contains__(self, name: object) -> bool:
+        return name in self._meta
 
-        Returns:
-            列名/チャンネル名の場合: 指定された列
-            整数インデックスの場合: 指定された行のデータを含む辞書
-            スライスの場合: 指定された行範囲を含む新しいColumnCollection
+    __iter__ = None  # 列名と行のどちらを反復するか曖昧なため、iter_rows() を使う
 
-        Raises:
-            KeyError: 指定された列名/チャンネル名が存在しない場合
-            TypeError: キーが文字列または整数/スライスでない場合
-            
-        Examples:
-            >>> col = ColumnCollection(step=[0.0], columns={"CH1": [10.0]})
-            >>> col["CH1"].values
-            [10.0]
-            >>> type(col[0]).__name__
-            'Row'
-        """
+    def __getitem__(self, key: Union[str, int, slice]) -> Any:
+        """`coll["列名"]` → Column、`coll[i]` → Row、`coll[a:b]` → ColumnCollection"""
         if isinstance(key, str):
-            # 列名によるアクセス
-            if key == "step":
-                return self.step
-            elif key in self.columns:
-                return self.columns[key]
-            else:
-                # チャンネル名で検索
-                for col_name, column in self.columns.items():
-                    if hasattr(column, "ch") and column.ch == key:
-                        return column
-                        
-                # 結果オブジェクトを検索
-                if key in self._results:
-                    return self._results[key]
-                    
-                # 見つからなかった場合
-                raise KeyError(f"列、チャンネル、または結果 '{key}' が存在しません")
-        elif isinstance(key, (int, slice)):
-            # インデックスによるアクセス
-            if isinstance(key, int):
-                # 単一行の場合
-                values = {}
-                for name, column in self.columns.items():
-                    values[name] = column.values[key]
-                from .row import Row
+            if key not in self._meta:
+                hint = f"（インデックス列は coll.{key} で取得します）" if key in INDEX_COLUMNS else ""
+                raise KeyError(f"列 '{key}' が存在しません{hint}")
+            return Column._wrap(self._df[key], self._meta[key])
+        if isinstance(key, (int, np.integer)):
+            n = len(self)
+            if not -n <= key < n:
+                raise IndexError(f"行インデックス {key} が範囲外です（行数 {n}）")
+            return Row(self._df.row(int(key), named=True), self._meta)
+        if isinstance(key, slice):
+            return self._replace(df=self._df[key])
+        raise TypeError(f"キーは列名・整数・スライスのいずれかで指定してください: {type(key)}")
 
-                return Row(step=self.step.values[key], values=values)
-            else:
-                # スライスの場合は新しいColumnCollectionを返す
-                new_step = Step(values=self.step.values[key])
-                new_columns = {}
-                for name, column in self.columns.items():
-                    new_column = column.clone()
-                    new_column.values = column.values[key]  # スライス
-                    new_columns[name] = new_column
+    def by_ch(self, ch: str) -> Column:
+        """チャンネル名で列を取得する"""
+        for name, m in self._meta.items():
+            if m.ch == ch:
+                return self[name]
+        raise KeyError(f"チャンネル '{ch}' の列が存在しません")
 
-                return ColumnCollection(
-                    step=new_step, columns=new_columns, metadata=self.metadata.copy()
-                )
-        else:
-            raise TypeError(
-                f"キーは文字列または整数/スライスである必要があります: {type(key)}"
-            )
+    def iter_rows(self) -> Iterator[Row]:
+        for values in self._df.iter_rows(named=True):
+            yield Row(values, self._meta)
 
-    def clone(self):
-        """コレクションのクローンを作成"""
-        new_collection = ColumnCollection(
-            step=self.step.clone(),
-            columns={name: column.clone() for name, column in self.columns.items()},
-            metadata=deepcopy(self.metadata),
-        )
-        # 結果オブジェクトの参照をコピー（必要ならばディープコピーを検討すべきだが、
-        # AnalysisResultの実装に依存するため一旦参照コピーとする）
-        # 単純な参照コピーだと副作用が怖いため、to_dict()などで再構築するか、
-        # AnalysisResultにcloneメソッドを要求するのが理想的。
-        # ここでは簡易的に参照コピーを行うが、本来は各Resultのcloneが必要。
-        new_collection._results = self._results.copy() 
-        return new_collection
+    def step_index(self, value: Any, tolerance: Optional[float] = None) -> Optional[int]:
+        """step が value と一致する（tolerance 指定時は許容誤差内で最も近い）行のインデックス"""
+        steps = self.step
+        if tolerance is None:
+            hits = np.flatnonzero(steps == value)
+            return int(hits[0]) if len(hits) else None
+        diff = np.abs(steps.astype(float) - value)
+        idx = int(np.nanargmin(diff)) if len(diff) else None
+        return idx if idx is not None and diff[idx] <= tolerance else None
 
-    def add_column(
-        self, name: str, column: Union[Column, List[Any]]
-    ) -> "ColumnCollection":
-        """列を追加
-        Args:
-            name: 列名
-            column: Columnオブジェクトまたは値のリスト
+    def nearest_step_index(self, value: float) -> Optional[int]:
+        """step が value に最も近い行のインデックス（行がなければ None）"""
+        if len(self) == 0:
+            return None
+        return int(np.nanargmin(np.abs(self.step.astype(float) - value)))
 
-        Returns:
-            self(メソッドチェーン用)
-        """
-        if name in self.columns:
-            raise KeyError(f"列'{name}'はすでに存在します")
-        # Create temp column to check length
-        if isinstance(column, Column):
-            temp_col = column
-        else:
-            temp_col = Column(None, name, None, column)
-            
-        if len(temp_col) != len(self.step):
-             raise ValueError(
-                f"Column '{name}' length ({len(temp_col)}) does not match Step length ({len(self.step)})"
-             )
-
-        self.columns[name] = temp_col
-        # self.harmonize_length() # No longer needed as we check before add
-        return self
-
-    def remove_column(self, name: str) -> "ColumnCollection":
-        """列を削除
-        Args:
-            name: 列名
-
-        Returns:
-            self(メソッドチェーン用)
-        """
-        if name not in self.columns:
-            raise KeyError(f"列'{name}'は存在しません")
-        del self.columns[name]
-        return self
-
-    def harmonize_length(self) -> None:
-        """列の長さをStepに合わせる"""
-        for column in self.columns.values():
-            if len(column) != len(self.step):
-                raise ValueError(
-                    f"列'{column.name}'の長さ({len(column)})がStepの長さ({len(self.step)})と一致しません"
-                )
-        # step, columnsの長さを揃える（ロジック実装次第追加予定）
-
-    @property
-    def results(self) -> Dict[str, AnalysisResult]:
-        """計算結果オブジェクトの辞書を返す"""
-        return self._results
-
-    def add_result(self, result: AnalysisResult) -> "ColumnCollection":
-        """計算結果を追加
-        
-        Args:
-            result: 追加するAnalysisResultオブジェクト
-            
-        Returns:
-            self (メソッドチェーン用)
-        """
-        self._results[result.name] = result
-        return self
-    
-    def get_result(self, name: str) -> AnalysisResult:
-        """計算結果を取得
-        
-        Args:
-            name: 結果名
-            
-        Returns:
-            AnalysisResult: 結果オブジェクト
-            
-        Raises:
-            KeyError: 指定された名前の結果が存在しない場合
-        """
-        if name not in self._results:
-            raise KeyError(f"結果 '{name}' は存在しません")
-        return self._results[name]
-
-
-
-    def keys(self) -> List[str]:
-        """利用可能なキーのリストを返す"""
-        keys = list(self.columns.keys())
-        keys.extend(self._results.keys())
-        return sorted(keys)
-
-    def __repr__(self) -> str:
-        """文字列表現"""
-        step_len = len(self.step)
-        col_count = len(self.columns)
-        
-        col_names = list(self.columns.keys())
-        if len(col_names) > 5:
-            col_list_str = f"[{', '.join(f'{repr(n)}' for n in col_names[:5])}, ... ({col_count} total)]"
-        else:
-            col_list_str = f"[{', '.join(f'{repr(n)}' for n in col_names)}]"
-            
-        res_count = len(self._results)
-        res_str = f", results={res_count}" if res_count > 0 else ""
-        
-        meta_keys = list(self.metadata.keys())
-        meta_str = f" metadata_keys={meta_keys}" if meta_keys else ""
-            
-        return f"<ColumnCollection shape=({step_len}, {col_count}){res_str} columns={col_list_str}{meta_str}>"
-
-    def head(self, n: int = 5) -> "ColumnCollection":
-        """最初のn行を取得
-        Args:
-            n: 行数
-
-        Returns:
-            ColumnCollection: 最初のn行を含む新しいColumnCollection
-
-        Raises:
-            ValueError: nが負の整数または列数を超える場合
-        """
-        if n < 0:
-            raise ValueError("nは0以上の整数である必要があります")
-        if n > len(self):
-            raise ValueError(f"nは{len(self)}以下である必要があります")
-        return self[:n]
-
-    def tail(self, n: int = 5) -> "ColumnCollection":
-        """最後のn行を取得
-        Args:
-            n: 行数
-
-        Returns:
-            ColumnCollection: 最後のn行を含む新しいColumnCollection
-
-        Raises:
-            ValueError: nが負の整数または列数を超える場合
-        """
-        if n < 0:
-            raise ValueError("nは0以上の整数である必要があります")
-        if n > len(self):
-            raise ValueError(f"nは{len(self)}以下である必要があります")
-        return self[-n:]
-
-    def describe(self, detail: bool = False) -> Dict[str, Dict[str, Any]]:
-        """データの概要を取得
-
-        Args:
-            detail: 詳細表示するかどうか。True の場合は統計情報も含む。
-
-        Returns:
-            辞書: 各列の情報を含む辞書
-            
-        Examples:
-            >>> col = ColumnCollection(step=[0.0, 1.0, 2.0], columns={"CH1": [10.0, 20.0, 30.0]})
-            >>> col.describe()["CH1"]["count"]
-            3
-        """
-        stats = {}
-        for name, column in self.columns.items():
-            # 簡易表示の場合は列名とデータ数のみ
-            if not detail:
-                stats[name] = {"count": len(column.values)}
-            # 詳細表示の場合は統計情報も含む
-            else:
-                if isinstance(column, NumberColumn):
-                    stats[name] = {
-                        "count": len(column.values),
-                        "mean": column.mean(),
-                        "min": column.min(),
-                        "max": column.max(),
-                        "std": column.std(),
-                        "type": str(type(column).__name__),
-                    }
-                elif isinstance(column.values, (list, tuple)) and all(
-                    isinstance(x, (int, float)) for x in column.values if x is not None
-                ):
-                    # 数値のリストだが NumberColumn ではない場合
-                    values = [x for x in column.values if x is not None]
-                    if values:
-                        stats[name] = {
-                            "count": len(column.values),
-                            "mean": sum(values) / len(values),
-                            "min": min(values),
-                            "max": max(values),
-                            "type": str(type(column).__name__),
-                        }
-                    else:
-                        stats[name] = {
-                            "count": len(column.values),
-                            "type": str(type(column).__name__),
-                        }
-                else:
-                    # 数値以外のデータの場合
-                    stats[name] = {
-                        "count": len(column.values),
-                        "type": str(type(column).__name__),
-                    }
+    def describe(self) -> Dict[str, Dict[str, Any]]:
+        """各データ列の概要（件数・欠損数・単位、数値列は統計量も）"""
+        stats: Dict[str, Dict[str, Any]] = {}
+        for name in self._meta:
+            col = self[name]
+            info: Dict[str, Any] = {"dtype": str(col.dtype), "unit": col.unit,
+                                    "count": len(col), "null_count": col.null_count()}
+            if col.is_numeric:
+                info.update(mean=col.mean(), std=col.std(), min=col.min(), max=col.max())
+            stats[name] = info
         return stats
 
-    def apply(self, func: Callable[[List[Any]], List[Any]]) -> "ColumnCollection":
-        """各Columnに関数を適用
-        Args:
-            func: 適用する関数
-        Returns:
-            ColumnCollection: 新しいColumnCollection
-            
-        Examples:
-            >>> col = ColumnCollection(step=[0.0, 1.0], columns={"CH1": [1.0, 2.0]})
-            >>> new_col = col.apply(lambda x: [v * 10 for v in x])
-            >>> new_col["CH1"].values
-            [10.0, 20.0]
-        """
-        new_columns = {}
-        for name, column in self.columns.items():
-            new_columns[name] = column.apply(func)
-        # 適用後長さが揃っているか確認
-        self.harmonize_length()
-        # 新しいColumnCollectionを返す
-        return ColumnCollection(
-            step=self.step,
-            columns=new_columns,
-            metadata=self.metadata.copy(),
-        )
+    def __repr__(self) -> str:
+        names = self.columns
+        shown = [f"{n} [{self._meta[n].unit}]" if self._meta[n].unit else n for n in names[:6]]
+        if len(names) > 6:
+            shown.append(f"... ({len(names)} total)")
+        results = f" results={list(self._results)}" if self._results else ""
+        return f"<{type(self).__name__} rows={len(self)} columns=[{', '.join(shown)}]{results}>"
 
-    def auto_detect_column_types(self) -> "ColumnCollection":
-        """各カラムのデータ型を自動判定し、適切な型のカラムに変換する
+    # ── 変更（新しいコレクションを返す） ─────────────
 
-        Returns:
-            self: メソッドチェーン用
-        """
-        for name, column in list(self.columns.items()):
-            # 各カラムの型を自動判定
-            new_column = detect_column_type(
-                column.ch, column.name, column.unit, column.values, column.metadata
-            )
-            # 元のカラムと新しいカラムの型が異なる場合のみ置き換え
-            if type(new_column) != type(column):
-                self.columns[name] = new_column
-        return self
+    def with_column(self, name: str, values: Any, *, unit: Any = KEEP, ch: Any = KEEP, attrs: Any = KEEP) -> Self:
+        """列を追加または上書きする（上書き時、指定しなかったメタは引き継ぐ）"""
+        _check_data_name(name)
+        series = to_series(name, values)
+        if len(series) != len(self):
+            raise ValueError(f"列 '{name}' の長さ ({len(series)}) が行数 ({len(self)}) と一致しません")
+        meta = dict(self._meta)
+        base = meta.get(name, ColumnMeta())
+        if isinstance(values, Column) and name not in meta:
+            base = values.meta
+        meta[name] = base.updated(unit=unit, ch=ch, attrs=attrs)
+        return self._replace(df=self._df.with_columns(series), meta=meta)
+
+    def with_meta(self, name: str, *, unit: Any = KEEP, ch: Any = KEEP, attrs: Any = KEEP) -> Self:
+        """列メタを変更する"""
+        self._require(name, self._meta)
+        meta = dict(self._meta)
+        meta[name] = meta[name].updated(unit=unit, ch=ch, attrs=attrs)
+        return self._replace(meta=meta)
+
+    def with_attrs(self, name: str, **items: Any) -> Self:
+        """列メタの attrs に項目を追加・上書きする"""
+        self._require(name, self._meta)
+        return self.with_meta(name, attrs={**self._meta[name].attrs, **items})
+
+    def with_metadata(self, **items: Any) -> Self:
+        """コレクションのメタデータに項目を追加・上書きする"""
+        return self._replace(metadata={**self._metadata, **items})
+
+    def with_result(self, result: AnalysisResult) -> Self:
+        """解析結果を追加・上書きする"""
+        return self._replace(results={**self._results, result.name: result})
+
+    def select(self, names: Sequence[str]) -> Self:
+        """指定したデータ列だけを残す（インデックス列は常に残る）"""
+        for name in names:
+            self._require(name, self._meta)
+        index = [n for n in INDEX_COLUMNS if n in self._df.columns]
+        return self._replace(df=self._df.select(index + list(names)),
+                             meta={n: self._meta[n] for n in names})
+
+    def drop(self, *names: str) -> Self:
+        for name in names:
+            self._require(name, self._meta)
+        return self.select([n for n in self._meta if n not in names])
+
+    def rename(self, mapping: Mapping[str, str]) -> Self:
+        for old, new in mapping.items():
+            self._require(old, self._meta)
+            _check_data_name(new)
+        meta = {mapping.get(n, n): m for n, m in self._meta.items()}
+        new = self._replace(df=self._df.rename(dict(mapping)), meta=meta, validate=False)
+        new._apply_rename(mapping)
+        new._validate()
+        return new
+
+    def take(self, rows: Any) -> Self:
+        """行インデックスの並び、または行数と同じ長さのブールマスクで行を抽出する"""
+        selector = np.asarray(rows)
+        if selector.dtype == bool:
+            if len(selector) != len(self):
+                raise ValueError(f"マスクの長さ ({len(selector)}) が行数 ({len(self)}) と一致しません")
+            return self._replace(df=self._df.filter(pl.Series(selector)))
+        indices = selector.astype(np.int64).ravel()
+        n = len(self)
+        if len(indices) and (indices.max() >= n or indices.min() < -n):
+            raise IndexError("指定されたインデックスが範囲外です")
+        return self._replace(df=self._df.select(pl.all().gather(indices)))
+
+    def head(self, n: int = 5) -> Self:
+        return self._replace(df=self._df.head(n))
+
+    def tail(self, n: int = 5) -> Self:
+        return self._replace(df=self._df.tail(n))
 
 
-    @property
-    def steps(self) -> List[Any]:
-        """step.valuesのエイリアス"""
-        return self.step.values
-
-    @property
-    def date(self) -> List[str]:
-        """日付リスト取得"""
-        return self.metadata.get("date", [""] * len(self.step))
-
-    @property
-    def time(self) -> List[str]:
-        """時間リスト取得"""
-        return self.metadata.get("time", [""] * len(self.step))
-
-    def get_date_time(self) -> tuple:
-        """日付と時間のタプルを取得"""
-        return self.date, self.time
-
-    def find_nearest_step(self, value: Any) -> tuple[int, Any]:
-        """指定した値に最も近いステップのインデックスと値を返す
-        
-        Args:
-            value: 検索するステップ値
-            
-        Returns:
-            tuple: (インデックス, ステップ値)
-                   見つからない場合は (-1, None)
-                   
-        Examples:
-            >>> col = ColumnCollection(step=[0.0, 1.0, 2.0], columns={"CH1": [10.0, 20.0, 30.0]})
-            >>> col.find_nearest_step(1.2)
-            (1, 1.0)
-        """
-        idx = self.step.find_nearest_index(value)
-        if idx == -1:
-            return -1, None
-        return idx, self.step.values[idx]
-
-    def max(self) -> Dict[str, Any]:
-        """各列の最大値を取得"""
-        return {name: col.max() for name, col in self.columns.items()}
-
-    def min(self) -> Dict[str, Any]:
-        """各列の最小値を取得"""
-        return {name: col.min() for name, col in self.columns.items()}
-
-    def mean(self) -> Dict[str, Optional[float]]:
-        """各列の平均値を取得"""
-        return {name: col.mean() for name, col in self.columns.items()}
-
-    def ptp(self) -> Dict[str, Any]:
-        """各列の最大値と最小値の差を取得"""
-        return {name: col.ptp() for name, col in self.columns.items()}
-    
-    def first_valid_index(self) -> Dict[str, Optional[int]]:
-        """各列の最初の有効なインデックスを取得"""
-        return {name: col.first_valid_index for name, col in self.columns.items()}
-
-    def first_invalid_index(self) -> Dict[str, Optional[int]]:
-        """各列の最初の無効なインデックスを取得"""
-        return {name: col.first_invalid_index for name, col in self.columns.items()}
-
-    def to_numeric(self, errors: str = "raise") -> "ColumnCollection":
-        """全列を数値列に変換を試みる（新しいCollectionを返す）
-        
-        Examples:
-            >>> col = ColumnCollection(step=[0.0], columns={"CH1": ["10.0"]})
-            >>> num_col = col.to_numeric()
-            >>> type(num_col["CH1"]).__name__
-            'NumberColumn'
-        """
-        new_columns = {}
-        for name, col in self.columns.items():
-            new_columns[name] = col.to_numeric(errors=errors)
-        
-        return ColumnCollection(
-            step=self.step.clone(),
-            columns=new_columns,
-            metadata=deepcopy(self.metadata)
-        )
+def concat(collections: Sequence[ColumnCollection]) -> ColumnCollection:
+    """行方向に連結する（存在しない列は欠損で埋め、メタ・設定は最初に現れたものを使う）"""
+    if not collections:
+        raise ValueError("連結するコレクションがありません")
+    meta: Dict[str, ColumnMeta] = {}
+    for c in collections:
+        for name, m in c.meta.items():
+            meta.setdefault(name, m)
+    df = pl.concat([c.df for c in collections], how="diagonal_relaxed")
+    index = [n for n in INDEX_COLUMNS if n in df.columns]
+    return collections[0]._replace(df=df.select(index + list(meta)), meta=meta)

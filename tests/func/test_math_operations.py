@@ -1,14 +1,14 @@
 import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import NumberColumn, StringColumn
+from tascpy.core.column import Column
 
 def test_average_across():
     steps = [1, 2, 3, 4]
     
-    col1 = NumberColumn("CH1", "A", "V", [1.0, 2.0, np.nan, 4.0])
-    col2 = NumberColumn("CH2", "B", "V", [1.0, 4.0, 6.0, np.nan])
-    col3 = NumberColumn("CH3", "C", "V", [1.0, np.nan, np.nan, np.nan])
+    col1 = Column("A", [1.0, 2.0, np.nan, 4.0], unit="V", ch="CH1")
+    col2 = Column("B", [1.0, 4.0, 6.0, np.nan], unit="V", ch="CH2")
+    col3 = Column("C", [1.0, np.nan, np.nan, np.nan], unit="V", ch="CH3")
     
     columns = {
         "A": col1,
@@ -16,7 +16,7 @@ def test_average_across():
         "C": col3
     }
     
-    collection = ColumnCollection(steps, columns)
+    collection = ColumnCollection(columns, step=steps)
     
     # 1. ignore_nan=True (default)
     result1 = collection.ops.average_across("A", "B", "C", result_column="avg_ignore").end()
@@ -28,6 +28,7 @@ def test_average_across():
     # row2: [nan, 6, nan] -> 6.0
     # row3: [4, nan, nan] -> 4.0
     np.testing.assert_allclose(avg_vals1, [1.0, 3.0, 6.0, 4.0])
+    assert result1["avg_ignore"].unit == "V"
     
     # 2. ignore_nan=False
     result2 = collection.ops.average_across("A", "B", "C", result_column="avg_strict", ignore_nan=False).end()
@@ -50,15 +51,15 @@ def test_average_across():
 def test_average_across_string_coercion():
     steps = [1, 2, 3]
     
-    col1 = StringColumn("CH1", "A", "V", ["1.0", "none", "3.0"])
-    col2 = StringColumn("CH2", "B", "V", ["none", "2.0", "na"])
+    col1 = Column("A", ["1.0", "none", "3.0"], unit="V", ch="CH1")
+    col2 = Column("B", ["none", "2.0", "na"], unit="V", ch="CH2")
     
     columns = {
         "A": col1,
         "B": col2
     }
     
-    collection = ColumnCollection(steps, columns)
+    collection = ColumnCollection(columns, step=steps)
     
     result = collection.ops.average_across("A", "B", result_column="avg_str").end()
     avg_vals = result["avg_str"].values

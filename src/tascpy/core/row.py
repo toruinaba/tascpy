@@ -1,47 +1,55 @@
-from dataclasses import dataclass
-from typing import Any, Dict
+from __future__ import annotations
+
+from typing import Any, Dict, Iterator, Mapping, Optional
+
+from .column import ColumnMeta
 
 
-@dataclass
-class Row:
-    """ColumnCollectionの1行を表現するクラス
-    
+class Row(Mapping[str, Any]):
+    """ColumnCollection の1行（値は素のスカラー、欠損は None）
+
     Examples:
-        >>> from tascpy.core.row import Row
-        >>> row = Row(step=0.0, values={"CH1": 10.0, "CH2": 20.0})
-        >>> row["CH1"]
-        10.0
+        >>> row = coll[0]
+        >>> row["CH1"], row.unit("CH1"), row.step
+        (10.0, 'kN', 1)
     """
 
-    step: Any
-    values: Dict[str, Any]
+    __slots__ = ("_values", "_meta")
 
-    def __repr__(self) -> str:
-        vals = {k: self.values[k] for k in list(self.values.keys())[:3]}
-        if len(self.values) > 3:
-            vals["..."] = "..."
-        return f"<Row step={self.step} values={vals}>"
+    def __init__(self, values: Dict[str, Any], meta: Mapping[str, ColumnMeta]) -> None:
+        self._values = values
+        self._meta = meta
 
     def __getitem__(self, key: str) -> Any:
-        """列名による値へのアクセス
-        
-        Examples:
-            >>> from tascpy.core.row import Row
-            >>> row = Row(step=0.0, values={"CH1": 10.0})
-            >>> row["CH1"]
-            10.0
-        """
-        if key == "step":
-            return self.step
-        if key in self.values:
-            return self.values[key]
-        raise KeyError(f"列'{key}'が存在しません")
+        if key not in self._values:
+            raise KeyError(f"列 '{key}' が存在しません")
+        return self._values[key]
 
-    def __iter__(self):
-        """値の反復処理"""
-        yield "step", self.step
-        yield from self.values.items()
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
+
+    @property
+    def step(self) -> Any:
+        return self._values["step"]
+
+    def unit(self, key: str) -> Optional[str]:
+        return self._meta[key].unit
+
+    @property
+    def units(self) -> Dict[str, Optional[str]]:
+        return {name: meta.unit for name, meta in self._meta.items()}
 
     def to_dict(self) -> Dict[str, Any]:
-        """辞書形式に変換"""
-        return {"step": self.step, **self.values}
+        return dict(self._values)
+
+    def __repr__(self) -> str:
+        items = [f"step={self.step}"]
+        for name in list(self._meta)[:4]:
+            unit = self._meta[name].unit
+            items.append(f"{name}={self._values[name]}{' ' + unit if unit else ''}")
+        if len(self._meta) > 4:
+            items.append("...")
+        return f"<Row {', '.join(items)}>"

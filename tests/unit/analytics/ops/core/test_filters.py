@@ -9,9 +9,9 @@ def sample_collection():
     return ColumnCollection(
         step=[1, 2, 3, 4, 5],
         columns={
-            "A": Column("1", "Column A", "N", [1, 2, 3, 4, 5]),
-            "B": Column("2", "Column B", "kg", [10, 20, 30, 40, 50]),
-            "C": Column("3", "Column C", "m", [100, None, 300, None, 500]),
+            "A": Column("Column A", ch="1", unit="N", values=[1, 2, 3, 4, 5]),
+            "B": Column("Column B", ch="2", unit="kg", values=[10, 20, 30, 40, 50]),
+            "C": Column("Column C", ch="3", unit="m", values=[100, None, 300, None, 500]),
         },
         metadata={"description": "Test Collection"},
     )
@@ -55,9 +55,9 @@ class TestFilterOutNone:
         extended_collection = ColumnCollection(
             step=[1, 2, 3, 4, 5, 6],
             columns={
-                "A": Column("1", "Column A", "N", [1, 2, None, 4, 5, None]),
-                "B": Column("2", "Column B", "kg", [10, None, None, 40, 50, None]),
-                "C": Column("3", "Column C", "m", [100, None, 300, None, 500, None]),
+                "A": Column("Column A", ch="1", unit="N", values=[1, 2, None, 4, 5, None]),
+                "B": Column("Column B", ch="2", unit="kg", values=[10, None, None, 40, 50, None]),
+                "C": Column("Column C", ch="3", unit="m", values=[100, None, 300, None, 500, None]),
             },
             metadata=sample_collection.metadata,
         )
@@ -69,7 +69,7 @@ class TestFilterOutNone:
             sample_collection.ops.filter_out_none(columns=["A", "不存在"]).end()
 
     def test_invalid_mode(self, sample_collection):
-        with pytest.raises(ValueError, match="モードは'any'または'all'のいずれかである必要があります"):
+        with pytest.raises(ValueError, match="mode は 'any' または 'all' で指定してください"):
             sample_collection.ops.filter_out_none(mode="invalid").end()
 
     def test_metadata_preserved(self, sample_collection):
@@ -85,32 +85,26 @@ class TestRemoveConsecutiveDuplicatesAcross:
         return ColumnCollection(
             step=[1, 2, 3, 4, 5, 6, 7, 8],
             columns={
-                "A": Column("1", "Column A", "N", [1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0]),
-                "B": Column("2", "Column B", "kg", [10.0, 20.0, 30.0, 30.0, 40.0, 50.0, 60.0, 60.0]),
-                "C": Column("3", "Column C", "m", [5, 5, 2, 2, 8, 8, 9, 10]),
+                "A": Column("Column A", ch="1", unit="N", values=[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0]),
+                "B": Column("Column B", ch="2", unit="kg", values=[10.0, 20.0, 30.0, 30.0, 40.0, 50.0, 60.0, 60.0]),
+                "C": Column("Column C", ch="3", unit="m", values=[5, 5, 2, 2, 8, 8, 9, 10]),
             },
             metadata={"description": "Test Collection with Duplicates"},
         )
 
-    def test_all_mode(self, duplicate_collection):
-        result = duplicate_collection.ops.remove_consecutive_duplicates_across(columns=["A", "B", "C"], dup_type="all"
-        ).end()
-        assert isinstance(result, ColumnCollection)
+    def test_removes_rows_identical_to_previous(self, duplicate_collection):
+        result = duplicate_collection.ops.remove_consecutive_duplicates_across(columns=["A", "C"]).end()
+        assert result.step.tolist() == [1, 3, 5, 7, 8]
 
-    def test_any_mode(self, duplicate_collection):
-        result = duplicate_collection.ops.remove_consecutive_duplicates_across(columns=["A", "B", "C"], dup_type="any"
+    def test_all_columns(self, duplicate_collection):
+        result = duplicate_collection.ops.remove_consecutive_duplicates_across(columns=["A", "B", "C"]
         ).end()
         assert isinstance(result, ColumnCollection)
 
     def test_subset_columns(self, duplicate_collection):
-        result = duplicate_collection.ops.remove_consecutive_duplicates_across(columns=["A", "C"], dup_type="all"
+        result = duplicate_collection.ops.remove_consecutive_duplicates_across(columns=["A", "C"]
         ).end()
         assert isinstance(result, ColumnCollection)
-
-    def test_invalid_dup_type(self, duplicate_collection):
-        with pytest.raises(ValueError, match="dup_typeは'all'または'any'である必要があります"):
-            duplicate_collection.ops.remove_consecutive_duplicates_across(columns=["A", "B"], dup_type="invalid"
-            ).end()
 
     def test_invalid_column(self, duplicate_collection):
         with pytest.raises(KeyError, match="列 '不存在' が存在しません"):
@@ -121,8 +115,8 @@ class TestRemoveConsecutiveDuplicatesAcross:
         empty_collection = ColumnCollection(
             step=[],
             columns={
-                "A": Column("1", "Column A", "N", []),
-                "B": Column("2", "Column B", "kg", []),
+                "A": Column("Column A", ch="1", unit="N", values=[]),
+                "B": Column("Column B", ch="2", unit="kg", values=[]),
             },
             metadata={"description": "Empty Collection"},
         )
@@ -143,8 +137,8 @@ class TestRemoveOutliers:
         return ColumnCollection(
             step=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             columns={
-                "Data": Column("1", "Test Data", "N", [10.0, 10.2, 9.8, 50.0, 10.1, 10.3, 9.9, 10.2, -30.0, 10.1]),
-                "Category": Column("2", "Category", "", ["A", "A", "A", "A", "B", "B", "B", "B", "B", "C"]),
+                "Data": Column("Test Data", ch="1", unit="N", values=[10.0, 10.2, 9.8, 50.0, 10.1, 10.3, 9.9, 10.2, -30.0, 10.1]),
+                "Category": Column("Category", ch="2", unit="", values=["A", "A", "A", "A", "B", "B", "B", "B", "B", "C"]),
             },
             metadata={"description": "Test Collection with Outliers"},
         )

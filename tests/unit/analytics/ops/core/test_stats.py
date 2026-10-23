@@ -8,9 +8,9 @@ def sample_collection():
     return ColumnCollection(
         step=[1, 2, 3, 4, 5, 6, 7],
         columns={
-            "normal": Column("1", "Normal Data", "", [10, 20, 30, 40, 50, 60, 70]),
-            "with_outliers": Column("2", "Data with Outliers", "", [10, 20, 100, 40, 50, 200, 70]),
-            "with_none": Column("3", "Data with None", "", [10, None, 30, None, 50, 60, None]),
+            "normal": Column("Normal Data", ch="1", unit="", values=[10, 20, 30, 40, 50, 60, 70]),
+            "with_outliers": Column("Data with Outliers", ch="2", unit="", values=[10, 20, 100, 40, 50, 200, 70]),
+            "with_none": Column("Data with None", ch="3", unit="", values=[10, None, 30, None, 50, 60, None]),
         },
         metadata={"description": "Test Collection for Stats Operations"},
     )

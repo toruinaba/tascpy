@@ -11,8 +11,8 @@ def linear_collection():
     x = np.linspace(0, 10, 101)
     y = 2 * x
     
-    col_x = Column(ch=None, name="displacement", unit="mm", values=x)
-    col_y = Column(ch=None, name="load", unit="kN", values=y)
+    col_x = Column("displacement", unit="mm", values=x)
+    col_y = Column("load", unit="kN", values=y)
     
     c = LoadDisplacementCollection(
         step=list(range(101)), 
@@ -37,8 +37,8 @@ def bilinear_collection():
     x = np.concatenate([x1, x2])
     y = np.concatenate([y1, y2])
     
-    col_x = Column(ch=None, name="displacement", unit="mm", values=x)
-    col_y = Column(ch=None, name="load", unit="kN", values=y)
+    col_x = Column("displacement", unit="mm", values=x)
+    col_y = Column("load", unit="kN", values=y)
     
     c = LoadDisplacementCollection(
         step=list(range(len(x))), 
@@ -55,7 +55,7 @@ class TestCalculateSlopes:
         
         slope_col_name = "slope_data"
         assert slope_col_name in res.columns
-        slopes = res.columns[slope_col_name].values
+        slopes = res[slope_col_name].values
         
         # First point is NaN
         assert np.isnan(slopes[0])
@@ -66,8 +66,8 @@ class TestCalculateSlopes:
         c = LoadDisplacementCollection(
             step=[0], 
             columns={
-                "displacement": Column(ch=None, name="displacement", unit="mm", values=[0.0]),
-                "load": Column(ch=None, name="load", unit="kN", values=[0.0])
+                "displacement": Column("displacement", unit="mm", values=[0.0]),
+                "load": Column("load", unit="kN", values=[0.0])
             },
             load_column="load",
             displacement_column="displacement",

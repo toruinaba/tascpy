@@ -1,7 +1,12 @@
 from typing import Union, Optional, List, Dict, Any, Callable
 import numpy as np
 
-# --- Helper logic moved from combine.py ---
+def _find_index(values: np.ndarray, target: Any, tolerance: Optional[float], default: int) -> int:
+    """target と一致する（tolerance 指定時は誤差内の）最初のインデックス。見つからなければ default"""
+    values = np.asarray(values)
+    hits = np.flatnonzero(values == target if tolerance is None else np.abs(values - target) <= tolerance)
+    return int(hits[0]) if len(hits) else default
+
 
 def _switch_core(
     v1: np.ndarray,
@@ -123,16 +128,7 @@ def switch_by_step(
     else:  # index
         comp_arr = np.arange(len(steps))
         if by_step_value:
-             # Need find_index_with_tolerance logic from utils
-             # To keep functional pure and independent of complex utils if possible,
-             # but here we depend on it.
-             # Importing inside function or module level?
-             from .filters import find_index_with_tolerance
-             thresh_val = find_index_with_tolerance(
-                 steps, threshold, tolerance=tolerance, default=len(steps) // 2
-             )
-             if thresh_val is None:
-                 thresh_val = len(steps) // 2
+            thresh_val = _find_index(steps, threshold, tolerance, default=len(steps) // 2)
         else:
             thresh_val = threshold
 
@@ -202,9 +198,8 @@ def blend_by_step(
     else:  # index
         comp_arr = np.arange(len(steps))
         if by_step_value:
-            from .filters import find_index_with_tolerance
-            s_val = find_index_with_tolerance(steps, start, tolerance=tolerance, default=0)
-            e_val = find_index_with_tolerance(steps, end, tolerance=tolerance, default=len(steps)-1)
+            s_val = _find_index(steps, start, tolerance, default=0)
+            e_val = _find_index(steps, end, tolerance, default=len(steps) - 1)
         else:
             s_val, e_val = start, end
             

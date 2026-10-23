@@ -33,20 +33,8 @@ print("■ 荷重-変位データの特殊曲線プロットサンプル")
 
 # 1. サンプルデータの読み込みを行います
 print("1. サンプルデータの読み込み")
-collection = tascpy.io.load(
-    str(DATA_PATH),
-    format_name="csv",
-    delimiter=",",
-    title_row=0,
-    ch_row=1,
-    name_row=2,
-    unit_row=3,
-    data_start_row=4,
-    step_col=0,
-    date_col=1,
-    time_col=2,
-    data_start_col=3,
-).auto_detect_column_types()  # メソッドチェーンでカラム型の自動判定を行います
+collection = tascpy.load(str(DATA_PATH), format_name="csv")  # 数値の列は自動的に Float64 になります
+print(f"   - 単位: {collection.units}")
 
 # 2. 荷重-変位ドメインに変換し、曲線生成に必要なサイクル列（"Force1_cycle"）を作成します
 print("2. 荷重-変位ドメインへの変換")
@@ -143,8 +131,8 @@ combined_data.plot.plot_load_displacement(
     ax=ax4, color="gray", alpha=0.4, label="元データ"
 )
 
-# get_resultメソッドを使用して曲線データにアクセスします
-skeleton_curve = combined_data.get_result("skeleton_curve")
+# results から曲線データにアクセスします
+skeleton_curve = combined_data.results["skeleton_curve"]
 ax4.plot(
     skeleton_curve.x.values,
     skeleton_curve.y.values,
@@ -153,8 +141,8 @@ ax4.plot(
     label="スケルトン曲線",
 )
 
-# get_resultメソッドを使用して累積曲線データにアクセスします
-cumulative_curve = combined_data.get_result("cumulative_curve")
+# results から累積曲線データにアクセスします
+cumulative_curve = combined_data.results["cumulative_curve"]
 ax4.plot(
     cumulative_curve.x.values,
     cumulative_curve.y.values,
@@ -200,8 +188,8 @@ axs[1, 0].set_title("累積曲線のみ")
 axs[1, 0].grid(True, linestyle="--", alpha=0.7)
 
 # 複数曲線（スケルトンと累積を比較）をプロットします
-# get_resultメソッドを使用してスケルトン曲線データにアクセス
-skeleton_curve = combined_data.get_result("skeleton_curve")
+# results からスケルトン曲線データにアクセス
+skeleton_curve = combined_data.results["skeleton_curve"]
 axs[1, 1].plot(
     skeleton_curve.x.values,
     skeleton_curve.y.values,
@@ -210,8 +198,8 @@ axs[1, 1].plot(
     label="スケルトン曲線",
 )
 
-# get_resultメソッドを使用して累積曲線データにアクセス
-cumulative_curve = combined_data.get_result("cumulative_curve")
+# results から累積曲線データにアクセス
+cumulative_curve = combined_data.results["cumulative_curve"]
 axs[1, 1].plot(
     cumulative_curve.x.values,
     cumulative_curve.y.values,

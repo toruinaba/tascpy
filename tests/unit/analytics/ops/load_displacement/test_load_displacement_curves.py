@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import Column, NumberColumn
+from tascpy.core.column import Column
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 
 
@@ -19,17 +19,10 @@ class TestLoadDisplacementCurves:
         self.cycles = [1, 1, 1, 1, 1]
 
         # 基本のコレクションを作成
-        collection = ColumnCollection(
-            self.steps, {"load": self.loads, "displacement": self.displacements, "cycle": self.cycles}
-        )
+        collection = ColumnCollection({"load": self.loads, "displacement": self.displacements, "cycle": self.cycles}, step=self.steps)
 
         # 荷重-変位コレクションを作成
-        self.ld_collection = LoadDisplacementCollection(
-            step=collection.step,
-            columns=collection.columns,
-            load_column="load",
-            displacement_column="displacement",
-        )
+        self.ld_collection = collection.ops.as_load_displacement("load", "displacement").end()
 
         # 複数サイクルの荷重-変位データ
         multi_steps = list(range(15))
@@ -39,18 +32,10 @@ class TestLoadDisplacementCurves:
         # サイクルマーカーを作成
         cycles = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4]
 
-        multi_collection = ColumnCollection(
-            multi_steps,
-            {"load": multi_loads, "displacement": multi_displacements, "cycle": cycles},
-        )
+        multi_collection = ColumnCollection({"load": multi_loads, "displacement": multi_displacements, "cycle": cycles}, step=multi_steps)
 
         # 複数サイクルの荷重-変位コレクション
-        self.multi_cycle_collection = LoadDisplacementCollection(
-            step=multi_collection.step,
-            columns=multi_collection.columns,
-            load_column="load",
-            displacement_column="displacement",
-        )
+        self.multi_cycle_collection = multi_collection.ops.as_load_displacement("load", "displacement").end()
 
     def test_create_skeleton_curve_basic(self):
         """create_skeleton_curve関数の基本機能テスト"""

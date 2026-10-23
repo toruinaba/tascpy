@@ -53,18 +53,13 @@ def sample_load_displacement_data():
 
     # コレクション作成
     collection = ColumnCollection(
+        {"displacement": displacement, "load": load},
         step=list(range(len(displacement))),
-        columns={"displacement": displacement, "load": load},
+        units={"displacement": "mm", "load": "kN"},
     )
 
-    # 単位情報を追加
-    collection.columns["displacement"].unit = "mm"
-    collection.columns["load"].unit = "kN"
-
     # LoadDisplacementCollectionに変換
-    ld_collection = collection.ops.as_domain(
-        "load_displacement", load_column="load", displacement_column="displacement"
-    ).end()
+    ld_collection = collection.ops.as_load_displacement("load", "displacement").end()
 
     return ld_collection
 
@@ -87,45 +82,27 @@ def sample_with_cyclic_data():
 
     # コレクション作成
     collection = ColumnCollection(
-        steps, {"load": loads, "displacement": displacements, "cycle": cycles}
+        {"load": loads, "displacement": displacements, "cycle": cycles},
+        step=steps,
+        units={"displacement": "mm", "load": "kN"},
     )
 
-    # 単位情報を追加
-    collection.columns["displacement"].unit = "mm"
-    collection.columns["load"].unit = "kN"
-
     # LoadDisplacementCollectionに変換
-    ld_collection = collection.ops.as_domain(
-        "load_displacement", load_column="load", displacement_column="displacement"
-    ).end()
+    ld_collection = collection.ops.as_load_displacement("load", "displacement").end()
 
     return ld_collection
 
 
 @pytest.fixture
-def sample_with_skeleton_curve_columns(sample_with_cyclic_data):
-    """スケルトン曲線データを列に含むサンプル（旧形式）"""
+def sample_with_skeleton_curve(sample_with_cyclic_data):
+    """スケルトン曲線を解析結果に含むサンプル"""
     result = sample_with_cyclic_data.ops.create_skeleton_curve(cycle_column="cycle").end()
     return result
 
 
 @pytest.fixture
-def sample_with_skeleton_curve_metadata(sample_with_cyclic_data):
-    """スケルトン曲線データをメタデータに含むサンプル（新形式）"""
-    result = sample_with_cyclic_data.ops.create_skeleton_curve(cycle_column="cycle").end()
-    return result
-
-
-@pytest.fixture
-def sample_with_cumulative_curve_columns(sample_with_cyclic_data):
-    """累積曲線データを列に含むサンプル（旧形式）"""
-    result = sample_with_cyclic_data.ops.create_cumulative_curve(cycle_column="cycle").end()
-    return result
-
-
-@pytest.fixture
-def sample_with_cumulative_curve_metadata(sample_with_cyclic_data):
-    """累積曲線データをメタデータに含むサンプル（新形式）"""
+def sample_with_cumulative_curve(sample_with_cyclic_data):
+    """累積曲線を解析結果に含むサンプル"""
     result = sample_with_cyclic_data.ops.create_cumulative_curve(cycle_column="cycle").end()
     return result
 
@@ -190,33 +167,9 @@ class TestPlotLoadDisplacement:
 class TestPlotSkeletonCurve:
     """plot_skeleton_curve関数のテスト"""
 
-    def test_skeleton_curve_from_columns(self, sample_with_skeleton_curve_columns):
-        """列からスケルトン曲線をプロットするテスト（旧形式）"""
-        result_collection = sample_with_skeleton_curve_columns.plot.plot_skeleton_curve()
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        assert isinstance(fig, Figure)
-        assert isinstance(ax, Axes)
-
-        # 元データとスケルトン曲線の2つのラインがあるか確認
-        assert len(ax.lines) == 2
-
-        # 軸ラベルが正しく設定されているか確認
-        assert "displacement" in ax.get_xlabel().lower()
-        assert "load" in ax.get_ylabel().lower()
-
-        # タイトルと凡例が設定されているか確認
-        assert "Skeleton Curve" in ax.get_title()
-        assert ax.get_legend() is not None
-
-        plt.close(fig)
-
-    def test_skeleton_curve_from_metadata(self, sample_with_skeleton_curve_metadata):
-        """メタデータからスケルトン曲線をプロットするテスト（新形式）"""
-        result_collection = sample_with_skeleton_curve_metadata.plot.plot_skeleton_curve()
+    def test_skeleton_curve_from_results(self, sample_with_skeleton_curve):
+        """解析結果からスケルトン曲線をプロットするテスト"""
+        result_collection = sample_with_skeleton_curve.plot.plot_skeleton_curve()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -237,9 +190,9 @@ class TestPlotSkeletonCurve:
 
         plt.close(fig)
 
-    def test_skeleton_curve_without_original(self, sample_with_skeleton_curve_metadata):
+    def test_skeleton_curve_without_original(self, sample_with_skeleton_curve):
         """元データなしでスケルトン曲線のみをプロットするテスト"""
-        result_collection = sample_with_skeleton_curve_metadata.plot.plot_skeleton_curve(
+        result_collection = sample_with_skeleton_curve.plot.plot_skeleton_curve(
             plot_original=False
         )
 
@@ -252,7 +205,7 @@ class TestPlotSkeletonCurve:
 
         plt.close(fig)
 
-    def test_skeleton_curve_custom_style(self, sample_with_skeleton_curve_metadata):
+    def test_skeleton_curve_custom_style(self, sample_with_skeleton_curve):
         """カスタムスタイルでスケルトン曲線をプロットするテスト"""
         skeleton_kwargs = {
             "color": "blue",
@@ -261,7 +214,7 @@ class TestPlotSkeletonCurve:
             "label": "Custom Skeleton",
         }
 
-        result_collection = sample_with_skeleton_curve_metadata.plot.plot_skeleton_curve(
+        result_collection = sample_with_skeleton_curve.plot.plot_skeleton_curve(
             skeleton_kwargs=skeleton_kwargs
         )
 
@@ -283,35 +236,11 @@ class TestPlotSkeletonCurve:
 class TestPlotCumulativeCurve:
     """plot_cumulative_curve関数のテスト"""
 
-    def test_cumulative_curve_from_columns(self, sample_with_cumulative_curve_columns):
-        """列から累積曲線をプロットするテスト（旧形式）"""
-        result_collection = sample_with_cumulative_curve_columns.plot.plot_cumulative_curve()
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        assert isinstance(fig, Figure)
-        assert isinstance(ax, Axes)
-
-        # 元データと累積曲線の2つのラインがあるか確認
-        assert len(ax.lines) == 2
-
-        # 軸ラベルが正しく設定されているか確認
-        assert "displacement" in ax.get_xlabel().lower()
-        assert "load" in ax.get_ylabel().lower()
-
-        # タイトルと凡例が設定されているか確認
-        assert "Cumulative Curve" in ax.get_title()
-        assert ax.get_legend() is not None
-
-        plt.close(fig)
-
-    def test_cumulative_curve_from_metadata(
-        self, sample_with_cumulative_curve_metadata
+    def test_cumulative_curve_from_results(
+        self, sample_with_cumulative_curve
     ):
-        """メタデータから累積曲線をプロットするテスト（新形式）"""
-        result_collection = sample_with_cumulative_curve_metadata.plot.plot_cumulative_curve()
+        """解析結果から累積曲線をプロットするテスト"""
+        result_collection = sample_with_cumulative_curve.plot.plot_cumulative_curve()
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -333,10 +262,10 @@ class TestPlotCumulativeCurve:
         plt.close(fig)
 
     def test_cumulative_curve_without_original(
-        self, sample_with_cumulative_curve_metadata
+        self, sample_with_cumulative_curve
     ):
         """元データなしで累積曲線のみをプロットするテスト"""
-        result_collection = sample_with_cumulative_curve_metadata.plot.plot_cumulative_curve(
+        result_collection = sample_with_cumulative_curve.plot.plot_cumulative_curve(
             plot_original=False
         )
 
@@ -349,7 +278,7 @@ class TestPlotCumulativeCurve:
 
         plt.close(fig)
 
-    def test_cumulative_curve_custom_style(self, sample_with_cumulative_curve_metadata):
+    def test_cumulative_curve_custom_style(self, sample_with_cumulative_curve):
         """カスタムスタイルで累積曲線をプロットするテスト"""
         cumulative_kwargs = {
             "color": "green",
@@ -358,7 +287,7 @@ class TestPlotCumulativeCurve:
             "label": "Custom Cumulative",
         }
 
-        result_collection = sample_with_cumulative_curve_metadata.plot.plot_cumulative_curve(
+        result_collection = sample_with_cumulative_curve.plot.plot_cumulative_curve(
             cumulative_kwargs=cumulative_kwargs
         )
 

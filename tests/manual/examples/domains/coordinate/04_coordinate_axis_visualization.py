@@ -26,9 +26,9 @@ def create_sample_coordinate_data() -> CoordinateCollection:
     for i in range(10):
         name = f"sensor_{i + 1}"
         values = 20 + i * 0.5 + trend + rng.normal(0, 0.5, 100)
-        columns[name] = Column(ch=None, name=name, unit="℃", values=values.tolist())
+        columns[name] = Column(name, values.tolist(), unit="℃")
         coordinates[name] = {"x": i * 2.0, "y": 0.0, "z": 0.0}
-    return CoordinateCollection(step=list(range(100)), columns=columns, coordinates=coordinates)
+    return CoordinateCollection(columns, step=list(range(100)), coordinates=coordinates)
 
 
 def save(fig, filename: str) -> None:

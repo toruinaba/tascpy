@@ -1,8 +1,8 @@
 import pytest
 import math
 import numpy as np
+from collections.abc import Mapping
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import Column
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ class TestAddOperation:
         result = sample_collection.ops.add("A", "B").end()
         assert "A+B" in result.columns
         assert isinstance(result, ColumnCollection)
-        assert isinstance(result["A+B"].metadata, dict)
+        assert isinstance(result["A+B"].attrs, Mapping)
 
     def test_add_constant(self, sample_collection):
         result = sample_collection.ops.add("A", 10).end()
@@ -68,21 +68,21 @@ class TestEvaluateOperation:
     def test_simple_expression(self, sample_collection):
         result = sample_collection.ops.evaluate("A + B * 2").end()
         assert "expression_result" in result.columns
-        assert isinstance(result["expression_result"].metadata, dict)
+        assert isinstance(result["expression_result"].attrs, Mapping)
 
 class TestDiffOperation:
     """diff関数の構造テスト"""
     def test_diff_basic(self, sample_collection):
         result = sample_collection.ops.diff("A", "B").end()
         assert "d(A)/d(B)" in result.columns
-        assert isinstance(result["d(A)/d(B)"].metadata, dict)
+        assert isinstance(result["d(A)/d(B)"].attrs, Mapping)
 
 class TestIntegrateOperation:
     """integrate関数の構造テスト"""
     def test_integrate_constant(self, sample_collection):
         result = sample_collection.ops.integrate("A", "B").end()
-        assert "∫A·dB" in result.columns
-        assert isinstance(result["∫A·dB"].metadata, dict)
+        assert "∫AdB" in result.columns
+        assert isinstance(result["∫AdB"].attrs, Mapping)
 
 class TestExponentialAndLogarithmicFunctions:
     def test_log_natural(self, sample_collection):
@@ -199,3 +199,21 @@ class TestAverageAcrossOperation:
         assert vals[2] == 3.0
         assert np.isnan(vals[3])
         assert vals[4] == 5.0
+
+class TestUnitPropagation:
+    def test_units_follow_design_rules(self):
+        c = ColumnCollection({"P": [1.0, 2.0], "d": [0.5, 1.0]}, units={"P": "kN", "d": "mm"})
+        r = (c.ops.add("P", "P").multiply("P", 2).multiply("P", "d").divide("P", 2, result_column="half")
+             .pow("P", 2).normalize("P").diff("P", "d").evaluate("P * 2").end())
+        assert r["P+P"].unit == "kN"
+        assert r["P*2"].unit == "kN"
+        assert r["P*d"].unit is None
+        assert r["half"].unit == "kN"
+        assert r["P^2"].unit is None
+        assert r["norm_minmax(P)"].unit == ""
+        assert r["d(P)/d(d)"].unit == "kN/mm"
+        assert r["expression_result"].unit is None
+
+    def test_explicit_unit_wins(self):
+        c = ColumnCollection({"P": [1.0, 2.0], "d": [0.5, 1.0]}, units={"P": "kN", "d": "mm"})
+        assert c.ops.multiply("P", "d", unit="kN·mm").end()["P*d"].unit == "kN·mm"
