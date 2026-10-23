@@ -116,8 +116,10 @@ result = (
     .multiply(
         "Force2", 0.5, result_column="Force2_x0_5"
     )  # 荷重2を半分
-    .evaluate("Force1_x2 / Displacement1", result_column="Stiffness1", unit="kN/mm")  # 剛性1を計算
-    .evaluate("Force2_x0_5 / Displacement1", result_column="Stiffness2", unit="kN/mm")  # 剛性2を計算
+    .calculate(lambda Force1_x2, Displacement1: Force1_x2 / Displacement1,
+               result_column="Stiffness1", unit="kN/mm")  # 剛性1を計算
+    .calculate(lambda Force2_x0_5, Displacement1: Force2_x0_5 / Displacement1,
+               result_column="Stiffness2", unit="kN/mm")  # 剛性2を計算
     .end()
 )
 

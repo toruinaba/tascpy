@@ -109,9 +109,10 @@ try:
         )  # Force1を2倍して新しい列を作成（単位は Force1 と同じ）
         # Displacement1が正の行のみをフィルタリング（欠損の行は自動で除外）
         .filter_by_condition("Displacement1", lambda x: x > 0)
-        .evaluate(
-            "DoubleForce / Displacement1", result_column="Stiffness", unit="kN/mm"
-        )  # 剛性を計算（式の結果の単位は明示する）
+        .calculate(
+            lambda DoubleForce, Displacement1: DoubleForce / Displacement1,
+            result_column="Stiffness", unit="kN/mm",
+        )  # 剛性を計算（引数名が列名。結果の単位は明示する）
         .end()
     )
 

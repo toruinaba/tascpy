@@ -2,7 +2,7 @@
 tascpy - 実験データ処理のためのPythonライブラリ
 """
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 from .visualization.config import enable_japanese_font
 

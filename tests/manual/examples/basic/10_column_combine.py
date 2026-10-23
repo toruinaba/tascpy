@@ -148,7 +148,7 @@ complex_chain_result = (
         result_column="weighted",
     )
     # 結果を別の計算に利用
-    .evaluate("weighted * 2", result_column="final_result").end()  # 単純な計算式
+    .calculate(lambda weighted: weighted * 2, result_column="final_result").end()  # 列の値を使った計算
 )
 
 print("複数の合成操作を連続してチェーンメソッドで実行しました")

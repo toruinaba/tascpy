@@ -97,7 +97,7 @@ coll.df  # polars をそのまま使いたい場合の出口
 |---|---|
 | add / subtract、行方向の平均・合計、平滑化（移動平均・ガウシアン）、abs / round、switch / blend / conditional_select | 最初の列オペランドの単位 |
 | 列 × スカラー、列 ÷ スカラー | その列の単位 |
-| 列 × 列、列 ÷ 列、pow / sqrt / log、evaluate、custom_combine | `None` |
+| 列 × 列、列 ÷ 列、pow / sqrt / log、calculate、custom_combine | `None` |
 | normalize、外れ値フラグ、サイクル番号、ピーク／バレーのマーカー | `""` |
 | diff / integrate | `"y/x"` / `"y*x"`（表記を合成するだけ。Shift-JIS で保存できる文字に限る） |
 | 行の抽出・分割・連結 | 元の単位を保持 |

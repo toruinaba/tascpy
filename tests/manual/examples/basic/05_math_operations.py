@@ -4,6 +4,8 @@ ColumnCollectionの数学演算操作を示すサンプルコード
 
 import os
 import math
+
+import numpy as np
 from tascpy.core.collection import ColumnCollection
 import tascpy
 
@@ -108,8 +110,9 @@ print()
 print("5. 数式の評価")
 # 数式文字列を評価して結果を計算（複合的な計算式）
 # 例: 剛性 k = F/(δ+0.001) の計算、0.001は0除算回避
-result = ops.evaluate(
-    "(Force1+Force2)/(Displacement1+0.001)", result_column="Stiffness"
+result = ops.calculate(
+    lambda Force1, Force2, Displacement1: (Force1 + Force2) / (Displacement1 + 0.001),
+    result_column="Stiffness",
 ).end()
 print(f"剛性 k = (F1+F2)/(D1+0.001) = {result['Stiffness'].values}")
 print()
@@ -129,10 +132,10 @@ result_pow = (
 )
 print(f"Force1^2 = {result_pow['Force1^2'].values}")
 
-# 数式中で関数を使う（evaluate で使える関数: log, sqrt, abs, max, min, pow, round）
+# calculate の関数には列の値が numpy 配列で渡るので、numpy の関数をそのまま使える
 result_abs = (
     ops.select(columns=["Displacement1"])
-    .evaluate("abs(Displacement1 - 0.05)", result_column="abs_diff")
+    .calculate(lambda Displacement1: np.abs(Displacement1 - 0.05), result_column="abs_diff")
     .end()
 )
 print(f"abs(Displacement1 - 0.05) = {result_abs['abs_diff'].values}")
@@ -166,9 +169,9 @@ advanced_result = (
     .add("Force1", "Force2", result_column="TotalForce")  # 合計荷重
     .filter_by_condition("Displacement1", lambda x: x != 0)  # 0 除算を避ける
     .divide("TotalForce", "Displacement1", result_column="TotalStiffness")  # 全体剛性
-    .evaluate(
-        "(Force2/Force1) if Force1 > 0 else None", result_column="ForceRatio"
-    )  # 荷重比
+    .calculate(
+        lambda Force1, Force2: np.where(Force1 > 0, Force2 / Force1, np.nan), result_column="ForceRatio"
+    )  # 荷重比（Force1 が 0 以下の行は欠損）
     .round_values(
         "TotalStiffness", decimals=2, result_column="StiffnessRounded"
     )  # 剛性値の丸め
