@@ -3,10 +3,10 @@ name: docs
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     branches:
-      - main
+      - master
 
 permissions:
   contents: write
@@ -25,9 +25,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Build MkDocs (strict)
+        run: PYTHONPATH=src mkdocs build --strict
 
       - name: Deploy MkDocs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           PYTHONPATH=src mkdocs gh-deploy --force

@@ -24,3 +24,17 @@
 
 ### Strain Plotter
 ::: tascpy.visualization.plotters.strain.plotter
+
+## Functional
+
+### Core Plot
+::: tascpy.visualization.functional.core.plot
+
+### Plot Utilities
+::: tascpy.visualization.functional.core.plot_utils
+
+### Load Displacement Plot
+::: tascpy.visualization.functional.load_displacement.plot
+
+### Strain Plot
+::: tascpy.visualization.functional.strain.plot

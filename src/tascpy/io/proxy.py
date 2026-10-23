@@ -4,8 +4,7 @@ from pathlib import Path
 class CollectionIO:
     """IO機能をColumnCollectionに提供するアクセサクラス
 
-    このクラスは ColumnCollection.register_accessor("io", CollectionIO) 
-    を通じて登録され、以下のように使用されます。
+    `ColumnCollection.io` から利用します。
     
     >>> collection = tascpy.io.load("data.csv")
     >>> collection.io.save("out.csv")
@@ -41,21 +40,9 @@ class CollectionIO:
         
         Args:
             path: 出力先パス
-            **kwargs: saveメソッドまたはpandas.DataFrame.to_csvに渡す引数。
-                - delimiter, encoding 等が指定可能です。
-                
+            **kwargs: save メソッドに渡す引数（delimiter, encoding など）
+
         Examples:
             >>> col.io.to_csv("processed_data.csv")
         """
-        try:
-            self.save(path, format_name="csv", **kwargs)
-        except (KeyError, ValueError):
-            import pandas as pd
-            
-            data = {}
-            data["Step"] = self._collection.step.values
-            for name, col in self._collection.columns.items():
-                data[name] = col.values
-                
-            df = pd.DataFrame(data)
-            df.to_csv(path, index=False, **kwargs)
+        self.save(path, format_name="csv", **kwargs)

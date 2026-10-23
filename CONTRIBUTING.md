@@ -55,7 +55,7 @@ tascpy プロジェクトへの貢献を検討していただき、ありがと�
 3. 開発モードでインストールします：
    ```bash
    pip install -e .
-   pip install -r requirements.lock
+   pip install -e . -r requirements-dev.txt
    ```
 
 ## コーディング規約

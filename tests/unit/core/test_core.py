@@ -6,7 +6,7 @@ from tascpy.core.column import Column
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.step import Step
 from tascpy.core.row import Row
-from tascpy.analytics.operations.registry import operation, OperationRegistry
+from tascpy.analytics.ops import CoreOps
 from tascpy.domains.factory import DomainCollectionFactory
 
 
@@ -70,40 +70,27 @@ class TestColumnCollection:
         assert len(basic_collection.columns) == 2
 
 
+class FilterOps(CoreOps):
+    """CoreOps を継承してユーザー定義操作を追加する例"""
+
+    def test_filter(self, column_name, value):
+        """テスト用フィルタリング操作"""
+        values = self.end().columns[column_name].values
+        return self._with_rows([i for i, v in enumerate(values) if v == value])
+
+
+class FilteredCollection(ColumnCollection):
+    @property
+    def ops(self) -> FilterOps:
+        return FilterOps(self)
+
+
 class TestOperations:
     """操作のテストクラス"""
 
-    @pytest.fixture(autouse=True)
-    def setup_operations(self):
-        """テスト用操作関数の登録"""
-
-        @operation
-        def test_filter(collection, column_name, value):
-            """テスト用フィルタリング操作"""
-            result = collection.clone()
-            indices = [
-                i
-                for i, v in enumerate(collection.columns[column_name].values)
-                if v == value
-            ]
-
-            new_step = Step(values=[collection.step.values[i] for i in indices])
-            new_columns = {}
-            for name, column in collection.columns.items():
-                new_column = column.clone()
-                new_column.values = [column.values[i] for i in indices]
-                new_columns[name] = new_column
-
-            return ColumnCollection(new_step, new_columns, collection.metadata.copy())
-
-    def test_operation_registry(self, basic_collection):
-        """操作レジストリのテスト"""
-        registry = OperationRegistry.get_operations("core")
-        assert "test_filter" in registry
-        assert callable(registry["test_filter"])
-
-        filter_func = registry["test_filter"]
-        result = filter_func(basic_collection, "A", 3)
+    def test_custom_ops_subclass(self, basic_collection):
+        """CoreOps のサブクラスで追加した操作のテスト"""
+        result = FilterOps(basic_collection).test_filter("A", 3).end()
 
         assert isinstance(result, ColumnCollection)
         assert len(result) == 1
@@ -111,13 +98,64 @@ class TestOperations:
         np.testing.assert_array_equal(result["B"].values, [3])
 
     def test_chain_methods(self, basic_collection):
-        """メソッドチェーンのテスト"""
-        result = basic_collection.ops.test_filter("A", 3).end()
+        """独自操作と汎用操作のメソッドチェーンのテスト"""
+        collection = FilteredCollection(
+            step=basic_collection.step, columns=basic_collection.columns
+        )
+        ops = collection.ops.add("A", "B", result_column="S").test_filter("A", 3)
+        assert isinstance(ops, FilterOps)
+        result = ops.end()
 
-        assert isinstance(result, ColumnCollection)
         assert len(result) == 1
         np.testing.assert_array_equal(result["A"].values, [3])
         np.testing.assert_array_equal(result["B"].values, [3])
+        np.testing.assert_array_equal(result["S"].values, [6])
+
+    def test_pipe(self, basic_collection):
+        """pipe は collection -> collection の関数を適用する"""
+        result = basic_collection.ops.pipe(lambda c: c.head(2)).end()
+        np.testing.assert_array_equal(result["A"].values, [1, 2])
+
+
+class TimeSeriesOps(CoreOps):
+    """時系列ドメイン用の操作"""
+
+    def resample(self, new_frequency):
+        """時系列データを指定された頻度でリサンプリング"""
+        result = self.end().clone()
+        result.metadata["frequency"] = new_frequency
+        result.metadata["resampled"] = True
+        return self._next(result)
+
+    def centered_mean(self, column, window=3):
+        """中心移動平均の列 "{column}_ma{window}" を追加"""
+        values = self.end().columns[column].values
+        means = []
+        for i in range(len(values)):
+            window_values = [
+                v
+                for v in values[max(0, i - window // 2) : min(len(values), i + window // 2 + 1)]
+                if v is not None
+            ]
+            means.append(sum(window_values) / len(window_values) if window_values else None)
+        result = self.end().clone()
+        result.add_column(f"{column}_ma{window}", means)
+        return self._next(result)
+
+
+class TimeSeriesCollection(ColumnCollection):
+    def __init__(self, step=None, columns=None, metadata=None, frequency=None, **kwargs):
+        super().__init__(step=step, columns=columns, metadata=metadata)
+        if frequency is not None:
+            self.metadata["frequency"] = frequency
+
+    @property
+    def ops(self) -> TimeSeriesOps:
+        return TimeSeriesOps(self)
+
+
+def create_timeseries(**kwargs):
+    return TimeSeriesCollection(**kwargs)
 
 
 class TestDomainConversion:
@@ -127,24 +165,7 @@ class TestDomainConversion:
     def timeseries_domain(self):
         """時系列ドメインの準備"""
 
-        class TimeSeriesCollection(ColumnCollection):
-            def __init__(self, step=None, columns=None, metadata=None, frequency=None):
-                super().__init__(step=step, columns=columns, metadata=metadata)
-                if frequency is not None:
-                    self.metadata["frequency"] = frequency
-
-        def create_timeseries(**kwargs):
-            return TimeSeriesCollection(**kwargs)
-
         DomainCollectionFactory.register("timeseries", create_timeseries)
-
-        @operation(domain="timeseries")
-        def resample(collection, new_frequency):
-            """時系列データを指定された頻度でリサンプリング"""
-            result = collection.clone()
-            result.metadata["frequency"] = new_frequency
-            result.metadata["resampled"] = True
-            return result
 
     @pytest.fixture(autouse=True)
     def restore_domain_factory(self):
@@ -198,6 +219,12 @@ class TestDomainConversion:
     def test_as_domain_method(self, timeseries_domain, basic_collection_for_domain):
         """as_domainメソッドのテスト"""
         converted = basic_collection_for_domain.ops.as_domain(domain="timeseries")
+        assert isinstance(converted, TimeSeriesOps)
+        assert isinstance(converted.end(), TimeSeriesCollection)
+
+        resampled = converted.resample("1H").end()
+        assert resampled.metadata["frequency"] == "1H"
+        assert resampled.metadata["resampled"] is True
 
     def test_convert_back_to_core(self, timeseries_domain, basic_collection_for_domain):
         """特殊ドメインからcoreドメインへの変換テスト"""
@@ -514,70 +541,24 @@ def test_full_pipeline():
         },
     )
 
-    # テスト用の操作を定義
-    @operation
-    def add_derived_column(collection, formula, output_column):
-        """数式に基づいて派生列を追加"""
+    # collection -> collection の関数は pipe で適用する
+    def add_sum_column(collection):
         result = collection.clone()
-
-        # 単純な数式の評価（実際の実装ではより複雑に）
-        if formula == "x^2":
-            values = [x * x for x in collection.columns["x"].values]
-        elif formula == "x+y":
-            values = [
-                x + y
-                for x, y in zip(
-                    collection.columns["x"].values, collection.columns["y"].values
-                )
-            ]
-        else:
-            values = [0] * len(collection)
-
-        result.add_column(output_column, values)
+        x, y = collection.columns["x"].values, collection.columns["y"].values
+        result.add_column("sum", [a + b for a, b in zip(x, y)])
         return result
-
-    # 時系列ドメインを登録
-    class TimeSeriesCollection(ColumnCollection):
-        def __init__(self, step=None, columns=None, metadata=None, frequency=None):
-            super().__init__(step=step, columns=columns, metadata=metadata)
-            if frequency is not None:
-                self.metadata["frequency"] = frequency
-
-    def create_timeseries(**kwargs):
-        return TimeSeriesCollection(**kwargs)
 
     # 元のファクトリを保存
     original_factories = DomainCollectionFactory._factories.copy()
     try:
         DomainCollectionFactory.register("timeseries", create_timeseries)
 
-        @operation(domain="timeseries")
-        def moving_average(collection, column, window=3):
-            """移動平均の計算"""
-            result = collection.clone()
-            values = collection.columns[column].values
-
-            # 単純な移動平均の計算
-            ma_values = []
-            for i in range(len(values)):
-                start = max(0, i - window // 2)
-                end = min(len(values), i + window // 2 + 1)
-                window_values = [v for v in values[start:end] if v is not None]
-
-                if window_values:
-                    ma_values.append(sum(window_values) / len(window_values))
-                else:
-                    ma_values.append(None)
-
-            result.add_column(f"{column}_ma{window}", ma_values)
-            return result
-
         # パイプラインの実行
         result = (
-            collection.ops.add_derived_column("x+y", "sum")
+            collection.ops.pipe(add_sum_column)
             .filter_by_value("group", "A")
             .as_domain(domain="timeseries", start_date="2023-01-01", frequency="1D")
-            .moving_average("sum", window=3)
+            .centered_mean("sum", window=3)
             .end()
         )
 

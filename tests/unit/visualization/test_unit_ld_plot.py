@@ -16,11 +16,6 @@ from matplotlib.collections import PathCollection
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.analytics.operations.load_displacement.analysis import find_yield_point
-from tascpy.analytics.operations.load_displacement.curves import (
-    create_skeleton_curve,
-    create_cumulative_curve,
-)
 
 
 @pytest.fixture
@@ -78,9 +73,7 @@ def sample_load_displacement_data():
 def sample_with_yield_point(sample_load_displacement_data):
     """降伏点情報を含むサンプルデータ"""
     # オフセット法で降伏点を計算
-    result = find_yield_point(
-        sample_load_displacement_data, method="offset", offset_value=0.002
-    )
+    result = sample_load_displacement_data.ops.find_yield_point(method="offset", offset_value=0.002).end()
     return result
 
 
@@ -112,28 +105,28 @@ def sample_with_cyclic_data():
 @pytest.fixture
 def sample_with_skeleton_curve_columns(sample_with_cyclic_data):
     """スケルトン曲線データを列に含むサンプル（旧形式）"""
-    result = create_skeleton_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
+    result = sample_with_cyclic_data.ops.create_skeleton_curve(cycle_column="cycle").end()
     return result
 
 
 @pytest.fixture
 def sample_with_skeleton_curve_metadata(sample_with_cyclic_data):
     """スケルトン曲線データをメタデータに含むサンプル（新形式）"""
-    result = create_skeleton_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
+    result = sample_with_cyclic_data.ops.create_skeleton_curve(cycle_column="cycle").end()
     return result
 
 
 @pytest.fixture
 def sample_with_cumulative_curve_columns(sample_with_cyclic_data):
     """累積曲線データを列に含むサンプル（旧形式）"""
-    result = create_cumulative_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
+    result = sample_with_cyclic_data.ops.create_cumulative_curve(cycle_column="cycle").end()
     return result
 
 
 @pytest.fixture
 def sample_with_cumulative_curve_metadata(sample_with_cyclic_data):
     """累積曲線データをメタデータに含むサンプル（新形式）"""
-    result = create_cumulative_curve(sample_with_cyclic_data, cycle_marker_column="cycle")
+    result = sample_with_cyclic_data.ops.create_cumulative_curve(cycle_column="cycle").end()
     return result
 
 
@@ -435,9 +428,7 @@ class TestPlotYieldPoint:
     def test_general_yield_method(self, sample_load_displacement_data):
         """一般降伏法による降伏点表示のテスト"""
         # 一般降伏法で降伏点を計算
-        general_result = find_yield_point(
-            sample_load_displacement_data, method="general", factor=0.33
-        )
+        general_result = sample_load_displacement_data.ops.find_yield_point(method="general", factor=0.33).end()
 
         result_collection = general_result.plot.plot_yield_point()
 

@@ -1,55 +1,55 @@
 # Analytics モジュール
 
-`tascpy.analytics`のAPIリファレンスです。機能（`functional`）や操作（`operations`）がここに含まれます。
+`tascpy.analytics` の API リファレンスです。メソッドチェーンの操作クラス（`ops`）と、純粋な計算関数（`functional`）が含まれます。
 
-## Operations
+## Ops
 
-### List Operations
-::: tascpy.analytics.operations.list_proxy
+### CoreOps
+::: tascpy.analytics.ops.core
 
-### Collection Operations
-::: tascpy.analytics.operations.proxy
+### LoadDisplacementOps
+::: tascpy.analytics.ops.load_displacement
 
-### Math Operations
-::: tascpy.analytics.operations.core.math
+### CoordinateOps
+::: tascpy.analytics.ops.coordinate
 
-### Filtering Operations
-::: tascpy.analytics.operations.core.filters
+### StrainOps
+::: tascpy.analytics.ops.strain
 
-### Abstraction Operations
-::: tascpy.analytics.operations.load_displacement.abstraction
-
-### Analysis Operations
-::: tascpy.analytics.operations.load_displacement.analysis
-
-### Curve Operations
-::: tascpy.analytics.operations.load_displacement.curves
-
-### Cycle Operations
-::: tascpy.analytics.operations.load_displacement.cycles
+### OpsList
+::: tascpy.analytics.ops.list
 
 ## Functional
 
-### Combine Functional
-::: tascpy.analytics.functional.combine
+### Core Math
+::: tascpy.analytics.functional.core.math
 
-### Filters Functional
-::: tascpy.analytics.functional.filters
+### Core Filters
+::: tascpy.analytics.functional.core.filters
 
-### Interpolate Functional
-::: tascpy.analytics.functional.interpolate
+### Core Select
+::: tascpy.analytics.functional.core.select
 
-### Math Functional
-::: tascpy.analytics.functional.math
+### Core Stats
+::: tascpy.analytics.functional.core.stats
 
-### Select Functional
-::: tascpy.analytics.functional.select
+### Core Combine
+::: tascpy.analytics.functional.core.combine
 
-### Statistics Functional
-::: tascpy.analytics.functional.stats
+### Load Displacement Analysis
+::: tascpy.analytics.functional.load_displacement.analysis
 
-### Coordinate Basic Features
-::: tascpy.analytics.functional.coordinate.basic
+### Load Displacement Curves
+::: tascpy.analytics.functional.load_displacement.curves
+
+### Load Displacement Cycles
+::: tascpy.analytics.functional.load_displacement.cycles
+
+### Strain Rosette
+::: tascpy.analytics.functional.strain.rosette
+
+### Strain Stress-Strain
+::: tascpy.analytics.functional.strain.ss_analysis
 
 ### Coordinate Clustering
 ::: tascpy.analytics.functional.coordinate.clustering

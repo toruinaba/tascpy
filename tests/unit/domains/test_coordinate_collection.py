@@ -296,3 +296,22 @@ class TestCoordinateCollection:
         assert x2 == 8.0
         assert y2 == 9.0
         assert z2 == 10.0
+
+
+def test_find_nearest_neighbors():
+    """基準列からの距離が近い順に近傍列を返す"""
+    collection = CoordinateCollection(
+        step=[1, 2],
+        columns={name: [1.0, 2.0] for name in ["A", "B", "C", "D"]},
+        coordinates={
+            "A": {"x": 0.0, "y": 0.0},
+            "B": {"x": 3.0, "y": 0.0},
+            "C": {"x": 1.0, "y": 0.0},
+            "D": {"x": 0.0, "y": 2.0},
+        },
+    )
+    result = collection.find_nearest_neighbors("A", n_neighbors=2)
+    info = result.metadata["coordinate_domain"]["nearest_neighbors_A"]
+    assert info["neighbors"] == ["C", "D"]
+    assert info["distances"] == [1.0, 2.0]
+    assert "A_neighbors" in result.columns

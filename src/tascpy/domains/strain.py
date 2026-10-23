@@ -1,11 +1,12 @@
-from typing import Dict, Any, Optional, Union, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from ..core.step import Step
 from ..core.column import Column
 from .coordinate import CoordinateCollection
 from .factory import DomainCollectionFactory
 
 if TYPE_CHECKING:
-    from ..typing.strain import StrainCollectionOperations
+    from ..analytics.ops import StrainOps
+    from ..visualization.plotters.strain.plotter import StrainPlotter
 
 
 class StrainCollection(CoordinateCollection):
@@ -26,8 +27,8 @@ class StrainCollection(CoordinateCollection):
 
     def __init__(
         self,
-        step: Optional[Step] = None,
-        columns: Optional[Dict[str, Column]] = None,
+        step: Union[Step, List[Any], None] = None,
+        columns: Optional[Dict[str, Union[Column, List[Any]]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         coordinate_metadata_key: str = "coordinates",
         coordinates: Optional[Union[Dict[str, Dict[str, Optional[float]]], str]] = None,
@@ -78,21 +79,20 @@ class StrainCollection(CoordinateCollection):
         return "strain"
 
     @property
-    def ops(self) -> "StrainCollectionOperations":
-        """操作プロキシクラスを返す"""
-        from tascpy.analytics.operations.proxy import CollectionOperations
+    def ops(self) -> "StrainOps":
+        """ひずみドメインの操作オブジェクト"""
+        from ..analytics.ops import StrainOps
 
-        if TYPE_CHECKING:
-             from ..typing.strain import StrainCollectionOperations
-             return StrainCollectionOperations(self, domain="strain") # type: ignore
-        else:
-             return CollectionOperations(self, domain=self.domain)
+        return StrainOps(self)
 
     @property
-    def plot(self):
-        """可視化プロキシクラスを返す"""
-        from ..visualization.strain.plotter import StrainPlotter
-        return StrainPlotter(self)
+    def plot(self) -> "StrainPlotter":
+        """ひずみデータの可視化を行うプロッター"""
+        if not hasattr(self, "_plotter"):
+            from ..visualization.plotters.strain.plotter import StrainPlotter
+
+            self._plotter = StrainPlotter(self)
+        return self._plotter
 
     @property
     def rosette_metadata_key(self) -> str:

@@ -48,11 +48,13 @@ collection = tascpy.io.load(
     data_start_col=3,
 ).auto_detect_column_types()  # メソッドチェーンでカラム型の自動判定を行います
 
-# 2. 荷重-変位ドメインに変換します
+# 2. 荷重-変位ドメインに変換し、曲線生成に必要なサイクル列（"Force1_cycle"）を作成します
 print("2. 荷重-変位ドメインへの変換")
-ld_collection = collection.ops.as_domain(
-    "load_displacement", load_column="Force1", displacement_column="Displacement1"
-).end()
+ld_collection = (
+    collection.ops.as_load_displacement(load_column="Force1", displacement_column="Displacement1")
+    .cycle_count()
+    .end()
+)
 
 # 3. 基本的な荷重-変位曲線をプロットします
 print("3. 基本的な荷重-変位曲線のプロット")

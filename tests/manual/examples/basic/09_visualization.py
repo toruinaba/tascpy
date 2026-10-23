@@ -169,16 +169,8 @@ print("データの前処理を行います...")
 # ops プロパティからメソッドチェーンを開始できるようにする
 ops = collection.ops
 
-# None値を含む行を除外するフィルタリング
-if "Force1" in collection.columns and any(
-    x is None for x in collection["Force1"].values
-):
-    collection = ops.filter_by_value("Force1", lambda x: x is not None).end()
-
-# データが少ない場合は補間でポイントを増やす
-if len(collection) < 10:
-    collection = ops.interpolate(point_count=20).end()
-    print("データポイントが少ないため、補間処理によりポイント数を増やしました")
+# 欠損値を含む行を除外するフィルタリング
+collection = ops.filter_out_none(columns=["Force1"]).end()
 
 # データの概要を表示
 print("\nプロット用データの概要:")
@@ -199,10 +191,11 @@ fig, ax = plt.subplots(figsize=(8, 5))
 # axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(columns=["Displacement1", "Force1"])
-    .plot(
+    .end()
+    .plot.plot(
         x_column="Displacement1",
         y_column="Force1",
-        plot_type="scatter",
+        marker="o", linestyle="none",
         label="試験体1",
         ax=ax,
     )
@@ -233,10 +226,10 @@ fig, ax = plt.subplots(figsize=(8, 5))
     collection.ops.select(
         indices=list(range(0, len(collection), 2))
     )  # 2点ごとに選択して間引く
-    .plot(
+    .end()
+    .plot.plot(
         x_column="Displacement1",
         y_column="Force1",
-        plot_type="line",
         color="blue",
         label="試験体1 (間引き)",
         marker="o",
@@ -276,10 +269,10 @@ fig, ax = plt.subplots(figsize=(10, 6))
 # axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(steps=step_first_half)
-    .plot(
+    .end()
+    .plot.plot(
         x_column="Displacement1",
         y_column="Force1",
-        plot_type="line",
         color="blue",
         label="試験体1 (前半)",
         marker="o",
@@ -291,10 +284,10 @@ fig, ax = plt.subplots(figsize=(10, 6))
 # axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(steps=step_second_half)
-    .plot(
+    .end()
+    .plot.plot(
         x_column="Displacement1",
         y_column="Force1",
-        plot_type="line",
         color="green",
         label="試験体1 (後半)",
         marker="s",
@@ -306,10 +299,9 @@ fig, ax = plt.subplots(figsize=(10, 6))
 # axを渡すことでplt.showは呼び出されない
 if "Force2" in collection.columns and "Displacement2" in collection.columns:
     (
-        collection.ops.plot(
+        collection.plot.plot(
             x_column="Displacement2",
             y_column="Force2",
-            plot_type="line",
             color="red",
             label="試験体2 (全体)",
             marker="^",
@@ -339,10 +331,10 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 # axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(columns=["Displacement1", "Force1"])
-    .plot(
+    .end()
+    .plot.plot(
         x_column="Displacement1",
         y_column="Force1",
-        plot_type="line",
         color="blue",
         label="試験体1",
         ax=ax1,
@@ -354,10 +346,10 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 if "Force2" in collection.columns and "Displacement2" in collection.columns:
     (
         collection.ops.select(columns=["Displacement2", "Force2"])
-        .plot(
+        .end()
+        .plot.plot(
             x_column="Displacement2",
             y_column="Force2",
-            plot_type="line",
             color="red",
             label="試験体2",
             ax=ax1,
@@ -372,100 +364,20 @@ ax1.grid(True)
 ax1.legend()
 
 # 下部サブプロット: 剛性（傾き）の変化
-# チェーンメソッドでdiff操作を実行（実装されている場合）
-try:
-    # 試験体1の剛性
-    stiffness_data1 = (
-        collection.ops.select(columns=["Displacement1", "Force1"])
-        .diff("Force1", "Displacement1", result_column="Stiffness1")
+# diff で dF/dδ を計算する（同じ変位が続く行は傾きが定義できないため、先に除外する）
+for force, disp, style, label in [
+    ("Force1", "Displacement1", "bo-", "試験体1の剛性"),
+    ("Force2", "Displacement2", "ro-", "試験体2の剛性"),
+]:
+    if force not in collection.columns or disp not in collection.columns:
+        continue
+    stiffness_data = (
+        collection.ops.select(columns=[disp, force])
+        .remove_consecutive_duplicates_across(columns=[disp])
+        .diff(force, disp, result_column="Stiffness")
         .end()
     )
-
-    # 試験体1の剛性をプロット
-    ax2.plot(
-        stiffness_data1["Displacement1"].values[1:],
-        stiffness_data1["Stiffness1"].values,
-        "bo-",
-        label="試験体1の剛性",
-    )
-
-    # 試験体2の剛性（存在する場合）
-    if "Force2" in collection.columns and "Displacement2" in collection.columns:
-        stiffness_data2 = (
-            collection.ops.select(columns=["Displacement2", "Force2"])
-            .diff("Force2", "Displacement2", result_column="Stiffness2")
-            .end()
-        )
-
-        # 試験体2の剛性をプロット
-        ax2.plot(
-            stiffness_data2["Displacement2"].values[1:],
-            stiffness_data2["Stiffness2"].values,
-            "ro-",
-            label="試験体2の剛性",
-        )
-
-except (AttributeError, ValueError):
-    # diffメソッドが実装されていない場合や値が不十分な場合は手動で近似計算
-    print("diffメソッドが利用できないため、手動で剛性を計算します")
-
-    # 試験体1の剛性を計算（中央差分法）
-    force1_values = collection["Force1"].values
-    disp1_values = collection["Displacement1"].values
-
-    stiffness1 = []
-    disp1_for_stiffness = []
-
-    # 前後の点から傾きを計算
-    for i in range(1, len(force1_values) - 1):
-        if (
-            None
-            not in [
-                force1_values[i - 1],
-                force1_values[i + 1],
-                disp1_values[i - 1],
-                disp1_values[i + 1],
-            ]
-            and disp1_values[i + 1] - disp1_values[i - 1] != 0
-        ):
-
-            slope = (force1_values[i + 1] - force1_values[i - 1]) / (
-                disp1_values[i + 1] - disp1_values[i - 1]
-            )
-            stiffness1.append(slope)
-            disp1_for_stiffness.append(disp1_values[i])
-
-    # 試験体1の剛性をプロット
-    ax2.plot(disp1_for_stiffness, stiffness1, "bo-", label="試験体1の剛性")
-
-    # 試験体2の剛性を計算（存在する場合）
-    if "Force2" in collection.columns and "Displacement2" in collection.columns:
-        force2_values = collection["Force2"].values
-        disp2_values = collection["Displacement2"].values
-
-        stiffness2 = []
-        disp2_for_stiffness = []
-
-        for i in range(1, len(force2_values) - 1):
-            if (
-                None
-                not in [
-                    force2_values[i - 1],
-                    force2_values[i + 1],
-                    disp2_values[i - 1],
-                    disp2_values[i + 1],
-                ]
-                and disp2_values[i + 1] - disp2_values[i - 1] != 0
-            ):
-
-                slope = (force2_values[i + 1] - force2_values[i - 1]) / (
-                    disp2_values[i + 1] - disp2_values[i - 1]
-                )
-                stiffness2.append(slope)
-                disp2_for_stiffness.append(disp2_values[i])
-
-        # 試験体2の剛性をプロット
-        ax2.plot(disp2_for_stiffness, stiffness2, "ro-", label="試験体2の剛性")
+    ax2.plot(stiffness_data[disp].values, stiffness_data["Stiffness"].values, style, label=label)
 
 # 下部サブプロットの装飾
 ax2.set_title("剛性変化 (傾き dF/dx)")
@@ -507,10 +419,10 @@ fig, ax = plt.subplots(figsize=(10, 6))
     .divide(
         "Displacement1*100", length_mm, result_column="Strain_percent"
     )  # % = (ΔL/L₀)*100 に変換
-    .plot(  # 変換データをそのままプロット
+    .end()
+    .plot.plot(  # 変換データをそのままプロット
         x_column="Strain_percent",
         y_column="Stress_MPa",
-        plot_type="line",
         color="green",
         label="選択したステップ区間",
         marker="o",
@@ -541,10 +453,9 @@ fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 # 主軸（上側）: 荷重-変位曲線
 # axを渡すことでplt.showは呼び出されない
 (
-    collection.ops.plot(
+    collection.plot.plot(
         x_column="Displacement1",
         y_column="Force1",
-        plot_type="line",
         color="blue",
         label="荷重-変位曲線",
         marker="o",
@@ -561,48 +472,13 @@ ax1.set_title("荷重-変位曲線と剛性の比較")
 ax1.legend(loc="upper left")
 
 # 下側プロット: 傾き（剛性）を表示
-try:
-    # チェーンメソッドでdiff操作を実行（実装されている場合）
-    stiffness_data = collection.ops.diff(
-        "Force1", "Displacement1", result_column="Stiffness"
-    ).end()
-
-    # 剛性をプロット
-    ax2.plot(
-        stiffness_data["Displacement1"].values[1:],
-        stiffness_data["Stiffness"].values,
-        "r-o",
-        label="剛性",
-    )
-
-except (AttributeError, ValueError):
-    # 手動で剛性を計算
-    force_values = collection["Force1"].values
-    disp_values = collection["Displacement1"].values
-
-    stiffness = []
-    disp_for_stiffness = []
-
-    for i in range(1, len(force_values) - 1):
-        if (
-            None
-            not in [
-                force_values[i - 1],
-                force_values[i + 1],
-                disp_values[i - 1],
-                disp_values[i + 1],
-            ]
-            and disp_values[i + 1] - disp_values[i - 1] != 0
-        ):
-
-            slope = (force_values[i + 1] - force_values[i - 1]) / (
-                disp_values[i + 1] - disp_values[i - 1]
-            )
-            stiffness.append(slope)
-            disp_for_stiffness.append(disp_values[i])
-
-    # 剛性をプロット
-    ax2.plot(disp_for_stiffness, stiffness, "r-o", label="剛性")
+# diff で dF/dδ を計算する（同じ変位が続く行は傾きが定義できないため、先に除外する）
+stiffness_data = (
+    collection.ops.remove_consecutive_duplicates_across(columns=["Displacement1"])
+    .diff("Force1", "Displacement1", result_column="Stiffness")
+    .end()
+)
+ax2.plot(stiffness_data["Displacement1"].values, stiffness_data["Stiffness"].values, "r-o", label="剛性")
 
 # 装飾（下のプロット）
 ax2.set_xlabel("変位 (mm)")

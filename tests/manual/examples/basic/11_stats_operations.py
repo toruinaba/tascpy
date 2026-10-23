@@ -182,16 +182,10 @@ try:
     mean_value = collection[load_column_name].mean()
     std_value = collection[load_column_name].std()
 
-    # 平均値から1標準偏差以上離れたデータを除外するカスタム関数
-    def is_within_std_range(row):
-        val = row.get(load_column_name)  # 行データから値を取得
-        if val is None:
-            return False
-        # 平均±1標準偏差の範囲内にあるかチェック
-        return abs(val - mean_value) <= std_value
-
-    # search_by_conditionを使用して値をフィルタリング
-    result = collection.ops.search_by_condition(is_within_std_range).end()
+    # 平均±1標準偏差の範囲内にある行だけを filter_by_condition で残す（欠損は比較が False になり除外される）
+    result = collection.ops.filter_by_condition(
+        load_column_name, lambda val: abs(val - mean_value) <= std_value
+    ).end()
 
     # 処理後の統計情報を表示
     if len(result) > 0:

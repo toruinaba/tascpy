@@ -3,8 +3,7 @@ import numpy as np
 import math
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.analytics.operations.core import math as tasc_math
-from tascpy.analytics.operations.core import stats as tasc_stats
+from tascpy.analytics.functional.core import stats as f_stats
 
 class TestNumericalRefactoring:
     @pytest.fixture
@@ -28,7 +27,7 @@ class TestNumericalRefactoring:
         # i=2: [2, 3, 4] -> 3.0
         # i=3: [3, 4, 5] -> 4.0
         # i=4: [4, 5] -> 4.5
-        ma = tasc_stats.moving_average(data, window_size=3)
+        ma = f_stats.moving_average(data, window_size=3)
         expected = [1.5, 2.0, 3.0, 4.0, 4.5]
         np.testing.assert_allclose(ma, expected)
 
@@ -37,7 +36,7 @@ class TestNumericalRefactoring:
         # i=0: [1, Nan] -> 1.0 (mean of [1])
         # i=1: [1, Nan, 3] -> 2.0 (mean of [1, 3])
         # i=2: [Nan, 3] -> 3.0 (mean of [3])
-        ma_none = tasc_stats.moving_average(data_none, window_size=3)
+        ma_none = f_stats.moving_average(data_none, window_size=3)
         # implementation details:
         # np.convolve used. 
         # i=0 (center): window covers -1..1. Index 0, 1. Values 1, Nan. Valid: 1. Mean: 1.
@@ -48,12 +47,11 @@ class TestNumericalRefactoring:
 
     def test_math_add_numpy(self, collection):
         # A + B
-        # Use module function directly to avoid proxy issues without .end()
-        res = tasc_math.add(collection, "A", "B")
+        res = collection.ops.add("A", "B").end()
         np.testing.assert_array_equal(res["A+B"].values, [11.0, 22.0, 33.0, 44.0, 55.0])
         
         # A + C (with None)
-        res2 = tasc_math.add(collection, "A", "C")
+        res2 = collection.ops.add("A", "C").end()
         # 1+1=2, 2-1=1, 3+0=3, 4+None=None, 5+5=10
         # 4+None=None -> NaN
         expected = np.array([2.0, 1.0, 3.0, np.nan, 10.0])
@@ -61,12 +59,12 @@ class TestNumericalRefactoring:
 
     def test_transform_log(self, collection):
         # log(A)
-        res = tasc_math.log(collection, "A")
+        res = collection.ops.log("A").end()
         expected = [math.log(x) for x in range(1, 6)]
         np.testing.assert_allclose(res["log(A)"].values, expected)
         
         # log(C) -> 1.0 (0.0), -1.0 (None), 0.0 (None), None (None), 5.0 (log(5))
-        res2 = tasc_math.log(collection, "C")
+        res2 = collection.ops.log("C").end()
         vals = res2["log(C)"].values
         assert vals[0] == 0.0
         assert np.isnan(vals[1]) # -1.0
@@ -76,7 +74,7 @@ class TestNumericalRefactoring:
 
     def test_math_evaluate_vectorized(self, collection):
         # A + B * 2
-        res = tasc_math.evaluate(collection, "A + B * 2", result_column="result")
+        res = collection.ops.evaluate("A + B * 2", result_column="result").end()
         # 1+20=21, 2+40=42, 3+60=63, 4+80=84, 5+100=105
         np.testing.assert_array_equal(res["result"].values, [21.0, 42.0, 63.0, 84.0, 105.0])
 
@@ -91,7 +89,7 @@ class TestNumericalRefactoring:
         # This will trigger the fallback!
         
         expr = "A if A > 3 else 0"
-        res = tasc_math.evaluate(collection, expr, result_column="fallback_result")
+        res = collection.ops.evaluate(expr, result_column="fallback_result").end()
         # A: 1, 2, 3, 4, 5
         # 1>3 F -> 0
         # 2>3 F -> 0
@@ -102,7 +100,7 @@ class TestNumericalRefactoring:
 
     def test_math_evaluate_none_handling(self, collection):
         # C * 2. C has None.
-        res = tasc_math.evaluate(collection, "C * 2", result_column="result_none")
+        res = collection.ops.evaluate("C * 2", result_column="result_none").end()
         # 1->2, -1->-2, 0->0, None->None, 5->10
         vals = res["result_none"].values
         assert vals[0] == 2.0
@@ -118,7 +116,7 @@ class TestNumericalRefactoring:
         
         # stats.detect_outliers
         # It creates a flag column (0/1)
-        res = tasc_stats.detect_outliers(c, "X", window_size=3, threshold=0.5)
+        res = c.ops.detect_outliers("X", window_size=3, threshold=0.5).end()
         # 100 should be outlier
         # The result column name is "outlier({column})" by default in stats.py
         flags = res["outlier(X)"].values

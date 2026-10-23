@@ -428,7 +428,7 @@ def multiply(
 def divide(
     v1: Union[np.ndarray, float], 
     v2: Union[np.ndarray, float], 
-    **kwargs
+    **kwargs: Any
 ) -> np.ndarray:
     """v1 を v2 で除算します。
 

@@ -15,11 +15,6 @@ import shutil
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.analytics.operations.load_displacement.analysis import find_yield_point
-from tascpy.analytics.operations.load_displacement.curves import (
-    create_skeleton_curve,
-    create_cumulative_curve,
-)
 import tascpy
 
 
@@ -27,7 +22,7 @@ import tascpy
 def sample_data_path():
     """サンプルデータファイルのパスを返す"""
     base_path = Path(__file__).parent.parent.parent
-    return base_path / "examples" / "data" / "load_displacement_sample.csv"
+    return base_path / "manual" / "examples" / "data" / "load_displacement_sample.csv"
 
 
 @pytest.fixture
@@ -132,13 +127,9 @@ class TestLoadDisplacementPlotFunctional:
         各プロット機能を順番に使用し、一連のワークフローをテスト
         """
         # 降伏点解析
-        offset_result = find_yield_point(
-            load_displacement_data, method="offset", offset_value=0.002
-        )
+        offset_result = load_displacement_data.ops.find_yield_point(method="offset", offset_value=0.002).end()
 
-        general_result = find_yield_point(
-            load_displacement_data, method="general", factor=0.33
-        )
+        general_result = load_displacement_data.ops.find_yield_point(method="general", factor=0.33).end()
 
         # 基本的な荷重-変位プロット
         load_displacement_data.plot.plot_load_displacement()
@@ -244,13 +235,12 @@ class TestLoadDisplacementPlotFunctional:
         ax1.grid(True, linestyle="--", alpha=0.5)
 
         # 異なる範囲設定での降伏点計算
-        custom_result = find_yield_point(
-            load_displacement_data,
+        custom_result = load_displacement_data.ops.find_yield_point(
             method="offset",
             offset_value=0.001,
             range_start=0.2,
             range_end=0.4,
-        )
+        ).end()
 
         # カスタマイズされた降伏点プロット
         custom_yp = custom_result.results["yield_point"]
@@ -278,23 +268,20 @@ class TestLoadDisplacementPlotFunctional:
         """実用的なデータ解析フローの統合テスト"""
 
         # 3つの異なる降伏点定義でデータを解析
-        offset_small = find_yield_point(
-            load_displacement_data,
+        offset_small = load_displacement_data.ops.find_yield_point(
             method="offset",
             offset_value=0.001,
-        )
+        ).end()
 
-        offset_standard = find_yield_point(
-            load_displacement_data,
+        offset_standard = load_displacement_data.ops.find_yield_point(
             method="offset",
             offset_value=0.002,
-        )
+        ).end()
 
-        general = find_yield_point(
-            load_displacement_data,
+        general = load_displacement_data.ops.find_yield_point(
             method="general",
             factor=0.33,
-        )
+        ).end()
 
         # 降伏解析結果の詳細を取得
         small_yield_data = offset_small.results["yield_point"].metadata
@@ -388,7 +375,7 @@ class TestLoadDisplacementPlotFunctional:
         荷重-変位データからスケルトン曲線を作成し、プロット機能をテスト
         """
         # スケルトン曲線を生成
-        skeleton_result = create_skeleton_curve(load_displacement_data)
+        skeleton_result = load_displacement_data.ops.cycle_count().create_skeleton_curve().end()
 
         # スケルトン曲線をプロット
         skeleton_x_data = np.array(skeleton_result.results["skeleton_curve"].to_dict()["data"]["x"])
@@ -460,7 +447,7 @@ class TestLoadDisplacementPlotFunctional:
         荷重-変位データから累積曲線を作成し、プロット機能をテスト
         """
         # 累積曲線を生成
-        cumulative_result = create_cumulative_curve(load_displacement_data)
+        cumulative_result = load_displacement_data.ops.cycle_count().create_cumulative_curve().end()
 
         # 累積曲線をプロット
         cumulative_x_data = np.array(cumulative_result.results["cumulative_curve"].to_dict()["data"]["x"])
@@ -532,8 +519,8 @@ class TestLoadDisplacementPlotFunctional:
         元データ、スケルトン曲線、累積曲線を1つのグラフに表示
         """
         # スケルトン曲線と累積曲線を生成
-        with_skeleton = create_skeleton_curve(load_displacement_data)
-        with_both = create_cumulative_curve(with_skeleton)
+        with_skeleton = load_displacement_data.ops.cycle_count().create_skeleton_curve().end()
+        with_both = with_skeleton.ops.create_cumulative_curve().end()
 
         # 全ての曲線を一つのグラフにプロット
         curves = [
@@ -618,15 +605,14 @@ class TestLoadDisplacementPlotFunctional:
         降伏点解析結果とスケルトン曲線を一つのグラフに表示
         """
         # スケルトン曲線を生成
-        skeleton_result = create_skeleton_curve(load_displacement_data)
+        skeleton_result = load_displacement_data.ops.cycle_count().create_skeleton_curve().end()
 
         # スケルトン曲線に対して降伏点解析を実行
         # スケルトン曲線に対しては異なるオフセット値を使用して差を生み出す
-        yield_result = find_yield_point(
-            skeleton_result,
+        yield_result = skeleton_result.ops.find_yield_point(
             method="offset",
             offset_value=0.005,  # 0.002から0.005に変更
-        )
+        ).end()
 
         # 2x2のグリッドで異なる解析結果を表示
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
@@ -643,11 +629,10 @@ class TestLoadDisplacementPlotFunctional:
         axs[0, 1].set_title("スケルトン曲線")
 
         # 元データに対する降伏点解析
-        original_yield = find_yield_point(
-            load_displacement_data,
+        original_yield = load_displacement_data.ops.find_yield_point(
             method="offset",
             offset_value=0.002,  # 元データには0.002を使用
-        )
+        ).end()
         orig_yp = original_yield.results["yield_point"]
         load_displacement_data.plot.plot_yield_point(
             yield_disp=orig_yp.x,
@@ -728,9 +713,7 @@ class TestLoadDisplacementPlotFunctional:
             pytest.skip("CI環境では視覚確認テストをスキップ")
 
         # 降伏点解析の実行
-        offset_result = find_yield_point(
-            load_displacement_data, method="offset", offset_value=0.002
-        )
+        offset_result = load_displacement_data.ops.find_yield_point(method="offset", offset_value=0.002).end()
 
         # 複数の手法の比較
         methods = [

@@ -9,7 +9,7 @@ class Test_results:
     def test_01(self, tasc_file, tmp_path):
         path = str(tasc_file)
         res = tp.io.load(path, format_name="tasc")
-        ops = tp.CollectionOperations(res)
+        ops = res.ops
         ops.end().plot.plot(y_column="P_total")
         ops.end().plot.plot(x_column="梁変位", y_column="P_total")
         req_steps = list(range(1, 400))
@@ -28,13 +28,13 @@ class Test_results:
             "b52",
         ]
 
-        extracted = ops.select(columns=req_names, steps=req_steps)
+        extracted = ops.select(columns=req_names, steps=req_steps).end()
         output_file = tmp_path / "extracted_W-N.csv"
         extracted.io.to_csv(str(output_file))
         ref_load1 = 200.0
         ref_load2 = 600.0
-        fetched_step1 = extracted.fetch_near_step("P_total", ref_load1)
-        fetched_step2 = extracted.fetch_near_step("P_total", ref_load2)
+        fetched_step1 = extracted.ops.fetch_near_step("P_total", ref_load1).end()
+        fetched_step2 = extracted.ops.fetch_near_step("P_total", ref_load2).end()
         fig = plt.figure(figsize=(10, 3))
         ax1 = fig.add_subplot(1, 3, 1)
         # Create explicit axes for tests
@@ -56,10 +56,10 @@ class Test_results:
         distance = [0.0, 50.0, 100.0, 200.0, 300.0]
         plot_list1 = ["b11", "b21", "b31", "b41", "b51"]
         plot_list2 = ["b12", "b22", "b32", "b42", "b52"]
-        fetched_step1.end().plot.plot_const_x(distance, plot_list1, ax=ax2, marker="o", color="r")
-        fetched_step2.end().plot.plot_const_x(distance, plot_list1, ax=ax2, marker="^", color="b")
-        fetched_step1.end().plot.plot_const_x(distance, plot_list2, ax=ax3, marker="o", color="r")
-        fetched_step2.end().plot.plot_const_x(distance, plot_list2, ax=ax3, marker="^", color="b")
+        fetched_step1.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="o", color="r")
+        fetched_step2.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="^", color="b")
+        fetched_step1.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="o", color="r")
+        fetched_step2.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="^", color="b")
         ax2.set_xlim(0, 300.0)
         ax2.set_ylim(50, 110.0)
         ax3.set_xlim(0, 300.0)
@@ -70,15 +70,15 @@ class Test_results:
         path = str(tasc_file)
         res = tp.io.load(path, format_name="tasc")
 
-        ops = tp.CollectionOperations(res)
+        ops = res.ops
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()
         pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(columns=["P_total", "梁変位ﾜｲﾔ"])
-        p = pd_rmdup["P_total"].values
+        p = pd_rmdup.end()["P_total"].values
         markers = cycle_count(p)
         dived = pd_rmdup.split_by_integers(markers)
         dived_pos = [
-            d.filter_by_condition("P_total", lambda x: x > 0.0) for d in dived
+            d.filter_by_condition("P_total", lambda x: x > 0.0).end() for d in dived
         ]
 
         # Removed detect_outliers_ratio usage as it was deleted
@@ -90,7 +90,7 @@ class Test_results:
             fig = plt.figure()
             ax = fig.add_subplot(111)
             max_index = d_removed_outliers["梁変位ﾜｲﾔ"].max_index
-            splitted = d_removed_outliers.split_at_indices(max_index + 1)
+            splitted = d_removed_outliers.ops.split_at_indices(max_index + 1).end()
             # Check if split was successful
             if len(splitted) >= 2:
                 splitted[0].plot.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax)
@@ -125,10 +125,10 @@ class Test_results:
     def test_03(self, tasc_file):
         path = str(tasc_file)
         res = tp.io.load(path, format_name="tasc")
-        ops = tp.CollectionOperations(res)
+        ops = res.ops
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()
-        pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(columns=["P_total", "梁変位ﾜｲﾔ"])
+        pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(columns=["P_total", "梁変位ﾜｲﾔ"]).end()
         p = pd_rmdup["P_total"].values
         d_val = pd_rmdup["梁変位ﾜｲﾔ"].values
 
@@ -192,12 +192,12 @@ class Test_results:
     def test_04(self, tasc_file):
         path = str(tasc_file)
         res = tp.io.load(path, format_name="tasc")
-        ops = tp.CollectionOperations(res)
+        ops = res.ops
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()
         pd_rmdup = pd_rmn.remove_consecutive_duplicates_across(
             columns=["P_total", "梁変位ﾜｲﾔ"], dup_type="all"
-        )
+        ).end()
         p = pd_rmdup["P_total"].values
         d_val = pd_rmdup["梁変位ﾜｲﾔ"].values
         

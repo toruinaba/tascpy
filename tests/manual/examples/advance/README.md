@@ -13,32 +13,24 @@
    - 前処理後データのトレンド分析
    
    ```python
-   # 異常値の検出と可視化のチェーンメソッド例
-   result_vis = (
-       filtered_collection.ops
-       .filter_out_none(columns=["data"])  # NaN値を除去
-       .visualize_outliers(
-           column="data",
-           window_size=15,
-           threshold=0.3,  # しきい値
-           plot_type="line",
-           highlight_color="red",
-           outlier_marker="o",
-           ax=ax1,
-           normal_alpha=0.7
-       )
-       .end()
+   # 異常値の可視化（欠損除去はチェーン、描画はコレクションの plot で行う）
+   clean = filtered_collection.ops.filter_out_none(columns=["data"]).end()
+   clean.plot.visualize_outliers(
+       column="data",
+       window_size=15,
+       threshold=0.3,  # しきい値
+       plot_type="line",
+       highlight_color="red",
+       outlier_marker="o",
+       ax=ax1,
+       normal_alpha=0.7,
    )
    
-   # 異常値の除去と効果確認のチェーンメソッド例
-   cleaned_result = (
+   # 異常値と判定された行を除外する
+   cleaned = (
        filtered_collection.ops
-       .remove_outliers(
-           column="data", 
-           window_size=15, 
-           threshold=0.5,
-           result_column="cleaned_data"
-       )
+       .filter_out_none(columns=["data"])
+       .remove_outliers("data", window_size=15, threshold=0.5)
        .end()
    )
    ```
@@ -61,42 +53,31 @@ tascpy では以下の異常値処理機能が提供されています：
 ### 1. 異常値の検出と可視化
 
 ```python
-# 異常値の検出とフラグ付け
+# 異常値の検出とフラグ付け（0: 正常, 1: 異常値 の列を追加）
 flagged_collection = (
     collection.ops
-    .detect_outliers(
-        column="data", 
-        window_size=15, 
-        threshold=0.5,
-        flag_column="_outlier_flags_data"
-    )
+    .detect_outliers("data", window_size=15, threshold=0.5, result_column="outlier_flag")
     .end()
 )
 
 # 検出した異常値の視覚化
-collection.ops.visualize_outliers(
+collection.plot.visualize_outliers(
     column="data",
     window_size=15,
     threshold=0.5,
     plot_type="line",
     highlight_color="red",
-    outlier_marker="o"
-).end()
+    outlier_marker="o",
+)
 ```
 
 ### 2. 異常値の除去
 
 ```python
-# 異常値を除去して新しい列に保存
+# 異常値と判定された行を除外する
 cleaned_collection = (
     collection.ops
-    .remove_outliers(
-        column="data", 
-        window_size=15, 
-        threshold=0.5,
-        result_column="cleaned_data",
-        edge_handling="mirror"  # エッジ処理方法の指定
-    )
+    .remove_outliers("data", window_size=15, threshold=0.5, edge_handling="symmetric")
     .end()
 )
 ```
@@ -105,18 +86,9 @@ cleaned_collection = (
 
 
 ```python
-# ミラーリングによるエッジ処理の例
-result_mirror = (
-    collection.ops
-    .remove_outliers(
-        column="data", 
-        window_size=15,
-        threshold=0.5,
-        edge_handling="asymmetric",
-        result_column="cleaned_mirror"
-    )
-    .end()
-)
+# データ端の窓の取り方を指定する（"asymmetric": 端では片側の窓、"symmetric": 対称な窓）
+result_asym = collection.ops.remove_outliers("data", window_size=15, threshold=0.5, edge_handling="asymmetric").end()
+result_sym = collection.ops.remove_outliers("data", window_size=15, threshold=0.5, edge_handling="symmetric").end()
 ```
 
 ## 実践的なワークフロー例
@@ -128,37 +100,17 @@ result_mirror = (
 result = (
     collection.ops
     .filter_out_none(columns=["raw_data"])  # 欠損値を除去
-    .remove_outliers(
-        column="raw_data", 
-        window_size=21, 
-        threshold=0.7,
-        result_column="cleaned_data"
-    )  # 異常値除去
-    .moving_average(
-        column="cleaned_data", 
-        window_size=5, 
-        result_column="smoothed_data"
-    )  # スムージング
+    .remove_outliers("raw_data", window_size=21, threshold=0.7)  # 異常値の行を除外
+    .moving_average("raw_data", window_size=5, result_column="smoothed_data")  # スムージング
     .end()
 )
 
 # 可視化による確認
 fig, ax = plt.subplots(figsize=(10, 6))
-(
-    result.ops
-    .plot(
-        x_column="Step",
-        y_column=["raw_data", "cleaned_data", "smoothed_data"],
-        plot_type="line",
-        color=["gray", "blue", "red"],
-        marker=["", "", ""],
-        linestyle=[":", "-", "--"],
-        linewidth=[1, 1, 2],
-        label=["生データ", "クリーニング後", "スムージング後"],
-        ax=ax
-    )
-    .end()
-)
+collection.plot.plot(y_column="raw_data", ax=ax, color="gray", linestyle=":", label="生データ")
+result.plot.plot(y_column="raw_data", ax=ax, color="blue", label="異常値除去後")
+result.plot.plot(y_column="smoothed_data", ax=ax, color="red", linestyle="--", linewidth=2, label="スムージング後")
+ax.legend()
 ```
 
 ## パラメータ選択のガイドライン

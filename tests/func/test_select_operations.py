@@ -10,7 +10,6 @@ import numpy as np
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.analytics.operations.proxy import CollectionOperations
 
 
 
@@ -18,14 +17,14 @@ from tascpy.analytics.operations.proxy import CollectionOperations
 
 def test_select_with_operations_chain(large_collection):
     """select と他の操作をチェーンして使用するテスト"""
-    ops = CollectionOperations(large_collection)
+    ops = large_collection.ops
 
     # まず列を選択
-    cols_selected = ops.select(columns=["Force", "Displacement"])
+    cols_selected = ops.select(columns=["Force", "Displacement"]).end()
 
-    # 次に行を選択（新しいCollectionOperationsを作成）
-    ops2 = CollectionOperations(cols_selected)
-    result = ops2.select(indices=list(range(0, 50, 5)))  # 0, 5, 10, ... , 45
+    # 次に行を選択
+    ops2 = cols_selected.ops
+    result = ops2.select(indices=list(range(0, 50, 5))).end()  # 0, 5, 10, ... , 45
 
     # 結果の検証
     assert len(result) == 10  # 50/5 = 10 rows
@@ -35,10 +34,10 @@ def test_select_with_operations_chain(large_collection):
     assert list(result["Force"].values) == expected_force
 
     # 新しい統合されたselect関数を使った場合のテスト
-    ops3 = CollectionOperations(large_collection)
+    ops3 = large_collection.ops
     combined_result = ops3.select(
         columns=["Force", "Displacement"], indices=list(range(0, 50, 5))
-    )
+    ).end()
 
     # 両方の結果が同じであることを検証
     assert len(combined_result) == len(result)
@@ -52,12 +51,12 @@ def test_select_with_operations_chain(large_collection):
 
 def test_select_step_with_operations_chain(large_collection):
     """select_step と他の操作をチェーンして使用するテスト"""
-    ops = CollectionOperations(large_collection)
+    ops = large_collection.ops
 
     # 特定のステップと列を選択
     result = ops.select(
         steps=[10, 20, 30, 40, 50], columns=["Time", "Temperature"]
-    )
+    ).end()
 
     # 結果の検証
     assert len(result) == 5
@@ -66,7 +65,7 @@ def test_select_step_with_operations_chain(large_collection):
     assert list(result["Temperature"].values) == [21.0, 22.0, 23.0, 24.0, 25.0]
 
     # 新しいselect関数を使った場合も同じ結果が得られることを確認
-    result2 = ops.select(steps=[10, 20, 30, 40, 50], columns=["Time", "Temperature"])
+    result2 = ops.select(steps=[10, 20, 30, 40, 50], columns=["Time", "Temperature"]).end()
     assert len(result2) == 5
     assert list(result2.columns.keys()) == ["Time", "Temperature"]
     assert list(result2["Time"].values) == list(result["Time"].values)
@@ -100,10 +99,10 @@ def test_real_data_sample():
         for i, col in enumerate(df.columns)
     }
     collection = ColumnCollection(step=step_values, columns=columns)
-    ops = CollectionOperations(collection)
+    ops = collection.ops
 
     # 特定の列を選択してメトリクスを計算
-    selected = ops.select(columns=df.columns[:3].tolist())
+    selected = ops.select(columns=df.columns[:3].tolist()).end()
 
     # 結果の検証
     assert len(selected.columns) == 3
@@ -112,15 +111,15 @@ def test_real_data_sample():
 
 def test_sequential_select_operations(large_collection):
     """複数のselect操作を順番に実行するテスト"""
-    ops = CollectionOperations(large_collection)
+    ops = large_collection.ops
 
     # まず列を選択
-    cols_selected = ops.select(columns=["Force", "Temperature"])
+    cols_selected = ops.select(columns=["Force", "Temperature"]).end()
     assert list(cols_selected.columns.keys()) == ["Force", "Temperature"]
 
     # 次に行を選択
-    ops2 = CollectionOperations(cols_selected)
-    rows_selected = ops2.select(indices=[10, 20, 30])
+    ops2 = cols_selected.ops
+    rows_selected = ops2.select(indices=[10, 20, 30]).end()
 
     # 結果の検証
     assert len(rows_selected) == 3
@@ -128,10 +127,10 @@ def test_sequential_select_operations(large_collection):
     assert list(rows_selected["Force"].values) == [5.0, 10.0, 15.0]
 
     # 統合されたselect関数で一度に行と列を選択
-    ops3 = CollectionOperations(large_collection)
+    ops3 = large_collection.ops
     combined_result = ops3.select(
         columns=["Force", "Temperature"], indices=[10, 20, 30]
-    )
+    ).end()
 
     # 結果の検証（同じ結果になるはず）
     assert len(combined_result) == 3
@@ -145,17 +144,17 @@ def test_sequential_select_operations(large_collection):
 
 def test_select_and_transform(large_collection):
     """select操作後に変換を適用するテスト"""
-    ops = CollectionOperations(large_collection)
+    ops = large_collection.ops
 
     # 一部の列を選択
-    cols_result = ops.select(columns=["Force", "Displacement"])
+    cols_result = ops.select(columns=["Force", "Displacement"]).end()
 
-    # 新しいCollectionOperationsを作成して特定のステップを選択
-    ops2 = CollectionOperations(cols_result)
-    result = ops2.select(steps=list(range(0, 50, 10)))  # 0, 10, 20, 30, 40
+    # 特定のステップを選択
+    ops2 = cols_result.ops
+    result = ops2.select(steps=list(range(0, 50, 10))).end()  # 0, 10, 20, 30, 40
 
     # 選択されたデータに新しい操作を適用
-    ops3 = CollectionOperations(result)
+    ops3 = result.ops
     # このテストではtransform操作を仮定。実際のプロジェクトに合わせて調整が必要
     if hasattr(ops3, "transform") and callable(getattr(ops3, "transform")):
         transformed = ops3.transform(
@@ -168,11 +167,11 @@ def test_select_and_transform(large_collection):
         assert len(transformed) == 5
 
     # 新しいselect関数を使った場合のテスト - 1回の呼び出しで列とステップ両方を指定
-    ops4 = CollectionOperations(large_collection)
+    ops4 = large_collection.ops
     result2 = ops4.select(
         columns=["Force", "Displacement"],
         steps=list(range(0, 50, 10)),  # 0, 10, 20, 30, 40
-    )
+    ).end()
 
     assert len(result2) == 5
     assert list(result2.columns.keys()) == ["Force", "Displacement"]

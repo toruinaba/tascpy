@@ -1,13 +1,14 @@
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Tuple, Union, TYPE_CHECKING
+
+import numpy as np
 from ..core.collection import ColumnCollection
 from ..core.step import Step
 from ..core.column import Column
 from .factory import DomainCollectionFactory
 
 if TYPE_CHECKING:
-    from ..typing.load_displacement import (
-        LoadDisplacementCollectionOperations,
-    )
+    from ..analytics.ops import LoadDisplacementOps
+    from ..visualization.plotters.load_displacement.plotter import LoadDisplacementPlotter
 
 
 class LoadDisplacementCollection(ColumnCollection):
@@ -24,8 +25,8 @@ class LoadDisplacementCollection(ColumnCollection):
 
     def __init__(
         self,
-        step: Optional[Step] = None,
-        columns: Optional[Dict[str, Column]] = None,
+        step: Union[Step, List[Any], None] = None,
+        columns: Optional[Dict[str, Union[Column, List[Any]]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         load_column: str = "load",
         displacement_column: str = "displacement",
@@ -197,21 +198,14 @@ class LoadDisplacementCollection(ColumnCollection):
         return "load_displacement"
 
     @property
-    def ops(self) -> "LoadDisplacementCollectionOperations":
-        """操作プロキシクラスを返す"""
-        from tascpy.analytics.operations.proxy import CollectionOperations
+    def ops(self) -> "LoadDisplacementOps":
+        """荷重-変位ドメインの操作オブジェクト"""
+        from ..analytics.ops import LoadDisplacementOps
 
-        if TYPE_CHECKING:
-            from ..typing.load_displacement import (
-                LoadDisplacementCollectionOperations,
-            )
+        return LoadDisplacementOps(self)
 
-            return LoadDisplacementCollectionOperations(self, domain="load_displacement")  # type: ignore
-        else:
-            return CollectionOperations(self, domain=self.domain)
-            
     @property
-    def plot(self):
+    def plot(self) -> "LoadDisplacementPlotter":
         """荷重-変位データの可視化プロキシクラスを返す
         
         Returns:
@@ -277,7 +271,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return sorted(list(key_set))
 
     @property
-    def load_data(self):
+    def load_data(self) -> np.ndarray:
         """荷重データ配列を取得 (NaNを保持)
         
         Returns:
@@ -287,7 +281,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return np.array([v if v is not None else np.nan for v in self[self.load_column].values])
 
     @property
-    def displacement_data(self):
+    def displacement_data(self) -> np.ndarray:
         """変位データ配列を取得 (NaNを保持)
         
         Returns:
@@ -297,7 +291,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return np.array([v if v is not None else np.nan for v in self[self.displacement_column].values])
         
     @property
-    def valid_data_mask(self):
+    def valid_data_mask(self) -> np.ndarray:
         """NaNを含まない有効なデータのブールマスクを取得
         
         Returns:
@@ -307,7 +301,7 @@ class LoadDisplacementCollection(ColumnCollection):
         return ~(np.isnan(self.load_data) | np.isnan(self.displacement_data))
         
     @property
-    def valid_data(self):
+    def valid_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """有効な(変位, 荷重)の配列の組を取得
         
         Returns:
@@ -319,7 +313,7 @@ class LoadDisplacementCollection(ColumnCollection):
     def get_ld_cycle_arrays(
         self,
         cycle_marker_column: Optional[str] = None,
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """荷重・変位・サイクルマーカーの numpy 配列を取得する。
 
         サイクルマーカーカラムが存在しない場合は ``KeyError`` を raise します

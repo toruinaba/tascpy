@@ -20,18 +20,18 @@ setup(
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
     include_package_data=True,
     install_requires=open("requirements.txt").read().splitlines(),
+    extras_require={"plotly": ["plotly"]},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.11",
     entry_points={
         "console_scripts": [
             # 必要に応じてCLIエントリポイントを追加

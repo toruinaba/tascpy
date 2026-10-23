@@ -8,7 +8,7 @@
 1. **[basic](./basic/)** - 基本的な使い方
    - ColumnCollection の作成と操作
    - データアクセス、選択、フィルタリング
-   - 数学的演算と補間
+   - 数学的演算
    - データ変換と可視化
    - [詳細な説明を見る](./basic/README.md)
 
@@ -61,71 +61,40 @@ tascpy を効果的に学ぶためには、以下の順序でサンプルを進�
 ### シナリオ1: 計測データの前処理と可視化
 
 ```python
+import matplotlib.pyplot as plt
+import tascpy
+
 # 1. CSVファイルからデータを読み込む
-collection = ColumnCollection.from_file("data.csv", format_name="csv")
+collection = tascpy.io.load("data.csv", format_name="csv", auto_detect_types=True)
 
 # 2. 必要な列を選択し、データをクリーニング
 clean_data = (
     collection.ops
     .select(columns=["Time", "Measurement"])
     .filter_out_none(columns=["Measurement"])  # 欠損値を除去
-    .detect_and_remove_outliers(
-        column="Measurement", 
-        window_size=15, 
-        threshold=0.3
-    )  # 外れ値を除去
+    .remove_outliers("Measurement", window_size=15, threshold=0.3)  # 外れ値を除去
     .end()
 )
 
 # 3. データ変換と処理
 processed_data = (
     clean_data.ops
-    .moving_average(column="Measurement", window_size=5, result_column="MA5")
+    .moving_average("Measurement", window_size=5, result_column="MA5")
     .evaluate("Measurement - MA5", result_column="Deviation")
     .end()
 )
 
 # 4. 結果の可視化
-import matplotlib.pyplot as plt
-
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-# 生データと移動平均の比較
-processed_data.ops.plot(
-    x_column="Time", 
-    y_column="Measurement", 
-    ax=ax1, 
-    label="生データ",
-    color="gray",
-    alpha=0.7
-).end()
-
-processed_data.ops.plot(
-    x_column="Time", 
-    y_column="MA5", 
-    ax=ax1, 
-    label="5点移動平均",
-    color="blue",
-    linewidth=2
-).end()
-
+processed_data.plot.plot(y_column="Measurement", x_column="Time", ax=ax1, label="生データ", color="gray")
+processed_data.plot.plot(y_column="MA5", x_column="Time", ax=ax1, label="5点移動平均", color="blue")
 ax1.set_title("計測データと移動平均")
 ax1.legend()
-ax1.grid(True)
 
-# 偏差プロット
-processed_data.ops.plot(
-    x_column="Time", 
-    y_column="Deviation", 
-    ax=ax2, 
-    label="偏差",
-    color="red"
-).end()
-
-ax2.axhline(y=0, color="black", linestyle="-", alpha=0.3)
+processed_data.plot.plot(y_column="Deviation", x_column="Time", ax=ax2, label="偏差", color="red")
+ax2.axhline(y=0, color="black", alpha=0.3)
 ax2.set_title("移動平均からの偏差")
-ax2.set_xlabel("時間")
-ax2.grid(True)
 
 plt.tight_layout()
 plt.show()
@@ -134,118 +103,67 @@ plt.show()
 ### シナリオ2: 荷重-変位データの特性解析
 
 ```python
+import matplotlib.pyplot as plt
+import tascpy
+
 # 1. データの読み込みと荷重-変位ドメインへの変換
-collection = ColumnCollection.from_file("load_displacement_data.csv", format_name="csv")
+collection = tascpy.io.load("load_displacement_data.csv", format_name="csv", auto_detect_types=True)
+ld_ops = collection.ops.as_load_displacement(load_column="Force", displacement_column="Displacement")
 
-ld_collection = collection.ops.as_domain(
-    "load_displacement",
-    load_column="Force",
-    displacement_column="Displacement"
-).end()
-
-# 2. 特性解析（初期剛性、降伏点などの計算）
+# 2. 特性解析（初期剛性、降伏点）
 analysis_result = (
-    ld_collection.ops
-    .calculate_stiffness(range_start=0.1, range_end=0.5, result_column="InitialStiffness")
-    .calculate_yield_point(method="offset", offset_ratio=0.002)
-    .calculate_max_load(result_column="MaxLoad")
+    ld_ops
+    .calculate_stiffness(range_start=0.1, range_end=0.5)  # 結果は results["stiffness"]
+    .find_yield_point(method="offset", offset_value=0.002)  # 結果は results["yield_point"]
     .end()
 )
+stiffness = analysis_result.results["stiffness"].value
+yield_point = analysis_result.results["yield_point"]
 
-# 3. 結果レポートの作成と可視化
+# 3. 可視化（降伏点・初期剛性線・オフセット線を描画）
 fig, ax = plt.subplots(figsize=(10, 8))
-
-# 荷重-変位曲線のプロット
-analysis_result.ops.plot(
-    x_column="Displacement", 
-    y_column="Force", 
-    ax=ax, 
-    label="荷重-変位曲線",
-    color="blue",
-    linewidth=2
-).end()
-
-# 初期剛性線のプロット
-yield_point = [
-    analysis_result["YieldPoint_Displacement"].values[0],
-    analysis_result["YieldPoint_Load"].values[0]
-]
-
-# 初期剛性直線の描画
-stiffness = analysis_result["InitialStiffness"].values[0]
-x_vals = np.linspace(0, yield_point[0] * 1.5, 100)
-y_vals = stiffness * x_vals
-
-ax.plot(x_vals, y_vals, linestyle="--", color="green", label=f"初期剛性: {stiffness:.2f} kN/mm")
-
-# 降伏点のマーク
-ax.scatter(yield_point[0], yield_point[1], color="red", s=100, marker="o", label=f"降伏点: ({yield_point[0]:.2f}, {yield_point[1]:.2f})")
-
-# 0.2%オフセット線（必要に応じて）
-offset_x = np.linspace(0.002, yield_point[0] * 1.5, 100)  # 0.2%オフセット
-offset_y = stiffness * (offset_x - 0.002)
-ax.plot(offset_x, offset_y, linestyle=":", color="purple", label="0.2%オフセット線")
-
-ax.set_title("荷重-変位特性解析")
-ax.set_xlabel("変位 (mm)")
-ax.set_ylabel("荷重 (kN)")
-ax.grid(True)
-ax.legend()
-
-plt.tight_layout()
+analysis_result.plot.plot_yield_point(
+    yield_disp=yield_point.x,
+    yield_load=yield_point.y,
+    yield_method="offset",
+    initial_slope=yield_point.metadata.get("initial_slope", stiffness),
+    ax=ax,
+)
 plt.show()
 
 # 4. 結果の出力
-print(f"=== 解析結果 ===")
-print(f"初期剛性: {analysis_result['InitialStiffness'].values[0]:.2f} kN/mm")
-print(f"降伏荷重: {yield_point[1]:.2f} kN")
-print(f"降伏変位: {yield_point[0]:.2f} mm")
-print(f"最大荷重: {analysis_result['MaxLoad'].values[0]:.2f} kN")
+print(f"初期剛性: {stiffness:.2f} kN/mm")
+print(f"降伏荷重: {yield_point.y:.2f} kN")
+print(f"降伏変位: {yield_point.x:.2f} mm")
+print(f"最大荷重: {analysis_result['Force'].max():.2f} kN")
 ```
 
 ## 補足情報
-
-### スタブファイル生成
-
-サンプルコードを実行する前に、IDE の自動補完を有効にするためにスタブファイルの生成を行うことをおすすめします：
-
-```python
-import tascpy  # 初回インポート時に自動的にスタブファイルが生成されます
-
-# または手動で生成する場合：
-from tascpy.analytics.operations.stub_generator import generate_stubs
-generate_stubs()
-```
 
 ### プロットのカスタマイズ
 
 すべての可視化メソッドは Matplotlib のパラメータをサポートしているため、プロットを細かくカスタマイズできます：
 
 ```python
-collection.ops.plot(
-    x_column="Time", 
+collection.plot.plot(
     y_column="Value",
-    plot_type="scatter",  # 散布図
-    marker="o",           # マーカースタイル
-    s=50,                 # マーカーサイズ
-    alpha=0.7,            # 透明度
-    c="Value2",           # 色付けに使う列
-    cmap="viridis",       # カラーマップ
-    colorbar=True,        # カラーバーの表示
-    title="タイトル",      # グラフタイトル
-    xlabel="X軸ラベル",    # X軸ラベル
-    ylabel="Y軸ラベル",    # Y軸ラベル
-    grid=True             # グリッド線の表示
-).end()
+    x_column="Time",
+    x_label="X軸ラベル",   # X軸ラベル
+    y_label="Y軸ラベル",   # Y軸ラベル
+    marker="o",           # 以下は matplotlib の plot にそのまま渡されます
+    linestyle="--",
+    alpha=0.7,
+    color="tab:blue",
+)
 ```
 
 ### エラーハンドリング
 
 tascpy の操作でエラーが発生した場合は、わかりやすいエラーメッセージが表示されます。一般的なエラーとその対処法：
 
-- **列名の誤り**: `KeyError: 'column_name'` → 正しい列名を確認してください
-- **型の不一致**: `TypeError: ...` → 数値演算には数値型の列を使用してください
-- **データ欠損**: `ValueError: Cannot operate on missing data` → `filter_out_none()` などで欠損値を処理してください
+- **列名の誤り**: `KeyError: "列 'column_name' が存在しません"` → 正しい列名を確認してください
+- **ゼロ除算**: `ValueError: ゼロによる除算が発生しました` → `filter_by_condition()` で分母が 0 の行を除いてください
+- **データ欠損**: 欠損値は計算時に NaN として扱われます。行ごと除く場合は `filter_out_none()` を使用してください
 
 ## サンプルデータ
 
@@ -275,56 +193,36 @@ python basic/01_create_collection.py
 tascpy の実際の使用シナリオを示す実践的なワークフロー例：
 
 ```python
+import tascpy
+
 # 1. データ読み込み
-collection = ColumnCollection.from_file("sample.csv", auto_detect_types=True)
+collection = tascpy.io.load("sample.csv", format_name="csv", auto_detect_types=True)
 
-# 2. データ前処理（選択、フィルタリング、補間）
-clean_data = (
+# 2. データ前処理（選択、欠損除去、重複除去）
+ld_ops = (
     collection.ops
-    .filter_by_value("Force", lambda x: x is not None)  # Noneを除外
     .select(columns=["Time", "Force", "Displacement"])  # 必要な列のみ選択
-    .interpolate(point_count=100, method="linear")  # 等間隔に補間
-    .end()
+    .filter_out_none()  # 欠損を含む行を除外
+    .remove_consecutive_duplicates_across()  # 連続する重複行を除外
+    # 3. ドメイン特化コレクションへの変換
+    .as_load_displacement(load_column="Force", displacement_column="Displacement")
 )
-
-# 3. ドメイン特化コレクションへの変換（必要に応じて）
-ld_collection = clean_data.ops.as_domain(
-    "load_displacement",
-    load_column="Force",
-    displacement_column="Displacement"
-).end()
 
 # 4. 分析と計算
 result = (
-    ld_collection.ops
-    .calculate_stiffness(range_start=0.1, range_end=0.5, result_column="Stiffness")
-    .calculate_yield_point(method="offset", offset_ratio=0.002)
-    .calculate_energy(result_column="Energy")
+    ld_ops
+    .calculate_stiffness(range_start=0.1, range_end=0.5)
+    .find_yield_point(method="offset", offset_value=0.002)
     .end()
 )
 
 # 5. 可視化と結果確認
-fig, ax = plt.subplots(figsize=(10, 6))
-result.ops.plot_load_displacement(
-    marker="o", 
-    linestyle="-", 
-    ax=ax,
-    title="荷重-変位曲線と降伏点"
-).end()
+result.plot.plot_load_displacement(marker="o", linestyle="-")
 
-# 剛性と降伏点の表示
-print(f"剛性: {result['Stiffness'].mean():.2f} kN/mm")
-print(f"降伏荷重: {result['YieldPoint_Load'].values[0]:.2f} kN")
-print(f"降伏変位: {result['YieldPoint_Displacement'].values[0]:.2f} mm")
-```
-
-## スタブファイル生成
-
-tascpy のチェーンメソッドは動的に登録されるため、IDE の自動補完を有効にするにはスタブファイルの生成が必要です。初回インポート時に自動生成されますが、手動で実行することも可能です：
-
-```python
-from tascpy.analytics.operations.stub_generator import generate_stubs
-generate_stubs()
+yield_point = result.results["yield_point"]
+print(f"剛性: {result.results['stiffness'].value:.2f} kN/mm")
+print(f"降伏荷重: {yield_point.y:.2f} kN")
+print(f"降伏変位: {yield_point.x:.2f} mm")
 ```
 
 ## ヘルプとドキュメント

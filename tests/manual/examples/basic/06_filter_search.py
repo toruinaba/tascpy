@@ -3,6 +3,7 @@ ColumnCollectionのフィルタリングと検索を示すサンプルコード
 """
 
 import os
+import numpy as np
 from tascpy.core.collection import ColumnCollection
 import tascpy
 
@@ -112,9 +113,9 @@ print()
 ops = collection.ops
 
 print("1. 値によるフィルタリング")
-# 特定の値でフィルタリング - チェーンメソッドを使用
-result = ops.filter_by_value("Force1", lambda x: x is not None).end()
-print(f"Force1がNoneでない行: {len(result)}行")
+# 特定の値と一致する行を抽出 - filter_by_value は値の一致で判定する
+result = ops.filter_by_value("Force1", 2.9).end()
+print(f"Force1が2.9の行: {len(result)}行")
 print(f"  Force1値: {result['Force1'].values}")
 print()
 
@@ -122,7 +123,7 @@ print("2. チェーンメソッドによる列の選択とフィルタリング"
 # 特定の列を選択してからフィルタリング - チェーンメソッドを一連の流れで実行
 result = (
     ops.select(columns=["Force1", "Displacement1"])
-    .filter_by_value("Force1", lambda x: x is not None and x > 1.0)
+    .filter_by_condition("Force1", lambda x: x > 1.0)
     .end()
 )
 print(f"選択した列でForce1が1.0より大きい行: {len(result)}行")
@@ -140,30 +141,27 @@ print(f"  対応するステップ: {result.step.values}")
 print()
 
 print("4. 値の範囲による検索")
-# 値の範囲で検索 - チェーンメソッド使用
-indices = ops.search_by_range("Displacement1", min_value=0.1, max_value=0.5)
-if isinstance(indices, tuple): indices = indices[0]
-result = ops.select(indices=indices).end()
+# 値の範囲で絞り込む - filter_by_condition に範囲条件を渡す
+result = ops.filter_by_condition("Displacement1", lambda x: 0.1 <= x <= 0.5).end()
 print(f"Displacement1が0.1～0.5の範囲の行: {len(result)}行")
 print(f"  Displacement1値: {result['Displacement1'].values}")
 print(f"  Force1値: {result['Force1'].values}")
 print()
 
 print("5. ステップ値の範囲による検索")
-# ステップ値の範囲で検索 - チェーンメソッド使用
-indices = ops.search_by_step_range(min=3, max=6)
-if isinstance(indices, tuple): indices = indices[0]
-result = ops.select(indices=indices).end()
+# ステップ値の範囲で選択 - select にステップ値のリストを渡す
+step_range = [s for s in collection.step.values if 3 <= s <= 6]
+result = ops.select(steps=step_range).end()
 print(f"ステップ3～6の行: {len(result)}行")
 print(f"  ステップ値: {result.step.values}")
 print(f"  Force1値: {result['Force1'].values}")
 print()
 
-print("6. ステップ選択と値のフィルタリングを組み合わせたチェーンメソッド")
-# 特定のステップを選択してから値でフィルタリング - 一つのチェーンで実行
+print("6. ステップ選択と欠損値の除外を組み合わせたチェーンメソッド")
+# 特定のステップを選択してから Force1 が欠損している行を除外 - 一つのチェーンで実行
 result = (
     ops.select(steps=[2, 3, 4, 5])
-    .filter_by_value("Force1", lambda x: x is not None)
+    .filter_out_none(columns=["Force1"])
     .end()
 )
 print(f"選択したステップでForce1がNoneでない行: {len(result)}行")
@@ -171,80 +169,48 @@ print(f"  ステップ値: {result.step.values}")
 print(f"  Force1値: {result['Force1'].values}")
 print()
 
-print("7. 条件関数による複合検索")
-
-
-# 条件関数を使用した検索 - 2つの条件の組み合わせ
-def condition_func(row):
-    force_ok = row["Force1"] is not None and row["Force1"] > 2.0
-    disp_ok = row["Displacement1"] is not None and row["Displacement1"] < 0.5
-    return force_ok and disp_ok
-
-
-# 条件関数を使用したチェーンメソッド
-indices = ops.search_by_condition(condition_func=condition_func)
-if isinstance(indices, tuple): indices = indices[0]
-result = ops.select(indices=indices).end()
+print("7. 複数列の条件による複合検索")
+# 複数列にまたがる条件は、条件ごとに filter_by_condition を連ねる
+result = (
+    ops.filter_by_condition("Force1", lambda x: x > 2.0)
+    .filter_by_condition("Displacement1", lambda x: x < 0.5)
+    .end()
+)
 print(f"Force1>2.0かつDisplacement1<0.5の行: {len(result)}行")
 print(f"  Force1値: {result['Force1'].values}")
 print(f"  Displacement1値: {result['Displacement1'].values}")
 print()
 
 print("8. メタデータによる検索とフィルタリングの組み合わせ")
-
-
-# メタデータ（日付）に基づく条件関数
-def date_condition(row):
-    # row_data辞書には列の値は含まれるが、stepやメタデータは含まれない
-    # 現在の行のステップ値を推測するため、同じ値を持つ行を探す
-    for i, step_val in enumerate(collection.step.values):
-        all_match = True
-        for col_name, col_val in row.items():
-            if collection[col_name].values[i] != col_val:
-                all_match = False
-                break
-        if all_match:
-            # 一致する行が見つかった
-            date = collection.date[i]
-            return date == "2020/12/02"
-    return False  # 一致する行が見つからなかった
-
-
-# 複数の操作を一つのチェーンメソッドで実行
-indices = ops.search_by_condition(condition_func=date_condition)
-if isinstance(indices, tuple): indices = indices[0]
+# 日付はメタデータに保持されているため、該当する行インデックスを求めて select に渡す
+date_indices = [i for i, d in enumerate(collection.date) if d == "2020/12/02"]
 result = (
-    ops.select(indices=indices)
-    .select(steps=list(range(3, 11)))  # ステップ3から10を選択
+    ops.select(indices=date_indices)
+    .select(steps=[s for s in collection.step.values if 3 <= s <= 10])  # ステップ3から10を選択
     .end()
 )
-
 print(f"選択したステップから2020/12/02のデータを検索: {len(result)}行")
-print(f"  日付: {result.date}")
+print(f"  ステップ値: {result.step.values}")
 print(f"  Force1値: {result['Force1'].values}")
 print()
 
 print("9. 上位N件の検索")
-# Force1の上位3件を検索 - チェーンメソッド使用
-indices = ops.search_top_n("Force1", n=3)
-if isinstance(indices, tuple): indices = indices[0]
-result = ops.select(indices=indices).end()
-print(f"Force1が最大の上位3件:")
+# Force1の上位3件の行インデックスを NumPy で求めて select に渡す
+force1 = np.array(collection["Force1"].values, dtype=float)
+top_indices = sorted(np.argsort(np.nan_to_num(force1, nan=-np.inf))[::-1][:3].tolist())
+result = ops.select(indices=top_indices).end()
+print("Force1が最大の上位3件:")
 for i in range(len(result)):
-    step = result.step.values[i]
-    force = result["Force1"].values[i]
-    date = result.date[i]
-    print(f"  ステップ{step}: {force}kN ({date})")
+    print(f"  ステップ{result.step.values[i]}: {result['Force1'].values[i]}kN ({collection.date[top_indices[i]]})")
 print()
 
-print("10. Noneの処理と複合検索の組み合わせ")
-# Noneを含む行を検索し、別の操作と組み合わせる
-indices = ops.search_missing_values(columns=["Force1"])
-if isinstance(indices, tuple): indices = indices[0]
-result = ops.select(indices=indices).end()  # Force1がNoneの行を検索
+print("10. 欠損値を含む行の抽出")
+# Force1が欠損している行インデックスを求めて select に渡す
+missing_indices = np.where(np.isnan(force1))[0].tolist()
+result = ops.select(indices=missing_indices).end()
 print(f"Force1がNoneの行: {len(result)}行")
 print(f"  ステップ値: {result.step.values}")
-print(f"  日付: {result.date}")
+print(f"  日付: {[collection.date[i] for i in missing_indices]}")
 print()
 
 print("11. 複数の検索条件を組み合わせた高度なチェーンメソッド")

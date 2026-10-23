@@ -9,7 +9,9 @@ from ..core.step import Step
 _DOMAIN_CONVERTERS = {}
 
 
-def register_domain_converter(source_domain: str = "core", target_domain: str = None):
+def register_domain_converter(
+    source_domain: str = "core", target_domain: Optional[str] = None
+) -> Callable[[Callable], Callable]:
     """ドメイン変換関数を登録するデコレータ
 
     Args:

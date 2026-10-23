@@ -1,10 +1,12 @@
-from typing import Optional, Any, Tuple, List, Dict, Union
+from typing import TYPE_CHECKING, Optional, Any, Tuple, List, Dict, Union
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from tascpy.visualization.functional.core import plot as core_plot
-from tascpy.analytics.operations.abstraction import extract_axis_data
+
+if TYPE_CHECKING:
+    from tascpy.core.collection import ColumnCollection
 
 class CorePlotter:
     """基本のデータ可視化を提供するPlotterクラス
@@ -13,7 +15,7 @@ class CorePlotter:
     純粋な可視化関数（tascpy.visualization.functional.core.plot）に渡します。
     """
     
-    def __init__(self, collection):
+    def __init__(self, collection: "ColumnCollection"):
         """
         Args:
             collection: 描画対象のColumnCollectionオブジェクト
@@ -29,7 +31,13 @@ class CorePlotter:
         Returns:
             Tuple[np.ndarray, str]: (値の配列、ラベル文字列)
         """
-        val_list, name, unit = extract_axis_data(self._collection, column_name)
+        if column_name is None:
+            val_list, name, unit = self._collection.step.values, "Step", ""
+        else:
+            if column_name not in self._collection.columns:
+                raise KeyError(f"列 '{column_name}' は存在しません")
+            column = self._collection.columns[column_name]
+            val_list, name, unit = column.values, column.name, column.unit
         label = f"{name} [{unit}]" if unit else name
         return np.array(val_list), label
 
@@ -40,7 +48,7 @@ class CorePlotter:
         ax: Optional[Axes] = None,
         x_label: Optional[str] = None,
         y_label: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Axes:
         """2次元の折れ線または散布図をプロットします
         
@@ -77,7 +85,7 @@ class CorePlotter:
         ax: Optional[Axes] = None,
         x_label: str = "X Values",
         y_label: str = "Values",
-        **kwargs
+        **kwargs: Any
     ) -> Axes:
         """共通のX軸（位置など）に対して複数のY軸データ（センサー値など）をプロットします
         
@@ -117,7 +125,7 @@ class CorePlotter:
         column: str,
         x_column: Optional[str] = None,
         ax: Optional[Axes] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Axes:
         """異常値を検出して可視化します
         
@@ -157,7 +165,7 @@ class CorePlotter:
         fig: Optional[Any] = None,
         x_label: Optional[str] = None,
         y_label: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Any:
         """インタラクティブな出力をPlotlyで行います
         

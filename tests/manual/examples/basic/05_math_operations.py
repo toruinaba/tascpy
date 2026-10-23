@@ -60,10 +60,12 @@ print(f"Force2 - Force1 = {result['Force2-Force1'].values}")
 result = ops.multiply("Displacement1", 10).end()  # Displacement1 * 10
 print(f"Displacement1 * 10 = {result['Displacement1*10'].values}")
 
-# 割り算: 列同士（ゼロ除算はNoneとして扱う）
-result = ops.divide(
-    "Force1", "Displacement1", handle_zero_division="none"
-).end()  # Force1 / Displacement1
+# 割り算: 列同士（有効な分子に対して分母が 0 だと ValueError になるため、先に 0 の行を除く）
+result = (
+    ops.filter_by_condition("Displacement1", lambda x: x != 0)
+    .divide("Force1", "Displacement1")
+    .end()
+)  # Force1 / Displacement1
 print(f"Force1 / Displacement1 = {result['Force1/Displacement1'].values}")
 print()
 
@@ -83,12 +85,8 @@ print("3. selectを使用して特定の列のみに演算を適用")
 # selectを使用して特定の列だけを選択してから数学演算を適用する例
 result = (
     ops.select(columns=["Force1", "Displacement1"])
-    .divide(
-        "Force1",
-        "Displacement1",
-        result_column="Stiffness",
-        handle_zero_division="none",
-    )
+    .filter_by_condition("Displacement1", lambda x: x != 0)
+    .divide("Force1", "Displacement1", result_column="Stiffness")
     .end()
 )
 print(f"選択した列のみで剛性計算: Force1/Displacement1 = {result['Stiffness'].values}")
@@ -128,13 +126,13 @@ result_pow = (
 )
 print(f"Force1^2 = {result_pow['Force1^2'].values}")
 
-# 指数関数の適用
-result_exp = (
+# 数式中で関数を使う（evaluate で使える関数: log, sqrt, abs, max, min, pow, round）
+result_abs = (
     ops.select(columns=["Displacement1"])
-    .exp("Displacement1", result_column="exp_disp")
+    .evaluate("abs(Displacement1 - 0.05)", result_column="abs_diff")
     .end()
 )
-print(f"exp(Displacement1) = {result_exp['exp_disp'].values}")
+print(f"abs(Displacement1 - 0.05) = {result_abs['abs_diff'].values}")
 print()
 
 print("7. 連鎖演算によるデータ変換と解析")
@@ -142,16 +140,10 @@ print("7. 連鎖演算によるデータ変換と解析")
 result = (
     ops.select(steps=[3, 4, 5])  # Noneを含まないステップを選択
     .add("Force1", "Force2", result_column="TotalForce")  # 合計荷重を計算
-    .divide(
-        "TotalForce", 2, result_column="AverageForce", handle_zero_division="none"
-    )  # 平均荷重を計算
+    .divide("TotalForce", 2, result_column="AverageForce")  # 平均荷重を計算
     .sqrt("AverageForce", result_column="SqrtAvgForce")  # 平均荷重の平方根
-    .divide(
-        "Force1",
-        "SqrtAvgForce",
-        result_column="NormalizedForce1",
-        handle_zero_division="none",
-    )  # 荷重の正規化
+    .filter_by_condition("SqrtAvgForce", lambda x: x != 0)  # 0 除算を避ける
+    .divide("Force1", "SqrtAvgForce", result_column="NormalizedForce1")  # 荷重の正規化
     .end()
 )
 
@@ -169,12 +161,8 @@ advanced_result = (
     ops.select(columns=["Force1", "Force2", "Displacement1", "Displacement2"])
     .filter_by_condition("Force1", lambda x: x > 0)  # 荷重が正の値のデータのみを選択
     .add("Force1", "Force2", result_column="TotalForce")  # 合計荷重
-    .divide(
-        "TotalForce",
-        "Displacement1",
-        result_column="TotalStiffness",
-        handle_zero_division="none",
-    )  # 全体剛性
+    .filter_by_condition("Displacement1", lambda x: x != 0)  # 0 除算を避ける
+    .divide("TotalForce", "Displacement1", result_column="TotalStiffness")  # 全体剛性
     .evaluate(
         "(Force2/Force1) if Force1 > 0 else None", result_column="ForceRatio"
     )  # 荷重比

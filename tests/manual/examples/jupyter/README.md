@@ -21,16 +21,6 @@ import tascpy
 from tascpy.core.collection import ColumnCollection
 ```
 
-### スタブファイルとコード補完
-
-Jupyter での自動補完を有効にするには、最初のセルでスタブファイルを生成します：
-
-```python
-# スタブファイルの生成（初回実行時に必要）
-from tascpy.analytics.operations.stub_generator import generate_stubs
-generate_stubs()
-```
-
 ### インタラクティブな可視化
 
 Jupyter Notebook での対話的なプロット表示には、`ipywidgets` を活用できます：

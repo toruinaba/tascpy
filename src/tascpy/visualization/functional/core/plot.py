@@ -32,7 +32,7 @@ def plot(
     y_label: str = "",
     title: Optional[str] = None,
     ax: Optional[plt.Axes] = None,
-    **kwargs
+    **kwargs: Any
 ) -> plt.Axes:
     """基本的なプロットを行います。
 
@@ -89,7 +89,7 @@ def visualize_outliers(
     edge_handling: str = "asymmetric",
     min_abs_value: float = 1e-10,
     scale_factor: float = 1.0,
-    **kwargs
+    **kwargs: Any
 ) -> plt.Axes:
     """異常値を検出し可視化します。
 
@@ -190,7 +190,7 @@ def plot_const_x(
     y_data: Dict[str, np.ndarray],
     x_values: np.ndarray,
     ax: Optional[plt.Axes] = None,
-    **kwargs
+    **kwargs: Any
 ) -> plt.Axes:
     """共通のX軸に対して複数のY列をプロットします。
 
@@ -236,7 +236,7 @@ def iplot(
     y_label: str = "",
     title: Optional[str] = None,
     fig: Optional[Any] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Any:
     """インタラクティブなプロットを行います（Jupyter/Plotly環境用）。
 

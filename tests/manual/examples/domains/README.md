@@ -39,96 +39,68 @@
    ```
 
 2. **[01_coordinate_visualization_basic.py](./coordinate/01_coordinate_visualization_basic.py)** - 基本的な座標可視化
-   - 2D/3Dプロット
-   - カラーマップによる値の表現
-   - 時間変化の表現
-   
+   - センサー位置のプロット（`get_coordinate_matrix`）
+   - 値で色分けした散布図、逆距離加重補間によるヒートマップ
+   - `ops.interpolate_at_point` による任意点での補間
+
    ```python
-   # 座標データの3Dプロット例
-   (
-       coord_collection.ops
-       .coordinate_plot_3d(
-           column_values="temperature",
-           colormap="rainbow",
-           title="空間上の温度分布",
-           value_label="温度 (℃)",
-           show_colorbar=True,
-           marker_size=100,
-           show_labels=True,
-           ax=ax
-       )
-       .end()
-   )
+   points, names = collection.get_coordinate_matrix()   # (N, 2) の座標行列と列名
+   values = [collection[n].values[50] for n in names]
+   ax.scatter(points[:, 0], points[:, 1], c=values, cmap="coolwarm")
    ```
 
 3. **[02_coordinate_visualization_advanced.py](./coordinate/02_coordinate_visualization_advanced.py)** - 高度な座標可視化
-   - 等高線プロット
-   - 補間による面表示
-   - マルチプロット比較
-   
-4. **[03_coordinate_timeseries.py](./coordinate/03_coordinate_timeseries.py)** - 時系列座標データ処理
-   - 座標の時間変化の捕捉
-   - 軌跡のプロット
-   - 移動速度・加速度の計算
-   
-5. **[04_coordinate_axis_visualization.py](./coordinate/04_coordinate_axis_visualization.py)** - 座標軸可視化
-   - 座標軸の表示とカスタマイズ
-   - ベクトル場の可視化
-   - 基準点と方向の表示
+   - 等高線・3D 表面プロット
+   - `calculate_distance` による距離行列と近傍探索
+   - `spatial_clustering` による k-means クラスタリング
+   - 温度勾配のベクトル場
+
+4. **[03_coordinate_timeseries.py](./coordinate/03_coordinate_timeseries.py)** - 時系列座標データ
+   - `ops.as_coordinate` による座標ドメインへの変換
+   - センサーごとの時系列（`plot.plot`）
+   - 時刻ごとの空間分布スナップショットと温度勾配
+
+5. **[04_coordinate_axis_visualization.py](./coordinate/04_coordinate_axis_visualization.py)** - 座標軸に沿った可視化
+   - `ops.select` で抽出したステップを `plot.plot_const_x` で X 座標に沿って描画
+   - 散布図・棒グラフ・軸の入れ替え・選択センサーの比較
+
+座標の可視化専用のプロット関数はないため、サンプルでは座標情報を取り出して matplotlib で描画しています。
 
 ### 座標ドメインの主要機能
 
 #### 1. 座標定義と操作
 
 ```python
-# 座標の追加
+# 座標の設定（既存の座標も上書き）
 collection.set_column_coordinates("sensor4", x=5.0, y=5.0, z=0.0)
-
-# 座標の更新
-collection.update_column_coordinates("sensor1", x=1.0, y=1.0, z=1.0)
 
 # 座標の取得
 x, y, z = collection.get_column_coordinates("sensor1")
 
-# 距離計算 
+# 座標を持つ列と座標行列
+names = collection.get_columns_with_coordinates()
+matrix, valid_names = collection.get_coordinate_matrix(include_z=True)
+
+# 距離計算
 distance = collection.calculate_distance("sensor1", "sensor2")
+
+# 座標による k-means クラスタリング（結果は metadata["coordinate_domain"]["clustering_result"]）
+clustered = collection.spatial_clustering(n_clusters=3)
 ```
 
-#### 2. 空間補間
+#### 2. 空間補間（CoordinateOps）
 
 ```python
-# 空間内の任意の点での値を補間計算
-interpolated_collection = (
-    coord_collection.ops
-    .spatial_interpolate(
-        column="temperature",
-        method="idw",  # 逆距離加重法
-        power=2,
-        result_column="interpolated_temp"
-    )
-    .end()
-)
-```
+# 任意点 (x, y) での補間値を "interp_{列名}" 列として追加
+result = collection.ops.interpolate_at_point(x=5.0, y=5.0, method="inverse_distance").end()
 
-#### 3. 特殊プロット機能
+# 補間元の列の値から、ターゲット列の座標位置の値を補間
+result = collection.ops.spatial_interpolation_to_points(
+    source_columns=["sensor1", "sensor2"], target_columns=["sensor3"]
+).end()
 
-```python
-# 等高線プロット
-collection.ops.contour_plot(
-    column="temperature",
-    grid_size=(50, 50),
-    colormap="viridis",
-    levels=10,
-    title="温度分布等高線"
-)
-
-# ヒートマッププロット
-collection.ops.heatmap_plot(
-    column="temperature",
-    grid_size=(50, 50),
-    colormap="plasma",
-    title="温度分布ヒートマップ"
-)
+# 矩形領域のグリッド補間（結果は "grid_{列名}_grid" 列とメタデータ）
+result = collection.ops.interpolate_grid(x_range=(0, 10), y_range=(0, 10), grid_size=(20, 20)).end()
 ```
 
 ## 2. 荷重-変位データ処理ドメイン (load_displacement)
@@ -138,147 +110,74 @@ collection.ops.heatmap_plot(
 ### サンプルファイル一覧
 
 1. **[01_load_displacement_domain.py](./load_displacement/01_load_displacement_domain.py)** - 荷重-変位ドメインの基本操作
-   - `LoadDisplacementCollection` の作成と設定
+   - `LoadDisplacementCollection` への変換
    - 荷重-変位曲線のプロット
-   - 剛性計算とヤング率の推定
-   
+   - 接線剛性・初期剛性・降伏点の計算
+
    ```python
    # 荷重-変位ドメインへの変換
-   ld_collection = collection.ops.as_domain(
-       "load_displacement",
-       load_column="Force1",
-       displacement_column="Displacement1"
+   ld_collection = collection.ops.as_load_displacement(
+       load_column="Force1", displacement_column="Displacement1"
    ).end()
-   
+
    # 荷重-変位曲線のプロット
-   ld_collection.ops.plot_load_displacement(
-       title="荷重-変位曲線",
-       xlabel="変位 (mm)",
-       ylabel="荷重 (kN)",
-       marker="o",
-       linestyle="-"
+   ld_collection.plot.plot_load_displacement()
+
+   # 初期剛性（結果 "stiffness" に格納）
+   stiffness = (
+       ld_collection.ops.calculate_stiffness(range_start=0.1, range_end=0.4)
+       .end().results["stiffness"].value
    )
-   
-   # 剛性計算
-   result = ld_collection.ops.calculate_stiffness(
-       range_start=0.1,
-       range_end=0.5,
-       result_column="Stiffness"
-   ).end()
    ```
 
 2. **[02_load_displacement_special_curves.py](./load_displacement/02_load_displacement_special_curves.py)** - 特殊曲線の生成とプロット
-   - スケルトン曲線の生成
-   - 累積曲線の生成
-   - 包絡線の抽出
-   
+   - サイクル列の作成（`cycle_count`）
+   - スケルトン曲線・累積曲線の生成
+
    ```python
-   # スケルトン曲線の作成
-   skeleton_result = (
+   curves = (
        ld_collection.ops
-       .create_skeleton_curve(
-           result_load_column="SkeletonLoad", 
-           result_displacement_column="SkeletonDisp"
-       )
+       .cycle_count()              # "Force1_cycle" 列を追加
+       .create_skeleton_curve()    # サイクル列は自動検出
+       .create_cumulative_curve()
        .end()
    )
-   
-   # 累積曲線の作成
-   cumulative_result = (
-       ld_collection.ops
-       .create_cumulative_curve(
-           result_load_column="CumulativeLoad",
-           result_displacement_column="CumulativeDisp"
-       )
-       .end()
-   )
+   skeleton = curves.get_result("skeleton_curve")   # XYSeriesResult
    ```
 
 3. **[03_yield_point_calculation.py](./load_displacement/03_yield_point_calculation.py)** - 降伏点の計算と評価
-   - 線形領域の判定
-   - オフセット法による降伏点検出
-   - 降伏点の視覚化
-   
+   - オフセット法・一般降伏法による降伏点検出
+   - 検出に失敗するケースとデバッグ情報
+   - 降伏点の可視化
+
    ```python
-   # 降伏点の計算
-   yield_result = (
-       ld_collection.ops
-       .calculate_yield_point(
-           method="offset",
-           offset_ratio=0.002,  # 0.2%オフセット法
-           range_start=0.1,
-           range_end=0.4,
-           detailed_info=True  # 詳細情報の取得
-       )
-       .end()
-   )
-   
-   # 降伏点のプロット
-   ld_collection.ops.plot_yield_point(
-       method="offset",
-       offset_ratio=0.002,
-       show_tangent_line=True,
-       show_offset_line=True,
-       title="降伏点の検出 (0.2%オフセット法)"
-   )
+   result = ld_collection.ops.find_yield_point(
+       method="offset", offset_value=0.002, range_start=0.1, range_end=0.4
+   ).end()
+   point = result.results["yield_point"]   # PointResult (x: 変位, y: 荷重)
    ```
 
 ### 荷重-変位ドメインの主要機能
 
-#### 1. 基本特性の計算
+`ld_collection.ops` では汎用操作に加えて以下が使えます。
+
+| メソッド | 内容 | 結果の格納先 |
+|---|---|---|
+| `calculate_slopes()` | 区間ごとの傾き | 列 `slope_data` |
+| `calculate_stiffness(range_start, range_end, method)` | 初期剛性 | `results["stiffness"]` |
+| `find_yield_point(method, offset_value, ...)` | 降伏点 | `results["yield_point"]` |
+| `cycle_count(column, step)` | サイクル番号 | 列 `{荷重列}_cycle` |
+| `split_by_cycles(cycle_column)` | サイクルごとに分割 | `OpsList` |
+| `find_peaks_and_valleys(column, distance)` | ピーク/バレーのマーカー | 列 `peak_valley` |
+| `create_skeleton_curve(cycle_column)` | スケルトン曲線 | `results["skeleton_curve"]` |
+| `create_cumulative_curve(cycle_column)` | 累積曲線 | `results["cumulative_curve"]` |
+| `analyze_hysteresis(cycle_column)` | サイクルごとの履歴エネルギー・最大最小値 | 集計表（`ColumnCollection`） |
+| `analyze_stiffness_degradation(cycle_column)` | サイクルごとの割線剛性 | 集計表（`ColumnCollection`） |
 
 ```python
-# 線形領域の剛性計算
-result = ld_collection.ops.calculate_stiffness(
-    range_start=0.1,   # 荷重または変位の範囲開始点
-    range_end=0.5,     # 荷重または変位の範囲終了点
-    range_type="displacement",  # 'displacement'または'load'で範囲の種類を指定
-    result_column="Stiffness"  # 結果列名
-).end()
-
-# 降伏点の計算
-yield_result = ld_collection.ops.calculate_yield_point(
-    method="offset",   # 'offset'または'proportional_limit'
-    offset_ratio=0.002,  # オフセットひずみ率 (0.2%)
-    result_column_prefix="YieldPoint"  # 結果列名の接頭辞
-).end()
-
-# 最大荷重点の検出
-max_load_result = ld_collection.ops.find_max_load_point(
-    result_column_prefix="MaxLoadPoint"
-).end()
-```
-
-#### 2. 特殊曲線の生成
-
-```python
-# スケルトン曲線の作成
-skeleton_result = ld_collection.ops.create_skeleton_curve(
-    peak_selection="all",  # 'all'、'positive'または'negative'
-    result_load_column="SkeletonLoad", 
-    result_displacement_column="SkeletonDisp"
-).end()
-
-# 累積曲線の作成
-cumulative_result = ld_collection.ops.create_cumulative_curve(
-    result_load_column="CumulativeLoad",
-    result_displacement_column="CumulativeDisp"
-).end()
-```
-
-#### 3. エネルギー計算
-
-```python
-# エネルギー計算（荷重-変位曲線下の面積）
-energy_result = ld_collection.ops.calculate_energy(
-    result_column="Energy",
-    cumulative=True  # 累積エネルギーを計算
-).end()
-
-# 各サイクルのエネルギー消費を計算
-cycle_energy_result = ld_collection.ops.calculate_cycle_energy(
-    result_column="CycleEnergy"
-).end()
+# サイクルごとの履歴エネルギー
+table = ld_collection.ops.cycle_count().analyze_hysteresis().end()
+print(table["energy"].values)
 ```
 
 ## 使用方法
@@ -369,16 +268,16 @@ coord_collection = DomainCollectionFactory.create(
 主な可視化結果：
 
 ### 座標ドメイン
-- 2D/3D座標プロット
-- 等高線・ヒートマップ
-- 時系列変化のアニメーション
-- 空間補間結果
+- センサー位置・散布図・ヒートマップ
+- 等高線・3D 表面・距離行列・クラスタリング
+- 時刻ごとの空間分布と温度勾配
+- 座標軸に沿った値の分布
 
 ### 荷重-変位ドメイン
 - 荷重-変位曲線
 - スケルトン・累積曲線
 - 降伏点の検出と表示
-- エネルギー変化のプロット
+- サイクルごとの履歴エネルギーの集計
 
 ## ドメイン拡張の基本
 
