@@ -374,16 +374,21 @@ class CoreOps(Generic[C_co]):
             >>> col.ops.calculate(lambda A: np.where(A > 3, A, 0), result_column="clipped").end()
         """
         mapping = dict(columns or {})
-        args = {}
+        positional: List[np.ndarray] = []
+        keywords: Dict[str, np.ndarray] = {}
         for param in inspect.signature(func).parameters.values():
             if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
                 raise ValueError("calculate の関数には可変長引数 (*args / **kwargs) を使えません")
             name = mapping.get(param.name, param.name)
             if name not in self._c:
                 raise KeyError(f"引数 '{param.name}' に対応する列 '{name}' が存在しません")
-            args[param.name] = np.array(self._numeric(name))
+            value = np.array(self._numeric(name))
+            if param.kind == param.POSITIONAL_ONLY:
+                positional.append(value)
+            else:
+                keywords[param.name] = value
 
-        values = np.asarray(func(**args), dtype=float)
+        values = np.asarray(func(*positional, **keywords), dtype=float)
         if values.ndim == 0:
             values = np.full(len(self._c), float(values))
         if values.shape != (len(self._c),):

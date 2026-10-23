@@ -100,6 +100,20 @@ class TestCalculateOperation:
         coll.ops.calculate(mutate)
         assert coll["A"].to_list() == [1.0, 2.0]
 
+    def test_positional_only_and_keyword_only_parameters(self):
+        coll = ColumnCollection({"A": [1.0, 2.0], "B": [10.0, 20.0], "C": [100.0, 200.0]})
+
+        def combine(A, /, B, *, C):
+            return A + B + C
+
+        assert coll.ops.calculate(combine).end()["combine"].to_list() == [111.0, 222.0]
+
+        def first(x, /):
+            return x * 2
+
+        result = coll.ops.calculate(first, columns={"x": "B"}).end()
+        assert result["first"].to_list() == [20.0, 40.0]
+
     def test_errors(self, sample_collection):
         with pytest.raises(KeyError, match="'X'"):
             sample_collection.ops.calculate(lambda X: X)
