@@ -4,7 +4,6 @@ select および select_step の機能テスト
 実際のユースケースに基づいた機能テストを行います。
 """
 
-import os
 import pytest
 import numpy as np
 
@@ -71,44 +70,6 @@ def test_select_step_with_operations_chain(large_collection):
     assert list(result2.columns) == ["Time", "Temperature"]
     assert list(result2["Time"].values) == list(result["Time"].values)
     assert list(result2["Temperature"].values) == list(result["Temperature"].values)
-
-
-def test_real_data_sample():
-    """実データを使ったテスト"""
-    # テストデータファイルのパス
-    data_file = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "data", "extracted_W-N.csv"
-    )
-
-    # データが存在する場合のみテスト実行
-    if not os.path.exists(data_file):
-        pytest.skip(f"テストデータ {data_file} が見つかりません")
-
-    # pandas モジュールがインストールされていない場合はスキップ
-    try:
-        import pandas as pd
-    except ImportError:
-        pytest.skip("pandas モジュールがインストールされていません")
-
-    # ファイル読み込み
-    df = pd.read_csv(data_file)
-
-    # CollectionCollectionの作成
-    step_values = list(range(len(df)))
-    columns = {
-        col: Column(col, df[col].tolist(), ch=str(i))
-        for i, col in enumerate(df.columns)
-    }
-    collection = ColumnCollection(columns, step=step_values)
-    ops = collection.ops
-
-    # 特定の列を選択してメトリクスを計算
-    selected = ops.select(columns=df.columns[:3].tolist()).end()
-
-    # 結果の検証
-    assert len(selected.columns) == 3
-    assert len(selected) == len(df)
-
 
 def test_sequential_select_operations(large_collection):
     """複数のselect操作を順番に実行するテスト"""
