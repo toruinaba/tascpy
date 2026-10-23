@@ -153,3 +153,15 @@ def test_rosette_vectors_with_missing_value_use_nan():
               .calculate_rosette_strains("R").end())
     ax = strain.plot.plot_rosette_vectors("R", step_index=1)
     assert ax is not None
+
+
+def test_wrong_result_type_raises_type_error():
+    from tascpy.core.result import ScalarResult
+
+    col = ColumnCollection({"P": [0.0, 1.0], "d": [0.0, 1.0]})
+    col = col.with_result(ScalarResult("skeleton_curve", 1.0)).with_result(ScalarResult("yield_point", 1.0))
+    ld = col.ops.as_load_displacement("P", "d").end()
+    with pytest.raises(TypeError, match="XYSeriesResult"):
+        ld.plot.plot_skeleton_curve()
+    with pytest.raises(TypeError, match="PointResult"):
+        ld.plot.plot_yield_point()

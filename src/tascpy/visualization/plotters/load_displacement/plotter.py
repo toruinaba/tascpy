@@ -1,15 +1,28 @@
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar
 
 import numpy as np
 from matplotlib.axes import Axes
+
+from tascpy.core.result import AnalysisResult, PointResult, XYSeriesResult
 
 from tascpy.visualization.functional.load_displacement import plot as ld_plot
 from tascpy.visualization.plotters.core.plotter import CorePlotter, axis_label
 
 if TYPE_CHECKING:
     from tascpy.domains.load_displacement import LoadDisplacementCollection
+
+R = TypeVar("R", bound=AnalysisResult)
+
+
+def _typed_result(result: Optional[AnalysisResult], name: str, cls: Type[R], missing: str) -> R:
+    """解析結果が存在し、期待した型であることを確かめて返します"""
+    if result is None:
+        raise ValueError(missing)
+    if not isinstance(result, cls):
+        raise TypeError(f"解析結果 '{name}' は {cls.__name__} ではありません ({type(result).__name__})")
+    return result
 
 
 @dataclass
@@ -55,10 +68,9 @@ class LoadDisplacementPlotter(CorePlotter):
 
     def _curve(self, name: str) -> tuple[np.ndarray, np.ndarray]:
         """解析結果 (XYSeriesResult) から曲線の (x, y) を取得します"""
-        result = self._collection.results.get(name)
-        if result is None:
-            raise ValueError(f"コレクションに解析結果 '{name}' がありません")
-        return result.x.values, result.y.values  # type: ignore[attr-defined]
+        curve = _typed_result(self._collection.results.get(name), name, XYSeriesResult,
+                              f"コレクションに解析結果 '{name}' がありません")
+        return curve.x.values, curve.y.values
 
     def _yield_point(self, result_prefix: str, yield_disp: Optional[float], yield_load: Optional[float],
                      yield_method: Optional[str], initial_slope: Optional[float],
@@ -66,14 +78,13 @@ class LoadDisplacementPlotter(CorePlotter):
         """引数で指定された値を優先し、指定がなければ解析結果 "{result_prefix}_point" から取得します"""
         info: Dict[str, Any] = {}
         if yield_disp is None or yield_load is None:
-            point = self._collection.results.get(f"{result_prefix}_point")
-            if point is None:
-                raise ValueError("コレクションに降伏点の解析結果が含まれていません")
-            yield_disp = point.x  # type: ignore[attr-defined]
-            yield_load = point.y  # type: ignore[attr-defined]
+            name = f"{result_prefix}_point"
+            point = _typed_result(self._collection.results.get(name), name, PointResult,
+                                  "コレクションに降伏点の解析結果が含まれていません")
+            yield_disp, yield_load = point.x, point.y
             info = point.metadata or {}
         return _Yield(
-            disp=float(yield_disp), load=float(yield_load),  # type: ignore[arg-type]
+            disp=float(yield_disp), load=float(yield_load),
             method=yield_method or info.get("method", "unknown"),
             initial_slope=initial_slope if initial_slope is not None else info.get("initial_slope", 1.0),
             parameters=yield_parameters if yield_parameters is not None else info.get("parameters", {}),
@@ -164,13 +175,14 @@ class LoadDisplacementPlotter(CorePlotter):
         for params in defaults if methods is None else methods:
             params = {k: v for k, v in params.items() if k != "result_prefix"}
             try:
-                point = self._collection.ops.find_yield_point(**params).end().results["yield_point"]
+                found = self._collection.ops.find_yield_point(**params).end().results.get("yield_point")
             except ValueError as e:
                 warnings.warn(f"降伏点を求められませんでした {params}: {e}", stacklevel=2)
                 continue
+            point = _typed_result(found, "yield_point", PointResult, "find_yield_point が結果を返しませんでした")
             md = point.metadata
             results.append({
-                "yield_disp": point.x, "yield_load": point.y, "method": md.get("method"),  # type: ignore[attr-defined]
+                "yield_disp": point.x, "yield_load": point.y, "method": md.get("method"),
                 "initial_slope": md.get("initial_slope"), "parameters": md.get("parameters", {}),
             })
         a = self._ld_axes(x_column, y_column, x_label, y_label)
