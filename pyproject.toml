@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.pyright]
-include = ["src/tascpy/core", "src/tascpy/domains", "src/tascpy/io", "src/tascpy/analytics/ops", "tests/typecheck"]
+include = ["src/tascpy/core", "src/tascpy/domains", "src/tascpy/io", "src/tascpy/analytics/ops", "src/tascpy/visualization", "tests/typecheck"]
 extraPaths = ["src"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"

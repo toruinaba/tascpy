@@ -1,17 +1,20 @@
 """Plotly backend for tascpy visualization"""
-from typing import Optional, Union, List, Dict, Any, Tuple
-import numpy as np
+import importlib.util
+from typing import Any, List, Optional
 
-try:
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    HAS_PLOTLY = True
-except ImportError:
-    HAS_PLOTLY = False
+HAS_PLOTLY = importlib.util.find_spec("plotly") is not None
 
-def check_plotly_availability():
+
+def check_plotly_availability() -> None:
     if not HAS_PLOTLY:
         raise ImportError("Plotly is required for interactive plotting. Please install it with `pip install plotly`.")
+
+
+def _graph_objects() -> Any:
+    check_plotly_availability()
+    import plotly.graph_objects as go
+
+    return go
 
 def plot(
     x_values: Any,
@@ -20,75 +23,41 @@ def plot(
     y_label: str = "",
     title: str = "",
     plot_type: str = "line",
-    fig: Optional[Any] = None,
+    fig: Any = None,
     name: str = "Data",
     **kwargs
 ) -> Any:
-    """基本プロット関数 for Plotly
-    
-    Args:
-        x_values: X軸データ
-        y_values: Y軸データ
+    """Plotly で折れ線（plot_type="line"）または散布図（"scatter"）を描画します
+
+    color は線・マーカーの色として扱い、それ以外の kwargs は go.Scatter にそのまま渡します。
+    title / x_label / y_label は指定されていれば既存の Figure にも設定します。
     """
-    check_plotly_availability()
-    
-    created_new = False
+    go = _graph_objects()
     if fig is None:
         fig = go.Figure()
-        created_new = True
-        
-    # kwargs adjustment for plotly
-    mode = "lines"
-    if plot_type == "scatter":
-        mode = "markers"
-        
-    # Convert matplotlib-style kwargs to plotly if possible, or just ignore specific ones
-    # basic conversion:
-    marker_props = {}
-    line_props = {}
-    
-    if "color" in kwargs:
-        color = kwargs.pop("color")
-        marker_props["color"] = color
-        line_props["color"] = color
-        
-    trace_kwargs = {
-        "x": x_values,
-        "y": y_values,
-        "mode": mode,
-        "name": name
-    }
-    
-    if plot_type == "scatter":
-        trace_kwargs["marker"] = marker_props
-    else:
-        trace_kwargs["line"] = line_props
-        
-    # Add other kwargs
-    # This is a simplification; a robust implementation would map mpl kwargs to plotly
-    
-    fig.add_trace(go.Scatter(**trace_kwargs))
-        
-    if created_new:
-        fig.update_layout(
-            title=title,
-            xaxis_title=x_label,
-            yaxis_title=y_label,
-            template="plotly_white"
-        )
-        # fig.show() is usually called by the user or in a notebook environment
-        
+        fig.update_layout(template="plotly_white")
+
+    color = kwargs.pop("color", None)
+    style_key = "marker" if plot_type == "scatter" else "line"
+    style = dict(kwargs.pop(style_key, {}) or {})
+    if color is not None:
+        style.setdefault("color", color)
+    fig.add_trace(go.Scatter(
+        x=x_values, y=y_values, mode="markers" if plot_type == "scatter" else "lines", name=name,
+        **{style_key: style}, **kwargs,
+    ))
+    set_labels(fig, xlabel=x_label, ylabel=y_label, title=title)
     return fig
+
 
 def create_figure() -> Any:
     """Create a new plotly figure"""
-    check_plotly_availability()
-    return go.Figure()
+    return _graph_objects().Figure()
 
 def scatter_points(
     x: List[float], 
     y: List[float], 
-    fig: Optional[Any] = None,
+    fig: Any = None,
     name: str = "Data",
     **kwargs
 ) -> Any:
@@ -98,7 +67,7 @@ def scatter_points(
 def draw_line(
     x: List[float],
     y: List[float],
-    fig: Optional[Any] = None,
+    fig: Any = None,
     name: str = "Line",
     **kwargs
 ) -> Any:

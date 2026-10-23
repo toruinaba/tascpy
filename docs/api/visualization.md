@@ -5,9 +5,6 @@
 ## Configuration
 ::: tascpy.visualization.config
 
-## Matplotlib Backend
-::: tascpy.visualization.backend_mpl
-
 ## Plotly Backend
 ::: tascpy.visualization.backend_plotly
 

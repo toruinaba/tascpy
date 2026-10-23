@@ -1,389 +1,207 @@
-from typing import Optional, Any, List, Dict
+import warnings
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 import numpy as np
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
-from tascpy.visualization.plotters.core.plotter import CorePlotter
 from tascpy.visualization.functional.load_displacement import plot as ld_plot
+from tascpy.visualization.plotters.core.plotter import CorePlotter, axis_label
+
+if TYPE_CHECKING:
+    from tascpy.domains.load_displacement import LoadDisplacementCollection
+
+
+@dataclass
+class _Axes:
+    """荷重-変位の元データと軸ラベル・単位"""
+
+    x: np.ndarray
+    y: np.ndarray
+    x_label: str
+    y_label: str
+    x_unit: Optional[str]
+    y_unit: Optional[str]
+
+
+@dataclass
+class _Yield:
+    disp: float
+    load: float
+    method: str
+    initial_slope: float
+    parameters: Dict[str, Any]
 
 
 class LoadDisplacementPlotter(CorePlotter):
-    """LoadDisplacementドメイン特化のデータ可視化を提供するPlotterクラス
-    
-    LoadDisplacementCollectionからドメイン特有のメタデータ（荷重・変位カラム名）
-    を抽出して適宜デフォルト値として利用しつつ、純粋配列を描画関数へ渡します。
+    """荷重-変位コレクションのプロッター
+
+    X 軸・Y 軸の列を省略すると変位列・荷重列を使い、軸ラベルは "列名 [単位]" にします。
+    曲線や降伏点は解析結果（results）から取得します。
     """
 
-    def __init__(self, collection):
-        super().__init__(collection)
-        self._collection = collection
+    _collection: "LoadDisplacementCollection"
 
-    def _resolve_ld_columns(
-        self, x_column: Optional[str] = None, y_column: Optional[str] = None
-    ) -> tuple[str, str]:
-        """指定がない場合はLoadDisplacementCollectionのデフォルトカラムを返します"""
-        x_col = x_column
-        y_col = y_column
-        if y_col is None and hasattr(self._collection, "load_column"):
-            y_col = self._collection.load_column
-        if x_col is None and hasattr(self._collection, "displacement_column"):
-            x_col = self._collection.displacement_column
-
-        if x_col is None or y_col is None:
-            raise ValueError("x_column or y_column is not provided and defaults could not be found.")
-
-        return x_col, y_col
+    def _ld_axes(self, x_column: Optional[str], y_column: Optional[str],
+                 x_label: Optional[str], y_label: Optional[str]) -> _Axes:
+        x_col = self._collection[x_column or self._collection.displacement_column]
+        y_col = self._collection[y_column or self._collection.load_column]
+        return _Axes(
+            x=x_col.values, y=y_col.values,
+            x_label=axis_label(x_col.name, x_col.unit) if x_label is None else x_label,
+            y_label=axis_label(y_col.name, y_col.unit) if y_label is None else y_label,
+            x_unit=x_col.unit, y_unit=y_col.unit,
+        )
 
     def _curve(self, name: str) -> tuple[np.ndarray, np.ndarray]:
         """解析結果 (XYSeriesResult) から曲線の (x, y) を取得します"""
         result = self._collection.results.get(name)
         if result is None:
             raise ValueError(f"コレクションに解析結果 '{name}' がありません")
-        return result.x.values, result.y.values
+        return result.x.values, result.y.values  # type: ignore[attr-defined]
 
-    def _yield_point(self, result_prefix: str):
-        point = self._collection.results.get(f"{result_prefix}_point")
-        if point is None:
-            raise ValueError("コレクションに降伏点の解析結果が含まれていません")
-        return point
-
-    def plot_load_displacement(
-        self,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        **kwargs: Any
-    ) -> Axes:
-        """荷重-変位曲線をプロットします
-        
-        Args:
-            x_column: 変位カラム名（省略時はデフォルト）
-            y_column: 荷重カラム名（省略時はデフォルト）
-            ax: 描画先のAxes
-            x_label: X軸のラベル
-            y_label: Y軸のラベル
-            **kwargs: matplotlibのplot関数に渡す追加引数
-            
-        Returns:
-            Axes: 描画されたAxes
-        """
-        x_col, y_col = self._resolve_ld_columns(x_column, y_column)
-        x_vals, auto_x_label = self._extract_axis(x_col)
-        y_vals, auto_y_label = self._extract_axis(y_col)
-
-        return ld_plot.plot_load_displacement(
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            ax=ax,
-            **kwargs
+    def _yield_point(self, result_prefix: str, yield_disp: Optional[float], yield_load: Optional[float],
+                     yield_method: Optional[str], initial_slope: Optional[float],
+                     yield_parameters: Optional[Dict[str, Any]]) -> _Yield:
+        """引数で指定された値を優先し、指定がなければ解析結果 "{result_prefix}_point" から取得します"""
+        info: Dict[str, Any] = {}
+        if yield_disp is None or yield_load is None:
+            point = self._collection.results.get(f"{result_prefix}_point")
+            if point is None:
+                raise ValueError("コレクションに降伏点の解析結果が含まれていません")
+            yield_disp = point.x  # type: ignore[attr-defined]
+            yield_load = point.y  # type: ignore[attr-defined]
+            info = point.metadata or {}
+        return _Yield(
+            disp=float(yield_disp), load=float(yield_load),  # type: ignore[arg-type]
+            method=yield_method or info.get("method", "unknown"),
+            initial_slope=initial_slope if initial_slope is not None else info.get("initial_slope", 1.0),
+            parameters=yield_parameters if yield_parameters is not None else info.get("parameters", {}),
         )
 
-    def plot_skeleton_curve(
-        self,
-        skeleton_x: Optional[np.ndarray] = None,
-        skeleton_y: Optional[np.ndarray] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        plot_original: bool = True,
-        original_kwargs: Optional[Dict[str, Any]] = None,
-        skeleton_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Axes:
-        """スケルトン曲線をプロットします
-        
-        Args:
-            skeleton_x: スケルトン曲線の変位配列（省略時はコレクション内から抽出）
-            skeleton_y: スケルトン曲線の荷重配列（省略時はコレクション内から抽出）
-            x_column: 元データの変位カラム名
-            y_column: 元データの荷重カラム名
-        """
+    def plot_load_displacement(self, x_column: Optional[str] = None, y_column: Optional[str] = None,
+                               ax: Optional[Axes] = None, x_label: Optional[str] = None,
+                               y_label: Optional[str] = None, **kwargs: Any) -> Axes:
+        """荷重-変位曲線を描画します（列の省略時は変位列・荷重列）"""
+        a = self._ld_axes(x_column, y_column, x_label, y_label)
+        return ld_plot.plot_load_displacement(a.x, a.y, x_label=a.x_label, y_label=a.y_label, ax=ax, **kwargs)
+
+    def plot_skeleton_curve(self, skeleton_x: Optional[np.ndarray] = None, skeleton_y: Optional[np.ndarray] = None,
+                            x_column: Optional[str] = None, y_column: Optional[str] = None,
+                            x_label: Optional[str] = None, y_label: Optional[str] = None,
+                            ax: Optional[Axes] = None, plot_original: bool = True,
+                            original_kwargs: Optional[Dict[str, Any]] = None,
+                            skeleton_kwargs: Optional[Dict[str, Any]] = None) -> Axes:
+        """スケルトン曲線を描画します（省略時は解析結果 "skeleton_curve" を使う）"""
         if skeleton_x is None or skeleton_y is None:
             skeleton_x, skeleton_y = self._curve("skeleton_curve")
-
-        if plot_original:
-            try:
-                x_col, y_col = self._resolve_ld_columns(x_column, y_column)
-                x_vals, auto_x_label = self._extract_axis(x_col)
-                y_vals, auto_y_label = self._extract_axis(y_col)
-            except ValueError:
-                x_vals, y_vals = None, None
-                auto_x_label, auto_y_label = "Displacement", "Load"
-        else:
-            x_vals, y_vals = None, None
-            auto_x_label, auto_y_label = x_label or "Displacement", y_label or "Load"
-
+        a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_skeleton_curve(
-            skeleton_x=skeleton_x,
-            skeleton_y=skeleton_y,
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            ax=ax,
-            original_kwargs=original_kwargs,
+            skeleton_x, skeleton_y, x_values=a.x if plot_original else None, y_values=a.y if plot_original else None,
+            x_label=a.x_label, y_label=a.y_label, ax=ax, original_kwargs=original_kwargs,
             skeleton_kwargs=skeleton_kwargs,
         )
 
-    def plot_cumulative_curve(
-        self,
-        cumulative_x: Optional[np.ndarray] = None,
-        cumulative_y: Optional[np.ndarray] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        plot_original: bool = True,
-        original_kwargs: Optional[Dict[str, Any]] = None,
-        cumulative_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Axes:
-        """累積曲線をプロットします"""
+    def plot_cumulative_curve(self, cumulative_x: Optional[np.ndarray] = None,
+                              cumulative_y: Optional[np.ndarray] = None, x_column: Optional[str] = None,
+                              y_column: Optional[str] = None, x_label: Optional[str] = None,
+                              y_label: Optional[str] = None, ax: Optional[Axes] = None,
+                              plot_original: bool = True, original_kwargs: Optional[Dict[str, Any]] = None,
+                              cumulative_kwargs: Optional[Dict[str, Any]] = None) -> Axes:
+        """累積曲線を描画します（省略時は解析結果 "cumulative_curve" を使う）"""
         if cumulative_x is None or cumulative_y is None:
             cumulative_x, cumulative_y = self._curve("cumulative_curve")
-
-        if plot_original:
-            try:
-                x_col, y_col = self._resolve_ld_columns(x_column, y_column)
-                x_vals, auto_x_label = self._extract_axis(x_col)
-                y_vals, auto_y_label = self._extract_axis(y_col)
-            except ValueError:
-                x_vals, y_vals = None, None
-                auto_x_label, auto_y_label = "Displacement", "Load"
-        else:
-            x_vals, y_vals = None, None
-            auto_x_label, auto_y_label = x_label or "Displacement", y_label or "Load"
-
+        a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_cumulative_curve(
-            cumulative_x=cumulative_x,
-            cumulative_y=cumulative_y,
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            ax=ax,
-            original_kwargs=original_kwargs,
-            cumulative_kwargs=cumulative_kwargs,
+            cumulative_x, cumulative_y, x_values=a.x if plot_original else None,
+            y_values=a.y if plot_original else None, x_label=a.x_label, y_label=a.y_label, ax=ax,
+            original_kwargs=original_kwargs, cumulative_kwargs=cumulative_kwargs,
         )
 
-    def plot_yield_point(
-        self,
-        yield_disp: Optional[float] = None,
-        yield_load: Optional[float] = None,
-        yield_method: str = "unknown",
-        initial_slope: float = 1.0,
-        yield_parameters: Optional[Dict[str, Any]] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        plot_original_data: bool = True,
-        plot_initial_slope: bool = True,
-        plot_offset_line: bool = True,
-        result_prefix: str = "yield",
-        **kwargs: Any
-    ) -> Axes:
-        """降伏点解析結果をプロットします"""
-        if yield_disp is None or yield_load is None:
-            yp = self._yield_point(result_prefix)
-            yield_disp = yp.x
-            yield_load = yp.y
-            md = yp.metadata or {}
-            
-            if yield_method == "unknown" and "method" in md:
-                yield_method = md["method"]
-            if initial_slope == 1.0 and "initial_slope" in md:
-                initial_slope = md["initial_slope"]
-            if yield_parameters is None and "parameters" in md:
-                yield_parameters = md["parameters"]
-
-        if plot_original_data:
-            try:
-                x_col, y_col = self._resolve_ld_columns(x_column, y_column)
-                x_vals, auto_x_label = self._extract_axis(x_col)
-                y_vals, auto_y_label = self._extract_axis(y_col)
-            except ValueError:
-                x_vals, y_vals = None, None
-                auto_x_label, auto_y_label = "Displacement", "Load"
-        else:
-            x_vals, y_vals = None, None
-            auto_x_label, auto_y_label = x_label or "Displacement", y_label or "Load"
-
+    def plot_yield_point(self, yield_disp: Optional[float] = None, yield_load: Optional[float] = None,
+                         yield_method: Optional[str] = None, initial_slope: Optional[float] = None,
+                         yield_parameters: Optional[Dict[str, Any]] = None, x_column: Optional[str] = None,
+                         y_column: Optional[str] = None, x_label: Optional[str] = None,
+                         y_label: Optional[str] = None, ax: Optional[Axes] = None,
+                         plot_original_data: bool = True, plot_initial_slope: bool = True,
+                         plot_offset_line: bool = True, result_prefix: str = "yield", **kwargs: Any) -> Axes:
+        """降伏点の解析結果を描画します（値の省略時は解析結果 "{result_prefix}_point" を使う）"""
+        yp = self._yield_point(result_prefix, yield_disp, yield_load, yield_method, initial_slope, yield_parameters)
+        a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_yield_point(
-            yield_disp=yield_disp,
-            yield_load=yield_load,
-            yield_method=yield_method,
-            initial_slope=initial_slope,
-            yield_parameters=yield_parameters,
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            ax=ax,
-            plot_original_data=plot_original_data,
-            plot_initial_slope=plot_initial_slope,
-            plot_offset_line=plot_offset_line,
-            result_prefix=result_prefix,
-            **kwargs
+            yp.disp, yp.load, yp.method, yp.initial_slope, yp.parameters, x_values=a.x, y_values=a.y,
+            x_label=a.x_label, y_label=a.y_label, ax=ax, plot_original_data=plot_original_data,
+            plot_initial_slope=plot_initial_slope, plot_offset_line=plot_offset_line, **kwargs,
         )
 
-    def plot_yield_analysis_details(
-        self,
-        yield_disp: Optional[float] = None,
-        yield_load: Optional[float] = None,
-        yield_method: str = "unknown",
-        initial_slope: float = 1.0,
-        yield_parameters: Optional[Dict[str, Any]] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        plot_original: bool = True,
-        original_kwargs: Optional[Dict[str, Any]] = None,
-        yield_point_kwargs: Optional[Dict[str, Any]] = None,
-        lines_kwargs: Optional[Dict[str, Any]] = None,
-        result_prefix: str = "yield",
-        **kwargs: Any
-    ) -> Axes:
-        """詳細な降伏点解析内容をプロットします"""
-        if yield_disp is None or yield_load is None:
-            yp = self._yield_point(result_prefix)
-            yield_disp = yp.x
-            yield_load = yp.y
-            md = yp.metadata or {}
-            
-            if yield_method == "unknown" and "method" in md:
-                yield_method = md["method"]
-            if initial_slope == 1.0 and "initial_slope" in md:
-                initial_slope = md["initial_slope"]
-            if yield_parameters is None and "parameters" in md:
-                yield_parameters = md["parameters"]
-
-        if plot_original:
-            try:
-                x_col, y_col = self._resolve_ld_columns(x_column, y_column)
-                x_vals, auto_x_label = self._extract_axis(x_col)
-                y_vals, auto_y_label = self._extract_axis(y_col)
-            except ValueError:
-                x_vals, y_vals = None, None
-                auto_x_label, auto_y_label = "Displacement", "Load"
-        else:
-            x_vals, y_vals = None, None
-            auto_x_label, auto_y_label = x_label or "Displacement", y_label or "Load"
-            
+    def plot_yield_analysis_details(self, yield_disp: Optional[float] = None, yield_load: Optional[float] = None,
+                                    yield_method: Optional[str] = None, initial_slope: Optional[float] = None,
+                                    yield_parameters: Optional[Dict[str, Any]] = None,
+                                    x_column: Optional[str] = None, y_column: Optional[str] = None,
+                                    x_label: Optional[str] = None, y_label: Optional[str] = None,
+                                    ax: Optional[Axes] = None, plot_original: bool = True,
+                                    result_prefix: str = "yield", **kwargs: Any) -> Axes:
+        """降伏点の図に、初期勾配の計算範囲と降伏点の数値（単位付き）を加えて描画します"""
+        yp = self._yield_point(result_prefix, yield_disp, yield_load, yield_method, initial_slope, yield_parameters)
+        a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_yield_analysis_details(
-            yield_disp=yield_disp,
-            yield_load=yield_load,
-            yield_method=yield_method,
-            initial_slope=initial_slope,
-            yield_parameters=yield_parameters,
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            ax=ax,
-            **kwargs
+            yp.disp, yp.load, yp.method, yp.initial_slope, yp.parameters, x_values=a.x, y_values=a.y,
+            x_label=a.x_label, y_label=a.y_label, ax=ax, x_unit=a.x_unit, y_unit=a.y_unit,
+            plot_original_data=plot_original, **kwargs,
         )
 
-    def compare_yield_methods(
-        self,
-        methods: Optional[List[Dict[str, Any]]] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        ax: Optional[Axes] = None,
-        **kwargs: Any
-    ) -> Axes:
-        """複数の降伏点手法を解析し、比較して表示します"""
-        if methods is None:
-            methods = [{"method": "offset"}, {"method": "general"}]
-            
-        yield_results = []
-        for params in methods:
-            params_copy = params.copy()
-            if "result_prefix" in params_copy:
-                del params_copy["result_prefix"]
+    def compare_yield_methods(self, methods: Optional[List[Dict[str, Any]]] = None,
+                              x_column: Optional[str] = None, y_column: Optional[str] = None,
+                              x_label: Optional[str] = None, y_label: Optional[str] = None,
+                              ax: Optional[Axes] = None, **kwargs: Any) -> Axes:
+        """複数の手法で降伏点を求めて重ねて描画します（求められなかった手法は警告を出して飛ばす）
 
-            try:
-                res = self._collection.ops.find_yield_point(**params_copy).end()
-                yp = res.results.get("yield_point")
-                if yp:
-                    yield_results.append({
-                        "yield_disp": yp.x,
-                        "yield_load": yp.y,
-                        "method": yp.metadata.get("method"),
-                        "initial_slope": yp.metadata.get("initial_slope"),
-                        "parameters": yp.metadata.get("parameters", {})
-                    })
-            except Exception as e:
-                print(f"Failed to find yield point for {params}: {e}")
-
-        try:
-            x_col, y_col = self._resolve_ld_columns(x_column, y_column)
-            x_vals, auto_x_label = self._extract_axis(x_col)
-            y_vals, auto_y_label = self._extract_axis(y_col)
-        except ValueError:
-            x_vals, y_vals = None, None
-            auto_x_label, auto_y_label = "Displacement", "Load"
-
-        return ld_plot.compare_yield_methods(
-            yield_results=yield_results,
-            x_values=x_vals,
-            y_values=y_vals,
-            x_label=x_label if x_label is not None else auto_x_label,
-            y_label=y_label if y_label is not None else auto_y_label,
-            ax=ax,
-            **kwargs
-        )
-
-    def plot_multiple_curves(
-        self,
-        curves: List[Dict[str, Any]],
-        x_label: str = "Displacement",
-        y_label: str = "Load",
-        ax: Optional[Axes] = None,
-        x_column: Optional[str] = None,
-        y_column: Optional[str] = None,
-    ) -> Axes:
-        """複数の曲線を指定してプロットします
-        
-        curves に渡す dict は {"type": "original" | "skeleton" | "cumulative", "kwargs": {...}}
-        または明示的に {"x": np.ndarray, "y": np.ndarray, "kwargs": {...}} を指定します。
+        Args:
+            methods: find_yield_point に渡す引数のリスト（省略時は offset と general）
         """
-        curves_data = []
-        for curve_def in curves:
-            curve_type = curve_def.get("type")
-            if "x" in curve_def and "y" in curve_def:
-                curves_data.append(curve_def)
-                continue
-                
-            item = {"kwargs": curve_def.get("kwargs", {}), "type": curve_type}
+        results = []
+        for params in methods or [{"method": "offset"}, {"method": "general"}]:
+            params = {k: v for k, v in params.items() if k != "result_prefix"}
             try:
-                if curve_type == "original":
-                    x_c, y_c = self._resolve_ld_columns(x_column, y_column)
-                    x_vals, _ = self._extract_axis(x_c)
-                    y_vals, _ = self._extract_axis(y_c)
-                    item["x"] = x_vals
-                    item["y"] = y_vals
-                elif curve_type in ["skeleton", "cumulative"]:
-                    item["x"], item["y"] = self._curve(f"{curve_type}_curve")
-            except Exception as e:
-                print(f"Warning: Could not extract data for type '{curve_type}': {e}")
+                point = self._collection.ops.find_yield_point(**params).end().results["yield_point"]
+            except ValueError as e:
+                warnings.warn(f"降伏点を求められませんでした {params}: {e}", stacklevel=2)
                 continue
-                
-            curves_data.append(item)
+            md = point.metadata
+            results.append({
+                "yield_disp": point.x, "yield_load": point.y, "method": md.get("method"),  # type: ignore[attr-defined]
+                "initial_slope": md.get("initial_slope"), "parameters": md.get("parameters", {}),
+            })
+        a = self._ld_axes(x_column, y_column, x_label, y_label)
+        return ld_plot.compare_yield_methods(results, x_values=a.x, y_values=a.y, x_label=a.x_label,
+                                             y_label=a.y_label, ax=ax, **kwargs)
 
-        return ld_plot.plot_multiple_curves(
-            curves_data=curves_data,
-            x_label=x_label,
-            y_label=y_label,
-            ax=ax
-        )
+    def plot_multiple_curves(self, curves: List[Dict[str, Any]], x_label: Optional[str] = None,
+                             y_label: Optional[str] = None, ax: Optional[Axes] = None,
+                             x_column: Optional[str] = None, y_column: Optional[str] = None) -> Axes:
+        """複数の曲線を重ねて描画します
+
+        curves の各要素は {"type": "original" | "skeleton" | "cumulative", "kwargs": {...}}、
+        または {"x": 配列, "y": 配列, "kwargs": {...}} です。解析結果がない曲線は警告を出して飛ばします。
+        """
+        a = self._ld_axes(x_column, y_column, x_label, y_label)
+        curves_data = []
+        for curve in curves:
+            if "x" in curve and "y" in curve:
+                curves_data.append(curve)
+                continue
+            kind = curve.get("type")
+            item: Dict[str, Any] = {"type": kind, "kwargs": curve.get("kwargs", {})}
+            if kind == "original":
+                item["x"], item["y"] = a.x, a.y
+            elif kind in ("skeleton", "cumulative"):
+                try:
+                    item["x"], item["y"] = self._curve(f"{kind}_curve")
+                except ValueError as e:
+                    warnings.warn(str(e), stacklevel=2)
+                    continue
+            else:
+                warnings.warn(f"未知の曲線の種類です: {kind}", stacklevel=2)
+                continue
+            curves_data.append(item)
+        return ld_plot.plot_multiple_curves(curves_data, x_label=a.x_label, y_label=a.y_label, ax=ax)

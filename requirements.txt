@@ -2,4 +2,3 @@ numpy
 polars>=1.0
 matplotlib
 japanize-matplotlib
-setuptools

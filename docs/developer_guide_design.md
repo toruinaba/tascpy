@@ -114,6 +114,12 @@ functional は、TASC 以外のデータにも単体で使えるように、nump
 
 表を操作する処理（行の抽出・検索・分割・重複除去など）は ops の側で polars を使って実装し、functional には置きません。
 
+## 可視化
+
+- 描画関数とプロッター（`coll.plot`）は Axes（`iplot` は Plotly Figure）を返すだけで、`plt.show()` は呼びません。表示は呼び出し側で行います（Jupyter では自動で表示されます）。
+- 軸ラベルは列名と単位から "列名 [単位]" で作ります。X 軸の列を省略すると step を使います。
+- `import tascpy` で変更する matplotlib の設定は、日本語フォント（japanize-matplotlib 同梱の IPAex ゴシック）の font.family と axes.unicode_minus だけです。
+
 ## ドメイン
 
 - ドメインのコレクションは `ColumnCollection` のサブクラスです。ドメイン固有の設定（荷重-変位の `load_column` / `displacement_column`、ひずみの `rosettes`）は属性として持ち、`with_*` で操作しても引き継がれます。
