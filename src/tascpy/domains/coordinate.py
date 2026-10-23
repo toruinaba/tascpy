@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Self, Tupl
 import numpy as np
 
 from tascpy.analytics.functional.coordinate.clustering import find_nearest_neighbors_logic, simple_kmeans
+from tascpy.analytics.functional.coordinate.distance import euclidean_distance
 from tascpy.core.collection import ColumnCollection
 
 if TYPE_CHECKING:
@@ -153,8 +154,8 @@ class CoordinateCollection(ColumnCollection):
         if x1 is None or y1 is None or x2 is None or y2 is None:
             raise ValueError("距離計算に必要な座標情報が不足しています")
         if z1 is None or z2 is None:
-            return float(np.hypot(x2 - x1, y2 - y1))
-        return float(np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2))
+            return euclidean_distance([x1, y1], [x2, y2])
+        return euclidean_distance([x1, y1, z1], [x2, y2, z2])
 
     def _with_domain_metadata(self, key: str, value: Dict[str, Any]) -> Self:
         domain_md = dict(self.metadata.get("coordinate_domain", {}))

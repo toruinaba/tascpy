@@ -38,7 +38,7 @@ def _blend_core(
     comp_arr: np.ndarray,
     start: float,
     end: float,
-    blend_func: Callable[[float], float],
+    blend_func: Callable[[np.ndarray], np.ndarray],
 ) -> np.ndarray:
     """内部用: 指定範囲で配列をブレンドします。
 
@@ -48,7 +48,7 @@ def _blend_core(
         comp_arr (np.ndarray): 比較対象の配列。
         start (float): ブレンド開始値。
         end (float): ブレンド終了値。
-        blend_func (Callable[[float], float]): [0, 1] 区間の補間関数。
+        blend_func (Callable[[np.ndarray], np.ndarray]): [0, 1] 区間の補間関数。
 
     Returns:
         np.ndarray: ブレンド後の配列。
@@ -187,7 +187,7 @@ def blend_by_step(
     if blend_method not in blend_functions:
         raise ValueError(f"無効なブレンドメソッド: {blend_method}")
         
-    blend_func = np.vectorize(blend_functions[blend_method])
+    blend_func = blend_functions[blend_method]
 
     # Parameter resolution
     if compare_mode == "value":

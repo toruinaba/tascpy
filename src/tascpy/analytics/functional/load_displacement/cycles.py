@@ -77,25 +77,17 @@ def compute_hysteresis_energy(
         >>> compute_hysteresis_energy(loads, disps)
         (200.0, 100.0, -100.0, 2.0, 0.0)
     """
-    if len(loads) != len(disps):
+    load = np.asarray(loads, dtype=float)
+    disp = np.asarray(disps, dtype=float)
+    if len(load) != len(disp):
         raise ValueError("荷重と変位のデータ長が一致しません")
 
-    valid_indices = [k for k, (l, d) in enumerate(zip(loads, disps)) if l is not None and not np.isnan(l) and d is not None and not np.isnan(d)]
-    
-    if len(valid_indices) < 3:
+    valid = ~(np.isnan(load) | np.isnan(disp))
+    if valid.sum() < 3:
         return (0.0, np.nan, np.nan, np.nan, np.nan)
-
-    l_arr = np.array([loads[k] for k in valid_indices], dtype=float)
-    d_arr = np.array([disps[k] for k in valid_indices], dtype=float)
-    
-    energy = calculate_polygon_area(d_arr, l_arr)
-    
-    max_l = float(np.max(l_arr))
-    min_l = float(np.min(l_arr))
-    max_d = float(np.max(d_arr))
-    min_d = float(np.min(d_arr))
-
-    return (energy, max_l, min_l, max_d, min_d)
+    l_arr, d_arr = load[valid], disp[valid]
+    return (calculate_polygon_area(d_arr, l_arr), float(l_arr.max()), float(l_arr.min()),
+            float(d_arr.max()), float(d_arr.min()))
 
 
 def compute_secant_stiffness(
@@ -152,7 +144,7 @@ def compute_peaks_and_valleys(
         >>> compute_peaks_and_valleys(data)
         array([ 0,  1,  0,  0,  0, -1,  0,  0])
     """
-    data_float = np.array([float(x) if x is not None else np.nan for x in data])
+    data_float = np.asarray(data, dtype=float)
     flags = np.zeros(len(data), dtype=int)
     dist = max(1, distance)
 

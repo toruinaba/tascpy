@@ -353,11 +353,7 @@ def diff(
         raise ValueError(f"有効なデータポイントが不足しています: {len(x_arr)} (最低2点必要)")
 
     if method == "central":
-        try:
-             result = np.gradient(y_arr, x_arr)
-        except Exception:
-             # Fallback? Not really needed for standard gradient
-             result = np.gradient(y_arr, x_arr)
+        result = np.gradient(y_arr, x_arr)
              
     elif method == "forward":
         # Forward difference: (y[i+1] - y[i]) / (x[i+1] - x[i])
