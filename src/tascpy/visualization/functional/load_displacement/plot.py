@@ -18,19 +18,33 @@ def _with_unit(value: float, unit: Optional[str]) -> str:
     return f"{value:.4f} {unit}" if unit else f"{value:.4f}"
 
 
-def _peak_sign(load_values: Optional[np.ndarray], fallback: float) -> float:
-    """絶対値が最大の荷重の符号（データがなければ fallback の符号、0 なら正）"""
-    if load_values is not None and np.any(~np.isnan(load_values)):
-        peak = load_values[np.nanargmax(np.abs(load_values))]
-    else:
-        peak = fallback
-    return -1.0 if peak < 0 else 1.0
+def _valid_loads(x_values: Optional[np.ndarray], y_values: Optional[np.ndarray]) -> Optional[np.ndarray]:
+    """荷重・変位がともに有効な行のマスク（compute_stiffness と同じ行を使うため）"""
+    if x_values is None or y_values is None:
+        return None
+    valid = ~(np.isnan(np.asarray(x_values, dtype=float)) | np.isnan(np.asarray(y_values, dtype=float)))
+    return valid if valid.any() else None
+
+
+def _peak_load(x_values: Optional[np.ndarray], y_values: Optional[np.ndarray]) -> Optional[float]:
+    """荷重・変位がともに有効な行のうち、絶対値が最大の荷重（なければ None）"""
+    valid = _valid_loads(x_values, y_values)
+    if valid is None:
+        return None
+    loads = np.asarray(y_values, dtype=float)[valid]
+    return float(loads[np.argmax(np.abs(loads))])
+
+
+def _peak_sign(x_values: Optional[np.ndarray], y_values: Optional[np.ndarray], fallback: float) -> float:
+    """最大荷重の符号（データがなければ fallback の符号、0 なら正）"""
+    peak = _peak_load(x_values, y_values)
+    return -1.0 if (fallback if peak is None else peak) < 0 else 1.0
 
 
 def _plot_original(ax: Axes, x_values: Optional[np.ndarray], y_values: Optional[np.ndarray],
                    x_label: str, y_label: str, kwargs: Dict[str, Any]) -> None:
     if x_values is not None and y_values is not None:
-        core_plot(x_values, y_values, x_label=x_label, y_label=y_label, title="", ax=ax, **kwargs)
+        core_plot(x_values, y_values, ax=ax, **{"x_label": x_label, "y_label": y_label, "title": "", **kwargs})
     else:
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
@@ -192,7 +206,7 @@ def plot_yield_point(
     if plot_initial_slope:
         ax.axline(xy1=(0, 0), slope=initial_slope, color="orange", linestyle="--", label="Initial Slope")
     if yield_method == "offset" and plot_offset_line and "offset_value" in params:
-        offset = params["offset_value"] * _peak_sign(y_values, yield_load)
+        offset = params["offset_value"] * _peak_sign(x_values, y_values, yield_load)
         ax.axline(xy1=(offset, 0), slope=initial_slope, color="blue", linestyle="--", label="Offset Line")
     if yield_method == "general" and "factor" in params:
         factor = params["factor"]
@@ -243,15 +257,15 @@ def plot_yield_analysis_details(
     ax = plot_yield_point(yield_disp, yield_load, yield_method, initial_slope, params, x_values, y_values,
                           x_label, y_label, ax, **kwargs)
 
-    if x_values is not None and y_values is not None and "range_start" in params and "range_end" in params:
-        loads = np.asarray(y_values, dtype=float)
-        if np.any(~np.isnan(loads)):
-            peak = loads[np.nanargmax(np.abs(loads))]
-            lower, upper = sorted((peak * params["range_start"], peak * params["range_end"]))
-            in_range = (loads >= lower) & (loads <= upper)
-            ax.scatter(np.asarray(x_values)[in_range], loads[in_range], color="cyan", s=40, alpha=0.7, zorder=4,
-                       label=f"Initial Slope Range ({params['range_start']:.2f}-{params['range_end']:.2f})")
-            ax.legend()
+    valid = _valid_loads(x_values, y_values)
+    peak = _peak_load(x_values, y_values)
+    if valid is not None and peak is not None and "range_start" in params and "range_end" in params:
+        disps, loads = np.asarray(x_values, dtype=float), np.asarray(y_values, dtype=float)
+        lower, upper = sorted((peak * params["range_start"], peak * params["range_end"]))
+        in_range = valid & (loads >= lower) & (loads <= upper)
+        ax.scatter(disps[in_range], loads[in_range], color="cyan", s=40, alpha=0.7, zorder=4,
+                   label=f"Initial Slope Range ({params['range_start']:.2f}-{params['range_end']:.2f})")
+        ax.legend()
 
     ax.set_title(f"Yield Point Analysis ({yield_method.capitalize()} Method)")
     slope_unit = f"{y_unit}/{x_unit}" if x_unit and y_unit else None
@@ -312,7 +326,7 @@ def compare_yield_methods(
         ax.scatter([yield_disp], [yield_load], color=color, s=80, marker="o", label=label, zorder=5 + i)
 
         if method == "offset":
-            offset = params.get("offset_value", 0.002) * _peak_sign(y_values, yield_load)
+            offset = params.get("offset_value", 0.002) * _peak_sign(x_values, y_values, yield_load)
             ax.axline(xy1=(offset, 0), slope=result.get("initial_slope", 1.0), linestyle="--", color=color,
                       alpha=0.6, label=f"Offset Line ({params.get('offset_value', 0.002)})", zorder=2 + i)
 
@@ -333,6 +347,7 @@ def plot_multiple_curves(
 
     Args:
         curves_data: [{"type": "original" | 任意, "x": 配列, "y": 配列, "kwargs": {...}}, ...]
+            "original" は core の plot で描画するため、kwargs に plot_type="scatter" なども指定できます
         x_label: X 軸ラベル
         y_label: Y 軸ラベル
         ax: 描画先の Axes（None の場合は新しい図を作成）
@@ -346,7 +361,10 @@ def plot_multiple_curves(
         if x_arr is None or y_arr is None:
             warnings.warn(f"曲線 '{curve.get('type', 'unknown')}' の x / y がないため描画しません", stacklevel=2)
             continue
-        ax.plot(x_arr, y_arr, **curve.get("kwargs", {}))
+        if curve.get("type") == "original":
+            core_plot(x_arr, y_arr, ax=ax, **{"title": "", **curve.get("kwargs", {})})
+        else:
+            ax.plot(x_arr, y_arr, **curve.get("kwargs", {}))
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     if ax.get_legend_handles_labels()[0]:

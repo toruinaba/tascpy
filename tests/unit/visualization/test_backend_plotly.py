@@ -139,3 +139,10 @@ def test_plot_passes_extra_kwargs_and_updates_existing_figure():
     assert len(fig.data) == 2
     assert fig.layout.xaxis.title.text == "t [s]"
     assert fig.layout.title.text == "added"
+
+
+def test_plot_accepts_mode_override():
+    pytest.importorskip("plotly")
+    from tascpy.visualization import backend_plotly as bp
+
+    assert bp.plot([0, 1], [1, 2], mode="lines+markers").data[0].mode == "lines+markers"

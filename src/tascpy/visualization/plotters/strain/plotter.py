@@ -31,7 +31,7 @@ class StrainPlotter(CoordinatePlotter):
         if x is None or y is None:
             raise ValueError(f"ロゼット '{rosette_name}' の座標情報が取得できませんでした。")
 
-        values = {key: self._collection[name][step_index] for key, name in names.items()}
+        values = {key: float(self._collection[name].values[step_index]) for key, name in names.items()}
         return {"x": x, "y": y, **values, "rosette_name": rosette_name, "step_index": step_index}
 
     def plot_rosette_vectors(self, rosette_name: str, step_index: int = 0, scale: float = 1.0,

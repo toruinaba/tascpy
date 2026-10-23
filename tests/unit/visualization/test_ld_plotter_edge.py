@@ -115,3 +115,41 @@ def test_plot_multiple_curves(ld):
         ax = ld.plot.plot_multiple_curves(curves)
     assert [line.get_label() for line in ax.lines] == ["explicit", "original", "skeleton"]
     assert ax.get_xlabel() == "d [mm]"
+
+
+def test_title_kwarg_is_not_duplicated(ld):
+    ax = ld.plot.plot_yield_point(title="Custom")
+    assert ax.get_title() == "Custom"
+
+
+def test_original_curve_supports_scatter(ld):
+    ax = ld.plot.plot_multiple_curves([{"type": "original", "kwargs": {"plot_type": "scatter", "s": 20}}])
+    assert len(ax.collections) == 1
+
+
+def test_peak_ignores_rows_with_missing_displacement():
+    col = ColumnCollection({"P": [0.0, 2.0, 5.0, -100.0], "d": [0.0, 1.0, 2.0, None]})
+    col = col.with_result(PointResult("yield_point", 1.5, 3.0, metadata={
+        "method": "offset", "initial_slope": 2.0, "parameters": {"offset_value": 0.5, "range_start": 0.3, "range_end": 1.0}}))
+    ax = col.ops.as_load_displacement("P", "d").end().plot.plot_yield_analysis_details()
+    offset = next(line for line in ax.lines if line.get_label() == "Offset Line")
+    assert offset._xy1[0] == 0.5  # 正側へずらす（変位が欠損した -100 kN の行は使わない）
+    highlighted = next(c for c in ax.collections if c.get_label().startswith("Initial Slope Range"))
+    np.testing.assert_array_equal(highlighted.get_offsets()[:, 1], [2.0, 5.0])
+
+
+def test_compare_yield_methods_empty_list_runs_nothing(ld, monkeypatch):
+    calls = []
+    ops_type = type(ld.ops)
+    original = ops_type.find_yield_point
+    monkeypatch.setattr(ops_type, "find_yield_point", lambda self, **k: (calls.append(k), original(self, **k))[1])
+    ld.plot.compare_yield_methods(methods=[])
+    assert calls == []
+
+
+def test_rosette_vectors_with_missing_value_use_nan():
+    col = ColumnCollection({"a": [1.0, None], "b": [1.0, 2.0], "c": [1.0, 2.0]})
+    strain = (col.ops.as_strain({"R": {"columns": ["a", "b", "c"]}}, {"a": {"x": 0.0, "y": 0.0}})
+              .calculate_rosette_strains("R").end())
+    ax = strain.plot.plot_rosette_vectors("R", step_index=1)
+    assert ax is not None

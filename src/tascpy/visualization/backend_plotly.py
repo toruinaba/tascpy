@@ -42,10 +42,8 @@ def plot(
     style = dict(kwargs.pop(style_key, {}) or {})
     if color is not None:
         style.setdefault("color", color)
-    fig.add_trace(go.Scatter(
-        x=x_values, y=y_values, mode="markers" if plot_type == "scatter" else "lines", name=name,
-        **{style_key: style}, **kwargs,
-    ))
+    kwargs.setdefault("mode", "markers" if plot_type == "scatter" else "lines")
+    fig.add_trace(go.Scatter(x=x_values, y=y_values, name=name, **{style_key: style}, **kwargs))
     set_labels(fig, xlabel=x_label, ylabel=y_label, title=title)
     return fig
 

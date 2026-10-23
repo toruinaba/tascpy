@@ -159,8 +159,9 @@ class LoadDisplacementPlotter(CorePlotter):
         Args:
             methods: find_yield_point に渡す引数のリスト（省略時は offset と general）
         """
+        defaults: List[Dict[str, Any]] = [{"method": "offset"}, {"method": "general"}]
         results = []
-        for params in methods or [{"method": "offset"}, {"method": "general"}]:
+        for params in defaults if methods is None else methods:
             params = {k: v for k, v in params.items() if k != "result_prefix"}
             try:
                 point = self._collection.ops.find_yield_point(**params).end().results["yield_point"]
