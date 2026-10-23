@@ -4,7 +4,6 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from tascpy.visualization.functional.core import plot as core_plot
-from tascpy.analytics.operations.abstraction import extract_axis_data
 
 class CorePlotter:
     """基本のデータ可視化を提供するPlotterクラス
@@ -29,7 +28,13 @@ class CorePlotter:
         Returns:
             Tuple[np.ndarray, str]: (値の配列、ラベル文字列)
         """
-        val_list, name, unit = extract_axis_data(self._collection, column_name)
+        if column_name is None:
+            val_list, name, unit = self._collection.step.values, "Step", ""
+        else:
+            if column_name not in self._collection.columns:
+                raise KeyError(f"列 '{column_name}' は存在しません")
+            column = self._collection.columns[column_name]
+            val_list, name, unit = column.values, column.name, column.unit
         label = f"{name} [{unit}]" if unit else name
         return np.array(val_list), label
 

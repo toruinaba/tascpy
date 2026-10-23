@@ -5,7 +5,7 @@ tascpy - 実験データ処理のためのPythonライブラリ
 import warnings
 
 __version__ = "0.1.0"
-__all__ = ["ColumnCollection", "Column", "CollectionOperations"]
+__all__ = ["ColumnCollection", "Column", "CoreOps"]
 
 # Visualization configuration
 try:
@@ -18,4 +18,4 @@ except ImportError:
 
 from .io.file_handlers import load_from_file, save_to_file
 from .core import ColumnCollection, Column
-from .analytics.operations.proxy import CollectionOperations
+from .analytics.ops import CoreOps

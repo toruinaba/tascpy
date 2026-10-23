@@ -205,18 +205,6 @@ print(f"最大荷重: {analysis_result['MaxLoad'].values[0]:.2f} kN")
 
 ## 補足情報
 
-### スタブファイル生成
-
-サンプルコードを実行する前に、IDE の自動補完を有効にするためにスタブファイルの生成を行うことをおすすめします：
-
-```python
-import tascpy  # 初回インポート時に自動的にスタブファイルが生成されます
-
-# または手動で生成する場合：
-from tascpy.analytics.operations.stub_generator import generate_stubs
-generate_stubs()
-```
-
 ### プロットのカスタマイズ
 
 すべての可視化メソッドは Matplotlib のパラメータをサポートしているため、プロットを細かくカスタマイズできます：
@@ -316,15 +304,6 @@ result.ops.plot_load_displacement(
 print(f"剛性: {result['Stiffness'].mean():.2f} kN/mm")
 print(f"降伏荷重: {result['YieldPoint_Load'].values[0]:.2f} kN")
 print(f"降伏変位: {result['YieldPoint_Displacement'].values[0]:.2f} mm")
-```
-
-## スタブファイル生成
-
-tascpy のチェーンメソッドは動的に登録されるため、IDE の自動補完を有効にするにはスタブファイルの生成が必要です。初回インポート時に自動生成されますが、手動で実行することも可能です：
-
-```python
-from tascpy.analytics.operations.stub_generator import generate_stubs
-generate_stubs()
 ```
 
 ## ヘルプとドキュメント

@@ -4,8 +4,7 @@ from pathlib import Path
 class CollectionIO:
     """IO機能をColumnCollectionに提供するアクセサクラス
 
-    このクラスは ColumnCollection.register_accessor("io", CollectionIO) 
-    を通じて登録され、以下のように使用されます。
+    `ColumnCollection.io` から利用します。
     
     >>> collection = tascpy.io.load("data.csv")
     >>> collection.io.save("out.csv")

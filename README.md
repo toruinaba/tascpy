@@ -1,6 +1,6 @@
 # tascpy
 
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-0.1.0-green)](https://github.com/toruinaba/tascpy)
 
@@ -38,80 +38,55 @@ pip install -e .
 
 ```python
 import tascpy
-from tascpy.core.collection import ColumnCollection
 
-# CSVファイルからデータを読み込む
-collection = ColumnCollection.from_file(
-    filepath="data.csv", 
-    format_name="csv", 
-    auto_detect_types=True
-)
+# ファイルからデータを読み込む（format_name: "tasc_txt" または "csv"）
+collection = tascpy.io.load("data.csv", format_name="csv", auto_detect_types=True)
 
-# データ処理のチェーンメソッド
+# メソッドチェーンでデータを処理
 result = (
     collection.ops
-    .select(columns=["Force", "Displacement"])  # 必要な列を選択
-    .filter_by_value("Force", lambda x: x > 0)  # 正の荷重値のみ選択
-    .add("Force", 10, result_column="AdjustedForce")  # 新しい列を作成
-    .divide("AdjustedForce", "Displacement", result_column="Stiffness")  # 剛性計算
-    .end()  # チェーンを終了して結果を取得
+    .select(columns=["Force", "Displacement"])                    # 必要な列を選択
+    .filter_by_condition("Force", lambda x: x > 0)                # 正の荷重のみ抽出
+    .add("Force", 10, result_column="AdjustedForce")              # 新しい列を作成
+    .divide("AdjustedForce", "Displacement", result_column="Ratio")
+    .end()                                                        # チェーンを終了して結果を取得
 )
 
-# 結果の表示
 print(f"処理後のデータ: {len(result)} 行 × {len(result.columns)} 列")
-print(f"最大剛性: {result['Stiffness'].max():.2f}")
+print(f"最大値: {result['Ratio'].max():.2f}")
 ```
 
 ### 荷重-変位ドメインの分析
 
 ```python
-# 荷重-変位ドメインへの変換
-ld_collection = collection.ops.as_domain(
-    "load_displacement",
-    load_column="Force",
-    displacement_column="Displacement"
-).end()
-
-# 降伏点の計算
-yield_collection = (
-    ld_collection.ops
-    .calculate_stiffness(range_start=0.1, range_end=0.5, result_column="Stiffness")
-    .find_yield_point(method="offset", offset=0.002)  # 0.2%オフセット法
+# 荷重-変位ドメインへ変換し、剛性と降伏点を計算
+ld = (
+    collection.ops
+    .as_load_displacement(load_column="Force", displacement_column="Displacement")
+    .remove_consecutive_duplicates_across()
+    .calculate_stiffness(range_start=0.1, range_end=0.5)
+    .find_yield_point(method="offset", offset_value=0.002)  # 0.2%オフセット法
     .end()
 )
 
-# 結果の表示
-yield_pt = yield_collection.get_result("yield_point_offset_0.2%")
+print(f"初期剛性: {ld.results['stiffness'].value:.2f}")
+yield_pt = ld.results["yield_point"]
 print(f"降伏荷重: {yield_pt.y:.2f} kN")
 print(f"降伏変位: {yield_pt.x:.2f} mm")
 ```
+
+`collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。ドメインに変換すると、そのドメイン固有の操作（`find_yield_point` など）も補完されます。
 
 ### 可視化の例
 
 ```python
 import matplotlib.pyplot as plt
 
-# 散布図と線グラフの作成
 fig, ax = plt.subplots(figsize=(10, 6))
+collection.plot.plot(y_column="Force", x_column="Displacement", ax=ax, marker="o", alpha=0.7)
 
-(
-    collection
-    .plot.plot(
-        x_column="Displacement",
-        y_column="Force",
-        plot_type="scatter",
-        label="測定データ",
-        ax=ax,
-        marker="o",
-        alpha=0.7
-    )
-)
-
-plt.title("荷重-変位関係")
-plt.xlabel("変位 (mm)")
-plt.ylabel("荷重 (kN)")
-plt.grid(True)
-plt.legend()
+ax.set_title("荷重-変位関係")
+ax.grid(True)
 plt.tight_layout()
 plt.show()
 ```
@@ -120,38 +95,18 @@ plt.show()
 
 より詳細なドキュメントとサンプルについては、以下を参照してください：
 
-- [基本サンプル集](./examples/basic/README.md) - 基本的な操作と使用例
-- [高度なサンプル](./examples/advance/README.md) - 異常値分析など高度な分析テクニック
-- [ドメイン特化機能](./examples/domains/README.md) - 荷重-変位分析や座標データ処理の例
+- [基本サンプル集](./tests/manual/examples/basic/README.md) - 基本的な操作と使用例
+- [高度なサンプル](./tests/manual/examples/advance/README.md) - 異常値分析など高度な分析テクニック
+- [ドメイン特化機能](./tests/manual/examples/domains/README.md) - 荷重-変位分析や座標データ処理の例
 - [開発者ガイド](./docs/developer_guide.md) - tascpy の拡張や独自ドメインの開発方法
 
 ## 動作環境
 
-- Python 3.8 以上
+- Python 3.11 以上
 - 依存ライブラリ:
   - numpy
-  - pandas
   - matplotlib
-  - scipy
-  - japanize-matplotlib (オプション・日本語フォントサポート用)
-
-## スタブファイル生成
-
-tascpy のチェーンメソッドは動的に登録されるため、IDE の自動補完を有効にするにはスタブファイルの生成が必要です。初回インポート時に自動生成されますが、手動で実行することも可能です：
-
-```python
-# スタブファイルの手動生成
-from tascpy.analytics.operations.stub_generator import generate_stubs
-generate_stubs()
-```
-
-環境変数でスタブ生成を制御できます：
-
-```python
-import os
-os.environ["TASCPY_GENERATE_STUBS"] = "0"  # スタブ生成を無効化
-import tascpy  # スタブは生成されません
-```
+  - japanize-matplotlib（日本語フォントサポート用）
 
 ## プロジェクト構造
 
@@ -159,18 +114,15 @@ import tascpy  # スタブは生成されません
 tascpy/
 ├── src/
 │   └── tascpy/
-│       ├── core/         # 基本データ構造
-│       ├── domains/      # ドメイン特化コレクション
-│       ├── analytics/    # 分析パッケージ群
-│       │   ├── functional/   # 計算ロジック・アルゴリズム層
-│       │   ├── operations/   # メソッドチェーンの操作ラッパー
-│       │   └── typing/       # 型ヒント・スタブ
-│       ├── visualization/# 可視化バックエンド
-│       ├── io/           # データ入出力
-│       └── plugins/      # プラグイン
-├── tests/                # テストコード
-├── examples/             # サンプルコード
-├── docs/                 # ドキュメント
+│       ├── core/             # 基本データ構造（ColumnCollection, Column, Step）
+│       ├── domains/          # ドメイン特化コレクション（荷重-変位・座標・ひずみ）
+│       ├── analytics/
+│       │   ├── functional/   # 純粋な計算関数
+│       │   └── ops/          # メソッドチェーンの操作クラス（collection.ops）
+│       ├── visualization/    # 可視化
+│       └── io/               # データ入出力
+├── tests/                    # テストコード（tests/manual/examples にサンプル）
+└── docs/                     # ドキュメント
 ```
 
 ## ライセンス

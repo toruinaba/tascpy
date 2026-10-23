@@ -22,7 +22,9 @@ from .column import (
 from .result import AnalysisResult
 
 if TYPE_CHECKING:
-    from ..typing.core import CoreCollectionOperations
+    from ..analytics.ops import CoreOps
+    from ..io.proxy import CollectionIO
+    from ..visualization.plotters.core.plotter import CorePlotter
 
 T = TypeVar("T")
 
@@ -47,47 +49,33 @@ class ColumnCollection:
 
     domain: str = "core"
 
-    _accessors: Dict[str, Any] = {}
+    @property
+    def ops(self) -> "CoreOps[ColumnCollection]":
+        """メソッドチェーンで演算・抽出を行う操作オブジェクト (例: `collection.ops.add("A", "B").end()`)"""
+        from ..analytics.ops import CoreOps
 
-    @classmethod
-    def register_accessor(cls, name: str, accessor_cls: Any) -> None:
-        """動的なプロパティ（アクセサ）を登録する
-        
-        Args:
-            name: プロパティ名（例: 'ops', 'plot'）
-            accessor_cls: プロパティとして呼び出されるクラス
-        """
-        cls._accessors[name] = accessor_cls
+        return CoreOps(self)
 
-    def __getattr__(self, name: str) -> Any:
-        """登録されたアクセサを動的に解決する"""
-        if name in self.__class__._accessors:
-            accessor_cls = self.__class__._accessors[name]
-            # plotterのようなキャッシュが必要なオブジェクトのためにインスタンスに保存
-            # opsのように毎回作っても軽いものはよいが、plotterはステータスを持つためキャッシュする
-            if name == "plot":
-                if not hasattr(self, f"_{name}_accessor"):
-                    setattr(self, f"_{name}_accessor", accessor_cls(self))
-                return getattr(self, f"_{name}_accessor")
-            return accessor_cls(self)
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+    @property
+    def plot(self) -> "CorePlotter":
+        """可視化を行うプロッター (例: `collection.plot.plot("CH1")`)"""
+        if not hasattr(self, "_plotter"):
+            from ..visualization.plotters.core.plotter import CorePlotter
 
-    if TYPE_CHECKING:
-        @property
-        def ops(self) -> "CoreCollectionOperations":
-            """データに対する各種演算機能を提供するアクセサ (例: `collection.ops.add()`)"""
-            ...
-        
-        from tascpy.visualization.plotters.core.plotter import CorePlotter
-        @property
-        def plot(self) -> "CorePlotter":
-            """データを可視化するためのプロッターを提供するアクセサ (例: `collection.plot.plot_time_series()`)"""
-            ...
+            self._plotter = CorePlotter(self)
+        return self._plotter
+
+    @property
+    def io(self) -> "CollectionIO":
+        """ファイル入出力 (例: `collection.io.to_csv("out.csv")`)"""
+        from ..io.proxy import CollectionIO
+
+        return CollectionIO(self)
 
     def __init__(
         self,
-        step: Step,
-        columns: dict[str, Union[Column, NumberColumn, StringColumn, InvalidColumn]],
+        step: Union[Step, List[Any], None],
+        columns: Optional[Dict[str, Union[Column, List[Any]]]],
         metadata=None,
         auto_detect_types=False,
     ):

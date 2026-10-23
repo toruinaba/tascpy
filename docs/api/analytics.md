@@ -1,55 +1,27 @@
 # Analytics モジュール
 
-`tascpy.analytics`のAPIリファレンスです。機能（`functional`）や操作（`operations`）がここに含まれます。
+`tascpy.analytics` の API リファレンスです。メソッドチェーンの操作クラス（`ops`）と、純粋な計算関数（`functional`）が含まれます。
 
-## Operations
+## Ops
 
-### List Operations
-::: tascpy.analytics.operations.list_proxy
+### CoreOps
+::: tascpy.analytics.ops.core
 
-### Collection Operations
-::: tascpy.analytics.operations.proxy
+### LoadDisplacementOps
+::: tascpy.analytics.ops.load_displacement
 
-### Math Operations
-::: tascpy.analytics.operations.core.math
+### CoordinateOps
+::: tascpy.analytics.ops.coordinate
 
-### Filtering Operations
-::: tascpy.analytics.operations.core.filters
+### StrainOps
+::: tascpy.analytics.ops.strain
 
-### Abstraction Operations
-::: tascpy.analytics.operations.load_displacement.abstraction
-
-### Analysis Operations
-::: tascpy.analytics.operations.load_displacement.analysis
-
-### Curve Operations
-::: tascpy.analytics.operations.load_displacement.curves
-
-### Cycle Operations
-::: tascpy.analytics.operations.load_displacement.cycles
+### OpsList
+::: tascpy.analytics.ops.list
 
 ## Functional
 
-### Combine Functional
-::: tascpy.analytics.functional.combine
-
-### Filters Functional
-::: tascpy.analytics.functional.filters
-
-### Interpolate Functional
-::: tascpy.analytics.functional.interpolate
-
-### Math Functional
-::: tascpy.analytics.functional.math
-
-### Select Functional
-::: tascpy.analytics.functional.select
-
-### Statistics Functional
-::: tascpy.analytics.functional.stats
-
-### Coordinate Basic Features
-::: tascpy.analytics.functional.coordinate.basic
+`functional.core` / `functional.load_displacement` / `functional.strain` は `__init__.py` を持たない名前空間パッケージのため、現在は API リファレンスに含まれていません。
 
 ### Coordinate Clustering
 ::: tascpy.analytics.functional.coordinate.clustering

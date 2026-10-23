@@ -8,7 +8,8 @@ from tascpy.analytics.functional.coordinate.clustering import find_nearest_neigh
 from tascpy.analytics.functional.coordinate.distance import compute_euclidean_distance
 
 if TYPE_CHECKING:
-    from ..typing.coordinate import CoordinateCollectionOperations
+    from ..analytics.ops import CoordinateOps
+    from ..visualization.plotters.coordinate.plotter import CoordinatePlotter
 
 
 class CoordinateCollection(ColumnCollection):
@@ -28,8 +29,8 @@ class CoordinateCollection(ColumnCollection):
 
     def __init__(
         self,
-        step: Optional[Step] = None,
-        columns: Optional[Dict[str, Column]] = None,
+        step: Union[Step, List[Any], None] = None,
+        columns: Optional[Dict[str, Union[Column, List[Any]]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         coordinate_metadata_key: str = "coordinates",
         coordinates: Optional[Union[Dict[str, Dict[str, Optional[float]]], str]] = None,
@@ -153,21 +154,20 @@ class CoordinateCollection(ColumnCollection):
         return "coordinate"
 
     @property
-    def ops(self) -> "CoordinateCollectionOperations":
-        """操作プロキシクラスを返す"""
-        from tascpy.analytics.operations.proxy import CollectionOperations
+    def ops(self) -> "CoordinateOps[CoordinateCollection]":
+        """座標ドメインの操作オブジェクト"""
+        from ..analytics.ops import CoordinateOps
 
-        if TYPE_CHECKING:
-            from ..typing.coordinate import CoordinateCollectionOperations
+        return CoordinateOps(self)
 
-            return CoordinateCollectionOperations(self, domain="coordinate")  # type: ignore
-        else:
-            return CollectionOperations(self, domain=self.domain)
     @property
-    def plot(self):
-        """可視化プロキシクラスを返す"""
-        from ..visualization.coordinate.plotter import CoordinatePlotter
-        return CoordinatePlotter(self)
+    def plot(self) -> "CoordinatePlotter":
+        """座標データの可視化を行うプロッター"""
+        if not hasattr(self, "_plotter"):
+            from ..visualization.plotters.coordinate.plotter import CoordinatePlotter
+
+            self._plotter = CoordinatePlotter(self)
+        return self._plotter
 
     @property
     def coordinate_metadata_key(self) -> str:

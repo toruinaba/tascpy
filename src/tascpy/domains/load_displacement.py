@@ -1,13 +1,12 @@
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from ..core.collection import ColumnCollection
 from ..core.step import Step
 from ..core.column import Column
 from .factory import DomainCollectionFactory
 
 if TYPE_CHECKING:
-    from ..typing.load_displacement import (
-        LoadDisplacementCollectionOperations,
-    )
+    from ..analytics.ops import LoadDisplacementOps
+    from ..visualization.plotters.load_displacement.plotter import LoadDisplacementPlotter
 
 
 class LoadDisplacementCollection(ColumnCollection):
@@ -24,8 +23,8 @@ class LoadDisplacementCollection(ColumnCollection):
 
     def __init__(
         self,
-        step: Optional[Step] = None,
-        columns: Optional[Dict[str, Column]] = None,
+        step: Union[Step, List[Any], None] = None,
+        columns: Optional[Dict[str, Union[Column, List[Any]]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         load_column: str = "load",
         displacement_column: str = "displacement",
@@ -197,21 +196,14 @@ class LoadDisplacementCollection(ColumnCollection):
         return "load_displacement"
 
     @property
-    def ops(self) -> "LoadDisplacementCollectionOperations":
-        """操作プロキシクラスを返す"""
-        from tascpy.analytics.operations.proxy import CollectionOperations
+    def ops(self) -> "LoadDisplacementOps":
+        """荷重-変位ドメインの操作オブジェクト"""
+        from ..analytics.ops import LoadDisplacementOps
 
-        if TYPE_CHECKING:
-            from ..typing.load_displacement import (
-                LoadDisplacementCollectionOperations,
-            )
+        return LoadDisplacementOps(self)
 
-            return LoadDisplacementCollectionOperations(self, domain="load_displacement")  # type: ignore
-        else:
-            return CollectionOperations(self, domain=self.domain)
-            
     @property
-    def plot(self):
+    def plot(self) -> "LoadDisplacementPlotter":
         """荷重-変位データの可視化プロキシクラスを返す
         
         Returns:

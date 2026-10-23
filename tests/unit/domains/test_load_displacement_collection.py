@@ -3,6 +3,7 @@
 import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
+from tascpy.analytics.ops import LoadDisplacementOps
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 
 
@@ -182,15 +183,12 @@ class TestLoadDisplacementCollection:
             self.steps, {"load": self.loads, "displacement": self.displacements}
         )
 
-        # 操作プロキシを取得
         ops = ld_collection.ops
-
-        # ドメイン固有の操作が存在することを確認
-        # このテストは実際のドメイン操作が実装された後に更新する必要がある
-        # 例えば、calculate_stiffness、find_yield_point_offsetなど
-
-        # とりあえず操作プロキシのドメインが正しいことを確認
-        assert ops._domain == "load_displacement"
+        assert isinstance(ops, LoadDisplacementOps)
+        # 汎用操作の後もドメインの操作型とコレクション型が保たれる
+        chained = ops.add("load", 1.0, result_column="load1")
+        assert isinstance(chained, LoadDisplacementOps)
+        assert isinstance(chained.end(), LoadDisplacementCollection)
 
     def test_getitem_basic_access(self):
         """__getitem__メソッドの基本アクセステスト"""

@@ -1,3 +1,5 @@
+from tascpy.analytics.ops import StrainOps
+from tascpy.visualization.plotters.strain.plotter import StrainPlotter
 import pytest
 from tascpy.core.step import Step
 from tascpy.core.column import Column
@@ -26,10 +28,8 @@ def test_strain_collection_add_rosette():
 
 def test_strain_collection_properties():
     sc = create_strain_collection()
-    assert sc.ops is not None
-    # visualization module for strain is apparently not implemented yet
-    with pytest.raises(ModuleNotFoundError):
-        _ = sc.plot
+    assert isinstance(sc.ops, StrainOps)
+    assert isinstance(sc.plot, StrainPlotter)
 
 def test_strain_collection_clone():
     sc = create_strain_collection(

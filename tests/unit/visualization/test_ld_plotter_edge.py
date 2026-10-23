@@ -125,7 +125,7 @@ def test_plot_yield_analysis_details_error(empty_collection):
 
 def test_compare_yield_methods_fallback(empty_collection):
     plotter = LoadDisplacementPlotter(empty_collection)
-    with patch("tascpy.visualization.plotters.load_displacement.plotter.find_yield_point", side_effect=ValueError("Test Err")):
+    with patch("tascpy.analytics.ops.load_displacement.LoadDisplacementOps.find_yield_point", side_effect=ValueError("Test Err")):
         with patch("tascpy.visualization.plotters.load_displacement.plotter.ld_plot.compare_yield_methods") as mock_plot:
             plotter.compare_yield_methods(methods=[{"method": "test"}])
             kwargs = mock_plot.call_args[1]

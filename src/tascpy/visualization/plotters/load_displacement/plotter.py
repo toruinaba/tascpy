@@ -5,7 +5,6 @@ from matplotlib.figure import Figure
 
 from tascpy.visualization.plotters.core.plotter import CorePlotter
 from tascpy.visualization.functional.load_displacement import plot as ld_plot
-from tascpy.analytics.operations.load_displacement.analysis import find_yield_point
 
 
 class LoadDisplacementPlotter(CorePlotter):
@@ -359,7 +358,7 @@ class LoadDisplacementPlotter(CorePlotter):
                 del params_copy["result_prefix"]
 
             try:
-                res = find_yield_point(self._collection, **params_copy)
+                res = self._collection.ops.find_yield_point(**params_copy).end()
                 yp = res.results.get("yield_point")
                 if yp:
                     yield_results.append({

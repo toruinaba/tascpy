@@ -240,8 +240,10 @@ def gaussian_filter(
     valid_mask = ~np.isnan(data_arr)
     filled_data = np.where(valid_mask, data_arr, 0.0)
     
-    numerator = np.convolve(filled_data, kernel, mode='same')
-    denominator = np.convolve(valid_mask.astype(float), kernel, mode='same')
+    # mode='same' はカーネルがデータより長いとカーネル長を返すため、full から中央を切り出す
+    n = len(data_arr)
+    numerator = np.convolve(filled_data, kernel, mode='full')[radius:radius + n]
+    denominator = np.convolve(valid_mask.astype(float), kernel, mode='full')[radius:radius + n]
     
     with np.errstate(divide='ignore', invalid='ignore'):
         smoothed = numerator / denominator
