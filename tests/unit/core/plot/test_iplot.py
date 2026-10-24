@@ -20,7 +20,7 @@ def sample_collection():
 class TestIPlot:
     """iplot関数のテスト"""
 
-    @patch("tascpy.visualization.backend_plotly.plot")
+    @patch("tascpy.core.plot.plotly_backend.plot")
     def test_basic_iplot(self, mock_plotly_plot, sample_collection):
         """基本的なiplot呼び出しがbackend_plotly.plotに正しく委譲されることを確認"""
         # モックの戻り値設定
@@ -50,7 +50,7 @@ class TestIPlot:
         # 戻り値の検証
         assert result is mock_fig
 
-    @patch("tascpy.visualization.backend_plotly.plot")
+    @patch("tascpy.core.plot.plotly_backend.plot")
     def test_iplot_kwargs(self, mock_plotly_plot, sample_collection):
         """キーワード引数がbackend_plotly.plotに渡されることを確認"""
         sample_collection.plot.iplot(y_column="y1", x_column="x", plot_type="line", color="red")
@@ -59,7 +59,7 @@ class TestIPlot:
         assert kwargs.get("plot_type") == "line"
         assert kwargs.get("color") == "red"
 
-    @patch("tascpy.visualization.backend_plotly.plot")
+    @patch("tascpy.core.plot.plotly_backend.plot")
     def test_iplot_name_extraction(self, mock_plotly_plot, sample_collection):
         """name引数またはy_labelからnameが抽出されることを確認"""
         # 1. 自動抽出 (y1 [kg] -> y1)

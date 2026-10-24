@@ -8,7 +8,7 @@ from matplotlib.axes import Axes
 from tascpy.core.result import AnalysisResult, PointResult, XYSeriesResult
 
 from tascpy.visualization.functional.load_displacement import plot as ld_plot
-from tascpy.visualization.plotters.core.plotter import CorePlotter, axis_label
+from tascpy.core.plot.plotter import CorePlotter, axis_label
 
 if TYPE_CHECKING:
     from tascpy.domains.load_displacement import LoadDisplacementCollection

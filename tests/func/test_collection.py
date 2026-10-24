@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.io.formats import register_format
+from tascpy.core.io.formats import register_format
 import tascpy
 
 
@@ -67,7 +67,7 @@ UNIT,,,kN,mm,°C
 
     def test_from_file_standard_format(self, tmp_path):
         """標準フォーマットファイルからの読み込みテスト"""
-        collection = tascpy.io.load(_write(tmp_path, self.TEST_FILE_CONTENT, "utf-8"), format_name="standard")
+        collection = tascpy.load(_write(tmp_path, self.TEST_FILE_CONTENT, "utf-8"), format_name="standard")
 
         assert len(collection) == 5
         assert collection.columns == ["Force", "Displacement", "Temperature"]
@@ -82,7 +82,7 @@ UNIT,,,kN,mm,°C
 
     def test_from_file_csv_format(self, tmp_path):
         """CSVフォーマットファイルからの読み込みテスト"""
-        collection = tascpy.io.load(_write(tmp_path, self.TEST_CSV_CONTENT, "utf-8"), format_name="csv")
+        collection = tascpy.load(_write(tmp_path, self.TEST_CSV_CONTENT, "utf-8"), format_name="csv")
 
         assert len(collection) == 5
         assert len(collection.columns) == 3
@@ -90,7 +90,7 @@ UNIT,,,kN,mm,°C
 
     def test_from_file_tasc_format(self, tmp_path):
         """TASC形式（Shift-JIS）ファイルからの読み込みテスト"""
-        collection = tascpy.io.load(_write(tmp_path, self.TEST_WN_CONTENT, "shift_jis"), format_name="tasc")
+        collection = tascpy.load(_write(tmp_path, self.TEST_WN_CONTENT, "shift_jis"), format_name="tasc")
 
         assert len(collection) == 5
         assert len(collection.columns) == 4
@@ -116,7 +116,7 @@ UNIT,,,kN,mm,°C
 
     def test_custom_format(self, tmp_path, monkeypatch):
         """カスタムフォーマットでの読み込みテスト"""
-        from tascpy.io import formats
+        from tascpy.core.io import formats
         monkeypatch.setattr(formats, "FILE_FORMATS", dict(formats.FILE_FORMATS))
         register_format("custom_test", {
             "ch_row": 0, "name_row": 0, "unit_row": 1, "data_start_row": 2,
@@ -124,7 +124,7 @@ UNIT,,,kN,mm,°C
         })
         custom_data = "\tCH1\tCH2\tCH3\n\tkN\tmm\t°C\n1\t0.5\t0.1\t25.0\n2\t1.0\t0.2\t25.1\n3\t1.5\t0.3\t25.2"
 
-        collection = tascpy.io.load(_write(tmp_path, custom_data, "utf-8"), format_name="custom_test")
+        collection = tascpy.load(_write(tmp_path, custom_data, "utf-8"), format_name="custom_test")
 
         assert len(collection) == 3
         assert list(collection.step) == [1, 2, 3]
@@ -155,16 +155,16 @@ UNIT,,,kN,mm,°C
     def test_nonexistent_file(self, tmp_path):
         """存在しないファイルの読み込み時の例外テスト"""
         with pytest.raises(FileNotFoundError):
-            tascpy.io.load(tmp_path / "nonexistent.txt")
+            tascpy.load(tmp_path / "nonexistent.txt")
 
     def test_invalid_format(self, tmp_path):
         """無効なフォーマット指定時の例外テスト"""
         with pytest.raises(KeyError):
-            tascpy.io.load(_write(tmp_path, "some test data", "utf-8"), format_name="invalid_format")
+            tascpy.load(_write(tmp_path, "some test data", "utf-8"), format_name="invalid_format")
 
     def test_date_time_properties(self, tmp_path):
         """日付・時間はインデックス列として読み込まれる"""
-        collection = tascpy.io.load(_write(tmp_path, self.TEST_FILE_CONTENT, "shift_jis"))
+        collection = tascpy.load(_write(tmp_path, self.TEST_FILE_CONTENT, "shift_jis"))
 
         assert list(collection.date) == ["2025/04/29"] * 5
         assert list(collection.time) == [f"10:00:0{i}" for i in range(5)]
@@ -268,7 +268,7 @@ UNIT,,,kN,mm,°C
         """フォーマット（または encoding 指定）に応じたエンコーディングで読み込む"""
         path = _write(tmp_path, self.TEST_FILE_CONTENT.replace("Force", "荷重"), expected)
         kwargs = {"encoding": encoding} if encoding else {}
-        collection = tascpy.io.load(path, format_name=format_name, **kwargs)
+        collection = tascpy.load(path, format_name=format_name, **kwargs)
         assert collection.columns[0] == "荷重"
 
     @pytest.mark.parametrize("format_name, encoding, expected", [
@@ -283,4 +283,4 @@ UNIT,,,kN,mm,°C
         collection.io.save(path, format_name=format_name, encoding=encoding)
 
         assert "荷重" in path.read_bytes().decode(expected)
-        assert tascpy.io.load(path, format_name=format_name, encoding=expected).columns == ["荷重"]
+        assert tascpy.load(path, format_name=format_name, encoding=expected).columns == ["荷重"]

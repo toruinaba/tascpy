@@ -2,7 +2,7 @@ from pathlib import Path
 import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
-from tascpy.io.file_io import load_collection, save_collection
+from tascpy.core.io.file_io import load_collection, save_collection
 import tascpy
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def test_save_collection(tmp_path):
 def test_selected_columns(sample_data_path):
     collection = tascpy.load(sample_data_path, selected_columns=["Force"])
     assert collection.columns == ["Force"]
-    by_ch = tascpy.io.load(sample_data_path, selected_columns=["CH2"])
+    by_ch = tascpy.load(sample_data_path, selected_columns=["CH2"])
     assert by_ch.columns == ["Displacement"]
 
 def test_public_load_and_save_roundtrip(sample_data_path, tmp_path):
@@ -68,7 +68,7 @@ def test_public_load_and_save_roundtrip(sample_data_path, tmp_path):
     assert output_path.exists()
     
     # 確認
-    reloaded = tascpy.io.load(output_path)
+    reloaded = tascpy.load(output_path)
     assert len(reloaded) == 5
     assert list(reloaded.units.values()) == list(collection.units.values())
     assert list(reloaded.date) == list(collection.date)

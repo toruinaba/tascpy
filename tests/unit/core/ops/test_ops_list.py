@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.analytics.ops import CoreOps, OpsList
+from tascpy.core import CoreOps, OpsList
 
 
 @pytest.fixture

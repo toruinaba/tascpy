@@ -1,17 +1,48 @@
-"""Core ドメインの描画関数
+"""汎用の描画関数
 
 配列を受け取って描画し、Axes（Plotly の場合は Figure）を返します。図の表示（plt.show）は呼び出し側で行います。
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 
 from tascpy.numeric import stats as functional_stats
-from tascpy.visualization import backend_plotly
-from tascpy.visualization.functional.core import plot_utils
+
+from . import plotly_backend
+
+
+def prepare_outlier_data(
+    x_values: Any,
+    y_values: Any,
+    flags: Any,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
+    """外れ値フラグ（0: 正常, 1: 外れ値）に基づいてデータを正常値と外れ値に分けます。
+
+    Returns:
+        (正常値 x, 正常値 y, 外れ値 x, 外れ値 y, 外れ値の数)
+    """
+    flags_arr = np.asarray(flags)
+    x_arr = np.asarray(x_values)
+    y_arr = np.asarray(y_values)
+    normal = flags_arr == 0
+    outlier = flags_arr == 1
+    return x_arr[normal], y_arr[normal], x_arr[outlier], y_arr[outlier], int(outlier.sum())
+
+
+def prepare_const_x_data(y_data: Dict[str, Any], x_values: Any) -> Tuple[np.ndarray, np.ndarray]:
+    """{列のラベル: 値} と各列の位置から、描画用の (x 配列, y 配列) を作ります（欠損は NaN）。
+
+    Raises:
+        ValueError: x_values と y_data の数が一致しない場合
+    """
+    x_arr = np.asarray(x_values, dtype=float)
+    if len(x_arr) != len(y_data):
+        raise ValueError(f"x_values の長さ ({len(x_arr)}) と列の数 ({len(y_data)}) が一致しません")
+    y_arr = np.array([np.nan if v is None else float(v) for v in y_data.values()], dtype=float)
+    return x_arr, y_arr
 
 
 def new_axes(ax: Optional[Axes] = None, figsize: tuple = (8, 6)) -> Axes:
@@ -53,7 +84,7 @@ def plot(
 
     Examples:
         >>> import numpy as np
-        >>> from tascpy.visualization.functional.core.plot import plot
+        >>> from tascpy.core.plot.draw import plot
         >>> ax = plot(np.array([0, 1, 2]), np.array([0, 10, 20]), x_label="Time [s]", y_label="Speed [m/s]")
     """
     if plot_type not in ("line", "scatter"):
@@ -121,7 +152,7 @@ def visualize_outliers(
         y_values, window_size=window_size, threshold=threshold,
         min_abs_value=min_abs_value, scale_factor=scale_factor,
     )
-    x_normal, y_normal, x_out, y_out, outlier_count = plot_utils.prepare_outlier_data(x_values, y_values, flags)
+    x_normal, y_normal, x_out, y_out, outlier_count = prepare_outlier_data(x_values, y_values, flags)
 
     ax = new_axes(ax, figsize=(10, 6))
     if show_normal:
@@ -166,10 +197,10 @@ def plot_const_x(
 
     Examples:
         >>> import numpy as np
-        >>> from tascpy.visualization.functional.core.plot import plot_const_x
+        >>> from tascpy.core.plot.draw import plot_const_x
         >>> ax = plot_const_x({"S1": 1.0, "S2": 3.0}, np.array([0.0, 1.0]), x_label="Position [m]", y_label="T [C]")
     """
-    x_arr, y_arr = plot_utils.prepare_const_x_data(y_data, x_values)
+    x_arr, y_arr = prepare_const_x_data(y_data, x_values)
     kwargs.setdefault("marker", "o")
     return plot(x_arr, y_arr, x_label=x_label, y_label=y_label, title=title, ax=ax, **kwargs)
 
@@ -199,11 +230,11 @@ def iplot(
 
     Examples:
         >>> import numpy as np
-        >>> from tascpy.visualization.functional.core.plot import iplot
+        >>> from tascpy.core.plot.draw import iplot
         >>> fig = iplot(np.array([0, 1, 2]), np.array([0, 10, 20]), x_label="Time [s]", y_label="Speed [m/s]")
     """
     if title is None:
         title = f"{_label_name(y_label)} vs {_label_name(x_label)}"
     name = kwargs.pop("name", _label_name(y_label))
-    return backend_plotly.plot(x_values=x_values, y_values=y_values, x_label=x_label, y_label=y_label,
+    return plotly_backend.plot(x_values=x_values, y_values=y_values, x_label=x_label, y_label=y_label,
                                title=title, fig=fig, name=name, **kwargs)

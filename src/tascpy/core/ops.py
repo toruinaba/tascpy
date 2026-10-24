@@ -18,10 +18,10 @@ from tascpy.numeric import math as f_math
 from tascpy.numeric import stats as f_stats
 
 if TYPE_CHECKING:
-    from .coordinate import CoordinateOps
-    from .list import OpsList
-    from .load_displacement import LoadDisplacementOps
-    from .strain import StrainOps
+    from tascpy.analytics.ops.coordinate import CoordinateOps
+    from .ops_list import OpsList
+    from tascpy.analytics.ops.load_displacement import LoadDisplacementOps
+    from tascpy.analytics.ops.strain import StrainOps
     from tascpy.domains.coordinate import CoordinateCollection
 
 C_co = TypeVar("C_co", bound=ColumnCollection, covariant=True)
@@ -188,7 +188,7 @@ class CoreOps(Generic[C_co]):
         return self._c.df.select(expr.fill_null(False)).to_series().to_numpy()
 
     def _split(self, row_groups: List[Any]) -> "OpsList[Self]":
-        from .list import OpsList
+        from .ops_list import OpsList
 
         return OpsList([self._next(self._c.take(rows)) for rows in row_groups])
 
@@ -233,7 +233,7 @@ class CoreOps(Generic[C_co]):
         """荷重-変位ドメインに変換します（列名省略時は列名から推測）"""
         from tascpy.domains.load_displacement import LoadDisplacementCollection
 
-        from .load_displacement import LoadDisplacementOps
+        from tascpy.analytics.ops.load_displacement import LoadDisplacementOps
 
         return LoadDisplacementOps(LoadDisplacementCollection.from_collection(
             self._c, load_column=load_column, displacement_column=displacement_column,
@@ -247,7 +247,7 @@ class CoreOps(Generic[C_co]):
         """
         from tascpy.domains.coordinate import CoordinateCollection
 
-        from .coordinate import CoordinateOps
+        from tascpy.analytics.ops.coordinate import CoordinateOps
 
         return CoordinateOps(CoordinateCollection.from_collection(self._c, coordinates=coordinates))
 
@@ -256,7 +256,7 @@ class CoreOps(Generic[C_co]):
         """ひずみドメインに変換します"""
         from tascpy.domains.strain import StrainCollection
 
-        from .strain import StrainOps
+        from tascpy.analytics.ops.strain import StrainOps
 
         return StrainOps(StrainCollection.from_collection(self._c, rosettes=rosettes, coordinates=coordinates))
 

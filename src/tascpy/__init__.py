@@ -2,18 +2,42 @@
 tascpy - 実験データ処理のためのPythonライブラリ
 """
 
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+
 __version__ = "0.4.0"
 
-from .visualization.config import enable_japanese_font
+# `import tascpy.numeric` で polars / matplotlib を読み込まないよう、公開名は初回アクセス時に import する
+_EXPORTS = {
+    "ColumnCollection": "tascpy.core",
+    "Column": "tascpy.core",
+    "ColumnMeta": "tascpy.core",
+    "LoadDisplacementCollection": "tascpy.domains",
+    "CoordinateCollection": "tascpy.domains",
+    "StrainCollection": "tascpy.domains",
+    "load": "tascpy.core.io",
+    "load_parquet": "tascpy.core.io",
+}
 
-enable_japanese_font()
-
-from .core import Column, ColumnCollection, ColumnMeta
-from .domains import CoordinateCollection, LoadDisplacementCollection, StrainCollection
-from .io import load
+if TYPE_CHECKING:
+    from .core import Column, ColumnCollection, ColumnMeta
+    from .core.io import load, load_parquet
+    from .domains import CoordinateCollection, LoadDisplacementCollection, StrainCollection
 
 __all__ = [
     "ColumnCollection", "Column", "ColumnMeta",
     "LoadDisplacementCollection", "CoordinateCollection", "StrainCollection",
-    "load",
+    "load", "load_parquet",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _EXPORTS:
+        raise AttributeError(f"module 'tascpy' has no attribute '{name}'")
+    value = getattr(import_module(_EXPORTS[name]), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted([*globals(), *_EXPORTS])

@@ -126,7 +126,7 @@ numeric 関数のテストと、ops メソッドのテストを分けて書き�
 ```python
 from typing import Self
 
-from tascpy.analytics.ops import CoreOps
+from tascpy.core import CoreOps
 from tascpy.core.collection import ColumnCollection
 
 

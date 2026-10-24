@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Tuple
 import numpy as np
 from matplotlib.axes import Axes
 
-from tascpy.visualization.functional.core import plot as core_plot
+from tascpy.core.plot import draw as core_plot
 
 if TYPE_CHECKING:
     from tascpy.core.collection import ColumnCollection

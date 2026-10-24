@@ -11,9 +11,9 @@ from typing import Any, Dict, Union
 import numpy as np
 import polars as pl
 
-from ..core.collection import ColumnCollection
-from ..core.column import Column, ColumnMeta
-from ..core.result import AnalysisResult, GridResult, PointResult, ScalarResult, XYSeriesResult
+from ..collection import ColumnCollection
+from ..column import Column, ColumnMeta
+from ..result import AnalysisResult, GridResult, PointResult, ScalarResult, XYSeriesResult
 
 METADATA_KEY = "tascpy"
 FORMAT_VERSION = 1
@@ -65,7 +65,7 @@ def _result_from_dict(data: Dict[str, Any]) -> AnalysisResult:
 
 
 def _domain_classes() -> Dict[str, type]:
-    from ..domains import CoordinateCollection, LoadDisplacementCollection, StrainCollection
+    from tascpy.domains import CoordinateCollection, LoadDisplacementCollection, StrainCollection
 
     return {cls.domain: cls for cls in (LoadDisplacementCollection, CoordinateCollection, StrainCollection)}
 

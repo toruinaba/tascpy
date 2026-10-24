@@ -2,7 +2,8 @@
 
 from typing import assert_type
 
-from tascpy.analytics.ops import CoordinateOps, CoreOps, LoadDisplacementOps, OpsList, StrainOps
+from tascpy.analytics.ops import CoordinateOps, LoadDisplacementOps, StrainOps
+from tascpy.core import CoreOps, OpsList
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.coordinate import CoordinateCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection

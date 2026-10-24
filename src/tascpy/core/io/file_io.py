@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional, Sequence, TextIO, Union
 
 import polars as pl
 
-from ..core.collection import INDEX_COLUMNS, ColumnCollection
-from ..core.column import Column
+from ..collection import INDEX_COLUMNS, ColumnCollection
+from ..column import Column
 from .formats import get_format
 
 MISSING_TOKENS = ("none", "null", "", "nan", "na")

@@ -38,7 +38,7 @@ class CollectionIO:
                         encoding=encoding, delimiter=delimiter)
 
     def to_parquet(self, path: Union[str, Path]) -> None:
-        """列メタ・メタデータ・解析結果まで含めて Parquet 形式で保存する（`tascpy.io.load_parquet` で復元）"""
+        """列メタ・メタデータ・解析結果まで含めて Parquet 形式で保存する（`tascpy.load_parquet` で復元）"""
         from .parquet import save_parquet
 
         save_parquet(self._collection, path)

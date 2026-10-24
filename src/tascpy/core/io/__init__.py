@@ -1,5 +1,5 @@
 """
-tascpy.io - ファイルの読み込み・保存
+tascpy.core.io - ファイルの読み込み・保存
 """
 
 from .file_io import load_collection as load

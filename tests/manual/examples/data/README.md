@@ -53,7 +53,7 @@ exec(open("./create_load_displacement_sample.py").read())
 1. **サポートされる形式** (`format_name`):
    - `"tasc_txt"` / `"tasc_csv"`: TASC 出力（Shift-JIS）
    - `"standard"` / `"csv"`: 同じ構成の UTF-8 ファイル
-   - 独自形式は `tascpy.io.register_format` で登録できます
+   - 独自形式は `tascpy.core.io.register_format` で登録できます
 
 2. **列の型と欠損値**:
    - 数値の列は自動的に Float64 になります

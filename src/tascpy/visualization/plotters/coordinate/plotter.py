@@ -1,4 +1,4 @@
-from tascpy.visualization.plotters.core.plotter import CorePlotter
+from tascpy.core.plot.plotter import CorePlotter
 
 class CoordinatePlotter(CorePlotter):
     """座標ドメイン特化の可視化クラス

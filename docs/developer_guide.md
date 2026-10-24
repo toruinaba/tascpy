@@ -6,11 +6,15 @@
 
 ```text
 src/tascpy/
-├── core/                   # 基本データ構造
+├── core/                   # データモデルと、ドメインに依存しない操作・入出力・描画
 │   ├── collection.py       # ColumnCollection（polars DataFrame + 列メタ、.ops / .plot / .io）
 │   ├── column.py           # Column（読み取り専用ビュー）, ColumnMeta
 │   ├── row.py
-│   └── result.py           # AnalysisResult（ScalarResult, PointResult, XYSeriesResult）
+│   ├── result.py           # AnalysisResult（ScalarResult, PointResult, XYSeriesResult）
+│   ├── ops.py              # CoreOps
+│   ├── ops_list.py         # OpsList
+│   ├── io/                 # ファイル入出力（TASC 系テキスト・Parquet・CSV）
+│   └── plot/               # CorePlotter、描画関数、Plotly、日本語フォント
 ├── domains/                # ドメイン特化コレクション
 │   ├── load_displacement.py
 │   ├── coordinate.py
@@ -22,14 +26,11 @@ src/tascpy/
 │   ├── rosette.py          # ロゼット解析
 │   └── spatial.py          # 距離・近傍・クラスタリング・空間補間
 ├── analytics/
-│   └── ops/                # メソッドチェーンの操作クラス
-│       ├── core.py         # CoreOps
+│   └── ops/                # ドメイン固有の操作クラス
 │       ├── load_displacement.py  # LoadDisplacementOps
 │       ├── coordinate.py   # CoordinateOps
-│       ├── strain.py       # StrainOps
-│       └── list.py         # OpsList
-├── visualization/          # 可視化（描画関数 + plotters）
-└── io/                     # ファイル入出力
+│       └── strain.py       # StrainOps
+└── visualization/          # ドメイン固有の描画（描画関数 + plotters）
 ```
 
 データ保持・単位・欠損の規則は [コアデータモデル設計](developer_guide_design.md) にまとめています。
@@ -43,13 +44,11 @@ src/tascpy/
 ### 依存関係
 
 ```text
-ops, domains, visualization ──> numeric
-ops ──> core, domains
-domains ──> core
-visualization, io ──> core
+core, analytics.ops, domains, visualization ──> numeric
+analytics.ops, domains, visualization ──> core
 ```
 
-`core` から `ops` / `visualization` / `io` へは、各プロパティ内で遅延インポートしています。numeric はコレクションにも polars にも依存せず、numpy だけで単体利用できます。この境界は import-linter の契約（`pyproject.toml` の `[tool.importlinter]`）で検査します。
+`core.plot` は `coll.plot` のプロパティ内で遅延インポートしており、`import tascpy` だけでは matplotlib を読み込みません。トップレベルの `tascpy.ColumnCollection` なども初回アクセス時に import します（`import tascpy.numeric` で polars を読み込まないため）。ドメインのコレクションと `CoreOps.as_*` は、まだ `analytics.ops` / `visualization` / `domains` を遅延インポートしています（ドメインの縦割り化で解消予定）。numeric はコレクションにも polars にも依存せず、numpy だけで単体利用できます。この境界は import-linter の契約（`pyproject.toml` の `[tool.importlinter]`）で検査します。
 
 ## 開発環境のセットアップ
 

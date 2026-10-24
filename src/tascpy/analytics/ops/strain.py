@@ -11,7 +11,7 @@ from tascpy.numeric.curve import compute_yield_point
 from tascpy.numeric.rosette import compute_rosette_strains
 
 from .coordinate import CoordinateOps
-from .core import to_float_array
+from tascpy.core.ops import to_float_array
 
 
 class StrainOps(CoordinateOps[StrainCollection]):
