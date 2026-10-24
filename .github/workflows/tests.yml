@@ -34,3 +34,6 @@ jobs:
 
       - name: Type check
         run: pyright
+
+      - name: Check import boundaries
+        run: lint-imports

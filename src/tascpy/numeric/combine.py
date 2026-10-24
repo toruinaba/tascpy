@@ -111,7 +111,7 @@ def switch_by_step(
         ValueError: v1とv2の長さが異なる場合。
         
     Examples:
-        >>> from tascpy.analytics.functional.combine import switch_by_step
+        >>> from tascpy.numeric.combine import switch_by_step
         >>> import numpy as np
         >>> steps = np.array([0, 1, 2, 3])
         >>> v1 = np.array([10, 10, 10, 10])
@@ -166,7 +166,7 @@ def blend_by_step(
         ValueError: v1とv2の長さが異なる場合、終了値が開始値以下の場合、または無効なブレンドメソッドが指定された場合。
         
     Examples:
-        >>> from tascpy.analytics.functional.combine import blend_by_step
+        >>> from tascpy.numeric.combine import blend_by_step
         >>> import numpy as np
         >>> steps = np.array([0.0, 0.5, 1.0, 1.5, 2.0])
         >>> v1 = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
@@ -268,7 +268,7 @@ def conditional_select(
         ValueError: 無効な比較演算子が指定された場合。
         
     Examples:
-        >>> from tascpy.analytics.functional.combine import conditional_select
+        >>> from tascpy.numeric.combine import conditional_select
         >>> import numpy as np
         >>> cond = np.array([1, 5, 10])
         >>> v1 = np.array([100, 100, 100])
@@ -320,7 +320,7 @@ def custom_combine(
         Any: 結合結果（配列またはリスト）。
         
     Examples:
-        >>> from tascpy.analytics.functional.combine import custom_combine
+        >>> from tascpy.numeric.combine import custom_combine
         >>> import numpy as np
         >>> def my_func(a, b): return a * 2 + b
         >>> v1 = np.array([1, 2])

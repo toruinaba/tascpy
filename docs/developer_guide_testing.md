@@ -6,8 +6,8 @@ tascpy は、数値計算の正確性と、データ操作パイプラインと�
 
 ### `tests/unit/` (単体テスト)
 
-1. **`functional` テスト**: `tests/unit/analytics/functional/`
-   * 対象: `src/tascpy/analytics/functional/` の純粋な数値計算関数
+1. **`numeric` テスト**: `tests/unit/numeric/`
+   * 対象: `src/tascpy/numeric/` の純粋な数値計算関数
    * 目的: NumPy 配列を直接渡し、数学的に正しい値が返るかを検証します
    * 特徴: `ColumnCollection` は使いません。境界値や NaN などの入力パターンの網羅に集中し、`np.testing.assert_allclose` 等で検証します
 
@@ -26,26 +26,26 @@ tascpy は、数値計算の正確性と、データ操作パイプラインと�
 
 実行はせず、pyright で `assert_type` を検査します。メソッドチェーンの戻り値の型（IDE の補完）が崩れていないことを保証します。
 
-## 2. functional と ops を分ける理由
+## 2. numeric と ops を分ける理由
 
 数学的ロジックとデータハンドリングを分けることで、バグの場所を切り分けやすくするためです。
 
 例えば `col.ops.average_columns(["A", "B"])` が失敗したとき、
-* functional のテストが落ちていれば、平均の計算そのものにバグがあります
-* functional は通り ops が落ちていれば、列の取り出しや欠損値の変換、結果の格納にバグがあります
+* numeric のテストが落ちていれば、平均の計算そのものにバグがあります
+* numeric は通り ops が落ちていれば、列の取り出しや欠損値の変換、結果の格納にバグがあります
 
 ## 3. テストの書き方
 
 新しい操作（例: `my_new_calculation`）を追加する場合、2 段階でテストを書きます。
 
-### ステップ1: functional テスト
+### ステップ1: numeric テスト
 
 ```python
-# tests/unit/analytics/functional/core/test_math.py
+# tests/unit/numeric/test_math.py
 import numpy as np
-from tascpy.analytics.functional.core.math import my_new_calculation
+from tascpy.numeric.math import my_new_calculation
 
-def test_my_new_calculation_functional():
+def test_my_new_calculation():
     arr = np.array([1.0, 2.0, np.nan])
     np.testing.assert_allclose(my_new_calculation(arr), [2.0, 4.0, np.nan])
 ```

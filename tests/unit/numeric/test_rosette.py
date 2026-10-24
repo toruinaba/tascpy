@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from tascpy.analytics.functional.strain.rosette import compute_rosette_strains, compute_rosette_vectors
+from tascpy.numeric.rosette import compute_rosette_strains, compute_rosette_vectors
 
 def test_compute_rosette_strains_rectangular():
     e1 = np.array([100.0, 200.0])

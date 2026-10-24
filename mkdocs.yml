@@ -41,5 +41,6 @@ nav:
       - Core: api/core.md
       - IO: api/io.md
       - Analytics: api/analytics.md
+      - Numeric: api/numeric.md
       - Visualization: api/visualization.md
       - Domains: api/domains.md

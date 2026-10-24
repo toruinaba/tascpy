@@ -3,7 +3,7 @@ import numpy as np
 import tascpy as tp
 from matplotlib import pyplot as plt
 
-from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers as cycle_count
+from tascpy.numeric.hysteresis import compute_cycle_markers as cycle_count
 
 
 class Test_results:
@@ -101,7 +101,7 @@ class Test_results:
                 
             ax.set_title(f"step {count}")
 
-            from tascpy.analytics.functional.load_displacement.analysis import (
+            from tascpy.numeric.curve import (
                 compute_yield_point,
             )
 
@@ -144,8 +144,8 @@ class Test_results:
         pd_rmdup.plot.plot(x_column="梁変位ﾜｲﾔ", y_column="P_total", ax=ax, linewidth=0.5, label="original")
         # plt.show()
 
-        from tascpy.analytics.functional.load_displacement.curves import compute_skeleton_curve
-        from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers
+        from tascpy.numeric.hysteresis import compute_skeleton_curve
+        from tascpy.numeric.hysteresis import compute_cycle_markers
 
         p_cyc = pd_removed_outliers["P_total"].values
         d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].values
@@ -157,7 +157,7 @@ class Test_results:
             p_cyc, d_cyc, markers, has_decrease=True, decrease_type="continuous_only"
         )
 
-        from tascpy.analytics.functional.load_displacement.analysis import compute_yield_point
+        from tascpy.numeric.curve import compute_yield_point
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -204,8 +204,8 @@ class Test_results:
         # Removed detect_outliers_ratio usage
         pd_removed_outliers = pd_rmdup
         
-        from tascpy.analytics.functional.load_displacement.curves import compute_cumulative_curve
-        from tascpy.analytics.functional.load_displacement.cycles import compute_cycle_markers
+        from tascpy.numeric.hysteresis import compute_cumulative_curve
+        from tascpy.numeric.hysteresis import compute_cycle_markers
 
         p_cyc = pd_removed_outliers["P_total"].values
         d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].values

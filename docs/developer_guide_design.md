@@ -9,7 +9,7 @@ v0.2 でコアのデータ保持を polars に移行しました。このペー�
 | polars | 表の保持、欠損 (null)、dtype、行の抽出・連結 |
 | `core` | 列メタデータ（単位・チャンネル・属性）、step、解析結果の保持、不変条件 |
 | `analytics.ops` | 公開 API（メソッドチェーン）と単位の伝播 |
-| `analytics.functional` | 数値計算としてのドメイン知識（numpy のみに依存） |
+| `numeric` | 数値計算としてのドメイン知識（numpy のみに依存し、単体でも使える公開 API） |
 | `domains` | 荷重-変位・座標・ひずみの意味づけ |
 | `io` | TASC などファイル形式の解釈 |
 
@@ -102,17 +102,18 @@ coll.df  # polars をそのまま使いたい場合の出口
 | diff / integrate | `"y/x"` / `"y*x"`（表記を合成するだけ。Shift-JIS で保存できる文字に限る） |
 | 行の抽出・分割・連結 | 元の単位を保持 |
 
-## analytics.functional の約束
+## numeric の約束
 
-functional は、TASC 以外のデータにも単体で使えるように、numpy だけに依存する純粋関数として保ちます。
+numeric は、TASC 以外のデータにも単体で使えるように、numpy だけに依存する純粋関数として保ちます。
 
 - 入力: 1次元の配列風データ（list / ndarray）。内部で `np.asarray(..., dtype=float)` に変換します。
 - 欠損: NaN で表します（`None` は入力として受け付けますが、出力には使いません）。
 - 戻り値: `np.ndarray`、スカラー、tuple、または dataclass。
 - 単位・列名・コレクションは扱いません。
-- import するのは numpy（と標準ライブラリ）だけです。tascpy の core / ops / polars に依存しません。
+- import するのは numpy（と標準ライブラリ）だけです。tascpy の他のサブパッケージや polars・matplotlib に依存しません（import-linter の契約で検査）。
+- モジュールは tascpy のドメインではなく解析の対象で分けます（`curve` / `hysteresis` / `rosette` / `spatial` と、汎用の `math` / `stats` / `combine`）。
 
-表を操作する処理（行の抽出・検索・分割・重複除去など）は ops の側で polars を使って実装し、functional には置きません。
+表を操作する処理（行の抽出・検索・分割・重複除去など）は ops の側で polars を使って実装し、numeric には置きません。
 
 ## 可視化
 

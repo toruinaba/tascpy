@@ -7,3 +7,22 @@ include = ["src/tascpy", "tests/typecheck"]
 extraPaths = ["src"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
+
+[tool.importlinter]
+root_package = "tascpy"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "numeric は tascpy の他のサブパッケージと表・描画ライブラリに依存しない"
+type = "forbidden"
+source_modules = ["tascpy.numeric"]
+forbidden_modules = [
+    "tascpy.analytics",
+    "tascpy.core",
+    "tascpy.domains",
+    "tascpy.io",
+    "tascpy.visualization",
+    "polars",
+    "matplotlib",
+    "plotly",
+]

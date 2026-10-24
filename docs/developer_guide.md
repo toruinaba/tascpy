@@ -15,19 +15,20 @@ src/tascpy/
 │   ├── load_displacement.py
 │   ├── coordinate.py
 │   └── strain.py
+├── numeric/                # 純粋な計算関数（NumPy 配列 -> 配列・値）。単体でも使える公開 API
+│   ├── math.py, stats.py, combine.py  # 汎用
+│   ├── curve.py            # x-y 曲線（傾き・剛性・降伏点・ピーク・面積）
+│   ├── hysteresis.py       # 繰り返し載荷（サイクル・エネルギー・スケルトン曲線・累積曲線）
+│   ├── rosette.py          # ロゼット解析
+│   └── spatial.py          # 距離・近傍・クラスタリング・空間補間
 ├── analytics/
-│   ├── functional/         # 純粋な計算関数（NumPy 配列 -> 配列・値）
-│   │   ├── core/           # math, stats, combine
-│   │   ├── load_displacement/
-│   │   ├── coordinate/
-│   │   └── strain/
 │   └── ops/                # メソッドチェーンの操作クラス
 │       ├── core.py         # CoreOps
 │       ├── load_displacement.py  # LoadDisplacementOps
 │       ├── coordinate.py   # CoordinateOps
 │       ├── strain.py       # StrainOps
 │       └── list.py         # OpsList
-├── visualization/          # 可視化（functional 描画関数 + plotters）
+├── visualization/          # 可視化（描画関数 + plotters）
 └── io/                     # ファイル入出力
 ```
 
@@ -37,18 +38,18 @@ src/tascpy/
 
 - **ColumnCollection**: 不変なデータコンテナ。データは polars の DataFrame、単位などは列ごとの `ColumnMeta` として持ちます。`ops` / `plot` / `io` プロパティを持ちます
 - **ドメインコレクション**（`LoadDisplacementCollection` など）: `ColumnCollection` のサブクラス。ドメイン固有の設定を属性として持ち、`ops` / `plot` が対応するドメインのクラスを返します
-- **CoreOps とそのサブクラス**: メソッドチェーンの操作。各操作は functional の関数を呼び、新しいコレクションを持つ操作オブジェクトを返します
+- **CoreOps とそのサブクラス**: メソッドチェーンの操作。各操作は numeric の関数を呼び、新しいコレクションを持つ操作オブジェクトを返します
 
 ### 依存関係
 
 ```text
-ops ──> functional
+ops, domains, visualization ──> numeric
 ops ──> core, domains
 domains ──> core
 visualization, io ──> core
 ```
 
-`core` から `ops` / `visualization` / `io` へは、各プロパティ内で遅延インポートしています。functional はコレクションにも polars にも依存せず、numpy だけで単体利用できます（`tests/unit/analytics/functional/test_contract.py` で検査）。
+`core` から `ops` / `visualization` / `io` へは、各プロパティ内で遅延インポートしています。numeric はコレクションにも polars にも依存せず、numpy だけで単体利用できます。この境界は import-linter の契約（`pyproject.toml` の `[tool.importlinter]`）で検査します。
 
 ## 開発環境のセットアップ
 
@@ -65,15 +66,16 @@ pip install -e . -r requirements-dev.txt
 ```bash
 pytest   # 設定は pytest.ini
 pyright   # 設定は pyproject.toml
+lint-imports   # import の境界の検査。設定は pyproject.toml
 ```
 
 ## 新しい操作の追加
 
-functional に純粋関数を書き、対応する Ops クラスにメソッドを追加します。手順、内部ヘルパー、新しいドメインの追加方法は [操作の追加方法](developer_guide_operations.md) を参照してください。
+numeric に純粋関数を書き、対応する Ops クラスにメソッドを追加します。手順、内部ヘルパー、新しいドメインの追加方法は [操作の追加方法](developer_guide_operations.md) を参照してください。
 
 ## テスト
 
-functional のテストと ops のテストを分けて書きます。[テスト戦略](developer_guide_testing.md) を参照してください。
+numeric のテストと ops のテストを分けて書きます。[テスト戦略](developer_guide_testing.md) を参照してください。
 
 ## ドキュメント
 

@@ -7,10 +7,9 @@ from typing import List, Optional, Self
 import numpy as np
 
 from tascpy.domains.strain import StrainCollection
+from tascpy.numeric.curve import compute_yield_point
+from tascpy.numeric.rosette import compute_rosette_strains
 
-from ..functional.load_displacement.analysis import compute_yield_point
-from ..functional.strain.rosette import compute_rosette_strains
-from ..functional.strain.ss_analysis import compute_stress
 from .coordinate import CoordinateOps
 from .core import to_float_array
 
@@ -79,7 +78,7 @@ class StrainOps(CoordinateOps[StrainCollection]):
         Examples:
             >>> col.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力").end()
         """
-        stress = compute_stress(self._float_column(load_column, "荷重カラム"), area)
+        stress = self._float_column(load_column, "荷重カラム") / area
         result = self._c.with_column(
             result_column, stress, unit=unit,
             attrs={

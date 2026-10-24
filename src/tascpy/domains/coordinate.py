@@ -7,9 +7,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Self, Tupl
 
 import numpy as np
 
-from tascpy.analytics.functional.coordinate.clustering import find_nearest_neighbors_logic, simple_kmeans
-from tascpy.analytics.functional.coordinate.distance import euclidean_distance
 from tascpy.core.collection import ColumnCollection
+from tascpy.numeric.spatial import euclidean_distance, find_nearest_neighbors_logic, simple_kmeans
 
 if TYPE_CHECKING:
     from ..analytics.ops import CoordinateOps

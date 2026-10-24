@@ -13,9 +13,9 @@ from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import KEEP, Column
 from tascpy.core.result import AnalysisResult, PointResult, XYSeriesResult
 
-from ..functional.core import combine as f_combine
-from ..functional.core import math as f_math
-from ..functional.core import stats as f_stats
+from tascpy.numeric import combine as f_combine
+from tascpy.numeric import math as f_math
+from tascpy.numeric import stats as f_stats
 
 if TYPE_CHECKING:
     from .coordinate import CoordinateOps

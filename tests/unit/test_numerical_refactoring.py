@@ -3,7 +3,7 @@ import numpy as np
 import math
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
-from tascpy.analytics.functional.core import stats as f_stats
+from tascpy.numeric import stats as f_stats
 
 class TestNumericalRefactoring:
     @pytest.fixture

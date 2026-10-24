@@ -1,6 +1,6 @@
-"""荷重-変位データ解析用の純粋関数群"""
+"""x-y 曲線の解析（傾き・剛性・降伏点・ピーク・面積）の純粋関数"""
 
-from typing import Any, Dict, NamedTuple, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 
@@ -16,7 +16,7 @@ def compute_slopes(disp_data: np.ndarray, load_data: np.ndarray) -> np.ndarray:
         np.ndarray: 計算された傾きの配列（最初の要素は NaN）
         
     Examples:
-        >>> from tascpy.analytics.functional.load_displacement.analysis import compute_slopes
+        >>> from tascpy.numeric.curve import compute_slopes
         >>> import numpy as np
         >>> disp = np.array([0, 1, 2, 4])
         >>> load = np.array([0, 10, 20, 30])
@@ -63,7 +63,7 @@ def compute_stiffness(
         float: 計算された剛性値
         
     Examples:
-        >>> from tascpy.analytics.functional.load_displacement.analysis import compute_stiffness
+        >>> from tascpy.numeric.curve import compute_stiffness
         >>> import numpy as np
         >>> disp = np.array([0, 1, 2, 3, 4])
         >>> load = np.array([0, 100, 200, 300, 400])
@@ -249,3 +249,150 @@ def compute_yield_point(
             raise
         return YieldPoint(False, np.nan, np.nan, {**info, "error": str(e)})
     return YieldPoint(is_valid, x, y, {**details, **info})
+
+
+def extend_data_edge(
+    x_data: List[float], 
+    y_data: List[float], 
+    target: float, 
+    target_type: str = "x", 
+    extend_position: str = "end"
+) -> Tuple[float, float]:
+    """指定された方向にデータを線形補間により延長する関数
+
+    Args:
+        x_data: x座標データのリスト
+        y_data: y座標データのリスト
+        target: 延長先のターゲット値
+        target_type: 延長する軸の種類 ("x"または"y")
+        extend_position: 延長する位置 ("start"または"end")
+
+    Returns:
+        Tuple: 延長後の(x, y)座標
+        
+    Examples:
+        >>> from tascpy.numeric.curve import extend_data_edge
+        >>> x = [0.0, 1.0]
+        >>> y = [0.0, 10.0]
+        >>> extend_data_edge(x, y, 2.0, target_type="x", extend_position="end")
+        (2.0, 20.0)
+    """
+    if extend_position == "end":
+        if len(x_data) < 2 or len(y_data) < 2:
+            return (target, y_data[-1]) if target_type == "x" else (x_data[-1], target)
+
+        x1, y1 = x_data[-2], y_data[-2]
+        x2, y2 = x_data[-1], y_data[-1]
+    else:  # start
+        if len(x_data) < 2 or len(y_data) < 2:
+            return (target, y_data[0]) if target_type == "x" else (x_data[0], target)
+
+        x1, y1 = x_data[0], y_data[0]
+        x2, y2 = x_data[1], y_data[1]
+
+    if target_type == "x":
+        if x1 == x2:
+            return target, y1
+        y = y1 + (y2 - y1) * (target - x1) / (x2 - x1)
+        return target, y
+    else:  # "y"
+        if y1 == y2:
+            return x1, target
+        x = x1 + (x2 - x1) * (target - y1) / (y2 - y1)
+        return x, target
+
+
+def calculate_polygon_area(x: np.ndarray, y: np.ndarray) -> float:
+    """多角形の面積を計算（靴紐の公式）
+    
+    Args:
+        x: X座標配列
+        y: Y座標配列
+        
+    Returns:
+        float: 面積（絶対値）
+        
+    Examples:
+        >>> from tascpy.numeric.curve import calculate_polygon_area
+        >>> import numpy as np
+        >>> x = np.array([0, 1, 1, 0])
+        >>> y = np.array([0, 0, 1, 1])
+        >>> calculate_polygon_area(x, y)
+        1.0
+    """
+    if len(x) < 3 or len(y) < 3:
+        return 0.0
+    return 0.5 * float(np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))))
+
+
+def compute_peaks_and_valleys(
+    data: np.ndarray,
+    distance: int = 1,
+    threshold: Optional[float] = None,
+) -> np.ndarray:
+    """配列内の極大値(1)と極小値(-1)を検出します。
+    
+    Args:
+        data: 対象データ配列
+        distance: ピーク間の最小距離（インデックス数）
+        threshold: 隣接点との最小差
+        
+    Returns:
+        np.ndarray: ピーク(1)、バレー(-1)、その他(0)のフラグ配列
+        
+    Examples:
+        >>> from tascpy.numeric.curve import compute_peaks_and_valleys
+        >>> import numpy as np
+        >>> data = np.array([0, 2, 1, 0, -1, -2, -1, 0])
+        >>> compute_peaks_and_valleys(data)
+        array([ 0,  1,  0,  0,  0, -1,  0,  0])
+    """
+    data_float = np.asarray(data, dtype=float)
+    flags = np.zeros(len(data), dtype=int)
+    dist = max(1, distance)
+
+    for i in range(1, len(data) - 1):
+        if np.isnan(data_float[i]):
+            continue
+            
+        # 極大判定
+        if data_float[i] > data_float[i-1] and data_float[i] > data_float[i+1]:
+            is_peak = True
+            start = max(0, i - dist)
+            if np.any(data_float[start:i] >= data_float[i]):
+                is_peak = False
+            
+            if is_peak:
+                end = min(len(data), i + dist + 1)
+                if np.any(data_float[i+1:end] >= data_float[i]):
+                    is_peak = False
+
+            if is_peak and threshold is not None:
+                min_neighbor = min(data_float[max(0, i-1)], data_float[min(len(data)-1, i+1)])
+                if data_float[i] - min_neighbor < threshold:
+                    is_peak = False
+
+            if is_peak:
+                flags[i] = 1
+
+        # 極小判定
+        if data_float[i] < data_float[i-1] and data_float[i] < data_float[i+1]:
+            is_valley = True
+            start = max(0, i - dist)
+            if np.any(data_float[start:i] <= data_float[i]):
+                is_valley = False
+            
+            if is_valley:
+                end = min(len(data), i + dist + 1)
+                if np.any(data_float[i+1:end] <= data_float[i]):
+                    is_valley = False
+
+            if is_valley and threshold is not None:
+                max_neighbor = max(data_float[max(0, i-1)], data_float[min(len(data)-1, i+1)])
+                if max_neighbor - data_float[i] < threshold:
+                    is_valley = False
+
+            if is_valley:
+                flags[i] = -1
+
+    return flags
