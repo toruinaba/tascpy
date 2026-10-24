@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
 INDEX_COLUMNS = ("step", "date", "time")
 
+_DOMAINS: Dict[str, type["ColumnCollection"]] = {}
+
 C = TypeVar("C", bound="ColumnCollection")
 
 
@@ -50,6 +52,11 @@ class ColumnCollection:
     """
 
     domain: str = "core"
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        if "domain" in cls.__dict__:
+            _DOMAINS[cls.domain] = cls
 
     def __init__(
         self,
@@ -159,6 +166,11 @@ class ColumnCollection:
     def _domain_config(self) -> Dict[str, Any]:
         """ドメイン固有の設定（from_collection のキーワード引数として復元できる形、サブクラスで拡張）"""
         return {}
+
+    @classmethod
+    def _from_config(cls, collection: "ColumnCollection", config: Mapping[str, Any]) -> Self:
+        """`_domain_config()` の内容からこのクラスのコレクションを復元する（サブクラスで拡張）"""
+        return collection._as_class(cls)
 
     @staticmethod
     def _require(name: str, names: Iterable[str]) -> None:
@@ -392,3 +404,16 @@ def concat(collections: Sequence[ColumnCollection]) -> ColumnCollection:
     df = pl.concat([c.df for c in collections], how="diagonal_relaxed")
     index = [n for n in INDEX_COLUMNS if n in df.columns]
     return collections[0]._replace(df=df.select(index + list(meta)), meta=meta)
+
+
+def domain_class(name: str) -> type[ColumnCollection]:
+    """ドメイン名に対応するコレクションのクラス（`domain` を定義したサブクラスは定義時に登録される）
+
+    Raises:
+        ValueError: ドメインが登録されていない場合
+    """
+    if name == ColumnCollection.domain:
+        return ColumnCollection
+    if name not in _DOMAINS:
+        raise ValueError(f"ドメイン '{name}' が登録されていません（ドメインを定義するモジュールを import してください）")
+    return _DOMAINS[name]

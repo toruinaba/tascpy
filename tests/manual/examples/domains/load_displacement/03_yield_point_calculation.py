@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 import tascpy
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
+from tascpy.domains import as_load_displacement
 
 # ===== 降伏点計算の詳細情報表示機能のデモ =====
 print("===== 降伏点計算の詳細情報表示機能のデモ =====")
@@ -36,7 +37,7 @@ sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 collection = tascpy.load(sample_csv_path, format_name="csv")
 
 # 荷重-変位ドメインに変換します
-ld_collection = collection.ops.as_load_displacement(
+ld_collection = collection.ops.as_domain(as_load_displacement, 
     load_column="Force1", displacement_column="Displacement1"
 ).end()
 

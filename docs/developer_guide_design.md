@@ -8,11 +8,11 @@ v0.2 でコアのデータ保持を polars に移行しました。このペー�
 |---|---|
 | polars | 表の保持、欠損 (null)、dtype、行の抽出・連結 |
 | `core` | 列メタデータ（単位・チャンネル・属性）、step、解析結果の保持、不変条件 |
-| `core.ops` / `analytics.ops` | 公開 API（メソッドチェーン）と単位の伝播（汎用 / ドメイン固有） |
+| `core.ops` / `domains.*.ops` | 公開 API（メソッドチェーン）と単位の伝播（汎用 / ドメイン固有） |
 | `numeric` | 数値計算としてのドメイン知識（numpy のみに依存し、単体でも使える公開 API） |
-| `domains` | 荷重-変位・座標・ひずみの意味づけ |
+| `domains.*.collection` | 荷重-変位・座標・ひずみの意味づけ（設定の保持と、設定を読む問い合わせ） |
 | `core.io` | TASC などファイル形式の解釈 |
-| `core.plot` / `visualization` | 描画（汎用 / ドメイン固有） |
+| `core.plot` / `domains.*.plotter` | 描画（汎用 / ドメイン固有） |
 
 ## ColumnCollection
 
@@ -125,5 +125,6 @@ numeric は、TASC 以外のデータにも単体で使えるように、numpy �
 ## ドメイン
 
 - ドメインのコレクションは `ColumnCollection` のサブクラスです。ドメイン固有の設定（荷重-変位の `load_column` / `displacement_column`、ひずみの `rosettes`）は属性として持ち、`with_*` で操作しても引き継がれます。
-- 変換は `ops.as_load_displacement(...)`、`ops.as_coordinate(...)`、`ops.as_strain(...)` で行います。設定が不正な場合（列が存在しない場合など）はその時点でエラーになります。
+- 変換は `ops.as_domain(as_load_displacement, ...)`、`ops.as_domain(as_coordinate, ...)`、`ops.as_domain(as_strain, ...)` で行います。設定が不正な場合（列が存在しない場合など）はその時点でエラーになります。
+- コレクションが持つのは設定と、設定を読むだけの問い合わせ（`get_column_coordinates`、`calculate_distance` など）です。新しい列や結果を作る処理は ops に置きます（`find_nearest_neighbors`、`spatial_clustering` は `CoordinateOps`）。
 - 座標は列ごとの値なので、`ColumnMeta.attrs["coordinates"]`（`{"x", "y", "z"}`）に持ちます。こうしておけば、列の改名や選択に自動で追従します。

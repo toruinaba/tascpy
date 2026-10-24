@@ -7,6 +7,7 @@ include = ["src/tascpy", "tests/typecheck"]
 extraPaths = ["src"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
+reportUnnecessaryTypeIgnoreComment = "error"
 
 [tool.importlinter]
 root_package = "tascpy"
@@ -17,12 +18,36 @@ name = "numeric は tascpy の他のサブパッケージと表・描画ライ�
 type = "forbidden"
 source_modules = ["tascpy.numeric"]
 forbidden_modules = [
-    "tascpy.analytics",
     "tascpy.core",
     "tascpy.domains",
-    "tascpy.io",
-    "tascpy.visualization",
     "polars",
     "matplotlib",
     "plotly",
 ]
+
+[[tool.importlinter.contracts]]
+name = "依存の向きは domains -> core -> numeric の一方向（遅延 import も含む）"
+type = "layers"
+layers = [
+    "tascpy.domains",
+    "tascpy.core",
+    "tascpy.numeric",
+]
+
+[[tool.importlinter.contracts]]
+name = "荷重-変位ドメインは他のドメインに依存しない"
+type = "forbidden"
+source_modules = ["tascpy.domains.load_displacement"]
+forbidden_modules = ["tascpy.domains.coordinate", "tascpy.domains.strain"]
+
+[[tool.importlinter.contracts]]
+name = "座標ドメインは他のドメインに依存しない"
+type = "forbidden"
+source_modules = ["tascpy.domains.coordinate"]
+forbidden_modules = ["tascpy.domains.load_displacement", "tascpy.domains.strain"]
+
+[[tool.importlinter.contracts]]
+name = "ひずみドメインが依存してよいドメインは座標だけ"
+type = "forbidden"
+source_modules = ["tascpy.domains.strain"]
+forbidden_modules = ["tascpy.domains.load_displacement"]

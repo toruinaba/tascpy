@@ -1,3 +1,0 @@
-"""
-Load displacement plotter module.
-"""

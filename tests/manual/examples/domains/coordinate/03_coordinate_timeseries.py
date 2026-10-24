@@ -14,6 +14,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
+from tascpy.domains import as_coordinate
 
 IMGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "imgs")
 os.makedirs(IMGS_DIR, exist_ok=True)
@@ -44,7 +45,7 @@ def create_sample_timeseries_data() -> CoordinateCollection:
 
     collection = ColumnCollection(columns, step=list(range(N_STEPS)))
     # as_coordinate で座標ドメインに変換（型付きで CoordinateOps が返る）
-    return collection.ops.as_coordinate(coordinates=coordinates).end()
+    return collection.ops.as_domain(as_coordinate, coordinates=coordinates).end()
 
 
 def spatial_values(collection: CoordinateCollection, step_index: int):

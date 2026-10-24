@@ -15,22 +15,16 @@ src/tascpy/
 │   ├── ops_list.py         # OpsList
 │   ├── io/                 # ファイル入出力（TASC 系テキスト・Parquet・CSV）
 │   └── plot/               # CorePlotter、描画関数、Plotly、日本語フォント
-├── domains/                # ドメイン特化コレクション
-│   ├── load_displacement.py
-│   ├── coordinate.py
-│   └── strain.py
+├── domains/                # ドメイン。ドメインごとに縦割りのパッケージ
+│   ├── load_displacement/  # collection.py（設定）, ops.py（操作）, plotter.py / draw.py（描画）
+│   ├── coordinate/         # collection.py, ops.py（描画は CorePlotter）
+│   └── strain/             # collection.py, ops.py, plotter.py / draw.py（座標ドメインを拡張）
 ├── numeric/                # 純粋な計算関数（NumPy 配列 -> 配列・値）。単体でも使える公開 API
 │   ├── math.py, stats.py, combine.py  # 汎用
 │   ├── curve.py            # x-y 曲線（傾き・剛性・降伏点・ピーク・面積）
 │   ├── hysteresis.py       # 繰り返し載荷（サイクル・エネルギー・スケルトン曲線・累積曲線）
 │   ├── rosette.py          # ロゼット解析
 │   └── spatial.py          # 距離・近傍・クラスタリング・空間補間
-├── analytics/
-│   └── ops/                # ドメイン固有の操作クラス
-│       ├── load_displacement.py  # LoadDisplacementOps
-│       ├── coordinate.py   # CoordinateOps
-│       └── strain.py       # StrainOps
-└── visualization/          # ドメイン固有の描画（描画関数 + plotters）
 ```
 
 データ保持・単位・欠損の規則は [コアデータモデル設計](developer_guide_design.md) にまとめています。
@@ -38,17 +32,17 @@ src/tascpy/
 ### 主要クラスの関係
 
 - **ColumnCollection**: 不変なデータコンテナ。データは polars の DataFrame、単位などは列ごとの `ColumnMeta` として持ちます。`ops` / `plot` / `io` プロパティを持ちます
-- **ドメインコレクション**（`LoadDisplacementCollection` など）: `ColumnCollection` のサブクラス。ドメイン固有の設定を属性として持ち、`ops` / `plot` が対応するドメインのクラスを返します
+- **ドメインコレクション**（`LoadDisplacementCollection` など）: `ColumnCollection` のサブクラス。ドメイン固有の設定を属性として持ち、`ops` / `plot` が対応するドメインのクラスを返します。`domain` を定義したサブクラスは定義時にレジストリに登録され、`load_parquet` での復元に使われます
 - **CoreOps とそのサブクラス**: メソッドチェーンの操作。各操作は numeric の関数を呼び、新しいコレクションを持つ操作オブジェクトを返します
 
 ### 依存関係
 
 ```text
-core, analytics.ops, domains, visualization ──> numeric
-analytics.ops, domains, visualization ──> core
+domains ──> core ──> numeric
+strain ──> coordinate（ドメイン間で許可しているのはこれだけ）
 ```
 
-`core.plot` は `coll.plot` のプロパティ内で遅延インポートしており、`import tascpy` だけでは matplotlib を読み込みません。トップレベルの `tascpy.ColumnCollection` なども初回アクセス時に import します（`import tascpy.numeric` で polars を読み込まないため）。ドメインのコレクションと `CoreOps.as_*` は、まだ `analytics.ops` / `visualization` / `domains` を遅延インポートしています（ドメインの縦割り化で解消予定）。numeric はコレクションにも polars にも依存せず、numpy だけで単体利用できます。この境界は import-linter の契約（`pyproject.toml` の `[tool.importlinter]`）で検査します。
+`core.plot` は `coll.plot` のプロパティ内で遅延インポートしており、`import tascpy` だけでは matplotlib を読み込みません。トップレベルの `tascpy.ColumnCollection` なども初回アクセス時に import します（`import tascpy.numeric` で polars を読み込まないため）。トップレベルは組み立て役で、公開名に初めてアクセスしたときに `tascpy.domains` を import して組み込みドメインを登録します。core は domains を（遅延インポートも含めて）一切参照せず、ドメインへの変換は `CoreOps.as_domain`、Parquet からの復元はドメインのレジストリを通します。numeric はコレクションにも polars にも依存せず、numpy だけで単体利用できます。これらの境界は import-linter の契約（`pyproject.toml` の `[tool.importlinter]`）で検査します。
 
 ## 開発環境のセットアップ
 

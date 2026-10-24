@@ -11,7 +11,7 @@ from typing import Any, Dict, Union
 import numpy as np
 import polars as pl
 
-from ..collection import ColumnCollection
+from ..collection import ColumnCollection, domain_class
 from ..column import Column, ColumnMeta
 from ..result import AnalysisResult, GridResult, PointResult, ScalarResult, XYSeriesResult
 
@@ -64,12 +64,6 @@ def _result_from_dict(data: Dict[str, Any]) -> AnalysisResult:
     raise ValueError(f"未知の解析結果の型です: {kind}")
 
 
-def _domain_classes() -> Dict[str, type]:
-    from tascpy.domains import CoordinateCollection, LoadDisplacementCollection, StrainCollection
-
-    return {cls.domain: cls for cls in (LoadDisplacementCollection, CoordinateCollection, StrainCollection)}
-
-
 def save_parquet(collection: ColumnCollection, path: Union[str, Path]) -> None:
     """コレクションを Parquet 形式で保存する（load_parquet で同じ内容に復元できる）
 
@@ -107,10 +101,4 @@ def load_parquet(path: Union[str, Path]) -> ColumnCollection:
     for result in payload["results"]:
         collection = collection.with_result(_result_from_dict(result))
 
-    domain = payload["domain"]
-    if domain == ColumnCollection.domain:
-        return collection
-    classes = _domain_classes()
-    if domain not in classes:
-        raise ValueError(f"未知のドメインです: {domain}")
-    return classes[domain].from_collection(collection, **payload["domain_config"])
+    return domain_class(payload["domain"])._from_config(collection, payload["domain_config"])

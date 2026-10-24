@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import inspect
 import math
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, List, Optional, Self, Sequence, TypeVar, Union
+from typing import (
+    TYPE_CHECKING, Any, Callable, Concatenate, Dict, Generic, List, Optional, ParamSpec, Protocol, Self, Sequence,
+    TypeVar, Union,
+)
 
 import numpy as np
 import polars as pl
@@ -12,19 +15,23 @@ import polars as pl
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import KEEP, Column
 from tascpy.core.result import AnalysisResult, PointResult, XYSeriesResult
-
 from tascpy.numeric import combine as f_combine
 from tascpy.numeric import math as f_math
 from tascpy.numeric import stats as f_stats
 
 if TYPE_CHECKING:
-    from tascpy.analytics.ops.coordinate import CoordinateOps
     from .ops_list import OpsList
-    from tascpy.analytics.ops.load_displacement import LoadDisplacementOps
-    from tascpy.analytics.ops.strain import StrainOps
-    from tascpy.domains.coordinate import CoordinateCollection
 
 C_co = TypeVar("C_co", bound=ColumnCollection, covariant=True)
+O = TypeVar("O", bound="CoreOps[Any]", covariant=True)
+P = ParamSpec("P")
+
+
+class HasOps(Protocol[O]):
+    """`ops` プロパティで操作オブジェクトを返すコレクション"""
+
+    @property
+    def ops(self) -> O: ...
 
 Operand = Union[str, float, int, np.ndarray, Sequence[float]]
 
@@ -227,38 +234,18 @@ class CoreOps(Generic[C_co]):
         """ドメイン固有の設定を外し、汎用コレクションに変換します"""
         return CoreOps(self._c._as_class(ColumnCollection))
 
-    def as_load_displacement(
-        self, load_column: Optional[str] = None, displacement_column: Optional[str] = None
-    ) -> "LoadDisplacementOps":
-        """荷重-変位ドメインに変換します（列名省略時は列名から推測）"""
-        from tascpy.domains.load_displacement import LoadDisplacementCollection
+    def as_domain(self, factory: Callable[Concatenate[ColumnCollection, P], HasOps[O]],
+                  /, *args: P.args, **kwargs: P.kwargs) -> O:
+        """ドメインのコレクションに変換し、その操作オブジェクトを返します
 
-        from tascpy.analytics.ops.load_displacement import LoadDisplacementOps
+        factory には各ドメインの変換関数（`from_collection`）を渡します。残りの引数は factory に渡され、
+        型チェッカーと IDE の補完もそのシグネチャに従います。
 
-        return LoadDisplacementOps(LoadDisplacementCollection.from_collection(
-            self._c, load_column=load_column, displacement_column=displacement_column,
-        ))
-
-    def as_coordinate(self, coordinates: Optional[Dict[str, Dict[str, float]]] = None) -> "CoordinateOps[CoordinateCollection]":
-        """座標ドメインに変換します
-
-        Args:
-            coordinates: {列名: {"x": .., "y": .., "z": ..}}、または JSON/CSV ファイルのパス
+        Examples:
+            >>> from tascpy.domains import as_load_displacement
+            >>> col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d")
         """
-        from tascpy.domains.coordinate import CoordinateCollection
-
-        from tascpy.analytics.ops.coordinate import CoordinateOps
-
-        return CoordinateOps(CoordinateCollection.from_collection(self._c, coordinates=coordinates))
-
-    def as_strain(self, rosettes: Optional[Dict[str, Dict[str, Any]]] = None,
-                  coordinates: Optional[Dict[str, Dict[str, float]]] = None) -> "StrainOps":
-        """ひずみドメインに変換します"""
-        from tascpy.domains.strain import StrainCollection
-
-        from tascpy.analytics.ops.strain import StrainOps
-
-        return StrainOps(StrainCollection.from_collection(self._c, rosettes=rosettes, coordinates=coordinates))
+        return factory(self._c, *args, **kwargs).ops
 
     # ── 四則演算 ─────────────────────────────────
 

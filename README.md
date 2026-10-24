@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.4.0-green)](https://github.com/toruinaba/tascpy)
+[![Version](https://img.shields.io/badge/version-0.5.0-green)](https://github.com/toruinaba/tascpy)
 
 **tascpy** は、計測アプリケーション「tasc」などから出力される計測データの分析・可視化を効率的に行うための Python ライブラリです。直感的なインターフェースと強力なデータ処理機能を備え、メソッドチェーン形式で複雑な操作を簡潔に記述できます。
 
@@ -83,7 +83,7 @@ restored = tascpy.load_parquet("out.parquet")
 # 荷重-変位ドメインへ変換し、剛性と降伏点を計算
 ld = (
     collection.ops
-    .as_load_displacement(load_column="Force", displacement_column="Displacement")
+    .as_domain(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
     .remove_consecutive_duplicates_across()
     .calculate_stiffness(range_start=0.1, range_end=0.5)
     .find_yield_point(method="offset", offset_value=0.002)  # 0.2%オフセット法
@@ -97,7 +97,7 @@ print(f"降伏荷重: {yield_pt.y:.2f} {yield_pt.y_unit}")
 print(f"降伏変位: {yield_pt.x:.2f} {yield_pt.x_unit}")
 ```
 
-`collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。ドメインに変換すると、そのドメイン固有の操作（`find_yield_point` など）も補完されます。
+`collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。`as_domain` に変換関数（`tascpy.as_load_displacement` など）を渡してドメインに変換すると、変換の引数とドメイン固有の操作（`find_yield_point` など）も補完されます。
 
 ### 可視化の例
 
@@ -140,10 +140,7 @@ tascpy/
 │   └── tascpy/
 │       ├── numeric/          # numpy 配列に直接使える解析関数
 │       ├── core/             # データモデル（ColumnCollection など）と汎用の操作・入出力・描画
-│       ├── domains/          # ドメイン特化コレクション（荷重-変位・座標・ひずみ）
-│       ├── analytics/
-│       │   └── ops/          # ドメイン固有の操作クラス（collection.ops）
-│       └── visualization/    # ドメイン固有の可視化
+│       └── domains/          # ドメイン（荷重-変位・座標・ひずみ）。ドメインごとに collection / ops / plotter / draw
 ├── tests/                    # テストコード（tests/manual/examples にサンプル）
 └── docs/                     # ドキュメント
 ```

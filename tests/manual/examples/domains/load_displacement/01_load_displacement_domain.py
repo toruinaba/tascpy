@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 # tascpyをインポート
 import tascpy
 from tascpy.core.collection import ColumnCollection
+from tascpy.domains import as_load_displacement
 
 # ===== CSVファイルからデータを読み込み =====
 print("===== CSVファイルからデータを読み込み =====")
@@ -44,7 +45,7 @@ print(collection[disp_column].values[:5])
 print("\n===== LoadDisplacementCollectionへの変換 =====")
 
 # チェーンメソッドを使用して荷重-変位ドメインに変換
-ld_collection = collection.ops.as_load_displacement(
+ld_collection = collection.ops.as_domain(as_load_displacement, 
     load_column=force_column, displacement_column=disp_column
 ).end()
 
@@ -322,7 +323,7 @@ report_collection = (
         column=force_column, window_size=3, result_column="Force_Smooth"
     )  # 荷重データの平滑化
     # 平滑化したカラムを使用して新しいドメインコレクションを作成
-    .as_load_displacement(load_column="Force_Smooth", displacement_column="Disp_Smooth")
+    .as_domain(as_load_displacement, load_column="Force_Smooth", displacement_column="Disp_Smooth")
     .end()
 )
 # 注: PointResult は "yield_point" という名前で上書きされるため、
