@@ -51,7 +51,10 @@ def load_collection(
         KeyError: selected_columns にヘッダーにない名前が含まれる場合
 
     Examples:
-        >>> col = load_collection("data.txt", format_name="tasc_txt")
+        >>> from tascpy.core.io.file_io import load_collection
+        >>> loaded = load_collection("data.txt", format_name="tasc_txt")
+        >>> loaded.columns, loaded["荷重"].unit
+        (['荷重', '変位', 'CH1', 'CH2', 'CH3', '状態'], 'kN')
     """
     config = {**get_format(format_name), **kwargs}
     if not isinstance(filepath_or_stream, (str, Path)):

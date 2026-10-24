@@ -85,10 +85,10 @@ class Column:
     """データ列の読み取り専用ビュー
 
     Examples:
-        >>> col = Column("load", [1.0, None, 3.0], unit="kN")
-        >>> col.values
+        >>> column = Column("load", [1.0, None, 3.0], unit="kN")
+        >>> column.values
         array([ 1., nan,  3.])
-        >>> col.max(), col.unit
+        >>> column.max(), column.unit
         (3.0, 'kN')
     """
 

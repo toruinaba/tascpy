@@ -24,8 +24,8 @@ class StrainCollection(CoordinateCollection):
 
     Examples:
         >>> ros = {"R1": {"columns": ["CH1", "CH2", "CH3"], "type": "rectangular", "orientation": 0.0}}
-        >>> col = StrainCollection({"CH1": [100.0], "CH2": [50.0], "CH3": [20.0]}, rosettes=ros)
-        >>> col.get_rosette("R1")["type"]
+        >>> strain_col = StrainCollection({"CH1": [100.0], "CH2": [50.0], "CH3": [20.0]}, rosettes=ros)
+        >>> strain_col.get_rosette("R1")["type"]
         'rectangular'
     """
 

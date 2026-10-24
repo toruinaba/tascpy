@@ -17,9 +17,10 @@ class OpsList(Generic[O]):
     """操作オブジェクトのリスト
 
     Examples:
-        >>> parts = col.ops.split_by_integers([1, 1, 2, 2])
-        >>> smoothed = parts.map(lambda o: o.moving_average("A"))
-        >>> peaks = parts.collect(lambda o: o.end()["A"].max())
+        >>> parts = col.ops.split_by_integers([1, 1, 1, 2, 2, 2])
+        >>> smoothed = parts.map(lambda o: o.moving_average("荷重"))
+        >>> parts.collect(lambda o: o.end()["荷重"].max())
+        [80.0, 115.0]
     """
 
     def __init__(self, items: List[O]) -> None:

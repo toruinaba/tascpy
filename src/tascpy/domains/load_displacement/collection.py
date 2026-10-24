@@ -27,11 +27,11 @@ class LoadDisplacementCollection(ColumnCollection):
     """荷重と変位の列を指定したコレクション
 
     Examples:
-        >>> col = LoadDisplacementCollection(
+        >>> ld_col = LoadDisplacementCollection(
         ...     {"P": [0.0, 10.0], "d": [0.0, 1.0]}, units={"P": "kN", "d": "mm"},
         ...     load_column="P", displacement_column="d",
         ... )
-        >>> col.load.unit
+        >>> ld_col.load.unit
         'kN'
     """
 

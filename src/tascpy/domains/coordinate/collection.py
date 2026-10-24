@@ -59,8 +59,8 @@ class CoordinateCollection(ColumnCollection):
     座標は各列の `ColumnMeta.attrs["coordinates"]` に格納されるため、列の改名・選択に追従します。
 
     Examples:
-        >>> col = CoordinateCollection({"CH1": [100.0]}, coordinates={"CH1": {"x": 10.0, "y": 20.0}})
-        >>> col.get_column_coordinates("CH1")
+        >>> coord_col = CoordinateCollection({"CH1": [100.0]}, coordinates={"CH1": {"x": 10.0, "y": 20.0}})
+        >>> coord_col.get_column_coordinates("CH1")
         (10.0, 20.0, None)
     """
 

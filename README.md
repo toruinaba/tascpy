@@ -117,6 +117,8 @@ plt.show()
 
 より詳細なドキュメントとサンプルについては、以下を参照してください：
 
+- [チュートリアル](./docs/tutorial.md) - 繰り返し載荷試験のデータを読み込み、スケルトン曲線・降伏点・履歴エネルギーを求めて保存するまで（コードは CI で実行・検査しています）
+
 - [基本サンプル集](./tests/manual/examples/basic/README.md) - 基本的な操作と使用例
 - [高度なサンプル](./tests/manual/examples/advance/README.md) - 異常値分析など高度な分析テクニック
 - [ドメイン特化機能](./tests/manual/examples/domains/README.md) - 荷重-変位分析や座標データ処理の例
