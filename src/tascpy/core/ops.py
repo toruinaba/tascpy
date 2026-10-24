@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import math
+import warnings
 from typing import (
     TYPE_CHECKING, Any, Callable, Concatenate, Dict, Generic, List, Optional, ParamSpec, Protocol, Self, Sequence,
     TypeVar, Union,
@@ -151,6 +152,12 @@ class CoreOps(Generic[C_co]):
         for name in names:
             self._numeric(name)
         return names
+
+    def _stack_numeric(self, names: List[str], label: str) -> np.ndarray:
+        """数値列を (列数, 行数) の float 配列に積む（欠損は NaN）"""
+        if not names:
+            raise ValueError(f"{label}対象の列が指定されていません")
+        return np.vstack([np.asarray(self._numeric(n), dtype=float) for n in names])
 
     def _check_columns(self, columns: Optional[List[str]]) -> List[str]:
         names = self._c.columns if columns is None else list(columns)
@@ -491,7 +498,7 @@ class CoreOps(Generic[C_co]):
                     unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """複数列を行ごとに合計した列を追加します（省略時は全数値列、欠損を含む行は欠損）"""
         names = self._numeric_columns(columns)
-        values = f_combine.sum_columns([self._numeric(n) for n in names])
+        values = np.sum(self._stack_numeric(names, "合計"), axis=0)
         return self._unary(f"sum_columns({','.join(names)})", values, result_column, unit, ch,
                            self._first_unit(*names))
 
@@ -508,7 +515,10 @@ class CoreOps(Generic[C_co]):
             >>> col.ops.average_columns(["センサ1", "センサ2", "センサ3"], result_column="平均").end()
         """
         names = self._numeric_columns(columns)
-        values = f_combine.average_columns([self._numeric(n) for n in names], ignore_nan=ignore_nan)
+        stacked = self._stack_numeric(names, "平均")
+        with np.errstate(invalid="ignore"), warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)  # 全て欠損の行の nanmean
+            values = np.nanmean(stacked, axis=0) if ignore_nan else np.mean(stacked, axis=0)
         return self._unary(f"average_columns({','.join(names)})", values, result_column, unit, ch,
                            self._first_unit(*names))
 

@@ -1,4 +1,3 @@
-import warnings
 from typing import Union, Optional, List, Dict, Any, Callable
 import numpy as np
 
@@ -208,39 +207,6 @@ def blend_by_step(
             raise ValueError(f"終了インデックス({e_val})は開始インデックス({s_val})より大きくなければなりません")
 
     return _blend_core(v1, v2, comp_arr, s_val, e_val, blend_func)
-
-def sum_columns(arrays: List[np.ndarray]) -> np.ndarray:
-    """複数の配列を要素ごとに合計します（欠損 NaN を含む要素は NaN）。
-
-    Raises:
-        ValueError: 配列がない場合、または長さが一致しない場合
-    """
-    return np.sum(_stack(arrays, "合計"), axis=0)
-
-
-def average_columns(arrays: List[np.ndarray], ignore_nan: bool = True) -> np.ndarray:
-    """複数の配列を要素ごとに平均します。
-
-    Args:
-        arrays: 平均する配列のリスト
-        ignore_nan: True なら NaN を除いて平均（全て NaN の要素は NaN）、False なら NaN を含む要素は NaN
-
-    Raises:
-        ValueError: 配列がない場合、または長さが一致しない場合
-    """
-    stacked = _stack(arrays, "平均")
-    with np.errstate(invalid="ignore"), warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        return np.nanmean(stacked, axis=0) if ignore_nan else np.mean(stacked, axis=0)
-
-
-def _stack(arrays: List[np.ndarray], label: str) -> np.ndarray:
-    if not arrays:
-        raise ValueError(f"{label}対象の列が指定されていません")
-    try:
-        return np.stack([np.asarray(a, dtype=float) for a in arrays], axis=0)
-    except ValueError as e:
-        raise ValueError("すべての列の長さが一致する必要があります") from e
 
 
 def conditional_select(
