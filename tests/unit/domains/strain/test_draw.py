@@ -22,3 +22,12 @@ def test_rosette_vectors_with_missing_value_use_nan():
               .calculate_rosette_strains("R").end())
     ax = strain.plot.plot_rosette_vectors("R", step_index=1)
     assert ax is not None
+
+
+def test_rosette_vectors_are_python_floats_along_principal_directions():
+    from tascpy.domains.strain.draw import _rosette_vectors
+
+    v1x, v1y, v2x, v2y = _rosette_vectors(100.0, 50.0, 90.0)
+    assert all(type(v) is float for v in (v1x, v1y, v2x, v2y))
+    assert abs(v1x) < 1e-9 and abs(v1y - 100.0) < 1e-9
+    assert abs(v2x + 50.0) < 1e-9 and abs(v2y) < 1e-9

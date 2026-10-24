@@ -3,6 +3,7 @@ import numpy as np
 import tascpy as tp
 from matplotlib import pyplot as plt
 
+from tascpy.domains import as_load_displacement
 from tascpy.numeric.hysteresis import compute_cycle_markers as cycle_count
 
 
@@ -151,11 +152,18 @@ class Test_results:
         d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].values
         markers = compute_cycle_markers(p_cyc)
         d_ske, p_ske = compute_skeleton_curve(
-            p_cyc, d_cyc, markers, has_decrease=True, decrease_type="envelope"
+            d_cyc, p_cyc, markers, has_decrease=True, decrease_type="envelope"
         )
         d_ske2, p_ske2 = compute_skeleton_curve(
-            p_cyc, d_cyc, markers, has_decrease=True, decrease_type="continuous_only"
+            d_cyc, p_cyc, markers, has_decrease=True, decrease_type="continuous_only"
         )
+
+        # numpy で直接計算した結果と、ops で計算した結果が一致する
+        via_ops = (pd_removed_outliers.ops.as_domain(as_load_displacement, "P_total", "梁変位ﾜｲﾔ")
+                   .cycle_count().create_skeleton_curve(has_decrease=True).end().results["skeleton_curve"])
+        np.testing.assert_allclose(d_ske, via_ops.x)
+        np.testing.assert_allclose(p_ske, via_ops.y)
+        np.testing.assert_allclose(compute_skeleton_curve(d_cyc, p_cyc, has_decrease=True)[0], d_ske)
 
         from tascpy.numeric.curve import compute_yield_point
 
@@ -210,7 +218,12 @@ class Test_results:
         p_cyc = pd_removed_outliers["P_total"].values
         d_cyc = pd_removed_outliers["梁変位ﾜｲﾔ"].values
         markers = compute_cycle_markers(p_cyc)
-        d_cum, p_cum = compute_cumulative_curve(p_cyc, d_cyc, markers)
+        d_cum, p_cum = compute_cumulative_curve(d_cyc, p_cyc, markers)
+
+        via_ops = (pd_removed_outliers.ops.as_domain(as_load_displacement, "P_total", "梁変位ﾜｲﾔ")
+                   .cycle_count().create_cumulative_curve().end().results["cumulative_curve"])
+        np.testing.assert_allclose(d_cum, via_ops.x)
+        np.testing.assert_allclose(p_cum, via_ops.y)
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(d_cum, p_cum, label="envelope")

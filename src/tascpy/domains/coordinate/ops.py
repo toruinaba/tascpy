@@ -8,7 +8,7 @@ import numpy as np
 
 from tascpy.core.ops import CoreOps
 from tascpy.core.result import GridResult
-from tascpy.numeric.spatial import find_nearest_neighbors_logic, interpolate, simple_kmeans
+from tascpy.numeric.spatial import interpolate, kmeans
 
 from .collection import CoordinateCollection
 
@@ -172,7 +172,7 @@ class CoordinateOps(CoreOps[CC_co]):
             raise ValueError(f"カラム '{column}' には有効な座標が設定されていません。")
 
         candidates = [(name, self._c.calculate_distance(column, name)) for name in valid if name != column]
-        neighbors = find_nearest_neighbors_logic(candidates, n_neighbors)
+        neighbors = sorted((c for c in candidates if not np.isnan(c[1])), key=lambda c: c[1])[:n_neighbors]
         info = {
             "operation": "find_nearest_neighbors",
             "base_column": column,
@@ -195,7 +195,7 @@ class CoordinateOps(CoreOps[CC_co]):
         if algorithm.lower() != "kmeans":
             raise NotImplementedError(f"アルゴリズム '{algorithm}' は未実装です。")
 
-        labels = [int(label) for label in simple_kmeans(matrix, n_clusters)]
+        labels = [int(label) for label in kmeans(matrix, n_clusters)]
         info = {
             "operation": "spatial_clustering",
             "algorithm": algorithm,

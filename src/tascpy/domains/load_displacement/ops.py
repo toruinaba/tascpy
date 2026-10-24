@@ -15,9 +15,9 @@ from tascpy.numeric.curve import compute_peaks_and_valleys, compute_slopes, comp
 from tascpy.numeric.hysteresis import (
     compute_cumulative_curve,
     compute_cycle_markers,
-    compute_energy_and_stats,
+    compute_hysteresis_energy,
+    compute_secant_stiffness,
     compute_skeleton_curve,
-    compute_stiffness_degradation_stats,
 )
 
 from .collection import LoadDisplacementCollection
@@ -97,7 +97,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
         Args:
             column: 判定に使う列（省略時は荷重列）
-            step: ノイズとみなす変化幅
+            step: 符号反転1回あたりのサイクル番号の増分（0.5 なら正負の往復で 1 サイクル）
         """
         source = column or self._c.load_column
         markers = compute_cycle_markers(to_float_array(self._column_values(source)), step=step)
@@ -122,23 +122,20 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         return self._with_column(result_column or "peak_valley", flags, unit, ch, default_unit="")
 
     def _per_cycle(self, cycle_column: Optional[str],
-                   func: Callable[[np.ndarray, np.ndarray, np.ndarray], tuple],
+                   func: Callable[[np.ndarray, np.ndarray], tuple],
                    outputs: List[Dict[str, Any]]) -> CoreOps[ColumnCollection]:
         name = self._cycle_column(cycle_column)
         markers = to_float_array(self._column_values(name))
         keys = list(dict.fromkeys(v for v in markers if not np.isnan(v)))
-        rows = [func(*self._cycle_arrays(markers, markers == k)) for k in keys]
+        rows = [func(self._c.displacement_data[markers == k], self._c.load_data[markers == k]) for k in keys]
 
         columns = {
             spec["name"]: Column(spec["name"], [row[i] for row in rows], unit=spec.get("unit"),
                                  attrs=spec.get("attrs"))
-            for i, spec in enumerate(outputs, start=1)
+            for i, spec in enumerate(outputs)
         }
         steps = [int(k) if float(k).is_integer() else k for k in keys]
         return CoreOps(ColumnCollection(columns, step=steps, metadata=dict(self._c.metadata, grouped_by=name)))
-
-    def _cycle_arrays(self, markers: np.ndarray, rows: np.ndarray):
-        return self._c.load_data[rows], self._c.displacement_data[rows], markers[rows]
 
     def analyze_hysteresis(self, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの履歴エネルギーと最大・最小荷重/変位を集計した表を返します
@@ -146,7 +143,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         戻り値のステップはサイクル番号、列は energy（単位は "荷重*変位"）/ max_load / min_load / max_disp / min_disp です。
         """
         load_unit, disp_unit = self._c.load.unit, self._c.displacement.unit
-        return self._per_cycle(cycle_column, compute_energy_and_stats, [
+        return self._per_cycle(cycle_column, compute_hysteresis_energy, [
             {"name": "energy", "unit": self._ld_unit("*"), "attrs": {"description": "Hysteresis loop area"}},
             {"name": "max_load", "unit": load_unit},
             {"name": "min_load", "unit": load_unit},
@@ -156,7 +153,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
     def analyze_stiffness_degradation(self, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの割線剛性を集計した表を返します（列: stiffness）"""
-        return self._per_cycle(cycle_column, compute_stiffness_degradation_stats, [
+        return self._per_cycle(cycle_column, lambda d, p: (compute_secant_stiffness(d, p),), [
             {"name": "stiffness", "unit": self._ld_unit("/"), "attrs": {"description": "Secant stiffness"}},
         ])
 
@@ -165,8 +162,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def create_skeleton_curve(self, cycle_column: Optional[str] = None, has_decrease: bool = False,
                               decrease_type: str = "envelope") -> Self:
         """スケルトン曲線を生成し、結果 "skeleton_curve" (XYSeriesResult) に格納します"""
-        loads, disps, markers = self._all_cycle_arrays(cycle_column)
-        x, y = compute_skeleton_curve(loads, disps, markers, has_decrease=has_decrease, decrease_type=decrease_type)
+        x, y = compute_skeleton_curve(*self._all_cycle_arrays(cycle_column), has_decrease=has_decrease,
+                                      decrease_type=decrease_type)
         return self._with_curve("skeleton_curve", x, y, *self._curve_units())
 
     def create_cumulative_curve(self, cycle_column: Optional[str] = None) -> Self:
@@ -179,4 +176,4 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
     def _all_cycle_arrays(self, cycle_column: Optional[str]):
         name = self._cycle_column(cycle_column)
-        return self._c.load_data, self._c.displacement_data, to_float_array(self._column_values(name))
+        return self._c.displacement_data, self._c.load_data, to_float_array(self._column_values(name))

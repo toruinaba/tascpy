@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from tascpy.numeric.spatial import euclidean_distance, find_nearest_neighbors_logic, interpolate, simple_kmeans
+from tascpy.numeric.spatial import euclidean_distance, interpolate, kmeans
 
 POINTS = np.array([[0.0, 0.0], [10.0, 0.0]])
 
@@ -69,12 +69,12 @@ def test_euclidean_distance_dimension_mismatch():
         euclidean_distance([0.0, 0.0], [0.0, 0.0, 1.0])
 
 
-def test_simple_kmeans():
+def test_kmeans():
     X = np.array([
         [0.0, 0.0], [0.1, 0.1], [0.2, 0.2],
         [10.0, 10.0], [10.1, 10.1], [10.2, 10.2]
     ])
-    labels = simple_kmeans(X, n_clusters=2, max_iter=10)
+    labels = kmeans(X, n_clusters=2, max_iter=10)
     assert len(labels) == 6
     
     # Check that they are grouped correctly
@@ -85,28 +85,9 @@ def test_simple_kmeans():
     assert group1[0] != group2[0]
 
 
-def test_find_nearest_neighbors_logic():
-    distances = [
-        ("id1", 10.0),
-        ("id2", 5.0),
-        ("id3", np.nan),
-        ("id4", 1.0),
-        ("id5", None)
-    ]
-    
-    neighbors = find_nearest_neighbors_logic(distances, n_neighbors=2)
-    assert len(neighbors) == 2
-    assert neighbors[0][0] == "id4"
-    assert neighbors[1][0] == "id2"
-    
-    # Test more neighbors than available valid
-    neighbors_all = find_nearest_neighbors_logic(distances, n_neighbors=10)
-    assert len(neighbors_all) == 3
-
-
-def test_simple_kmeans_does_not_touch_global_random_state():
+def test_kmeans_does_not_touch_global_random_state():
     np.random.seed(123)
     expected = np.random.random()
     np.random.seed(123)
-    simple_kmeans(np.array([[0.0, 0.0], [0.1, 0.0], [10.0, 0.0], [10.1, 0.0]]), 2)
+    kmeans(np.array([[0.0, 0.0], [0.1, 0.0], [10.0, 0.0], [10.1, 0.0]]), 2)
     assert np.random.random() == expected

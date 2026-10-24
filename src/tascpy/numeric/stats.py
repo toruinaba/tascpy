@@ -8,13 +8,13 @@ def _as_float(values: Any) -> np.ndarray:
     return np.asarray(values, dtype=float)
 
 
-def moving_average(data: Any, window_size: int = 3) -> np.ndarray:
+def moving_average(values: Any, window_size: int = 3) -> np.ndarray:
     """中心移動平均を計算します（欠損 NaN はウィンドウ内の平均から除く）。
 
     端ではウィンドウに含まれる有効な点だけで平均します。ウィンドウ内に有効な点がなければ NaN です。
 
     Args:
-        data: 入力値の配列（None は欠損）
+        values: 入力値の配列（None は欠損）
         window_size: ウィンドウサイズ
 
     Returns:
@@ -26,7 +26,7 @@ def moving_average(data: Any, window_size: int = 3) -> np.ndarray:
         >>> moving_average([10.0, 20.0, None, 40.0], window_size=3)
         array([15., 15., 30., 40.])
     """
-    values = _as_float(data)
+    values = _as_float(values)
     if len(values) == 0:
         return np.array([], dtype=float)
     kernel = np.ones(window_size)
@@ -38,7 +38,7 @@ def moving_average(data: Any, window_size: int = 3) -> np.ndarray:
 
 
 def detect_outliers(
-    vals: Any,
+    values: Any,
     window_size: int = 3,
     threshold: float = 0.5,
     min_abs_value: float = 1e-10,
@@ -49,7 +49,7 @@ def detect_outliers(
     偏差率 = |値 - 移動平均| / max(|移動平均|, 標準偏差 × scale_factor, min_abs_value)
 
     Args:
-        vals: 入力値の配列（None は欠損）
+        values: 入力値の配列（None は欠損）
         window_size: 移動平均のウィンドウサイズ
         threshold: 外れ値とみなす偏差率の閾値
         min_abs_value: 偏差の最小値（これ以下の偏差は外れ値としない、ゼロ除算防止にも使う）
@@ -63,7 +63,7 @@ def detect_outliers(
     """
     if window_size < 1:
         raise ValueError("ウィンドウサイズは1以上である必要があります")
-    values = _as_float(vals)
+    values = _as_float(values)
     if len(values) < window_size:
         raise ValueError("データ長がウィンドウサイズより小さいです")
     valid = values[~np.isnan(values)]
@@ -79,7 +79,7 @@ def detect_outliers(
 
 
 def gaussian_filter(
-    vals: Any,
+    values: Any,
     sigma: float = 1.0,
     window_size: Optional[int] = None,
 ) -> np.ndarray:
@@ -88,7 +88,7 @@ def gaussian_filter(
     欠損値は無視して畳み込み計算を行います。
 
     Args:
-        vals (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
+        values (Union[np.ndarray, List[float]]): 入力値の配列またはリスト。
         sigma (float, optional): ガウス分布の標準偏差。デフォルトは 1.0。
         window_size (Optional[int], optional): フィルタのウィンドウサイズ。指定しない場合は sigma から自動計算されます。
 
@@ -108,7 +108,7 @@ def gaussian_filter(
         window_size = 2 * int(4.0 * sigma + 0.5) + 1
     if window_size < 1:
         raise ValueError("ウィンドウサイズは1以上である必要があります")
-    values = _as_float(vals)
+    values = _as_float(values)
 
     radius = window_size // 2
     x = np.arange(-radius, radius + 1)
