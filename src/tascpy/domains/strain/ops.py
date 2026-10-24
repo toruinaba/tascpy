@@ -52,7 +52,7 @@ class StrainOps(CoordinateOps[StrainCollection]):
             raise ValueError("3つのひずみカラムを指定する必要があります")
         e1, e2, e3 = (self._float_column(c, "カラム") for c in columns)
         e_max, e_min, gamma_max, theta = compute_rosette_strains(
-            e1, e2, e3, r_type=rosette_type, angle_offset=orientation,
+            e1, e2, e3, rosette_type=rosette_type, angle_offset=orientation,
         )
 
         result = self._c
@@ -99,7 +99,7 @@ class StrainOps(CoordinateOps[StrainCollection]):
         stress = self._float_column(stress_column, "応力カラム")
         strain = self._float_column(strain_column, "ひずみカラム")
         outcome = compute_yield_point(
-            disp_data=strain, load_data=stress, method=method, offset_value=offset_value,
+            strain, stress, method=method, offset_value=offset_value,
             range_start=range_start, range_end=range_end, factor=factor,
             fail_silently=fail_silently,
         )

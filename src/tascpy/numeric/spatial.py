@@ -1,6 +1,6 @@
-"""座標に基づく計算（距離・近傍・クラスタリング・空間補間）の純粋関数"""
+"""座標に基づく計算（距離・クラスタリング・空間補間）の純粋関数"""
 
-from typing import Any, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -88,32 +88,11 @@ def euclidean_distance(p1: Any, p2: Any) -> float:
     return float(np.linalg.norm(a - b))
 
 
-def find_nearest_neighbors_logic(distances: List[Tuple[str, float]], n_neighbors: int) -> List[Tuple[str, float]]:
-    """距離のリストから最も近いN個の近傍を取得します。
+def kmeans(points: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.ndarray:
+    """点を k-means 法で n_clusters 個のクラスタに分けます（初期中心は乱数シード 42 で選ぶため結果は再現可能）
 
     Args:
-        distances: (識別子, 距離) のリスト
-        n_neighbors: 取得する近傍数
-
-    Returns:
-        List[Tuple[str, float]]: ソート済みの近傍リスト
-        
-    Examples:
-        >>> from tascpy.numeric.spatial import find_nearest_neighbors_logic
-        >>> dists = [("p1", 5.0), ("p2", 2.0), ("p3", 8.0)]
-        >>> find_nearest_neighbors_logic(dists, 2)
-        [('p2', 2.0), ('p1', 5.0)]
-    """
-    sorted_distances = sorted([d for d in distances if d[1] is not None and not np.isnan(d[1])], key=lambda x: x[1])
-    n = min(n_neighbors, len(sorted_distances))
-    return sorted_distances[:n]
-
-
-def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.ndarray:
-    """簡易的なK-meansクラスタリング実装
-    
-    Args:
-        X: 座標データ配列 (n_samples, n_features)
+        points: 座標の配列 (点の数, 次元)
         n_clusters: クラスタ数
         max_iter: 最大繰り返し回数
         
@@ -121,15 +100,16 @@ def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nda
         np.ndarray: 各データ点のクラスタラベル
         
     Examples:
-        >>> from tascpy.numeric.spatial import simple_kmeans
+        >>> from tascpy.numeric.spatial import kmeans
         >>> import numpy as np
-        >>> X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
-        >>> labels = simple_kmeans(X, 2)
+        >>> points = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
+        >>> kmeans(points, 2)
+        array([0, 0, 0, 1, 1, 1])
     """
-    n_samples, _ = X.shape
+    n_samples, _ = points.shape
     
     rng = np.random.default_rng(42)
-    centers = X[rng.choice(n_samples, n_clusters, replace=False)]
+    centers = points[rng.choice(n_samples, n_clusters, replace=False)]
     
     labels = np.zeros(n_samples, dtype=int)
     
@@ -137,7 +117,7 @@ def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nda
         old_labels = labels.copy()
         
         for i in range(n_samples):
-            distances = np.sqrt(((X[i] - centers) ** 2).sum(axis=1))
+            distances = np.sqrt(((points[i] - centers) ** 2).sum(axis=1))
             labels[i] = np.argmin(distances)
             
         if np.all(old_labels == labels):
@@ -146,6 +126,6 @@ def simple_kmeans(X: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.nda
         for j in range(n_clusters):
             mask = labels == j
             if mask.sum() > 0:
-                centers[j] = X[mask].mean(axis=0)
+                centers[j] = points[mask].mean(axis=0)
                 
     return labels

@@ -2,14 +2,13 @@ import numpy as np
 import pytest
 
 from tascpy.numeric.curve import (
-    calculate_polygon_area,
+    _yield_point_general,
+    _yield_point_offset,
     compute_peaks_and_valleys,
+    compute_polygon_area,
     compute_slopes,
     compute_stiffness,
     compute_yield_point,
-    compute_yield_point_general,
-    compute_yield_point_offset,
-    extend_data_edge,
 )
 
 
@@ -49,21 +48,21 @@ def test_compute_stiffness():
         compute_stiffness(disp, load, method="unknown")
 
 
-def test_compute_yield_point_offset():
+def test_yield_point_offset():
     # simulate load-disp
     disp = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     load = np.array([0.0, 100.0, 200.0, 250.0, 280.0, 290.0])
     
     initial_slope = 100.0
     
-    is_valid, x, y, debug = compute_yield_point_offset(disp, load, initial_slope, offset_value=0.5)
+    is_valid, x, y, debug = _yield_point_offset(disp, load, initial_slope, 0.5)
     
     assert is_valid
     assert not np.isnan(x)
     assert not np.isnan(y)
 
 
-def test_compute_yield_point_general():
+def test_yield_point_general():
     disp = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     load = np.array([0.0, 100.0, 200.0, 250.0, 280.0, 290.0])
     initial_slope = 100.0
@@ -76,7 +75,7 @@ def test_compute_yield_point_general():
     # 3->4: 30  <- yield point found here
     # 4->5: 10
     
-    is_valid, x, y, debug = compute_yield_point_general(disp, load, initial_slope, factor=0.33)
+    is_valid, x, y, debug = _yield_point_general(disp, load, initial_slope, 0.33)
     assert is_valid
     assert not np.isnan(x)
 
@@ -108,7 +107,7 @@ def test_compute_yield_point_failures_have_consistent_info():
     result = compute_yield_point(np.array([0.0, 1.0]), np.array([0.0, 1.0]), range_start=0.5, range_end=0.6,
                                  fail_silently=True)
     assert isinstance(result, YieldPoint)
-    assert not result.is_valid and np.isnan(result.displacement) and np.isnan(result.load)
+    assert not result.is_valid and np.isnan(result.x) and np.isnan(result.y)
     assert result.info["method"] == "offset"
     assert np.isnan(result.info["initial_slope"])
     assert result.info["parameters"] == {"range_start": 0.5, "range_end": 0.6, "offset_value": 0.002}
@@ -147,44 +146,14 @@ def test_stiffness_range_uses_largest_magnitude_side():
     assert np.isclose(compute_stiffness(disp, load, range_start=0.2, range_end=0.8), 50.0)
 
 
-def test_extend_data_edge():
-    x = [0.0, 1.0, 2.0]
-    y = [0.0, 10.0, 20.0]
-
-    # extend end to y=30
-    x_new, y_new = extend_data_edge(x, y, 30.0, "y", "end")
-    assert np.isclose(x_new, 3.0)
-    assert np.isclose(y_new, 30.0)
-
-    # extend end to x=3
-    x_new, y_new = extend_data_edge(x, y, 3.0, "x", "end")
-    assert np.isclose(x_new, 3.0)
-    assert np.isclose(y_new, 30.0)
-
-    # extend start to x=-1
-    x_new, y_new = extend_data_edge(x, y, -1.0, "x", "start")
-    assert np.isclose(x_new, -1.0)
-    assert np.isclose(y_new, -10.0)
-
-    # test short data
-    x_short, y_short = extend_data_edge([1.0], [10.0], 20.0, "y", "end")
-    assert x_short == 1.0
-    assert y_short == 20.0
-
-    # test flat lines
-    x_flat, y_flat = extend_data_edge([0.0, 1.0], [10.0, 10.0], 2.0, "x", "end")
-    assert np.isclose(x_flat, 2.0)
-    assert np.isclose(y_flat, 10.0)
-
-
-def test_calculate_polygon_area():
+def test_compute_polygon_area():
     x = np.array([0.0, 2.0, 2.0, 0.0])
     y = np.array([0.0, 0.0, 2.0, 2.0])
-    area = calculate_polygon_area(x, y)
+    area = compute_polygon_area(x, y)
     assert np.isclose(area, 4.0)
 
     # Less than 3 points
-    assert calculate_polygon_area(np.array([0.0, 1.0]), np.array([0.0, 1.0])) == 0.0
+    assert compute_polygon_area(np.array([0.0, 1.0]), np.array([0.0, 1.0])) == 0.0
 
 
 def test_compute_peaks_and_valleys():

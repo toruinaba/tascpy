@@ -1,7 +1,15 @@
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
-from tascpy.numeric.rosette import compute_rosette_vectors
+import numpy as np
+
 from tascpy.core.plot.draw import new_axes
+
+
+def _rosette_vectors(e1: float, e2: float, theta: float, scale: float = 1.0) -> Tuple[float, float, float, float]:
+    """主ひずみ e1（theta 方向）と e2（theta + 90° 方向）の矢印の成分 (v1_x, v1_y, v2_x, v2_y)。theta は度"""
+    rad = np.radians(theta)
+    return (float(e1 * np.cos(rad) * scale), float(e1 * np.sin(rad) * scale),
+            float(e2 * np.cos(rad + np.pi / 2) * scale), float(e2 * np.sin(rad + np.pi / 2) * scale))
 
 
 def plot_rosette_vectors(
@@ -42,7 +50,7 @@ def plot_rosette_vectors(
         ax = new_axes()
         ax.set_title(f"Rosette: {rosette_name} (Step: {step_index})")
 
-    v1_x, v1_y, v2_x, v2_y = compute_rosette_vectors(e1, e2, theta, scale)
+    v1_x, v1_y, v2_x, v2_y = _rosette_vectors(e1, e2, theta, scale)
     head = {"head_width": scale * 0.1, "head_length": scale * 0.1}
     ax.arrow(x, y, v1_x, v1_y, fc="r", ec="r", label=f"e1: {e1:.2e}", **head)
     ax.arrow(x, y, -v1_x, -v1_y, fc="r", ec="r", **head)
@@ -80,8 +88,7 @@ def iplot_rosette_vectors(
         fig = plotly_backend.create_figure()
         plotly_backend.set_labels(fig, title=f"Rosette: {rosette_name} (Step: {step_index})")
 
-    # 純粋関数を呼び出してベクトル成分を取得
-    v1_x, v1_y, v2_x, v2_y = compute_rosette_vectors(e1, e2, theta, scale)
+    v1_x, v1_y, v2_x, v2_y = _rosette_vectors(e1, e2, theta, scale)
     
     # 描画 (Arrows)
     # e1: Red arrows

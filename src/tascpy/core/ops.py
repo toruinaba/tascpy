@@ -264,19 +264,19 @@ class CoreOps(Generic[C_co]):
             >>> col.ops.add("CH01", "CH02").end()
             >>> col.ops.add("CH01", 10.5, result_column="補正後").end()
         """
-        return self._binary("+", f_math.add, value1, value2, result_column, unit, ch,
+        return self._binary("+", np.add, value1, value2, result_column, unit, ch,
                             self._first_unit(value1, value2))
 
     def subtract(self, value1: Operand, value2: Operand, result_column: Optional[str] = None,
                  unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """要素ごとの差 (value1 - value2) を新しい列として追加します（単位は最初の列の単位）"""
-        return self._binary("-", f_math.subtract, value1, value2, result_column, unit, ch,
+        return self._binary("-", np.subtract, value1, value2, result_column, unit, ch,
                             self._first_unit(value1, value2))
 
     def multiply(self, value1: Operand, value2: Operand, result_column: Optional[str] = None,
                  unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """要素ごとの積を新しい列として追加します（単位は列×スカラーならその列の単位、それ以外は None）"""
-        return self._binary("*", f_math.multiply, value1, value2, result_column, unit, ch,
+        return self._binary("*", np.multiply, value1, value2, result_column, unit, ch,
                             self._scaled_unit(value1, value2))
 
     def divide(self, value1: Operand, value2: Operand, result_column: Optional[str] = None,
@@ -295,7 +295,7 @@ class CoreOps(Generic[C_co]):
             if np.any(~np.isnan(np.broadcast_to(numerator, zero.shape)[zero])):
                 raise ValueError("ゼロによる除算が発生しました")
         with np.errstate(divide="ignore", invalid="ignore"):
-            values = f_math.divide(numerator, denominator)
+            values = np.divide(numerator, denominator)
         return self._with_column(result_column or f"{_label(value1)}/{_label(value2)}", values, unit, ch,
                                  self._scaled_unit(value1, value2))
 
@@ -320,7 +320,7 @@ class CoreOps(Generic[C_co]):
             method: 微分手法 ("central", "forward", "backward")
         """
         y, x, has_missing = self._strict_pair(y_column, x_column)
-        values = np.full(len(y), np.nan) if has_missing else f_math.diff(y=y, x=x, method=method)
+        values = np.full(len(y), np.nan) if has_missing else f_math.diff(x, y, method=method)
         return self._with_column(result_column or f"d({y_column})/d({x_column})", values, unit, ch,
                                  self._compound_unit(y_column, x_column, "/"))
 
@@ -334,7 +334,7 @@ class CoreOps(Generic[C_co]):
         """
         y, x, has_missing = self._strict_pair(y_column, x_column)
         values = (np.full(len(y), np.nan) if has_missing
-                  else f_math.integrate(y=y, x=x, method=method, initial_value=initial_value))
+                  else f_math.integrate(x, y, method=method, initial_value=initial_value))
         return self._with_column(result_column or f"∫{y_column}d{x_column}", values, unit, ch,
                                  self._compound_unit(y_column, x_column, "*"))
 
@@ -395,18 +395,21 @@ class CoreOps(Generic[C_co]):
     def sqrt(self, values: Operand, result_column: Optional[str] = None,
              unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """平方根を新しい列として追加します（単位は None）"""
-        return self._unary(f"sqrt({values})", f_math.sqrt(self._numeric(values)), result_column, unit, ch, None)
+        with np.errstate(invalid="ignore"):
+            result = np.sqrt(self._numeric(values))
+        return self._unary(f"sqrt({values})", result, result_column, unit, ch, None)
 
     def pow(self, values: Operand, exponent: float = 1.0, result_column: Optional[str] = None,
             unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """べき乗を新しい列として追加します（単位は None）"""
-        return self._unary(f"{values}^{exponent}", f_math.power(self._numeric(values), exponent=exponent),
-                           result_column, unit, ch, None)
+        with np.errstate(invalid="ignore"):
+            result = np.power(self._numeric(values), exponent)
+        return self._unary(f"{values}^{exponent}", result, result_column, unit, ch, None)
 
     def abs_values(self, values: Operand, result_column: Optional[str] = None,
                    unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """絶対値を新しい列として追加します"""
-        return self._unary(f"abs({values})", f_math.abs_values(self._numeric(values)),
+        return self._unary(f"abs({values})", np.abs(self._numeric(values)),
                            result_column, unit, ch, self._unit_of(values))
 
     abs = abs_values
@@ -415,7 +418,7 @@ class CoreOps(Generic[C_co]):
                      unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """四捨五入した値を新しい列として追加します"""
         return self._unary(f"round({values}, {decimals})",
-                           f_math.round_values(self._numeric(values), decimals=decimals),
+                           np.round(self._numeric(values), decimals),
                            result_column, unit, ch, self._unit_of(values))
 
     def normalize(self, values: Operand, method: str = "minmax", result_column: Optional[str] = None,

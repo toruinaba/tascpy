@@ -113,6 +113,9 @@ numeric は、TASC 以外のデータにも単体で使えるように、numpy �
 - 単位・列名・コレクションは扱いません。
 - import するのは numpy（と標準ライブラリ）だけです。tascpy の他のサブパッケージや polars・matplotlib に依存しません（import-linter の契約で検査）。
 - モジュールは tascpy のドメインではなく解析の対象で分けます（`curve` / `hysteresis` / `rosette` / `spatial` と、汎用の `math` / `stats` / `combine`）。
+- 引数は常に (x, y) の順に並べます。汎用の x-y 曲線（`curve`）は `x, y`、荷重-変位に固有の処理（`hysteresis`）は `displacement, load` と名付けます。1次元の系列は `values` です。
+- 解析結果を返す関数は `compute_` で始めます（`compute_skeleton_curve` など）。広く通じる操作の名前（`interpolate`、`moving_average`、`euclidean_distance`、`kmeans`）はそのまま使います。
+- numpy の関数をそのまま呼ぶだけのラッパーや、ops のためだけの部品は公開しません（`_` 付きにするか、ops の側に置きます）。
 
 表を操作する処理（行の抽出・検索・分割・重複除去など）は ops の側で polars を使って実装し、numeric には置きません。
 

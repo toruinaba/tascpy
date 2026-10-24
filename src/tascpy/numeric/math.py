@@ -36,55 +36,6 @@ def log(values: np.ndarray, base: float = math.e) -> np.ndarray:
     
     return res_arr
 
-def sqrt(values: np.ndarray) -> np.ndarray:
-    """平方根(sqrt)を計算します。
-
-    負の値はNaNになります。
-
-    Args:
-        values (np.ndarray): 入力値の配列。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    with np.errstate(invalid='ignore'):
-         return np.sqrt(values)
-
-def power(values: np.ndarray, exponent: float) -> np.ndarray:
-    """累乗(power)を計算します。
-
-    Args:
-        values (np.ndarray): 基数の配列。
-        exponent (float): 指数。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    with np.errstate(invalid='ignore'):
-        return np.power(values, exponent)
-
-def abs_values(values: np.ndarray) -> np.ndarray:
-    """絶対値(absolute value)を計算します。
-
-    Args:
-        values (np.ndarray): 入力値の配列。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    return np.abs(values)
-
-def round_values(values: np.ndarray, decimals: int = 0) -> np.ndarray:
-    """値を指定された桁数で丸めます。
-
-    Args:
-        values (np.ndarray): 入力値の配列。
-        decimals (int, optional): 丸める小数点以下の桁数。デフォルトは 0。
-
-    Returns:
-        np.ndarray: 計算結果の配列。
-    """
-    return np.round(values, decimals)
 
 def normalize(values: np.ndarray, method: str = "minmax") -> np.ndarray:
     """値を正規化します。
@@ -145,80 +96,16 @@ def normalize(values: np.ndarray, method: str = "minmax") -> np.ndarray:
     return result_arr
 
 
-
-# --- Arithmetic Operations (from arithmetic.py) ---
-
-
-def add(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float], 
-) -> np.ndarray:
-    """2つの値または配列を加算します。
-
-    Args:
-        v1 (Union[np.ndarray, float]): 最初の値または配列。
-        v2 (Union[np.ndarray, float]): 2番目の値または配列。
-
-    Returns:
-        np.ndarray: 加算結果。
-    """
-    return np.add(v1, v2)
-
-def subtract(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float], 
-) -> np.ndarray:
-    """v1 から v2 を減算します。
-
-    Args:
-        v1 (Union[np.ndarray, float]): 最初の値または配列。
-        v2 (Union[np.ndarray, float]): 引く値または配列。
-
-    Returns:
-        np.ndarray: 減算結果。
-    """
-    return np.subtract(v1, v2)
-
-def multiply(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float], 
-) -> np.ndarray:
-    """2つの値または配列を乗算します。
-
-    Args:
-        v1 (Union[np.ndarray, float]): 最初の値または配列。
-        v2 (Union[np.ndarray, float]): 2番目の値または配列。
-
-    Returns:
-        np.ndarray: 乗算結果。
-    """
-    return np.multiply(v1, v2)
-
-def divide(
-    v1: Union[np.ndarray, float], 
-    v2: Union[np.ndarray, float],
-) -> np.ndarray:
-    """v1 を v2 で除算します。
-
-    Args:
-        v1 (Union[np.ndarray, float]): 分子となる値または配列。
-        v2 (Union[np.ndarray, float]): 分母となる値または配列。
-
-    Returns:
-        np.ndarray: 除算結果。
-    """
-    return np.divide(v1, v2)
-
 def diff(
-    y: Union[np.ndarray, List[float]], 
-    x: Union[np.ndarray, List[float]], 
+    x: Union[np.ndarray, List[float]],
+    y: Union[np.ndarray, List[float]],
     method: str = "central"
 ) -> np.ndarray:
-    """x, y座標から微分係数を計算します。
+    """x に対する y の微分係数 dy/dx を計算します。
 
     Args:
-        y (Union[np.ndarray, List[float]]): y座標の配列。
         x (Union[np.ndarray, List[float]]): x座標の配列。
+        y (Union[np.ndarray, List[float]]): y座標の配列。
         method (str, optional): 微分方法 ('central', 'forward', 'backward')。デフォルトは "central"。
 
     Returns:
@@ -263,8 +150,8 @@ def diff(
     return result
 
 def integrate(
-    y: Union[np.ndarray, List[float]],
     x: Union[np.ndarray, List[float]],
+    y: Union[np.ndarray, List[float]],
     method: str = "trapezoid",
     initial_value: float = 0.0
 ) -> np.ndarray:
@@ -274,8 +161,8 @@ def integrate(
     先頭の値は initial_value です。
 
     Args:
-        y (Union[np.ndarray, List[float]]): y の配列。
         x (Union[np.ndarray, List[float]]): x の配列。
+        y (Union[np.ndarray, List[float]]): y の配列。
         method (str, optional): 積分方法。"trapezoid"（台形則）のみ。
         initial_value (float, optional): 積分の初期値。デフォルトは 0.0。
 
@@ -288,9 +175,9 @@ def integrate(
     Examples:
         >>> import numpy as np
         >>> from tascpy.numeric.math import integrate
-        >>> integrate(y=[1.0, 1.0, 1.0], x=[10.0, 11.0, 12.0])
+        >>> integrate([10.0, 11.0, 12.0], [1.0, 1.0, 1.0])
         array([0., 1., 2.])
-        >>> integrate(y=[0.0, 2.0, 2.0], x=[0.0, 1.0, 0.0])
+        >>> integrate([0.0, 1.0, 0.0], [0.0, 2.0, 2.0])
         array([ 0.,  1., -1.])
     """
     if method != "trapezoid":
