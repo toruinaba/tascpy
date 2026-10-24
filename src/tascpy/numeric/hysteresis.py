@@ -137,8 +137,9 @@ def compute_skeleton_curve(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """繰り返し載荷の荷重-変位曲線からスケルトン曲線を計算します。
 
-    最大荷重のサイクルまでは、各サイクルで荷重がそれまでの最大を更新した点を、
-    前のサイクルの終わりにつながるよう変位をずらしてつなぎます。
+    最大荷重のサイクルまでは、各サイクルで荷重がそれまでの最大を更新した点をつなぎます。
+    2サイクル目以降は、そのサイクルで最初に最大を更新した点が、前のサイクルまでの包絡線の終端を
+    延長した直線上に来るよう変位をずらします（ずらし量はサイクルごとに1回だけ決め、1サイクル目はずらさない）。
 
     Args:
         displacement: 変位の配列
@@ -179,13 +180,17 @@ def compute_skeleton_curve(
         if key > max_marker:
             break
         d_offset = 0.0
+        offset_fixed = False
 
         for i in range(len(cycle_load)):
             if not np.isnan(cycle_load[i]) and cycle_load[i] > p_max:
                 p_max = cycle_load[i]
-                if d_offset == 0.0 and len(p_ske) >= 2:
-                    x, _ = _extend_edge(d_ske, p_ske, cycle_load[i], "y", "end")
-                    d_offset = x - cycle_disp[i]
+                # ずらし量はサイクルで最初に最大荷重を超えた点で、前のサイクルまでの包絡線から1回だけ決める
+                if not offset_fixed:
+                    if len(p_ske) >= 2:
+                        x, _ = _extend_edge(d_ske, p_ske, cycle_load[i], "y", "end")
+                        d_offset = x - cycle_disp[i]
+                    offset_fixed = True
                 p_ske.append(cycle_load[i])
                 d_ske.append(cycle_disp[i] + d_offset)
 
