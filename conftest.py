@@ -1,6 +1,6 @@
 """docstring と docs/tutorial.md の doctest の準備
 
-docstring の例が使う `col` / `ld` / `coord` / `strain` は docs/api/sample_data.md のコードブロックで定義し、
+docstring の例が使う `col` / `ld` / `coord` / `strain` / `cyclic` は docs/api/sample_data.md のコードブロックで定義し、
 ここではそれを実行して doctest の名前空間に入れる（docs とテストの前提を1か所にするため）。
 """
 
@@ -18,7 +18,7 @@ def sample_namespace() -> dict:
     assert match, f"{SAMPLE_DATA_DOC} に python のコードブロックがありません"
     namespace: dict = {}
     exec(match.group(1), namespace)
-    return {name: namespace[name] for name in ("col", "ld", "coord", "strain")}
+    return {name: namespace[name] for name in ("col", "ld", "coord", "strain", "cyclic")}
 
 
 @pytest.fixture(scope="session", autouse=True)

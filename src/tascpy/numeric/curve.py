@@ -53,6 +53,9 @@ def compute_stiffness(
 
     最大値は絶対値が最大の y（符号付き）です。圧縮側（負の y）のデータでも同じように計算できます。
 
+    単調な曲線を前提にしています。繰り返し載荷のデータを渡すと、範囲に入る除荷途中の点も計算に含まれ、
+    エラーにならずに誤った値になります。最初の載荷区間やスケルトン曲線（`hysteresis.compute_skeleton_curve`）に使ってください。
+
     Args:
         x: x の配列（変位など）
         y: y の配列（荷重など）
@@ -202,6 +205,8 @@ def compute_yield_point(
     fail_silently: bool = False,
 ) -> YieldPoint:
     """降伏点を計算します
+
+    単調な曲線を前提にしています（`compute_stiffness` と同じ）。繰り返し載荷のデータではスケルトン曲線に使ってください。
 
     初期剛性を `compute_stiffness(x, y, range_start, range_end)` で求め、
     "offset" は初期剛性線を x 方向に offset_value だけ平行移動した直線との交点、

@@ -1,8 +1,13 @@
 # 例で使うデータ
 
-API リファレンスの docstring の例（`Examples`）は、次の `col` / `ld` / `coord` / `strain` を前提にしています。荷重・変位と、3 つのひずみゲージ（CH1〜CH3、直交ロゼット R1）を 6 ステップ分記録したデータです。
+API リファレンスの docstring の例（`Examples`）は、次の `col` / `ld` / `coord` / `strain` / `cyclic` を前提にしています。
+
+- `col`: 荷重・変位と、3 つのひずみゲージ（CH1〜CH3、直交ロゼット R1）を 6 ステップ分記録したデータ（単調載荷）
+- `ld` / `coord` / `strain`: `col` を荷重-変位・座標・ひずみの各ドメインに変換したもの
+- `cyclic`: 繰り返し載荷の荷重-変位データ（初期剛性 40 kN/mm・降伏荷重 100 kN・二次剛性 4 kN/mm のバイリニアのばねを、変位 ±2 mm のあと +4 mm まで載荷）
 
 ```python
+import numpy as np
 import tascpy
 from tascpy.domains import as_coordinate, as_load_displacement, as_strain
 
@@ -25,6 +30,15 @@ rosettes = {"R1": {"columns": ["CH1", "CH2", "CH3"], "type": "rectangular", "ori
 ld = col.ops.as_domain(as_load_displacement, "荷重", "変位").end()
 coord = col.ops.as_domain(as_coordinate, coordinates=coordinates).end()
 strain = col.ops.as_domain(as_strain, rosettes=rosettes, coordinates=coordinates).end()
+
+cyclic_disp = np.concatenate([np.linspace(0.0, 2.0, 5), np.linspace(2.0, -2.0, 9)[1:],
+                              np.linspace(-2.0, 4.0, 13)[1:], np.linspace(4.0, 0.0, 9)[1:]])
+cyclic_load, p = [], 0.0
+for d0, d1 in zip(np.r_[0.0, cyclic_disp[:-1]], cyclic_disp):
+    p = min(max(p + 40.0 * (d1 - d0), 4.0 * d1 - 90.0), 4.0 * d1 + 90.0)
+    cyclic_load.append(p)
+cyclic = (tascpy.ColumnCollection({"荷重": cyclic_load, "変位": cyclic_disp}, units={"荷重": "kN", "変位": "mm"})
+          .ops.as_domain(as_load_displacement, "荷重", "変位").end())
 ```
 
 ファイルを読み書きする例は、このデータを保存した `data.txt` がある作業ディレクトリで実行する前提です。
