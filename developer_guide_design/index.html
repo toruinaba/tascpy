@@ -1,0 +1,1261 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="タスク計測データ処理用のPythonライブラリ">
+      
+      
+        <meta name="author" content="toru_inaba">
+      
+      
+        <link rel="canonical" href="https://toruinaba.github.io/tascpy/developer_guide_design/">
+      
+      
+        <link rel="prev" href="../developer_guide/">
+      
+      
+        <link rel="next" href="../developer_guide_operations/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.5">
+    
+    
+      
+        <title>Core Design - tascpy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.8608ea7d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="ヘッダー">
+    <a href=".." title="tascpy" class="md-header__button md-logo" aria-label="tascpy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tascpy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Core Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/toruinaba/tascpy" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    toruinaba/tascpy
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="タブ" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../tutorial/" class="md-tabs__link">
+        
+  
+    
+  
+  Tutorial
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../developer_guide/" class="md-tabs__link">
+          
+  
+    
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/core/" class="md-tabs__link">
+          
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="tascpy" class="md-nav__button md-logo" aria-label="tascpy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    tascpy
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/toruinaba/tascpy" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    toruinaba/tascpy
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Tutorial
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer_guide/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    General
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Core Design
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Core Design
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      責任分担
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#columncollection" class="md-nav__link">
+    <span class="md-ellipsis">
+      ColumnCollection
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ColumnCollection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      読み取り
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      書き込み（新しいコレクションを返す）
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      入口と出口
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#column-row" class="md-nav__link">
+    <span class="md-ellipsis">
+      Column と Row
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      dtype と欠損の規則
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      ファイル入出力
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      単位の方針
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numeric" class="md-nav__link">
+    <span class="md-ellipsis">
+      numeric の約束
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      可視化
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      ドメイン
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer_guide_operations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Adding Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer_guide_testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Testing Strategy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/core/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Core
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/numeric/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Numeric
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/domains/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Domains
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/sample_data/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    例で使うデータ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      責任分担
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#columncollection" class="md-nav__link">
+    <span class="md-ellipsis">
+      ColumnCollection
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ColumnCollection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      読み取り
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      書き込み（新しいコレクションを返す）
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      入口と出口
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#column-row" class="md-nav__link">
+    <span class="md-ellipsis">
+      Column と Row
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      dtype と欠損の規則
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      ファイル入出力
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      単位の方針
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numeric" class="md-nav__link">
+    <span class="md-ellipsis">
+      numeric の約束
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      可視化
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      ドメイン
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="_1">コアデータモデル設計</h1>
+<p>v0.2 でコアのデータ保持を polars に移行しました。このページは、コアの設計方針と、各層が守るべき約束をまとめたものです。</p>
+<h2 id="_2">責任分担</h2>
+<table>
+<thead>
+<tr>
+<th>層</th>
+<th>責任</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars</td>
+<td>表の保持、欠損 (null)、dtype、行の抽出・連結</td>
+</tr>
+<tr>
+<td><code>core</code></td>
+<td>列メタデータ（単位・チャンネル・属性）、step、解析結果の保持、不変条件</td>
+</tr>
+<tr>
+<td><code>core.ops</code> / <code>domains.*.ops</code></td>
+<td>公開 API（メソッドチェーン）と単位の伝播（汎用 / ドメイン固有）</td>
+</tr>
+<tr>
+<td><code>numeric</code></td>
+<td>数値計算としてのドメイン知識（numpy のみに依存し、単体でも使える公開 API）</td>
+</tr>
+<tr>
+<td><code>domains.*.collection</code></td>
+<td>荷重-変位・座標・ひずみの意味づけ（設定の保持と、設定を読む問い合わせ）</td>
+</tr>
+<tr>
+<td><code>core.io</code></td>
+<td>TASC などファイル形式の解釈</td>
+</tr>
+<tr>
+<td><code>core.plot</code> / <code>domains.*.plotter</code></td>
+<td>描画（汎用 / ドメイン固有）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="columncollection">ColumnCollection</h2>
+<pre><code class="language-python">coll.df        # pl.DataFrame（インデックス列 + データ列）
+coll.meta      # {列名: ColumnMeta}（データ列のみ、列順どおり）
+coll.metadata  # コレクション全体のメタデータ
+coll.results   # {名前: AnalysisResult}
+</code></pre>
+<ul>
+<li><strong>不変 (immutable)</strong>。属性への代入や、列・メタデータを直接書き換える API はありません。変更はすべて <code>with_*</code> などのメソッドで行い、新しいコレクションが返ります。</li>
+<li><strong>インデックス列</strong>: <code>step</code> は必須、<code>date</code> と <code>time</code> は任意です。この3つは予約名で、データ列には使えません。<code>coll.columns</code> にはデータ列だけが入ります。</li>
+<li>step を省略した場合は <code>0..n-1</code> になります。</li>
+</ul>
+<h3 id="_3">読み取り</h3>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>戻り値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>coll["CH1"]</code></td>
+<td><code>Column</code>（データ列の読み取り専用ビュー）</td>
+</tr>
+<tr>
+<td><code>coll[i]</code></td>
+<td><code>Row</code></td>
+</tr>
+<tr>
+<td><code>coll[a:b]</code></td>
+<td><code>ColumnCollection</code></td>
+</tr>
+<tr>
+<td><code>coll.by_ch("CH01")</code></td>
+<td><code>Column</code>（チャンネル名で検索）</td>
+</tr>
+<tr>
+<td><code>coll.step</code> / <code>coll.date</code> / <code>coll.time</code></td>
+<td><code>np.ndarray</code>（<code>date</code> と <code>time</code> は存在しなければ <code>None</code>）</td>
+</tr>
+<tr>
+<td><code>coll.columns</code></td>
+<td>データ列名のリスト</td>
+</tr>
+<tr>
+<td><code>coll.units</code></td>
+<td><code>{列名: 単位}</code></td>
+</tr>
+<tr>
+<td><code>coll.results["stiffness"]</code></td>
+<td>解析結果</td>
+</tr>
+</tbody>
+</table>
+<p><code>coll[...]</code> は列名だけを受け付けます。チャンネル名や解析結果を暗黙に探すことはしません。</p>
+<h3 id="_4">書き込み（新しいコレクションを返す）</h3>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>with_column(name, values, unit=, ch=, attrs=)</code></td>
+<td>列を追加・上書きする。上書き時は、指定しなかったメタを引き継ぐ</td>
+</tr>
+<tr>
+<td><code>with_meta(name, unit=, ch=, attrs=)</code></td>
+<td>列メタを変更する</td>
+</tr>
+<tr>
+<td><code>with_metadata(**items)</code> / <code>with_result(result)</code></td>
+<td>コレクションのメタデータ・解析結果を追加する</td>
+</tr>
+<tr>
+<td><code>select(names)</code> / <code>drop(*names)</code> / <code>rename(mapping)</code></td>
+<td>列の選択・削除・改名（メタも追従する）</td>
+</tr>
+<tr>
+<td><code>take(rows)</code> / <code>head(n)</code> / <code>tail(n)</code></td>
+<td>行の抽出（インデックス配列またはブールマスク）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_5">入口と出口</h3>
+<pre><code class="language-python">ColumnCollection({&quot;P&quot;: [...], &quot;d&quot;: [...]}, step=[...], units={&quot;P&quot;: &quot;kN&quot;, &quot;d&quot;: &quot;mm&quot;})
+ColumnCollection.from_frame(df, step=&quot;time&quot;, units={&quot;P&quot;: &quot;kN&quot;})
+coll.df  # polars をそのまま使いたい場合の出口
+</code></pre>
+<h2 id="column-row">Column と Row</h2>
+<ul>
+<li><code>Column</code> は <code>name</code>、<code>meta</code>、<code>series</code>（<code>pl.Series</code>）を束ねた読み取り専用のビューです。<code>Column(name, values, unit=..., ch=...)</code> で単体でも作れます（<code>XYSeriesResult</code> などで使用）。</li>
+<li><code>col.values</code> は <code>np.ndarray</code> を返します。数値列は float64 で、欠損は NaN になります。それ以外の列は object 配列で、欠損は <code>None</code> です。</li>
+<li><code>col[i]</code> はスカラー（Python の値、欠損は <code>None</code>）を返します。集約メソッド（<code>max</code> / <code>min</code> / <code>mean</code> など）も Python スカラーまたは <code>None</code> を返します。</li>
+<li><code>Row</code> は1行分の値です。<code>row["CH1"]</code>、<code>row.step</code>、<code>row.unit("CH1")</code>、<code>row.units</code> を持ちます。値は素のスカラーで、単位を値に包むことはしません。</li>
+</ul>
+<h2 id="dtype">dtype と欠損の規則</h2>
+<ul>
+<li>データ列の数値は常に <strong>Float64</strong> に統一します（int も float にします）。step は元の dtype のままにします。</li>
+<li>内部の欠損は <strong>null</strong> に統一します。入力に含まれる NaN は null に変換し、ops の計算結果に出た NaN も null として格納します。</li>
+<li>文字列・真偽値・日時はそのままの dtype で保持します。数値と文字列が混在する列は文字列列になります。</li>
+<li>io で欠損とみなすトークン: <code>none</code>、<code>null</code>、<code>nan</code>、<code>na</code>、空文字、<code>*</code> で始まる値。</li>
+</ul>
+<h2 id="_6">ファイル入出力</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>形式</th>
+<th>保持される情報</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tascpy.load</code> / <code>coll.io.save</code></td>
+<td>TASC 系テキスト（4行ヘッダー、<code>tasc_txt</code> は Shift-JIS）</td>
+<td>列名・ch・単位・step・date/time</td>
+</tr>
+<tr>
+<td><code>tascpy.load_parquet</code> / <code>coll.io.to_parquet</code></td>
+<td>Parquet</td>
+<td>上記に加えて単位の None と "" の区別、attrs、メタデータ、解析結果、ドメイン設定</td>
+</tr>
+<tr>
+<td><code>coll.io.to_csv</code></td>
+<td>一般的な CSV（1行ヘッダー、UTF-8）</td>
+<td>列名と値のみ</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>テキスト形式の保存では、名前行に列名、チャンネル行に ch を書くため、保存→読み込みで列名と ch が保たれます。</li>
+<li>テキスト形式では、単位の None と "" はどちらも空欄になります。文字列値の <code>none</code> や <code>*</code> で始まる値は、読み込み時に欠損になります。</li>
+<li>保存は全体をエンコードしてから一時ファイル経由で置き換えます。エンコーディングで表せない文字があればエラーになり、既存ファイルは変更されません。</li>
+<li>ops が合成する単位や列名には、Shift-JIS で表せる文字だけを使います（例: <code>kN*mm</code>）。</li>
+<li>読み込み時、名前が空欄の列はチャンネル名で補います。列名の重複や予約名（step / date / time）には <code>_2</code> などの接尾辞を付け、警告を出します。</li>
+</ul>
+<h2 id="_7">単位の方針</h2>
+<ul>
+<li><strong>単位は記録して確認するためのものです。自動変換はしません。</strong></li>
+<li><code>None</code> は「不明」、<code>""</code> は「単位なし（無次元）が明示されている」を意味します。わからない単位を推測で付けることはしません。</li>
+<li>ops では、明示的に指定された <code>unit=</code> が常に優先されます。指定がない場合は次の規則に従います。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>演算</th>
+<th>結果の単位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>add / subtract、行方向の平均・合計、平滑化（移動平均・ガウシアン）、abs / round、switch / blend / conditional_select</td>
+<td>最初の列オペランドの単位</td>
+</tr>
+<tr>
+<td>列 × スカラー、列 ÷ スカラー</td>
+<td>その列の単位</td>
+</tr>
+<tr>
+<td>列 × 列、列 ÷ 列、pow / sqrt / log、calculate、custom_combine</td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td>normalize、外れ値フラグ、サイクル番号、ピーク／バレーのマーカー</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td>diff / integrate</td>
+<td><code>"y/x"</code> / <code>"y*x"</code>（表記を合成するだけ。Shift-JIS で保存できる文字に限る）</td>
+</tr>
+<tr>
+<td>行の抽出・分割・連結</td>
+<td>元の単位を保持</td>
+</tr>
+</tbody>
+</table>
+<h2 id="numeric">numeric の約束</h2>
+<p>numeric は、TASC 以外のデータにも単体で使えるように、numpy だけに依存する純粋関数として保ちます。</p>
+<ul>
+<li>入力: 1次元の配列風データ（list / ndarray）。内部で <code>np.asarray(..., dtype=float)</code> に変換します。</li>
+<li>欠損: NaN で表します（<code>None</code> は入力として受け付けますが、出力には使いません）。</li>
+<li>戻り値: <code>np.ndarray</code>、スカラー、tuple、または dataclass。</li>
+<li>単位・列名・コレクションは扱いません。</li>
+<li>import するのは numpy（と標準ライブラリ）だけです。tascpy の他のサブパッケージや polars・matplotlib に依存しません（import-linter の契約で検査）。</li>
+<li>モジュールは tascpy のドメインではなく解析の対象で分けます（<code>curve</code> / <code>hysteresis</code> / <code>rosette</code> / <code>spatial</code> と、汎用の <code>math</code> / <code>stats</code> / <code>combine</code>）。</li>
+<li>引数は常に (x, y) の順に並べます。汎用の x-y 曲線（<code>curve</code>）は <code>x, y</code>、荷重-変位に固有の処理（<code>hysteresis</code>）は <code>displacement, load</code> と名付けます。1次元の系列は <code>values</code> です。</li>
+<li>解析結果を返す関数は <code>compute_</code> で始めます（<code>compute_skeleton_curve</code> など）。広く通じる操作の名前（<code>interpolate</code>、<code>moving_average</code>、<code>euclidean_distance</code>、<code>kmeans</code>）はそのまま使います。</li>
+<li>numpy の関数をそのまま呼ぶだけのラッパーや、ops のためだけの部品は公開しません（<code>_</code> 付きにするか、ops の側に置きます）。</li>
+</ul>
+<p>表を操作する処理（行の抽出・検索・分割・重複除去など）は ops の側で polars を使って実装し、numeric には置きません。</p>
+<h2 id="_8">可視化</h2>
+<ul>
+<li>描画関数とプロッター（<code>coll.plot</code>）は Axes（<code>iplot</code> は Plotly Figure）を返すだけで、<code>plt.show()</code> は呼びません。表示は呼び出し側で行います（Jupyter では自動で表示されます）。</li>
+<li>軸ラベルは列名と単位から "列名 [単位]" で作ります。X 軸の列を省略すると step を使います。</li>
+<li>matplotlib は描画を使うまで読み込みません（<code>import tascpy</code> やデータの読み込み・演算だけなら不要です）。<code>tascpy.core.plot</code> を初めて import したときに変更する設定は、日本語フォント（japanize-matplotlib 同梱の IPAex ゴシック）の font.family と axes.unicode_minus だけです。</li>
+</ul>
+<h2 id="_9">ドメイン</h2>
+<ul>
+<li>ドメインのコレクションは <code>ColumnCollection</code> のサブクラスです。ドメイン固有の設定（荷重-変位の <code>load_column</code> / <code>displacement_column</code>、ひずみの <code>rosettes</code>）は属性として持ち、<code>with_*</code> で操作しても引き継がれます。</li>
+<li>変換は <code>ops.as_domain(as_load_displacement, ...)</code>、<code>ops.as_domain(as_coordinate, ...)</code>、<code>ops.as_domain(as_strain, ...)</code> で行います。設定が不正な場合（列が存在しない場合など）はその時点でエラーになります。</li>
+<li>コレクションが持つのは設定と、設定を読むだけの問い合わせ（<code>get_column_coordinates</code>、<code>calculate_distance</code> など）です。新しい列や結果を作る処理は ops に置きます（<code>find_nearest_neighbors</code>、<code>spatial_clustering</code> は <code>CoordinateOps</code>）。</li>
+<li>座標は列ごとの値なので、<code>ColumnMeta.attrs["coordinates"]</code>（<code>{"x", "y", "z"}</code>）に持ちます。こうしておけば、列の改名や選択に自動で追従します。</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.indexes", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f1b6f286.min.js"></script>
+      
+    
+  </body>
+</html>
