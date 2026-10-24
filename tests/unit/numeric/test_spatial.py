@@ -91,3 +91,16 @@ def test_kmeans_does_not_touch_global_random_state():
     np.random.seed(123)
     kmeans(np.array([[0.0, 0.0], [0.1, 0.0], [10.0, 0.0], [10.1, 0.0]]), 2)
     assert np.random.random() == expected
+
+
+def test_kmeans_integer_points_match_float_points():
+    # 整数の座標でもクラスタ中心の平均を切り捨てない（{1, 2} と {3, 4} に分かれる）
+    points = np.array([[3, 0], [4, 0], [1, 0], [2, 0]])
+    labels = kmeans(points, 2)
+    np.testing.assert_array_equal(labels, kmeans(points.astype(float), 2))
+    assert labels[0] == labels[1] and labels[2] == labels[3] and labels[0] != labels[2]
+
+
+def test_kmeans_accepts_lists():
+    np.testing.assert_array_equal(kmeans([[0.0, 0.0], [0.1, 0.0], [10.0, 0.0], [10.1, 0.0]], 2),
+                                  kmeans(np.array([[0.0, 0.0], [0.1, 0.0], [10.0, 0.0], [10.1, 0.0]]), 2))

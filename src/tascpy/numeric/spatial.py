@@ -88,11 +88,11 @@ def euclidean_distance(p1: Any, p2: Any) -> float:
     return float(np.linalg.norm(a - b))
 
 
-def kmeans(points: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.ndarray:
+def kmeans(points: Any, n_clusters: int, max_iter: int = 100) -> np.ndarray:
     """点を k-means 法で n_clusters 個のクラスタに分けます（初期中心は乱数シード 42 で選ぶため結果は再現可能）
 
     Args:
-        points: 座標の配列 (点の数, 次元)
+        points: 座標の配列 (点の数, 次元)。整数やリストでもよい
         n_clusters: クラスタ数
         max_iter: 最大繰り返し回数
         
@@ -106,6 +106,7 @@ def kmeans(points: np.ndarray, n_clusters: int, max_iter: int = 100) -> np.ndarr
         >>> kmeans(points, 2)
         array([0, 0, 0, 1, 1, 1])
     """
+    points = np.asarray(points, dtype=float)
     n_samples, _ = points.shape
     
     rng = np.random.default_rng(42)
