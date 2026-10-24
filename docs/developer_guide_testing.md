@@ -26,9 +26,14 @@ tascpy は、数値計算の正確性と、データ操作パイプラインと�
 
 実行はせず、pyright で `assert_type` を検査します。メソッドチェーンの戻り値の型（IDE の補完）が崩れていないことを保証します。
 
-### `src/tascpy/numeric/` の doctest
+### doctest（docstring の例とチュートリアル）
 
-numeric は単体で使う公開 API なので、docstring の `Examples` も `pytest` で実行します（`pytest.ini` の `--doctest-modules`）。浮動小数点の値は期待値に書いた桁数で比較します（`NUMBER`）。例えば `100.0` と書けば `99.99999999999999` も一致とみなします。
+docstring の `Examples` と `docs/tutorial.md` は `pytest` で実行し、表示している結果を検査します（`pytest.ini` の `--doctest-modules` / `--doctest-glob`）。
+
+- docstring の例は、`docs/api/sample_data.md` で定義する `col` / `ld` / `coord` / `strain` を使って書きます。ルートの `conftest.py` がこのページのコードブロックを実行して、doctest の名前空間に入れます。
+- doctest は一時ディレクトリで実行します（サンプルを保存した `data.txt` が置いてあります）。ファイルを書く例でも作業ツリーは汚れません。
+- 浮動小数点の値は期待値に書いた桁数で比較します（`NUMBER`）。例えば `100.0` と書けば `99.99999999999999` も一致とみなします。
+- `.end()` だけで終わる例は出力が長くなるので、`.columns` や列の値など、確かめたい途中の結果を表示する形にします。
 
 ## 2. numeric と ops を分ける理由
 

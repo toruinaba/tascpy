@@ -9,9 +9,9 @@ class Row(Mapping[str, Any]):
     """ColumnCollection の1行（値は素のスカラー、欠損は None）
 
     Examples:
-        >>> row = coll[0]
-        >>> row["CH1"], row.unit("CH1"), row.step
-        (10.0, 'kN', 1)
+        >>> row = col[1]
+        >>> row["荷重"], row.unit("荷重"), row.step
+        (40.0, 'kN', 2)
     """
 
     __slots__ = ("_values", "_meta")

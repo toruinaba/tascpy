@@ -65,7 +65,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             method: "linear_regression" または "secant"
 
         Examples:
-            >>> col.ops.calculate_stiffness(0.1, 0.4).end().results["stiffness"].value
+            >>> stiffness = ld.ops.calculate_stiffness(0.1, 0.8).end().results["stiffness"]
+            >>> round(stiffness.value, 1), stiffness.unit
+            (40.0, 'kN/mm')
         """
         value = compute_stiffness(*self._ld_arrays(), range_start=range_start, range_end=range_end, method=method)
         return self._with_result(ScalarResult(name="stiffness", value=value, unit=self._ld_unit("/")))
@@ -81,7 +83,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         を降伏点とします。
 
         Examples:
-            >>> pt = col.ops.find_yield_point(method="offset").end().results["yield_point"]
+            >>> pt = ld.ops.find_yield_point(method="offset", offset_value=0.5, range_start=0.1, range_end=0.8).end().results["yield_point"]
+            >>> round(pt.x, 2), round(pt.y, 1), pt.x_unit, pt.y_unit
+            (3.0, 100.0, 'mm', 'kN')
         """
         outcome = compute_yield_point(
             *self._ld_arrays(), method=method, offset_value=offset_value, range_start=range_start,

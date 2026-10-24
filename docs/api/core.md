@@ -2,6 +2,8 @@
 
 `tascpy.core` の API リファレンスです。データモデルと、ドメインに依存しない操作・ファイル入出力・描画が含まれます。
 
+例（Examples）の `col` / `ld` / `coord` / `strain` は [例で使うデータ](sample_data.md) で定義しています。
+
 ## データモデル
 ::: tascpy.core.collection
 

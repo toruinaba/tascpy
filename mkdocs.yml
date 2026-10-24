@@ -32,6 +32,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Tutorial: tutorial.md
   - Developer Guide: 
       - General: developer_guide.md
       - Core Design: developer_guide_design.md
@@ -41,3 +42,4 @@ nav:
       - Core: api/core.md
       - Numeric: api/numeric.md
       - Domains: api/domains.md
+      - 例で使うデータ: api/sample_data.md

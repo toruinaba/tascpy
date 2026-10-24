@@ -73,7 +73,9 @@ class CoordinateOps(CoreOps[CC_co]):
             result_column: 結果列名（省略時は "interp(x, y[, z])"）
 
         Examples:
-            >>> col.ops.interpolate_at_point(5.0, 5.0, result_column="center").end()
+            >>> center = coord.ops.interpolate_at_point(5.0, 0.0, source_columns=["CH1", "CH2"], result_column="center").end()
+            >>> center["center"].values, center.get_column_coordinates("center")
+            (array([  0.,  75., 150., 225., 300., 375.]), (5.0, 0.0, None))
         """
         use_z = z is not None
         names, points, values = self._sources(source_columns, use_z)
@@ -137,7 +139,9 @@ class CoordinateOps(CoreOps[CC_co]):
             row: 補間する行のインデックス（負の値は末尾から）
 
         Examples:
-            >>> grid = col.ops.interpolate_grid((0, 10), (0, 10), (20, 20), row=-1).end().results["grid"]
+            >>> grid = coord.ops.interpolate_grid((0, 10), (0, 10), (20, 20), row=-1).end().results["grid"]
+            >>> grid.values.shape
+            (20, 20)
         """
         n = len(self._c)
         if not -n <= row < n:

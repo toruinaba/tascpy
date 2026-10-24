@@ -75,7 +75,11 @@ class CoreOps(Generic[C_co]):
     自明でない場合は None（不明）になります（docs/developer_guide_design.md 参照）。
 
     Examples:
-        >>> result = col.ops.add("A", "B", result_column="C").filter_by_value("S", "a").end()
+        >>> result = col.ops.add("CH1", "CH2", result_column="合計").filter_by_value("状態", "正常").end()
+        >>> result.columns
+        ['荷重', '変位', 'CH1', 'CH2', 'CH3', '状態', '合計']
+        >>> len(col), len(result)
+        (6, 5)
     """
 
     def __init__(self, collection: C_co) -> None:
@@ -223,7 +227,8 @@ class CoreOps(Generic[C_co]):
         """コレクションを受け取りコレクションを返す任意の関数を適用します
 
         Examples:
-            >>> col.ops.pipe(lambda c: c.head(3)).end()
+            >>> len(col.ops.pipe(lambda c: c.head(3)).end())
+            3
         """
         return self._next(func(self._c))
 
@@ -250,7 +255,9 @@ class CoreOps(Generic[C_co]):
 
         Examples:
             >>> from tascpy.domains import as_load_displacement
-            >>> col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d")
+            >>> ops = col.ops.as_domain(as_load_displacement, load_column="荷重", displacement_column="変位")
+            >>> type(ops).__name__, ops.end().load_column
+            ('LoadDisplacementOps', '荷重')
         """
         return factory(self._c, *args, **kwargs).ops
 
@@ -268,8 +275,10 @@ class CoreOps(Generic[C_co]):
             ch: 結果のチャンネル名
 
         Examples:
-            >>> col.ops.add("CH01", "CH02").end()
-            >>> col.ops.add("CH01", 10.5, result_column="補正後").end()
+            >>> col.ops.add("CH1", "CH2").end()["CH1+CH2"].values
+            array([  0., 150., 300., 450., 600., 750.])
+            >>> col.ops.add("CH1", 10.5, result_column="補正後").end()["補正後"].unit
+            'ue'
         """
         return self._binary("+", np.add, value1, value2, result_column, unit, ch,
                             self._first_unit(value1, value2))
@@ -363,9 +372,13 @@ class CoreOps(Generic[C_co]):
             TypeError: 数値列でない列を使った場合
 
         Examples:
-            >>> col.ops.calculate(lambda 荷重, 変位: 荷重 / 変位, result_column="剛性", unit="kN/mm").end()
-            >>> col.ops.calculate(lambda p: p * 2, columns={"p": "Force 1"}, result_column="P2").end()
-            >>> col.ops.calculate(lambda A: np.where(A > 3, A, 0), result_column="clipped").end()
+            >>> secant = col.tail(5).ops.calculate(lambda 荷重, 変位: 荷重 / 変位, result_column="割線剛性", unit="kN/mm").end()
+            >>> secant["割線剛性"].values.round(1), secant["割線剛性"].unit
+            (array([40. , 40. , 33.3, 22. , 14.4]), 'kN/mm')
+            >>> col.ops.calculate(lambda p: p * 2, columns={"p": "荷重"}, result_column="P2").end()["P2"].values
+            array([  0.,  80., 160., 200., 220., 230.])
+            >>> col.ops.calculate(lambda CH1: np.where(CH1 > 250, CH1, 0), result_column="clipped").end()["clipped"].values
+            array([  0.,   0.,   0., 300., 400., 500.])
         """
         mapping = dict(columns or {})
         positional: List[np.ndarray] = []
@@ -512,7 +525,8 @@ class CoreOps(Generic[C_co]):
             ignore_nan: True なら欠損を除いて平均（全て欠損の行は欠損）、False なら欠損を含む行は欠損
 
         Examples:
-            >>> col.ops.average_columns(["センサ1", "センサ2", "センサ3"], result_column="平均").end()
+            >>> col.ops.average_columns(["CH1", "CH2", "CH3"], result_column="平均").end()["平均"].values
+            array([  0.,  40.,  80., 120., 160., 200.])
         """
         names = self._numeric_columns(columns)
         stacked = self._stack_numeric(names, "平均")
@@ -542,7 +556,8 @@ class CoreOps(Generic[C_co]):
         """任意の関数で 2 列を合成した列を追加します（単位は unit で指定、省略時は None）
 
         Examples:
-            >>> col.ops.custom_combine("CH1", "CH2", lambda x, y: x**2 + y**2, func_name="sum_squares").end()
+            >>> col.ops.custom_combine("CH1", "CH2", lambda x, y: x - y, func_name="diff").end().columns[-1]
+            'diff'
         """
         values = f_combine.custom_combine(v1=self._raw(v1), v2=self._raw(v2), combine_func=combine_func)
         name = func_name or getattr(combine_func, "__name__", "<lambda>")
@@ -608,8 +623,10 @@ class CoreOps(Generic[C_co]):
         """指定列の値が value と一致する（tolerance 指定時は ±tolerance 以内の）行を抽出します
 
         Examples:
-            >>> col.ops.filter_by_value("状態", "正常").end()
-            >>> col.ops.filter_by_value("荷重", 100.0, tolerance=0.5).end()
+            >>> col.ops.filter_by_value("状態", "正常").end().step.tolist()
+            [1, 2, 4, 5, 6]
+            >>> col.ops.filter_by_value("荷重", 100.0, tolerance=15.0).end()["荷重"].values
+            array([100., 110., 115.])
         """
         self._check_columns([column])
         expr = (pl.col(column) == value if tolerance is None
@@ -620,7 +637,8 @@ class CoreOps(Generic[C_co]):
         """指定列の各値に condition を適用し、True の行を抽出します（欠損の行は除外）
 
         Examples:
-            >>> col.ops.filter_by_condition("荷重", lambda x: x >= 50).end()
+            >>> col.ops.filter_by_condition("荷重", lambda x: x >= 50).end().step.tolist()
+            [3, 4, 5, 6]
         """
         values = self._c[column].to_list()
         return self._with_rows([v is not None and bool(condition(v)) for v in values])
@@ -672,7 +690,9 @@ class CoreOps(Generic[C_co]):
         """行ごとの整数マーカー（列名または配列）の値ごとにコレクションを分割します（欠損の行は除外）
 
         Examples:
-            >>> parts = col.ops.split_by_integers([1, 1, 2, 2, 3])
+            >>> parts = col.ops.split_by_integers([1, 1, 1, 2, 2, 3])
+            >>> [len(c) for c in parts.end()]
+            [3, 2, 1]
         """
         values = to_float_array(self._raw(markers))
         if len(values) != len(self._c):

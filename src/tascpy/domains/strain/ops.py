@@ -37,7 +37,9 @@ class StrainOps(CoordinateOps[StrainCollection]):
             prefix: 結果列の接頭辞（省略時は rosette_name または "rosette"）
 
         Examples:
-            >>> col.ops.calculate_rosette_strains(columns=["CH1", "CH2", "CH3"]).end()
+            >>> result = strain.ops.calculate_rosette_strains("R1").end()
+            >>> round(float(result["R1_e1"].values[1]), 1), result["R1_e1"].unit, result["R1_theta"].unit
+            (101.7, 'ue', 'deg')
         """
         if rosette_name:
             info = self._c.get_rosette(rosette_name)
@@ -76,7 +78,8 @@ class StrainOps(CoordinateOps[StrainCollection]):
         """応力 = 荷重 / 断面積 を新しい列として追加します
 
         Examples:
-            >>> col.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力").end()
+            >>> strain.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力").end()["応力"].values
+            array([ 0. ,  4. ,  8. , 10. , 11. , 11.5])
         """
         stress = self._float_column(load_column, "荷重カラム") / area
         result = self._c.with_column(
