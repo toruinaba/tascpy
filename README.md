@@ -151,16 +151,10 @@ tascpy/
 
 MIT ライセンスの下で公開されています。詳細は [LICENSE](./LICENSE) ファイルを参照してください。
 
-## コントリビューション
+## 開発について
 
-バグ報告や機能リクエスト、プルリクエストなど、あらゆる形での貢献を歓迎します。詳細は [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
+個人で開発・保守しているライブラリです。不具合は GitHub Issue で知らせていただければ確認しますが、対応の時期はお約束できません。開発時の規約と手順は [CONTRIBUTING.md](./CONTRIBUTING.md) にまとめています。
 
 ## 著者
 
-- Toru Inaba ([@toruinaba](https://github.com/toruinaba)) - 初期開発者
-
-## 謝辞
-
-このライブラリの開発にあたり、ご協力いただいたすべての方々に感謝します。
-
-このプロジェクトは GitHub Copilot を全面的に活用して開発されています。AI アシスタントによるコード生成とリファクタリングが、開発効率の向上と品質の維持に大きく貢献しています。
+- Toru Inaba ([@toruinaba](https://github.com/toruinaba))

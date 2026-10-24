@@ -1,70 +1,35 @@
-# tascpy への貢献ガイド
+# 開発メモ
 
-tascpy プロジェクトへの貢献を検討していただき、ありがとうございます。このドキュメントでは、バグ報告、機能提案、ドキュメント改善、コード貢献など、プロジェクトに貢献するための様々な方法について説明します。
+tascpy は個人で開発・保守しているライブラリです。このファイルは開発時の規約と手順をまとめた覚え書きです。
 
-## 目次
-
-1. [行動規範](#行動規範)
-2. [バグ報告](#バグ報告)
-3. [機能提案](#機能提案)
-4. [開発環境のセットアップ](#開発環境のセットアップ)
-5. [コーディング規約](#コーディング規約)
-6. [プルリクエストの手順](#プルリクエストの手順)
-7. [リリースプロセス](#リリースプロセス)
-
-## 行動規範
-
-このプロジェクトに参加するすべての方は、オープンで友好的な環境を維持するための行動規範に従ってください。
-
-- 他の貢献者に対して敬意を持って接する
-- 建設的なフィードバックを提供する
-- 異なる視点や意見を尊重する
-
-## バグ報告
-
-バグを見つけた場合は、以下の情報を含む GitHub Issue を作成してください：
-
-1. バグの簡潔な説明
-2. バグを再現する手順
-3. 期待される動作と実際の動作
-4. 使用している Python とライブラリのバージョン
-5. 可能であれば、バグを再現するための最小限のコード例
-
-## 機能提案
-
-新機能のアイデアがある場合は、以下の情報を含む GitHub Issue を作成してください：
-
-1. 機能の簡潔な説明
-2. ユースケースと期待される利点
-3. 可能であれば、実装案やコード例
+不具合に気づいた場合は GitHub Issue で知らせていただければ確認しますが、対応や返信の時期はお約束できません。
 
 ## 開発環境のセットアップ
 
-1. リポジトリをフォークしてクローンします：
-   ```bash
-   git clone https://github.com/YourUsername/tascpy.git
-   cd tascpy
-   ```
+```bash
+git clone https://github.com/toruinaba/tascpy.git
+cd tascpy
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -e . -r requirements-dev.txt
+```
 
-2. 開発用の仮想環境を作成します：
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
-   ```
+## 確認コマンド
 
-3. 開発モードでインストールします：
-   ```bash
-   pip install -e .
-   pip install -e . -r requirements-dev.txt
-   ```
+CI（`.github/workflows/tests.yml`）と同じ検査です。変更後はすべて通ることを確認します。
+
+```bash
+MPLBACKEND=Agg pytest -q   # テスト
+pyright                    # 型検査
+lint-imports               # numeric / core / domains の依存方向の検査
+PYTHONPATH=src mkdocs build --strict   # ドキュメントのビルド
+```
 
 ## コーディング規約
 
-tascpy プロジェクトでは、以下のコーディング規約に従ってください：
-
 ### 基本スタイル
-- PEP 8 スタイルガイドに準拠
-- 行の最大長は 88 文字（Black 準拠）
+- PEP 8 に準拠
+- 行の長さは 88 文字を目安にする
 - インデントは 4 スペース
 
 ### 命名規則
@@ -81,7 +46,7 @@ tascpy プロジェクトでは、以下のコーディング規約に従って�
 - 戻り値の型も必ず指定
 
 ```python
-from typing import Dict, Callable, Optional, Any
+from typing import Dict, Optional, Any
 
 def function(param1: str, param2: Optional[int] = None) -> Dict[str, Any]:
     ...
@@ -92,49 +57,18 @@ def function(param1: str, param2: Optional[int] = None) -> Dict[str, Any]:
 - docstring は日本語で記述
 - 敬語は「です・ます」調を使用
 
-## プルリクエストの手順
+## ブランチとコミット
 
-1. 新しい機能やバグ修正のための新しいブランチを作成します：
+- 作業ごとにブランチを切り（`feature/...`、`fix/...`、`docs/...` など）、PR 経由で `master` にマージする
+- コミットメッセージは `fix:`、`docs:`、`ci:` などの接頭辞を付ける
+
+## リリース手順
+
+1. `src/tascpy/__init__.py` の `__version__` を更新する（セマンティックバージョニング。`setup.py` はここから読む）
+2. README のバージョンバッジを更新し、PR で `master` にマージする
+3. `master` でタグを打って push する：
    ```bash
-   git checkout -b feature/your-feature-name
-   # または
-   git checkout -b fix/bug-name
+   git tag v0.7.1
+   git push origin v0.7.1
    ```
-
-2. コードを変更し、テストを追加します。すべてのテストが通ることを確認してください：
-   ```bash
-   pytest
-   ```
-
-3. 変更をコミットし、フォークしたリポジトリにプッシュします：
-   ```bash
-   git commit -m "機能追加: 新機能の簡潔な説明"
-   git push origin feature/your-feature-name
-   ```
-
-4. GitHub上でプルリクエストを作成します。PRの説明には以下を含めてください：
-   - 変更内容の簡潔な説明
-   - 関連するIssueへの参照（例：「fixes #123」）
-   - 必要に応じて、変更内容の詳細や理由
-
-5. プルリクエストがレビューされるのを待ちます。必要に応じて修正を加えてください。
-
-## リリースプロセス
-
-tascpy のリリースプロセスは以下の手順で行われます：
-
-1. `CHANGELOG.md` の更新
-2. バージョン番号の更新（セマンティックバージョニングに従う）
-3. リリースブランチの作成
-4. テストの実行と確認
-5. リリースタグの作成
-6. PyPI へのパッケージのアップロード
-
-## その他の貢献方法
-
-- ドキュメントの改善
-- サンプルコードの追加
-- ユーザーからの質問への回答
-- バグトリアージの支援
-
-tascpy プロジェクトへの貢献に関するご質問は、GitHub Issues でお気軽にお問い合わせください。
+4. `.github/workflows/release.yml` がビルド・検査し、タグと `__version__` が一致すれば PyPI に公開する
