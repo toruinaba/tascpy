@@ -1,3 +1,4 @@
+import re
 from glob import glob
 from os.path import basename
 from os.path import splitext
@@ -5,14 +6,17 @@ from os.path import splitext
 from setuptools import setup
 from setuptools import find_packages
 
+with open("src/tascpy/__init__.py", encoding="utf-8") as f:
+    VERSION = re.search(r'^__version__ = "([^"]+)"', f.read(), re.M).group(1)
+
 setup(
     name="tascpy",
-    version="0.7.1",
+    version=VERSION,
     description="タスク計測データ処理用のPythonライブラリ",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="toru_inaba",
-    author_email="example@example.com",  # 適切なメールアドレスに変更してください
+    author_email="inaba.tooru@takenaka.co.jp",
     url="https://github.com/toruinaba/tascpy",
     license="MIT",
     packages=find_packages("src"),
