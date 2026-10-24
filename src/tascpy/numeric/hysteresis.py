@@ -99,7 +99,7 @@ def compute_secant_stiffness(
     delta_disp = disp_at_max_load - disp_at_min_load
     if abs(delta_disp) < 1e-9:
         return np.nan
-    return (max_load - min_load) / delta_disp
+    return float((max_load - min_load) / delta_disp)
 
 
 def compute_energy_and_stats(
