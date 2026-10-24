@@ -236,3 +236,28 @@ def test_extend_edge():
     x_flat, y_flat = _extend_edge([0.0, 1.0], [10.0, 10.0], 2.0, "x", "end")
     assert np.isclose(x_flat, 2.0)
     assert np.isclose(y_flat, 10.0)
+
+
+def test_skeleton_of_single_monotonic_cycle_is_the_curve_itself():
+    # 1 サイクル目は前の包絡線がないのでずらさない（曲線が非線形でも）
+    d_ske, p_ske = compute_skeleton_curve(np.array([0.0, 1.0, 2.0, 3.0, 4.0]), np.array([0.0, 10.0, 15.0, 17.0, 18.0]))
+    np.testing.assert_allclose(d_ske, [1.0, 2.0, 3.0, 4.0])
+    np.testing.assert_allclose(p_ske, [10.0, 15.0, 17.0, 18.0])
+
+
+def test_skeleton_offset_is_fixed_once_per_cycle_even_when_zero():
+    # 2 サイクル目は前の包絡線の延長上 (x=2.5) から始まるのでずらし量は 0。以降の点でも計算し直さない
+    disp = np.array([0.0, 1.0, 2.0, 1.0, 0.0, -1.0, -2.0, -1.0, 0.0, 1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 3.0, 0.0])
+    load = np.array([0.0, 40.0, 80.0, 40.0, 0.0, -40.0, -80.0, -40.0, 0.0, 40.0, 80.0, 100.0, 102.0, 104.0, 106.0, 66.0, -54.0])
+    d_ske, p_ske = compute_skeleton_curve(disp, load)
+    np.testing.assert_allclose(d_ske, [1.0, 2.0, 2.5, 3.0, 3.5, 4.0])
+    np.testing.assert_allclose(p_ske, [40.0, 80.0, 100.0, 102.0, 104.0, 106.0])
+
+
+def test_skeleton_shifts_later_cycle_to_continue_the_envelope():
+    # 2 サイクル目の載荷は残留変形 1.0 から始まり、前の包絡線 (0,0)-(1,40)-(2,80) の延長 x=2.5 (y=100) につなぐ
+    disp = np.array([0.0, 1.0, 2.0, 1.0, -1.0, 0.0, 3.5, 4.5])
+    load = np.array([0.0, 40.0, 80.0, 0.0, -20.0, 0.0, 100.0, 110.0])
+    d_ske, p_ske = compute_skeleton_curve(disp, load)
+    np.testing.assert_allclose(d_ske, [1.0, 2.0, 2.5, 3.5])
+    np.testing.assert_allclose(p_ske, [40.0, 80.0, 100.0, 110.0])
