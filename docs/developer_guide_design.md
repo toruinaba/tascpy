@@ -8,10 +8,11 @@ v0.2 でコアのデータ保持を polars に移行しました。このペー�
 |---|---|
 | polars | 表の保持、欠損 (null)、dtype、行の抽出・連結 |
 | `core` | 列メタデータ（単位・チャンネル・属性）、step、解析結果の保持、不変条件 |
-| `analytics.ops` | 公開 API（メソッドチェーン）と単位の伝播 |
+| `core.ops` / `analytics.ops` | 公開 API（メソッドチェーン）と単位の伝播（汎用 / ドメイン固有） |
 | `numeric` | 数値計算としてのドメイン知識（numpy のみに依存し、単体でも使える公開 API） |
 | `domains` | 荷重-変位・座標・ひずみの意味づけ |
-| `io` | TASC などファイル形式の解釈 |
+| `core.io` | TASC などファイル形式の解釈 |
+| `core.plot` / `visualization` | 描画（汎用 / ドメイン固有） |
 
 ## ColumnCollection
 
@@ -78,7 +79,7 @@ coll.df  # polars をそのまま使いたい場合の出口
 | 方法 | 形式 | 保持される情報 |
 |---|---|---|
 | `tascpy.load` / `coll.io.save` | TASC 系テキスト（4行ヘッダー、`tasc_txt` は Shift-JIS） | 列名・ch・単位・step・date/time |
-| `tascpy.io.load_parquet` / `coll.io.to_parquet` | Parquet | 上記に加えて単位の None と "" の区別、attrs、メタデータ、解析結果、ドメイン設定 |
+| `tascpy.load_parquet` / `coll.io.to_parquet` | Parquet | 上記に加えて単位の None と "" の区別、attrs、メタデータ、解析結果、ドメイン設定 |
 | `coll.io.to_csv` | 一般的な CSV（1行ヘッダー、UTF-8） | 列名と値のみ |
 
 - テキスト形式の保存では、名前行に列名、チャンネル行に ch を書くため、保存→読み込みで列名と ch が保たれます。
@@ -119,7 +120,7 @@ numeric は、TASC 以外のデータにも単体で使えるように、numpy �
 
 - 描画関数とプロッター（`coll.plot`）は Axes（`iplot` は Plotly Figure）を返すだけで、`plt.show()` は呼びません。表示は呼び出し側で行います（Jupyter では自動で表示されます）。
 - 軸ラベルは列名と単位から "列名 [単位]" で作ります。X 軸の列を省略すると step を使います。
-- `import tascpy` で変更する matplotlib の設定は、日本語フォント（japanize-matplotlib 同梱の IPAex ゴシック）の font.family と axes.unicode_minus だけです。
+- matplotlib は描画を使うまで読み込みません（`import tascpy` やデータの読み込み・演算だけなら不要です）。`tascpy.core.plot` を初めて import したときに変更する設定は、日本語フォント（japanize-matplotlib 同梱の IPAex ゴシック）の font.family と axes.unicode_minus だけです。
 
 ## ドメイン
 

@@ -74,7 +74,7 @@ again = tascpy.ColumnCollection.from_frame(df, units=collection.units)
 # 保存
 collection.io.save("out.txt")             # TASC 形式（列名・ch・単位を保持）
 collection.io.to_parquet("out.parquet")   # 単位・属性・解析結果まで保持
-restored = tascpy.io.load_parquet("out.parquet")
+restored = tascpy.load_parquet("out.parquet")
 ```
 
 ### 荷重-変位ドメインの分析
@@ -139,12 +139,11 @@ tascpy/
 ├── src/
 │   └── tascpy/
 │       ├── numeric/          # numpy 配列に直接使える解析関数
-│       ├── core/             # 基本データ構造（ColumnCollection, Column, ColumnMeta）
+│       ├── core/             # データモデル（ColumnCollection など）と汎用の操作・入出力・描画
 │       ├── domains/          # ドメイン特化コレクション（荷重-変位・座標・ひずみ）
 │       ├── analytics/
-│       │   └── ops/          # メソッドチェーンの操作クラス（collection.ops）
-│       ├── visualization/    # 可視化
-│       └── io/               # データ入出力
+│       │   └── ops/          # ドメイン固有の操作クラス（collection.ops）
+│       └── visualization/    # ドメイン固有の可視化
 ├── tests/                    # テストコード（tests/manual/examples にサンプル）
 └── docs/                     # ドキュメント
 ```

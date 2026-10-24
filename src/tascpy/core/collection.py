@@ -14,9 +14,9 @@ from .result import AnalysisResult
 from .row import Row
 
 if TYPE_CHECKING:
-    from ..analytics.ops import CoreOps
-    from ..io.proxy import CollectionIO
-    from ..visualization.plotters.core.plotter import CorePlotter
+    from .ops import CoreOps
+    from .io.proxy import CollectionIO
+    from .plot.plotter import CorePlotter
 
 INDEX_COLUMNS = ("step", "date", "time")
 
@@ -170,21 +170,21 @@ class ColumnCollection:
     @property
     def ops(self) -> "CoreOps[Self]":
         """メソッドチェーンで演算・抽出を行う操作オブジェクト (例: `coll.ops.add("A", "B").end()`)"""
-        from ..analytics.ops import CoreOps
+        from .ops import CoreOps
 
         return CoreOps(self)
 
     @property
     def plot(self) -> "CorePlotter":
         """可視化を行うプロッター (例: `coll.plot.plot("CH1")`)"""
-        from ..visualization.plotters.core.plotter import CorePlotter
+        from .plot.plotter import CorePlotter
 
         return CorePlotter(self)
 
     @property
     def io(self) -> "CollectionIO":
         """ファイル入出力 (例: `coll.io.to_csv("out.csv")`)"""
-        from ..io.proxy import CollectionIO
+        from .io.proxy import CollectionIO
 
         return CollectionIO(self)
 

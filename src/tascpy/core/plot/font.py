@@ -1,6 +1,6 @@
 """日本語フォントの登録
 
-`import tascpy` 時に、japanize-matplotlib に同梱の IPAex ゴシックを matplotlib に登録して既定のフォントにします。
+`tascpy.core.plot` を初めて import したとき（`coll.plot` の初回アクセスなど）に、japanize-matplotlib に同梱の IPAex ゴシックを matplotlib に登録して既定のフォントにします。
 変更するのは日本語の表示に必要な font.family と axes.unicode_minus（IPAex にはマイナス記号 U+2212 がない）だけです。
 japanize_matplotlib モジュール自体は import しません（Python 3.12 で削除された distutils に依存しているため）。
 """

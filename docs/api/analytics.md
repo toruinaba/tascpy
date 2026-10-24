@@ -1,11 +1,8 @@
 # Analytics モジュール
 
-`tascpy.analytics` の API リファレンスです。メソッドチェーンの操作クラス（`ops`）が含まれます。numpy 配列に直接使う計算関数は [Numeric](numeric.md) を参照してください。
+`tascpy.analytics` の API リファレンスです。ドメイン固有の操作クラス（`ops`）が含まれます。汎用の操作（`CoreOps`）は [Core](core.md) を参照してください。numpy 配列に直接使う計算関数は [Numeric](numeric.md) を参照してください。
 
 ## Ops
-
-### CoreOps
-::: tascpy.analytics.ops.core
 
 ### LoadDisplacementOps
 ::: tascpy.analytics.ops.load_displacement
@@ -15,7 +12,4 @@
 
 ### StrainOps
 ::: tascpy.analytics.ops.strain
-
-### OpsList
-::: tascpy.analytics.ops.list
 

@@ -1,8 +1,8 @@
 import pytest
 import io
 from pathlib import Path
-from tascpy.io.file_io import load_collection, save_collection
-from tascpy.io.formats import register_format, get_format
+from tascpy.core.io.file_io import load_collection, save_collection
+from tascpy.core.io.formats import register_format, get_format
 from tascpy.core.collection import ColumnCollection
 import numpy as np
 
@@ -165,7 +165,7 @@ def test_save_keeps_file_permissions(tmp_path):
 
 
 def test_register_format_fills_layout_defaults(monkeypatch):
-    from tascpy.io import formats
+    from tascpy.core.io import formats
     monkeypatch.setattr(formats, "FILE_FORMATS", dict(formats.FILE_FORMATS))
     register_format("test_semicolon", {"delimiter": ";"})
     config = get_format("test_semicolon")

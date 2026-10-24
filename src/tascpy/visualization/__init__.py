@@ -1,3 +1,1 @@
-"""Visualization module for tascpy"""
-from .config import enable_japanese_font
-from .plotters.core.plotter import CorePlotter
+"""tascpy.visualization - ドメイン固有の描画（汎用の描画は tascpy.core.plot）"""

@@ -7,7 +7,7 @@ try:
 except ImportError:
     HAS_PLOTLY = False
 
-from tascpy.visualization import backend_plotly as bp
+from tascpy.core.plot import plotly_backend as bp
 
 pytestmark = pytest.mark.skipif(not HAS_PLOTLY, reason="Plotly is not installed")
 
@@ -128,7 +128,7 @@ def test_show_plot():
 
 def test_plot_passes_extra_kwargs_and_updates_existing_figure():
     pytest.importorskip("plotly")
-    from tascpy.visualization import backend_plotly as bp
+    from tascpy.core.plot import plotly_backend as bp
 
     fig = bp.plot([0, 1], [1, 2], plot_type="scatter", color="red", opacity=0.5, name="a")
     trace = fig.data[0]
@@ -143,6 +143,6 @@ def test_plot_passes_extra_kwargs_and_updates_existing_figure():
 
 def test_plot_accepts_mode_override():
     pytest.importorskip("plotly")
-    from tascpy.visualization import backend_plotly as bp
+    from tascpy.core.plot import plotly_backend as bp
 
     assert bp.plot([0, 1], [1, 2], mode="lines+markers").data[0].mode == "lines+markers"

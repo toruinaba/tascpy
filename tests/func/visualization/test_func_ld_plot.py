@@ -33,7 +33,7 @@ def csv_file_info(sample_data_path):
         pytest.skip(f"サンプルデータファイル {sample_data_path} が見つかりません")
 
     # CSVファイルを読み込み - ファイル構造に合わせて設定
-    collection = tascpy.io.load(str(sample_data_path), format_name="csv")
+    collection = tascpy.load(str(sample_data_path), format_name="csv")
 
     # テスト用に適切なカラム名を単位から識別
     force_columns = [name for name, unit in collection.units.items() if unit == "kN"]
@@ -58,7 +58,7 @@ def load_displacement_data(sample_data_path, csv_file_info):
     force_col, disp_col = csv_file_info
 
     # CSVファイルを読み込み - 修正した設定
-    collection = tascpy.io.load(
+    collection = tascpy.load(
         str(sample_data_path),
         format_name="csv",
         delimiter=",",

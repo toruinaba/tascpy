@@ -6,7 +6,7 @@ from typing import Any, Callable, Generic, Iterator, List, TypeVar, Union, overl
 
 from tascpy.core.collection import concat
 
-from .core import CoreOps
+from .ops import CoreOps
 
 O = TypeVar("O", bound=CoreOps[Any])
 O2 = TypeVar("O2", bound=CoreOps[Any])

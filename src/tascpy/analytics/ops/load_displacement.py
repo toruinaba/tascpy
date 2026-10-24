@@ -19,8 +19,8 @@ from tascpy.numeric.hysteresis import (
     compute_stiffness_degradation_stats,
 )
 
-from .core import CoreOps, to_float_array
-from .list import OpsList
+from tascpy.core.ops import CoreOps, to_float_array
+from tascpy.core.ops_list import OpsList
 
 
 class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):

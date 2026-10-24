@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from matplotlib.axes import Axes
 
-from tascpy.visualization.functional.core.plot import new_axes, plot as core_plot
+from tascpy.core.plot.draw import new_axes, plot as core_plot
 
 DEFAULT_ORIGINAL_KWARGS = {"alpha": 0.5, "label": "Original Data", "color": "gray"}
 

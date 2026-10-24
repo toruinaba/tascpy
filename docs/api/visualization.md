@@ -1,17 +1,8 @@
 # Visualization モジュール
 
-`tascpy.visualization`のAPIリファレンスです。
-
-## Configuration
-::: tascpy.visualization.config
-
-## Plotly Backend
-::: tascpy.visualization.backend_plotly
+`tascpy.visualization` の API リファレンスです。ドメイン固有の描画が含まれます。汎用の描画は [Core](core.md) を参照してください。
 
 ## Plotters
-
-### Core Plotter
-::: tascpy.visualization.plotters.core.plotter
 
 ### Load Displacement Plotter
 ::: tascpy.visualization.plotters.load_displacement.plotter
@@ -23,12 +14,6 @@
 ::: tascpy.visualization.plotters.strain.plotter
 
 ## Functional
-
-### Core Plot
-::: tascpy.visualization.functional.core.plot
-
-### Plot Utilities
-::: tascpy.visualization.functional.core.plot_utils
 
 ### Load Displacement Plot
 ::: tascpy.visualization.functional.load_displacement.plot

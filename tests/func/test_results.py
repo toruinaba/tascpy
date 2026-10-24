@@ -9,7 +9,7 @@ from tascpy.numeric.hysteresis import compute_cycle_markers as cycle_count
 class Test_results:
     def test_01(self, tasc_file, tmp_path):
         path = str(tasc_file)
-        res = tp.io.load(path, format_name="tasc")
+        res = tp.load(path, format_name="tasc")
         ops = res.ops
         ops.end().plot.plot(y_column="P_total")
         ops.end().plot.plot(x_column="梁変位", y_column="P_total")
@@ -69,7 +69,7 @@ class Test_results:
 
     def test_02(self, tasc_file):
         path = str(tasc_file)
-        res = tp.io.load(path, format_name="tasc")
+        res = tp.load(path, format_name="tasc")
 
         ops = res.ops
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
@@ -124,7 +124,7 @@ class Test_results:
             
     def test_03(self, tasc_file):
         path = str(tasc_file)
-        res = tp.io.load(path, format_name="tasc")
+        res = tp.load(path, format_name="tasc")
         ops = res.ops
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()
@@ -191,7 +191,7 @@ class Test_results:
 
     def test_04(self, tasc_file):
         path = str(tasc_file)
-        res = tp.io.load(path, format_name="tasc")
+        res = tp.load(path, format_name="tasc")
         ops = res.ops
         pd = ops.select(columns=["P_total", "梁変位ﾜｲﾔ"])
         pd_rmn = pd.filter_out_none()

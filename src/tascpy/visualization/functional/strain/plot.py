@@ -1,7 +1,7 @@
 from typing import Any, Optional
 
 from tascpy.numeric.rosette import compute_rosette_vectors
-from tascpy.visualization.functional.core.plot import new_axes
+from tascpy.core.plot.draw import new_axes
 
 
 def plot_rosette_vectors(
@@ -74,7 +74,7 @@ def iplot_rosette_vectors(
         >>> from tascpy.visualization.functional.strain.plot import iplot_rosette_vectors
         >>> fig = iplot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=0.785, rosette_name="R1")
     """
-    from tascpy.visualization import backend_plotly as plotly_backend
+    from tascpy.core.plot import plotly_backend
     
     if fig is None:
         fig = plotly_backend.create_figure()
