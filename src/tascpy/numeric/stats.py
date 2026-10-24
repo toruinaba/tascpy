@@ -22,7 +22,7 @@ def moving_average(data: Any, window_size: int = 3) -> np.ndarray:
 
     Examples:
         >>> import numpy as np
-        >>> from tascpy.analytics.functional.core.stats import moving_average
+        >>> from tascpy.numeric.stats import moving_average
         >>> moving_average([10.0, 20.0, None, 40.0], window_size=3)
         array([15., 15., 30., 40.])
     """
@@ -99,7 +99,7 @@ def gaussian_filter(
         ValueError: ウィンドウサイズが1未満の場合。
         
     Examples:
-        >>> from tascpy.analytics.functional.stats import gaussian_filter
+        >>> from tascpy.numeric.stats import gaussian_filter
         >>> import numpy as np
         >>> arr = np.array([0, 10, 0, 0, 0])
         >>> smoothed = gaussian_filter(arr, sigma=1.0)

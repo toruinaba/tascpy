@@ -138,10 +138,10 @@ plt.show()
 tascpy/
 ├── src/
 │   └── tascpy/
+│       ├── numeric/          # numpy 配列に直接使える解析関数
 │       ├── core/             # 基本データ構造（ColumnCollection, Column, ColumnMeta）
 │       ├── domains/          # ドメイン特化コレクション（荷重-変位・座標・ひずみ）
 │       ├── analytics/
-│       │   ├── functional/   # 純粋な計算関数
 │       │   └── ops/          # メソッドチェーンの操作クラス（collection.ops）
 │       ├── visualization/    # 可視化
 │       └── io/               # データ入出力

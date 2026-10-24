@@ -4,13 +4,13 @@
 
 | 層 | 場所 | 役割 |
 |---|---|---|
-| functional | `src/tascpy/analytics/functional/` | NumPy 配列を受け取り配列・値を返す純粋関数。コレクションを知らない |
-| ops | `src/tascpy/analytics/ops/` | コレクションから列を取り出し、functional を呼び、結果を格納した新しいコレクションを返すメソッド |
+| numeric | `src/tascpy/numeric/` | NumPy 配列を受け取り配列・値を返す純粋関数。コレクションを知らない |
+| ops | `src/tascpy/analytics/ops/` | コレクションから列を取り出し、numeric を呼び、結果を格納した新しいコレクションを返すメソッド |
 
 ```text
 col.ops.add("A", "B")
   └─ CoreOps.add()                       # ops 層: 列の解決・結果の格納
-       └─ functional.core.math.add()     # functional 層: 計算のみ
+       └─ numeric.math.add()             # numeric 層: 計算のみ
 ```
 
 ## 操作クラス
@@ -56,10 +56,12 @@ parts.end()                                      # コレクションのリス�
 
 ## 操作を追加する手順
 
-### 1. functional に純粋関数を書く
+### 1. numeric に純粋関数を書く
+
+関数は解析の対象ごとのモジュールに置きます（x-y 曲線なら `curve.py`、繰り返し載荷なら `hysteresis.py`）。
 
 ```python
-# src/tascpy/analytics/functional/load_displacement/analysis.py
+# src/tascpy/numeric/curve.py
 def compute_peak_load(load_data: np.ndarray) -> float:
     """最大荷重を返します"""
     return float(np.nanmax(load_data))
@@ -90,11 +92,11 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
                                  default_unit=self._unit_of(load))
 ```
 
-行の抽出・検索などの表操作は functional に置かず、ops の中で polars の式やコレクションのメソッド（`take` / `select` など）で実装します。
+行の抽出・検索などの表操作は numeric に置かず、ops の中で polars の式やコレクションのメソッド（`take` / `select` など）で実装します。
 
 ### 3. テストを書く
 
-functional 関数のテストと、ops メソッドのテストを分けて書きます。詳細は [テスト戦略](developer_guide_testing.md) を参照してください。
+numeric 関数のテストと、ops メソッドのテストを分けて書きます。詳細は [テスト戦略](developer_guide_testing.md) を参照してください。
 
 ## ヘルパー一覧
 

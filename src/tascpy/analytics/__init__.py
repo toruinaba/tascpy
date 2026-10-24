@@ -1,4 +1,1 @@
-"""
-Analytics module for tascpy.
-Contains functional data processing logic and object-oriented operations proxies.
-"""
+"""tascpy.analytics - メソッドチェーンの操作クラス（`collection.ops`）"""

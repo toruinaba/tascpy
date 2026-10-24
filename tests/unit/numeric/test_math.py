@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import math
-from tascpy.analytics.functional.core.math import (
+from tascpy.numeric.math import (
     add, subtract, multiply, divide, diff, integrate,
     log, sqrt, power, abs_values, round_values, normalize,
 )

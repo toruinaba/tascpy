@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from tascpy.analytics.functional.strain.rosette import compute_rosette_vectors
+from tascpy.numeric.rosette import compute_rosette_vectors
 from tascpy.visualization.functional.core.plot import new_axes
 
 

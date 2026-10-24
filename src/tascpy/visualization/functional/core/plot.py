@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 
-from tascpy.analytics.functional.core import stats as functional_stats
+from tascpy.numeric import stats as functional_stats
 from tascpy.visualization import backend_plotly
 from tascpy.visualization.functional.core import plot_utils
 

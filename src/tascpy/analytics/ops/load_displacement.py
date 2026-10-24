@@ -10,15 +10,15 @@ from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.core.result import ScalarResult
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-
-from ..functional.load_displacement.analysis import compute_slopes, compute_stiffness, compute_yield_point
-from ..functional.load_displacement.curves import compute_cumulative_curve, compute_skeleton_curve
-from ..functional.load_displacement.cycles import (
+from tascpy.numeric.curve import compute_peaks_and_valleys, compute_slopes, compute_stiffness, compute_yield_point
+from tascpy.numeric.hysteresis import (
+    compute_cumulative_curve,
     compute_cycle_markers,
     compute_energy_and_stats,
-    compute_peaks_and_valleys,
+    compute_skeleton_curve,
     compute_stiffness_degradation_stats,
 )
+
 from .core import CoreOps, to_float_array
 from .list import OpsList
 

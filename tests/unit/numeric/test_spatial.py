@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from tascpy.analytics.functional.coordinate.interpolation import interpolate
+from tascpy.numeric.spatial import euclidean_distance, find_nearest_neighbors_logic, interpolate, simple_kmeans
 
 POINTS = np.array([[0.0, 0.0], [10.0, 0.0]])
 
@@ -56,3 +56,57 @@ def test_errors():
         interpolate(POINTS, [1.0, 2.0], [0.0, 0.0, 0.0])
     with pytest.raises(ValueError, match="inverse_distance"):
         interpolate(POINTS, [1.0, 2.0], [0.0, 0.0], method="linear")
+
+
+def test_euclidean_distance():
+    assert np.isclose(euclidean_distance([0.0, 0.0], [3.0, 4.0]), 5.0)
+    assert np.isclose(euclidean_distance([0.0, 0.0, 0.0], [1.0, 2.0, 2.0]), 3.0)
+    assert euclidean_distance([1.0, 2.0], [1.0, 2.0]) == 0.0
+
+
+def test_euclidean_distance_dimension_mismatch():
+    with pytest.raises(ValueError, match="次元"):
+        euclidean_distance([0.0, 0.0], [0.0, 0.0, 1.0])
+
+
+def test_simple_kmeans():
+    X = np.array([
+        [0.0, 0.0], [0.1, 0.1], [0.2, 0.2],
+        [10.0, 10.0], [10.1, 10.1], [10.2, 10.2]
+    ])
+    labels = simple_kmeans(X, n_clusters=2, max_iter=10)
+    assert len(labels) == 6
+    
+    # Check that they are grouped correctly
+    group1 = labels[:3]
+    group2 = labels[3:]
+    assert np.all(group1 == group1[0])
+    assert np.all(group2 == group2[0])
+    assert group1[0] != group2[0]
+
+
+def test_find_nearest_neighbors_logic():
+    distances = [
+        ("id1", 10.0),
+        ("id2", 5.0),
+        ("id3", np.nan),
+        ("id4", 1.0),
+        ("id5", None)
+    ]
+    
+    neighbors = find_nearest_neighbors_logic(distances, n_neighbors=2)
+    assert len(neighbors) == 2
+    assert neighbors[0][0] == "id4"
+    assert neighbors[1][0] == "id2"
+    
+    # Test more neighbors than available valid
+    neighbors_all = find_nearest_neighbors_logic(distances, n_neighbors=10)
+    assert len(neighbors_all) == 3
+
+
+def test_simple_kmeans_does_not_touch_global_random_state():
+    np.random.seed(123)
+    expected = np.random.random()
+    np.random.seed(123)
+    simple_kmeans(np.array([[0.0, 0.0], [0.1, 0.0], [10.0, 0.0], [10.1, 0.0]]), 2)
+    assert np.random.random() == expected

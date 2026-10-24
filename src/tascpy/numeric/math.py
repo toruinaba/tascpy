@@ -102,7 +102,7 @@ def normalize(values: np.ndarray, method: str = "minmax") -> np.ndarray:
         ValueError: 指定されたメソッドが無効な場合。
         
     Examples:
-        >>> from tascpy.analytics.functional.math import normalize
+        >>> from tascpy.numeric.math import normalize
         >>> import numpy as np
         >>> normalize(np.array([0, 5, 10]), method="minmax")
         array([0. , 0.5, 1. ])
@@ -287,7 +287,7 @@ def integrate(
 
     Examples:
         >>> import numpy as np
-        >>> from tascpy.analytics.functional.core.math import integrate
+        >>> from tascpy.numeric.math import integrate
         >>> integrate(y=[1.0, 1.0, 1.0], x=[10.0, 11.0, 12.0])
         array([0., 1., 2.])
         >>> integrate(y=[0.0, 2.0, 2.0], x=[0.0, 1.0, 0.0])

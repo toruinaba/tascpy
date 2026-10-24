@@ -9,7 +9,7 @@ import numpy as np
 from tascpy.core.result import GridResult
 from tascpy.domains.coordinate import CoordinateCollection
 
-from ..functional.coordinate.interpolation import interpolate
+from tascpy.numeric.spatial import interpolate
 from .core import CoreOps
 
 CC_co = TypeVar("CC_co", bound=CoordinateCollection, covariant=True)
