@@ -59,6 +59,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         変位が変化しない区間があると計算に失敗するため、事前に
         `remove_consecutive_duplicates_across()` で重複を除くことを推奨します。
 
+        単調載荷の曲線を前提にしています。繰り返し載荷のデータにそのまま使うと、範囲に入る除荷途中の点も
+        計算に含まれ、エラーにならずに誤った値になります。初期剛性は最初の載荷区間を抜き出してから求めてください。
+
         Args:
             range_start: 範囲の開始比率
             range_end: 範囲の終了比率
@@ -68,6 +71,14 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             >>> stiffness = ld.ops.calculate_stiffness(0.1, 0.8).end().results["stiffness"]
             >>> round(stiffness.value, 1), stiffness.unit
             (40.0, 'kN/mm')
+
+            繰り返し載荷のデータ（`cyclic`）では、荷重が初めて下がる手前までを抜き出してから求めます。
+
+            >>> round(cyclic.ops.calculate_stiffness(0.1, 0.5).end().results["stiffness"].value, 1)  # 生データのまま（誤り）
+            8.6
+            >>> first_loading = cyclic.head(int(np.argmax(np.diff(cyclic.load_data) < 0)) + 1)
+            >>> round(first_loading.ops.calculate_stiffness(0.1, 0.5).end().results["stiffness"].value, 1)
+            40.0
         """
         value = compute_stiffness(*self._ld_arrays(), range_start=range_start, range_end=range_end, method=method)
         return self._with_result(ScalarResult(name="stiffness", value=value, unit=self._ld_unit("/")))
@@ -82,10 +93,21 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         - "general": 接線剛性が初期剛性 × factor を下回る点
         を降伏点とします。
 
+        単調載荷の曲線を前提にしています（`calculate_stiffness` と同じ）。繰り返し載荷のデータでは、
+        スケルトン曲線を求めてから `tascpy.numeric.curve.compute_yield_point` で計算してください。
+
         Examples:
             >>> pt = ld.ops.find_yield_point(method="offset", offset_value=0.5, range_start=0.1, range_end=0.8).end().results["yield_point"]
             >>> round(pt.x, 2), round(pt.y, 1), pt.x_unit, pt.y_unit
             (3.0, 100.0, 'mm', 'kN')
+
+            繰り返し載荷のデータ（`cyclic`）では、スケルトン曲線から求めます。
+
+            >>> from tascpy.numeric.curve import compute_yield_point
+            >>> skeleton = cyclic.ops.cycle_count().create_skeleton_curve().end().results["skeleton_curve"]
+            >>> pt = compute_yield_point(skeleton.x.values, skeleton.y.values, offset_value=0.5, range_start=0.1, range_end=0.5)
+            >>> round(pt.x, 2), round(pt.y, 1)
+            (3.06, 102.2)
         """
         outcome = compute_yield_point(
             *self._ld_arrays(), method=method, offset_value=offset_value, range_start=range_start,

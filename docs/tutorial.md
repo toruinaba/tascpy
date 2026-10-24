@@ -93,6 +93,22 @@ array([1., 1., 2., 2., 3., 3., 4.])
 
 初期剛性 40 kN/mm の直線を変位方向に 0.5 mm ずらした直線と、スケルトン曲線の交点が降伏点です。
 
+繰り返し載荷の生データに `calculate_stiffness` や `find_yield_point` をそのまま使うと、範囲に入る除荷途中の点も計算に含まれ、エラーにならずに誤った値になります。初期剛性だけが必要なら、荷重が初めて下がる手前までの最初の載荷区間を抜き出して使えます。
+
+```pycon
+>>> round(ld.calculate_stiffness(range_start=0.1, range_end=0.5).end().results["stiffness"].value, 1)  # 生データのまま（誤り）
+1.5
+>>> first_loading = col.head(int(np.argmax(np.diff(col["荷重"].values) < 0)) + 1)
+>>> len(first_loading), first_loading["荷重"].max()
+(20, 80.0)
+>>> first = first_loading.ops.as_domain(tascpy.as_load_displacement, "荷重", "変位")
+>>> round(first.calculate_stiffness(range_start=0.1, range_end=0.5).end().results["stiffness"].value, 1)
+40.0
+
+```
+
+最初の載荷区間（±2 mm）はまだ弾性範囲なので、降伏点はこの区間からは求まりません。降伏点は上のようにスケルトン曲線から求めます。
+
 ## 6. サイクルごとに集計する
 
 `analyze_hysteresis` はサイクルごとの履歴エネルギー（ループの面積）と、荷重・変位の最大・最小を表にして返します。表のステップはサイクル番号です。
