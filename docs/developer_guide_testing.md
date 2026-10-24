@@ -26,6 +26,10 @@ tascpy は、数値計算の正確性と、データ操作パイプラインと�
 
 実行はせず、pyright で `assert_type` を検査します。メソッドチェーンの戻り値の型（IDE の補完）が崩れていないことを保証します。
 
+### `src/tascpy/numeric/` の doctest
+
+numeric は単体で使う公開 API なので、docstring の `Examples` も `pytest` で実行します（`pytest.ini` の `--doctest-modules`）。浮動小数点の値は期待値に書いた桁数で比較します（`NUMBER`）。例えば `100.0` と書けば `99.99999999999999` も一致とみなします。
+
 ## 2. numeric と ops を分ける理由
 
 数学的ロジックとデータハンドリングを分けることで、バグの場所を切り分けやすくするためです。

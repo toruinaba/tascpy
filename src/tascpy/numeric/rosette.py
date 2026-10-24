@@ -20,15 +20,16 @@ def compute_rosette_strains(
         angle_offset: 第1ゲージの設置角度（度）
         
     Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: 
-            (最大主ひずみ, 最小主ひずみ, 最大せん断ひずみ, 主ひずみ方向角度)
-            
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+            (最大主ひずみ, 最小主ひずみ, 最大せん断ひずみ, 主ひずみ方向角度)。
+            角度は最大主ひずみの方向を、第1ゲージの方向から反時計回りに測った度数（angle_offset を加算）です。
+
     Examples:
         >>> from tascpy.numeric.rosette import compute_rosette_strains
         >>> import numpy as np
         >>> e1, e2, e3 = np.array([100]), np.array([200]), np.array([300])
-        >>> compute_rosette_strains(e1, e2, e3, "rectangular")
-        (array([300.]), array([100.]), array([200.]), array([0.]))
+        >>> compute_rosette_strains(e1, e2, e3, "rectangular")  # 最大主ひずみ 300 は第3ゲージ（90°）の方向
+        (array([300.]), array([100.]), array([200.]), array([90.]))
     """
     if r_type.lower() == "rectangular":
         ex = e1
@@ -86,5 +87,5 @@ def compute_rosette_vectors(
     v2_x = val_e2 * np.cos(theta_rad + np.pi/2) * scale
     v2_y = val_e2 * np.sin(theta_rad + np.pi/2) * scale
 
-    return v1_x, v1_y, v2_x, v2_y
+    return float(v1_x), float(v1_y), float(v2_x), float(v2_y)
 

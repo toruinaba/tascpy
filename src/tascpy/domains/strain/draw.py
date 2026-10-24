@@ -25,7 +25,7 @@ def plot_rosette_vectors(
         y: ロゼットのY座標
         e1: 主ひずみ1 (最大主ひずみ)
         e2: 主ひずみ2 (最小主ひずみ)
-        theta: 主ひずみ方向角度 (ラジアンまたは度、compute_rosette_vectorsの仕様に依存)
+        theta: 主ひずみ方向角度（度）
         rosette_name: ロゼット名 (タイトル表示用)
         step_index: ステップインデックス (タイトル表示用)
         scale: ベクトルの長さのスケール
@@ -36,7 +36,7 @@ def plot_rosette_vectors(
         
     Examples:
         >>> from tascpy.domains.strain.draw import plot_rosette_vectors
-        >>> ax = plot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=0.785, rosette_name="R1")
+        >>> ax = plot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=45.0, rosette_name="R1")
     """
     if ax is None:
         ax = new_axes()
@@ -72,7 +72,7 @@ def iplot_rosette_vectors(
     
     Examples:
         >>> from tascpy.domains.strain.draw import iplot_rosette_vectors
-        >>> fig = iplot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=0.785, rosette_name="R1")
+        >>> fig = iplot_rosette_vectors(x=0.0, y=0.0, e1=1000e-6, e2=-500e-6, theta=45.0, rosette_name="R1")
     """
     from tascpy.core.plot import plotly_backend
     
