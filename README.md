@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.6.1-green)](https://github.com/toruinaba/tascpy)
+[![Version](https://img.shields.io/badge/version-0.7.0-green)](https://github.com/toruinaba/tascpy)
 
 **tascpy** は、計測アプリケーション「tasc」などから出力される計測データの分析・可視化を効率的に行うための Python ライブラリです。直感的なインターフェースと強力なデータ処理機能を備え、メソッドチェーン形式で複雑な操作を簡潔に記述できます。
 

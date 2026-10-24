@@ -76,6 +76,25 @@ def test_average_columns_structure(sample_collection):
     result_col = [c for c in result.columns if "average" in c]
     assert len(result_col) == 1
 
+def test_sum_columns_values_and_missing():
+    col = ColumnCollection({"a": [1.0, 2.0, None], "b": [4.0, 5.0, 6.0]})
+    result = col.ops.sum_columns(["a", "b"], result_column="s").end()
+    np.testing.assert_array_equal(result["s"].values, [5.0, 7.0, np.nan])
+
+
+def test_average_columns_values():
+    col = ColumnCollection({"a": [10.0, 20.0, None], "b": [30.0, 40.0, None]})
+    result = col.ops.average_columns(["a", "b"], result_column="m").end()
+    np.testing.assert_array_equal(result["m"].values, [20.0, 30.0, np.nan])
+
+
+@pytest.mark.parametrize("method", ["sum_columns", "average_columns"])
+def test_sum_and_average_require_columns(method):
+    col = ColumnCollection({"a": [1.0, 2.0]})
+    with pytest.raises(ValueError, match="対象の列が指定されていません"):
+        getattr(col.ops, method)([])
+
+
 def test_custom_combine_structure(sample_collection):
     """Test custom_combine structural properties"""
     def my_add(x, y):

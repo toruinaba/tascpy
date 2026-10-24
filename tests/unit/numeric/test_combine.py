@@ -3,8 +3,6 @@ import numpy as np
 from tascpy.numeric.combine import (
     switch_by_step,
     blend_by_step,
-    sum_columns,
-    average_columns,
     conditional_select,
     custom_combine
 )
@@ -47,18 +45,6 @@ def test_blend_by_step_linear():
     assert res[7] == 20.0
     assert res[8] == 20.0
     assert res[4] == 14.0  # t=2/5=0.4 => 10*(0.6) + 20*0.4 = 6+8=14
-
-def test_sum_columns():
-    arr1 = np.array([1, 2, 3])
-    arr2 = np.array([4, 5, 6])
-    res = sum_columns([arr1, arr2])
-    np.testing.assert_array_equal(res, [5, 7, 9])
-
-def test_average_columns():
-    arr1 = np.array([10, 20, 30])
-    arr2 = np.array([30, 40, 50])
-    res = average_columns([arr1, arr2])
-    np.testing.assert_array_equal(res, [20, 30, 40])
 
 def test_conditional_select():
     v1 = np.array([10, 10, 10])
