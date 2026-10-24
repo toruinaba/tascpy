@@ -39,7 +39,5 @@ nav:
       - Testing Strategy: developer_guide_testing.md
   - API Reference:
       - Core: api/core.md
-      - Analytics: api/analytics.md
       - Numeric: api/numeric.md
-      - Visualization: api/visualization.md
       - Domains: api/domains.md

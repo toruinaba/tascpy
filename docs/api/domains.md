@@ -1,12 +1,39 @@
 # Domains モジュール
 
-`tascpy.domains`のAPIリファレンスです。特定分野（荷重変位・ひずみ・座標等）のコレクションクラスが含まれます。
+`tascpy.domains` の API リファレンスです。ドメインごとに、コレクション（設定）、操作（`coll.ops`）、描画（`coll.plot`）があります。変換は `col.ops.as_domain(as_load_displacement, ...)` のように、各ドメインの変換関数を渡して行います。
 
-## Coordinate Domain
-::: tascpy.domains.coordinate
+## 荷重-変位
 
-## Load Displacement Domain
-::: tascpy.domains.load_displacement
+### LoadDisplacementCollection
+::: tascpy.domains.load_displacement.collection
 
-## Strain Domain
-::: tascpy.domains.strain
+### LoadDisplacementOps
+::: tascpy.domains.load_displacement.ops
+
+### LoadDisplacementPlotter
+::: tascpy.domains.load_displacement.plotter
+
+### 描画関数
+::: tascpy.domains.load_displacement.draw
+
+## 座標
+
+### CoordinateCollection
+::: tascpy.domains.coordinate.collection
+
+### CoordinateOps
+::: tascpy.domains.coordinate.ops
+
+## ひずみ
+
+### StrainCollection
+::: tascpy.domains.strain.collection
+
+### StrainOps
+::: tascpy.domains.strain.ops
+
+### StrainPlotter
+::: tascpy.domains.strain.plotter
+
+### 描画関数
+::: tascpy.domains.strain.draw

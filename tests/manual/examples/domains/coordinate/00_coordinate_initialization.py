@@ -9,6 +9,7 @@ import numpy as np
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.domains.coordinate import CoordinateCollection
+from tascpy.domains import as_coordinate
 
 print("==== 座標コレクション (CoordinateCollection) の初期化サンプル ====")
 
@@ -73,7 +74,7 @@ coordinates = {
 
 # 汎用コレクションを作成し、座標情報を渡して座標ドメインに変換
 collection2 = (
-    ColumnCollection(columns, step=steps).ops.as_coordinate(coordinates=coordinates).end()
+    ColumnCollection(columns, step=steps).ops.as_domain(as_coordinate, coordinates=coordinates).end()
 )
 
 # 作成した情報を表示

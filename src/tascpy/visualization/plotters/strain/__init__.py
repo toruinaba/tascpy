@@ -1,3 +1,0 @@
-"""
-Strain plotter module.
-"""

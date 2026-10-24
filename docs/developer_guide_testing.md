@@ -11,12 +11,12 @@ tascpy は、数値計算の正確性と、データ操作パイプラインと�
    * 目的: NumPy 配列を直接渡し、数学的に正しい値が返るかを検証します
    * 特徴: `ColumnCollection` は使いません。境界値や NaN などの入力パターンの網羅に集中し、`np.testing.assert_allclose` 等で検証します
 
-2. **`ops` テスト**: `tests/unit/analytics/ops/`
-   * 対象: `src/tascpy/analytics/ops/` の操作クラス（`CoreOps` / `LoadDisplacementOps` / `CoordinateOps` / `StrainOps`）
+2. **`ops` テスト**: `tests/unit/core/ops/`（汎用）、`tests/unit/domains/<ドメイン>/test_ops_*.py`
+   * 対象: `src/tascpy/core/ops.py` と `src/tascpy/domains/<ドメイン>/ops.py` の操作クラス（`CoreOps` / `LoadDisplacementOps` / `CoordinateOps` / `StrainOps`）
    * 目的: コレクション上で操作が正しく連動するかを検証します
    * 特徴: 計算そのものの正確性ではなく、列名の解決、存在しない列での `KeyError`、欠損値の扱い、`result_column` への格納、単位・メタデータの引き継ぎ、元のコレクションが変更されないことなどに集中します
 
-3. **その他**: `tests/unit/core/`、`tests/unit/domains/`、`tests/unit/io/`、`tests/unit/visualization/` に各パッケージのテストがあります
+3. **その他**: `tests/unit/core/`（モデル・io・plot）、`tests/unit/domains/<ドメイン>/`（コレクション・描画）に各パッケージのテストがあります
 
 ### `tests/func/` (機能テスト)
 
@@ -53,7 +53,7 @@ def test_my_new_calculation():
 ### ステップ2: ops テスト
 
 ```python
-# tests/unit/analytics/ops/core/test_math.py
+# tests/unit/core/ops/test_math.py
 import numpy as np
 import pytest
 

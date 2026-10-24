@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 import tascpy
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
+from tascpy.domains import as_load_displacement
 
 # サンプルデータのパスを設定します
 DATA_PATH = (
@@ -39,7 +40,7 @@ print(f"   - 単位: {collection.units}")
 # 2. 荷重-変位ドメインに変換し、曲線生成に必要なサイクル列（"Force1_cycle"）を作成します
 print("2. 荷重-変位ドメインへの変換")
 ld_collection = (
-    collection.ops.as_load_displacement(load_column="Force1", displacement_column="Displacement1")
+    collection.ops.as_domain(as_load_displacement, load_column="Force1", displacement_column="Displacement1")
     .cycle_count()
     .end()
 )

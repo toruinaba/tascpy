@@ -5,7 +5,7 @@
 | 層 | 場所 | 役割 |
 |---|---|---|
 | numeric | `src/tascpy/numeric/` | NumPy 配列を受け取り配列・値を返す純粋関数。コレクションを知らない |
-| ops | `src/tascpy/analytics/ops/` | コレクションから列を取り出し、numeric を呼び、結果を格納した新しいコレクションを返すメソッド |
+| ops | `src/tascpy/core/ops.py`（汎用）、`src/tascpy/domains/<ドメイン>/ops.py` | コレクションから列を取り出し、numeric を呼び、結果を格納した新しいコレクションを返すメソッド |
 
 ```text
 col.ops.add("A", "B")
@@ -34,12 +34,14 @@ result = (
 )
 ```
 
-ドメイン変換は型付きのメソッドを使うと、変換後の操作も補完されます。
+ドメインへの変換は `as_domain` に各ドメインの変換関数（`from_collection` の別名）を渡します。変換の引数も変換後の操作も、型チェックと補完が効きます。
 
 ```python
-col.ops.as_load_displacement("荷重", "変位")   # -> LoadDisplacementOps
-col.ops.as_coordinate(coordinates={...})       # -> CoordinateOps
-col.ops.as_strain(rosettes={...})              # -> StrainOps
+from tascpy.domains import as_coordinate, as_load_displacement, as_strain
+
+col.ops.as_domain(as_load_displacement, "荷重", "変位")   # -> LoadDisplacementOps
+col.ops.as_domain(as_coordinate, coordinates={...})       # -> CoordinateOps
+col.ops.as_domain(as_strain, rosettes={...})              # -> StrainOps
 ld.ops.as_core()                               # ドメインの設定を外す -> CoreOps
 ```
 
@@ -70,7 +72,7 @@ def compute_peak_load(load_data: np.ndarray) -> float:
 ### 2. 対応する Ops クラスにメソッドを書く
 
 ```python
-# src/tascpy/analytics/ops/load_displacement.py
+# src/tascpy/domains/load_displacement/ops.py
 class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     ...
 
@@ -121,10 +123,10 @@ numeric 関数のテストと、ops メソッドのテストを分けて書き�
 
 ## 新しいドメインを追加する
 
-コレクションのサブクラスと、`CoreOps` のサブクラスを対で作ります。ドメイン固有の設定は属性として持ちます。属性は `with_*` などの操作で自動的に引き継がれます。不変条件は `_validate` で検査します（操作のたびに呼ばれます）。
+`src/tascpy/domains/<ドメイン>/` にパッケージを作り、コレクションのサブクラス（`collection.py`）と `CoreOps` のサブクラス（`ops.py`）を対で置きます。core 側の変更は要りません（tascpy の外のパッケージでも同じように定義できます）。ドメイン固有の設定は属性として持ちます。属性は `with_*` などの操作で自動的に引き継がれます。不変条件は `_validate` で検査します（操作のたびに呼ばれます）。
 
 ```python
-from typing import Self
+from typing import Any, Dict, Mapping, Self
 
 from tascpy.core import CoreOps
 from tascpy.core.collection import ColumnCollection
@@ -134,7 +136,7 @@ class TimeSeriesCollection(ColumnCollection):
     domain = "timeseries"
 
     @classmethod
-    def from_collection(cls, collection: ColumnCollection, time_column: str) -> "TimeSeriesCollection":
+    def from_collection(cls, collection: ColumnCollection, time_column: str) -> Self:
         new = collection._as_class(cls)
         new._time_column = time_column
         new._validate()
@@ -147,6 +149,13 @@ class TimeSeriesCollection(ColumnCollection):
     def _apply_rename(self, mapping) -> None:
         self._time_column = mapping.get(self._time_column, self._time_column)
 
+    def _domain_config(self) -> Dict[str, Any]:
+        return {"time_column": self._time_column}
+
+    @classmethod
+    def _from_config(cls, collection: ColumnCollection, config: Mapping[str, Any]) -> Self:
+        return cls.from_collection(collection, **config)
+
     @property
     def ops(self) -> "TimeSeriesOps":
         return TimeSeriesOps(self)
@@ -157,7 +166,15 @@ class TimeSeriesOps(CoreOps[TimeSeriesCollection]):
         return self._next(self._c.with_metadata(frequency=frequency))
 ```
 
-変換メソッド（`as_timeseries` など）が必要なら `CoreOps` に追加します。
+変換関数は `from_collection` の別名として公開します。`col.ops.as_domain(as_timeseries, "t")` で変換でき、引数は `from_collection` のシグネチャで型検査されます。
+
+```python
+as_timeseries = TimeSeriesCollection.from_collection
+```
+
+- `domain` を定義したサブクラスは定義時にレジストリへ登録され、`_domain_config` / `_from_config` の組で Parquet に保存・復元できます。
+- 描画が必要なら `plotter.py`（`CorePlotter` のサブクラス）と `draw.py`（描画関数）を置き、コレクションの `plot` プロパティの中で遅延インポートします（matplotlib を描画時にだけ読み込むため）。
+- 他のドメインに依存する場合は、`pyproject.toml` の import-linter の契約に許可を追加します。
 
 ## 型チェック
 

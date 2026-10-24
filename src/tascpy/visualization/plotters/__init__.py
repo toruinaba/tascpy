@@ -1,3 +1,0 @@
-"""
-Plotters module for visualization.
-"""

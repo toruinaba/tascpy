@@ -102,7 +102,7 @@ def main():
 
     # 4. 空間クラスタリング（CoordinateCollection.spatial_clustering）
     print("## 4. 空間クラスタリング（k-means, 4 クラスタ）")
-    clustered = data.spatial_clustering(n_clusters=4)
+    clustered = data.ops.spatial_clustering(n_clusters=4).end()
     assignments = clustered.metadata["coordinate_domain"]["clustering_result"]["assignments"]
     labels = np.array([assignments[name] for name in names])
     fig, ax = plt.subplots(figsize=(8, 8))

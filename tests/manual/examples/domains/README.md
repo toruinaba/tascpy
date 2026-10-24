@@ -88,7 +88,7 @@ matrix, valid_names = collection.get_coordinate_matrix(include_z=True)
 distance = collection.calculate_distance("sensor1", "sensor2")
 
 # 座標による k-means クラスタリング（結果は metadata["coordinate_domain"]["clustering_result"]）
-clustered = collection.spatial_clustering(n_clusters=3)
+clustered = collection.ops.spatial_clustering(n_clusters=3).end()
 ```
 
 #### 2. 空間補間（CoordinateOps）
@@ -120,7 +120,7 @@ grid.values  # (ny, nx)
 
    ```python
    # 荷重-変位ドメインへの変換
-   ld_collection = collection.ops.as_load_displacement(
+   ld_collection = collection.ops.as_domain(tascpy.as_load_displacement, 
        load_column="Force1", displacement_column="Displacement1"
    ).end()
 
@@ -201,12 +201,12 @@ python load_displacement/01_load_displacement_domain.py
 
 ```python
 # 一般的なコレクションからドメイン特化コレクションへの変換
-load_disp_collection = collection.ops.as_load_displacement(
+load_disp_collection = collection.ops.as_domain(tascpy.as_load_displacement, 
     load_column="Force1",
     displacement_column="Displacement1",
 ).end()
 
-coordinate_collection = collection.ops.as_coordinate(
+coordinate_collection = collection.ops.as_domain(tascpy.as_coordinate, 
     coordinates={
         "sensor1": {"x": 0.0, "y": 0.0, "z": 0.0},
         "sensor2": {"x": 10.0, "y": 0.0, "z": 0.0},
