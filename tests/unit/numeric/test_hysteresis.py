@@ -261,3 +261,28 @@ def test_skeleton_shifts_later_cycle_to_continue_the_envelope():
     d_ske, p_ske = compute_skeleton_curve(disp, load)
     np.testing.assert_allclose(d_ske, [1.0, 2.0, 2.5, 3.5])
     np.testing.assert_allclose(p_ske, [40.0, 80.0, 100.0, 110.0])
+
+
+@pytest.mark.parametrize("decrease_type", ["envelope", "continuous_only", "both"])
+def test_skeleton_curve_return_index(decrease_type):
+    d, p = compute_skeleton_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED, has_decrease=True, decrease_type=decrease_type)
+    d2, p2, rows = compute_skeleton_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED, has_decrease=True,
+                                          decrease_type=decrease_type, return_index=True)
+    assert_curves_equal((d2, p2), (d, p))
+    np.testing.assert_allclose(CYCLIC_LOADS[rows], p)
+    assert len(np.unique(rows)) == len(rows)
+
+
+def test_skeleton_curve_envelope_does_not_repeat_peak():
+    # 最大荷重の行が変位も最大のとき、減少部分 (envelope) で同じ点を重ねない
+    d, p = compute_skeleton_curve(np.array([0.0, 1.0, 0.0, -1.0, 0.0, 2.0, 0.0]),
+                                  np.array([0.0, 10.0, 0.0, -10.0, 0.0, 15.0, 0.0]), has_decrease=True)
+    np.testing.assert_allclose(p, [10.0, 15.0])
+
+
+def test_cumulative_curve_return_index():
+    d, p, rows = compute_cumulative_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED, return_index=True)
+    assert_curves_equal((d, p), compute_cumulative_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED))
+    real = rows >= 0
+    np.testing.assert_allclose(CYCLIC_LOADS[rows[real]], p[real])
+    np.testing.assert_allclose(p[~real], 0.0)

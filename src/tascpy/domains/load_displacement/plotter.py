@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib.axes import Axes
 
 from tascpy.core.plot.plotter import CorePlotter, axis_label
-from tascpy.core.result import AnalysisResult, PointResult, XYSeriesResult
+from tascpy.core.result import AnalysisResult, PointResult
 
 from . import draw as ld_plot
 
@@ -50,7 +50,7 @@ class LoadDisplacementPlotter(CorePlotter):
     """荷重-変位コレクションのプロッター
 
     X 軸・Y 軸の列を省略すると変位列・荷重列を使い、軸ラベルは "列名 [単位]" にします。
-    曲線や降伏点は解析結果（results）から取得します。
+    降伏点は解析結果（results）から取得します。
     """
 
     _collection: "LoadDisplacementCollection"
@@ -65,12 +65,6 @@ class LoadDisplacementPlotter(CorePlotter):
             y_label=axis_label(y_col.name, y_col.unit) if y_label is None else y_label,
             x_unit=x_col.unit, y_unit=y_col.unit,
         )
-
-    def _curve(self, name: str) -> tuple[np.ndarray, np.ndarray]:
-        """解析結果 (XYSeriesResult) から曲線の (x, y) を取得します"""
-        curve = _typed_result(self._collection.results.get(name), name, XYSeriesResult,
-                              f"コレクションに解析結果 '{name}' がありません")
-        return curve.x.values, curve.y.values
 
     def _yield_point(self, result_prefix: str, yield_disp: Optional[float], yield_load: Optional[float],
                      yield_method: Optional[str], initial_slope: Optional[float],
@@ -96,38 +90,6 @@ class LoadDisplacementPlotter(CorePlotter):
         """荷重-変位曲線を描画します（列の省略時は変位列・荷重列）"""
         a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_load_displacement(a.x, a.y, x_label=a.x_label, y_label=a.y_label, ax=ax, **kwargs)
-
-    def plot_skeleton_curve(self, skeleton_x: Optional[np.ndarray] = None, skeleton_y: Optional[np.ndarray] = None,
-                            x_column: Optional[str] = None, y_column: Optional[str] = None,
-                            x_label: Optional[str] = None, y_label: Optional[str] = None,
-                            ax: Optional[Axes] = None, plot_original: bool = True,
-                            original_kwargs: Optional[Dict[str, Any]] = None,
-                            skeleton_kwargs: Optional[Dict[str, Any]] = None) -> Axes:
-        """スケルトン曲線を描画します（省略時は解析結果 "skeleton_curve" を使う）"""
-        if skeleton_x is None or skeleton_y is None:
-            skeleton_x, skeleton_y = self._curve("skeleton_curve")
-        a = self._ld_axes(x_column, y_column, x_label, y_label)
-        return ld_plot.plot_skeleton_curve(
-            skeleton_x, skeleton_y, x_values=a.x if plot_original else None, y_values=a.y if plot_original else None,
-            x_label=a.x_label, y_label=a.y_label, ax=ax, original_kwargs=original_kwargs,
-            skeleton_kwargs=skeleton_kwargs,
-        )
-
-    def plot_cumulative_curve(self, cumulative_x: Optional[np.ndarray] = None,
-                              cumulative_y: Optional[np.ndarray] = None, x_column: Optional[str] = None,
-                              y_column: Optional[str] = None, x_label: Optional[str] = None,
-                              y_label: Optional[str] = None, ax: Optional[Axes] = None,
-                              plot_original: bool = True, original_kwargs: Optional[Dict[str, Any]] = None,
-                              cumulative_kwargs: Optional[Dict[str, Any]] = None) -> Axes:
-        """累積曲線を描画します（省略時は解析結果 "cumulative_curve" を使う）"""
-        if cumulative_x is None or cumulative_y is None:
-            cumulative_x, cumulative_y = self._curve("cumulative_curve")
-        a = self._ld_axes(x_column, y_column, x_label, y_label)
-        return ld_plot.plot_cumulative_curve(
-            cumulative_x, cumulative_y, x_values=a.x if plot_original else None,
-            y_values=a.y if plot_original else None, x_label=a.x_label, y_label=a.y_label, ax=ax,
-            original_kwargs=original_kwargs, cumulative_kwargs=cumulative_kwargs,
-        )
 
     def plot_yield_point(self, yield_disp: Optional[float] = None, yield_load: Optional[float] = None,
                          yield_method: Optional[str] = None, initial_slope: Optional[float] = None,
@@ -194,8 +156,8 @@ class LoadDisplacementPlotter(CorePlotter):
                              x_column: Optional[str] = None, y_column: Optional[str] = None) -> Axes:
         """複数の曲線を重ねて描画します
 
-        curves の各要素は {"type": "original" | "skeleton" | "cumulative", "kwargs": {...}}、
-        または {"x": 配列, "y": 配列, "kwargs": {...}} です。解析結果がない曲線は警告を出して飛ばします。
+        curves の各要素は {"type": "original", "kwargs": {...}}、または {"x": 配列, "y": 配列, "kwargs": {...}} です。
+        スケルトン曲線などの別のコレクションは x / y で渡すか、同じ ax にそのコレクションの plot で描画します。
         """
         a = self._ld_axes(x_column, y_column, x_label, y_label)
         curves_data = []
@@ -207,12 +169,6 @@ class LoadDisplacementPlotter(CorePlotter):
             item: Dict[str, Any] = {"type": kind, "kwargs": curve.get("kwargs", {})}
             if kind == "original":
                 item["x"], item["y"] = a.x, a.y
-            elif kind in ("skeleton", "cumulative"):
-                try:
-                    item["x"], item["y"] = self._curve(f"{kind}_curve")
-                except ValueError as e:
-                    warnings.warn(str(e), stacklevel=2)
-                    continue
             else:
                 warnings.warn(f"未知の曲線の種類です: {kind}", stacklevel=2)
                 continue

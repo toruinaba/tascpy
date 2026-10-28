@@ -139,14 +139,11 @@ grid.values  # (ny, nx)
    - スケルトン曲線・累積曲線の生成
 
    ```python
-   curves = (
-       ld_collection.ops
-       .cycle_count()              # "Force1_cycle" 列を追加
-       .create_skeleton_curve()    # サイクル列は自動検出
-       .create_cumulative_curve()
-       .end()
-   )
-   skeleton = curves.results["skeleton_curve"]      # XYSeriesResult（x/y は単位付きの Column）
+   cycled = ld_collection.ops.cycle_count()     # "Force1_cycle" 列を追加
+   skeleton = cycled.skeleton_curve().end()     # サイクル列は自動検出。曲線を荷重-変位コレクションとして返す
+   cumulative = cycled.cumulative_curve().end()
+   ax = ld_collection.plot.plot_load_displacement(label="original")
+   skeleton.plot.plot_load_displacement(ax=ax, color="red", label="skeleton")
    ```
 
 3. **[03_yield_point_calculation.py](./load_displacement/03_yield_point_calculation.py)** - 降伏点の計算と評価
@@ -173,8 +170,8 @@ grid.values  # (ny, nx)
 | `cycle_count(column, step)` | サイクル番号 | 列 `{荷重列}_cycle` |
 | `split_by_cycles(cycle_column)` | サイクルごとに分割 | `OpsList` |
 | `find_peaks_and_valleys(column, distance)` | ピーク/バレーのマーカー | 列 `peak_valley` |
-| `create_skeleton_curve(cycle_column)` | スケルトン曲線 | `results["skeleton_curve"]` |
-| `create_cumulative_curve(cycle_column)` | 累積曲線 | `results["cumulative_curve"]` |
+| `skeleton_curve(cycle_column)` | スケルトン曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`） |
+| `cumulative_curve(cycle_column)` | 累積曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`） |
 | `analyze_hysteresis(cycle_column)` | サイクルごとの履歴エネルギー・最大最小値 | 集計表（`ColumnCollection`） |
 | `analyze_stiffness_degradation(cycle_column)` | サイクルごとの割線剛性 | 集計表（`ColumnCollection`） |
 

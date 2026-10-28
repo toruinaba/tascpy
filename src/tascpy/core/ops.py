@@ -15,7 +15,7 @@ import polars as pl
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import KEEP, Column
-from tascpy.core.result import AnalysisResult, PointResult, XYSeriesResult
+from tascpy.core.result import AnalysisResult, PointResult
 from tascpy.numeric import combine as f_combine
 from tascpy.numeric import math as f_math
 from tascpy.numeric import stats as f_stats
@@ -187,16 +187,6 @@ class CoreOps(Generic[C_co]):
         info = dict(outcome[3]) if len(outcome) > 3 else {}
         info["is_valid"] = is_valid
         return self._with_result(PointResult(name=name, x=x, y=y, x_unit=x_unit, y_unit=y_unit, metadata=info))
-
-    def _with_curve(self, name: str, x: Any, y: Any, x_unit: Optional[str] = None,
-                    y_unit: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> Self:
-        curve = XYSeriesResult(
-            name=name,
-            x=Column(f"{name}_x", x, unit=x_unit),
-            y=Column(f"{name}_y", y, unit=y_unit),
-            metadata=metadata or {},
-        )
-        return self._with_result(curve)
 
     def _with_rows(self, rows: Any, **metadata: Any) -> Self:
         result = self._c.take(rows)

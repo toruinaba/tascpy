@@ -160,9 +160,9 @@ class Test_results:
 
         # numpy で直接計算した結果と、ops で計算した結果が一致する
         via_ops = (pd_removed_outliers.ops.as_domain(as_load_displacement, "P_total", "梁変位ﾜｲﾔ")
-                   .cycle_count().create_skeleton_curve(has_decrease=True).end().results["skeleton_curve"])
-        np.testing.assert_allclose(d_ske, via_ops.x)
-        np.testing.assert_allclose(p_ske, via_ops.y)
+                   .cycle_count().skeleton_curve(has_decrease=True).end())
+        np.testing.assert_allclose(d_ske, via_ops.displacement_data)
+        np.testing.assert_allclose(p_ske, via_ops.load_data)
         np.testing.assert_allclose(compute_skeleton_curve(d_cyc, p_cyc, has_decrease=True)[0], d_ske)
 
         from tascpy.numeric.curve import compute_yield_point
@@ -221,9 +221,9 @@ class Test_results:
         d_cum, p_cum = compute_cumulative_curve(d_cyc, p_cyc, markers)
 
         via_ops = (pd_removed_outliers.ops.as_domain(as_load_displacement, "P_total", "梁変位ﾜｲﾔ")
-                   .cycle_count().create_cumulative_curve().end().results["cumulative_curve"])
-        np.testing.assert_allclose(d_cum, via_ops.x)
-        np.testing.assert_allclose(p_cum, via_ops.y)
+                   .cycle_count().cumulative_curve().end())
+        np.testing.assert_allclose(d_cum, via_ops.displacement_data)
+        np.testing.assert_allclose(p_cum, via_ops.load_data)
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(d_cum, p_cum, label="envelope")

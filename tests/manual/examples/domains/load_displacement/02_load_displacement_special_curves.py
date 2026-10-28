@@ -63,164 +63,48 @@ ax1.legend()
 fig1.savefig(Path(__file__).parent / "imgs" / "load_displacement_basic.png")
 print("   - 基本的な荷重-変位曲線を保存しました")
 
-# 4. スケルトン曲線の作成を行います
-print("4. スケルトン曲線の作成")
-# メソッドチェーンでスケルトン曲線を作成します
-skeleton_data = ld_collection.ops.create_skeleton_curve().end()
+# 4. スケルトン曲線と累積曲線を作成します（曲線はそれぞれ新しい荷重-変位コレクションになります）
+print("4. スケルトン曲線・累積曲線の作成")
+skeleton_data = ld_collection.ops.skeleton_curve().end()
+cumulative_data = ld_collection.ops.cumulative_curve().end()
+print(f"   - スケルトン曲線の列: {skeleton_data.columns}")
 
-# 5. スケルトン曲線のプロットを行います
+# 5. 元データとスケルトン曲線を同じ Axes に重ねてプロットします
 print("5. スケルトン曲線のプロット")
 fig2, ax2 = plt.subplots(figsize=(8, 6))
-
-# メソッドチェーンでスケルトン曲線をプロットします
-skeleton_data.plot.plot_skeleton_curve(
-    ax=ax2,
-    plot_original=True,
-    original_kwargs={"color": "gray", "alpha": 0.5, "label": "元データ"},
-    skeleton_kwargs={"color": "red", "linewidth": 2, "label": "スケルトン曲線"},
-)
-
-# グラフを装飾します
+ld_collection.plot.plot_load_displacement(ax=ax2, color="gray", alpha=0.5, label="元データ")
+skeleton_data.plot.plot_load_displacement(ax=ax2, color="red", linewidth=2, label="スケルトン曲線")
 ax2.set_title("スケルトン曲線")
 ax2.grid(True, linestyle="--", alpha=0.7)
 ax2.legend()
-
-# グラフを保存します
 fig2.savefig(Path(__file__).parent / "imgs" / "skeleton_curve.png")
 print("   - スケルトン曲線を保存しました")
 
-# 6. 累積曲線の作成を行います
-print("6. 累積曲線の作成")
-# メソッドチェーンで累積曲線を作成します
-cumulative_data = ld_collection.ops.create_cumulative_curve().end()
-
-# 7. 累積曲線のプロットを行います
-print("7. 累積曲線のプロット")
+# 6. 累積曲線をプロットします
+print("6. 累積曲線のプロット")
 fig3, ax3 = plt.subplots(figsize=(8, 6))
-
-# メソッドチェーンで累積曲線をプロットします
-cumulative_data.plot.plot_cumulative_curve(
-    ax=ax3,
-    plot_original=True,
-    original_kwargs={"color": "gray", "alpha": 0.5, "label": "元データ"},
-    cumulative_kwargs={"color": "blue", "linewidth": 2, "label": "累積曲線"},
-)
-
-# グラフを装飾します
+cumulative_data.plot.plot_load_displacement(ax=ax3, color="blue", linewidth=2, label="累積曲線")
 ax3.set_title("累積曲線")
 ax3.grid(True, linestyle="--", alpha=0.7)
 ax3.legend()
-
-# グラフを保存します
 fig3.savefig(Path(__file__).parent / "imgs" / "cumulative_curve.png")
 print("   - 累積曲線を保存しました")
 
-# 8. 複数曲線を同時にプロットします
-print("8. 複数曲線を同時にプロット")
+# 7. スケルトン曲線から降伏点を求めて描画します
+print("7. スケルトン曲線の降伏点")
+yield_data = skeleton_data.ops.find_yield_point(fail_silently=True).end()
+point = yield_data.results["yield_point"]
+print(f"   - 降伏点: 変位 {point.x} {point.x_unit}, 荷重 {point.y} {point.y_unit}")
+if point.metadata["is_valid"]:
+    fig4, ax4 = plt.subplots(figsize=(8, 6))
+    yield_data.plot.plot_yield_point(ax=ax4)
+    fig4.savefig(Path(__file__).parent / "imgs" / "skeleton_yield_point.png")
+    print("   - スケルトン曲線の降伏点を保存しました")
 
-# スケルトン曲線と累積曲線の両方を含むデータを作成します
-# メソッドチェーンを活用して処理を連続して行います
-combined_data = (
-    ld_collection.ops.create_skeleton_curve().create_cumulative_curve().end()
-)
-
-# 複数曲線を1つのグラフにプロットします
-fig4, ax4 = plt.subplots(figsize=(8, 6))
-
-# 元データをプロットします
-combined_data.plot.plot_load_displacement(
-    ax=ax4, color="gray", alpha=0.4, label="元データ"
-)
-
-# results から曲線データにアクセスします
-skeleton_curve = combined_data.results["skeleton_curve"]
-ax4.plot(
-    skeleton_curve.x.values,
-    skeleton_curve.y.values,
-    color="red",
-    linewidth=2,
-    label="スケルトン曲線",
-)
-
-# results から累積曲線データにアクセスします
-cumulative_curve = combined_data.results["cumulative_curve"]
-ax4.plot(
-    cumulative_curve.x.values,
-    cumulative_curve.y.values,
-    color="blue",
-    linewidth=2,
-    label="累積曲線",
-)
-
-# グラフを装飾します
-ax4.set_title("複数曲線の比較")
-ax4.grid(True, linestyle="--", alpha=0.7)
-ax4.legend()
-
-# グラフを保存します
-fig4.savefig(Path(__file__).parent / "imgs" / "multiple_special_curves.png")
-print("   - 複数曲線の比較プロットを保存しました")
-
-# 9. カスタマイズしたサブプロット表示を作成します
-print("9. カスタマイズしたサブプロット表示")
-fig5, axs = plt.subplots(2, 2, figsize=(12, 10))
-
-# 元の荷重-変位曲線をプロットします
-ld_collection.plot.plot_load_displacement(ax=axs[0, 0], color="black")
-axs[0, 0].set_title("元の荷重-変位曲線")
-axs[0, 0].grid(True, linestyle="--", alpha=0.7)
-
-# スケルトン曲線（元データなし）をプロットします
-skeleton_data.plot.plot_skeleton_curve(
-    ax=axs[0, 1],
-    plot_original=False,
-    skeleton_kwargs={"color": "red", "linewidth": 2},
-)
-axs[0, 1].set_title("スケルトン曲線のみ")
-axs[0, 1].grid(True, linestyle="--", alpha=0.7)
-
-# 累積曲線（元データなし）をプロットします
-cumulative_data.plot.plot_cumulative_curve(
-    ax=axs[1, 0],
-    plot_original=False,
-    cumulative_kwargs={"color": "blue", "linewidth": 2},
-)
-axs[1, 0].set_title("累積曲線のみ")
-axs[1, 0].grid(True, linestyle="--", alpha=0.7)
-
-# 複数曲線（スケルトンと累積を比較）をプロットします
-# results からスケルトン曲線データにアクセス
-skeleton_curve = combined_data.results["skeleton_curve"]
-axs[1, 1].plot(
-    skeleton_curve.x.values,
-    skeleton_curve.y.values,
-    color="red",
-    linewidth=2,
-    label="スケルトン曲線",
-)
-
-# results から累積曲線データにアクセス
-cumulative_curve = combined_data.results["cumulative_curve"]
-axs[1, 1].plot(
-    cumulative_curve.x.values,
-    cumulative_curve.y.values,
-    color="blue",
-    linewidth=2,
-    label="累積曲線",
-)
-
-# グラフを装飾します
-axs[1, 1].set_title("特殊曲線の比較")
-axs[1, 1].grid(True, linestyle="--", alpha=0.7)
-axs[1, 1].legend()
-
-# 全体タイトルを設定します
-fig5.suptitle("荷重-変位データの特殊曲線解析", fontsize=16)
-fig5.tight_layout(rect=[0, 0, 1, 0.96])  # suptitleのスペースを確保
-
-# グラフを保存します
-fig5.savefig(Path(__file__).parent / "imgs" / "special_curves_comparison.png")
-print("   - カスタマイズしたサブプロット表示を保存しました")
+# 8. スケルトン曲線の点に対応する元データの行を取り出します
+print("8. スケルトン曲線の点に対応する元データ")
+source_rows = ld_collection.ops.select(steps=skeleton_data["source_step"].values.tolist()).end()
+print(f"   - 取り出した行数: {len(source_rows)}（列: {source_rows.columns}）")
 
 # サマリー情報を表示します
 print("\n全てのプロットが保存されました。")
@@ -228,5 +112,5 @@ print("このサンプルコードでは以下の操作を行いました：")
 print("1. 荷重-変位データの読み込み")
 print("2. スケルトン曲線の作成と可視化")
 print("3. 累積曲線の作成と可視化")
-print("4. 複数曲線を同時に表示する方法")
-print("5. カスタマイズしたサブプロット表示")
+print("4. スケルトン曲線からの降伏点の検出")
+print("5. スケルトン曲線の点に対応する元データの取り出し")

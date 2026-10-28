@@ -94,20 +94,6 @@ def sample_with_cyclic_data():
     return ld_collection
 
 
-@pytest.fixture
-def sample_with_skeleton_curve(sample_with_cyclic_data):
-    """スケルトン曲線を解析結果に含むサンプル"""
-    result = sample_with_cyclic_data.ops.create_skeleton_curve(cycle_column="cycle").end()
-    return result
-
-
-@pytest.fixture
-def sample_with_cumulative_curve(sample_with_cyclic_data):
-    """累積曲線を解析結果に含むサンプル"""
-    result = sample_with_cyclic_data.ops.create_cumulative_curve(cycle_column="cycle").end()
-    return result
-
-
 class TestPlotLoadDisplacement:
     """plot_load_displacement関数のテスト"""
 
@@ -164,147 +150,17 @@ class TestPlotLoadDisplacement:
 
         plt.close(fig)
 
+    def test_overlay_skeleton_curve(self, sample_with_cyclic_data):
+        """スケルトン曲線のコレクションを元データと同じ Axes に重ねて描画できる"""
+        skeleton = sample_with_cyclic_data.ops.skeleton_curve(cycle_column="cycle").end()
+        ax = sample_with_cyclic_data.plot.plot_load_displacement(label="original")
+        skeleton.plot.plot_load_displacement(ax=ax, label="skeleton", color="red")
 
-class TestPlotSkeletonCurve:
-    """plot_skeleton_curve関数のテスト"""
+        assert [line.get_label() for line in ax.lines] == ["original", "skeleton"]
+        np.testing.assert_array_equal(ax.lines[1].get_ydata(), skeleton.load_data)
+        assert ax.get_xlabel() == "displacement [mm]"
 
-    def test_skeleton_curve_from_results(self, sample_with_skeleton_curve):
-        """解析結果からスケルトン曲線をプロットするテスト"""
-        result_collection = sample_with_skeleton_curve.plot.plot_skeleton_curve()
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        assert isinstance(fig, Figure)
-        assert isinstance(ax, Axes)
-
-        # 元データとスケルトン曲線の2つのラインがあるか確認
-        assert len(ax.lines) == 2
-
-        # スケルトン曲線のラインが正しく設定されているか
-        skeleton_line = [
-            line for line in ax.lines if line.get_label() == "Skeleton Curve"
-        ][0]
-        assert skeleton_line.get_color() == "red"
-        assert skeleton_line.get_linewidth() == 2
-
-        plt.close(fig)
-
-    def test_skeleton_curve_without_original(self, sample_with_skeleton_curve):
-        """元データなしでスケルトン曲線のみをプロットするテスト"""
-        result_collection = sample_with_skeleton_curve.plot.plot_skeleton_curve(
-            plot_original=False
-        )
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        # スケルトン曲線のみが存在するはず
-        assert len(ax.lines) == 1
-
-        plt.close(fig)
-
-    def test_skeleton_curve_custom_style(self, sample_with_skeleton_curve):
-        """カスタムスタイルでスケルトン曲線をプロットするテスト"""
-        skeleton_kwargs = {
-            "color": "blue",
-            "linestyle": "--",
-            "linewidth": 3,
-            "label": "Custom Skeleton",
-        }
-
-        result_collection = sample_with_skeleton_curve.plot.plot_skeleton_curve(
-            skeleton_kwargs=skeleton_kwargs
-        )
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        # カスタムスタイルが適用されているか確認
-        skeleton_line = [
-            line for line in ax.lines if line.get_label() == "Custom Skeleton"
-        ][0]
-        assert skeleton_line.get_color() == "blue"
-        assert skeleton_line.get_linestyle() == "--"
-        assert skeleton_line.get_linewidth() == 3
-
-        plt.close(fig)
-
-
-class TestPlotCumulativeCurve:
-    """plot_cumulative_curve関数のテスト"""
-
-    def test_cumulative_curve_from_results(
-        self, sample_with_cumulative_curve
-    ):
-        """解析結果から累積曲線をプロットするテスト"""
-        result_collection = sample_with_cumulative_curve.plot.plot_cumulative_curve()
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        assert isinstance(fig, Figure)
-        assert isinstance(ax, Axes)
-
-        # 元データと累積曲線の2つのラインがあるか確認
-        assert len(ax.lines) == 2
-
-        # 累積曲線のラインが正しく設定されているか
-        cumulative_line = [
-            line for line in ax.lines if line.get_label() == "Cumulative Curve"
-        ][0]
-        assert cumulative_line.get_color() == "blue"
-        assert cumulative_line.get_linewidth() == 2
-
-        plt.close(fig)
-
-    def test_cumulative_curve_without_original(
-        self, sample_with_cumulative_curve
-    ):
-        """元データなしで累積曲線のみをプロットするテスト"""
-        result_collection = sample_with_cumulative_curve.plot.plot_cumulative_curve(
-            plot_original=False
-        )
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        # 累積曲線のみが存在するはず
-        assert len(ax.lines) == 1
-
-        plt.close(fig)
-
-    def test_cumulative_curve_custom_style(self, sample_with_cumulative_curve):
-        """カスタムスタイルで累積曲線をプロットするテスト"""
-        cumulative_kwargs = {
-            "color": "green",
-            "linestyle": "-.",
-            "linewidth": 3,
-            "label": "Custom Cumulative",
-        }
-
-        result_collection = sample_with_cumulative_curve.plot.plot_cumulative_curve(
-            cumulative_kwargs=cumulative_kwargs
-        )
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        # カスタムスタイルが適用されているか確認
-        cumulative_line = [
-            line for line in ax.lines if line.get_label() == "Custom Cumulative"
-        ][0]
-        assert cumulative_line.get_color() == "green"
-        assert cumulative_line.get_linestyle() == "-."
-        assert cumulative_line.get_linewidth() == 3
-
-        plt.close(fig)
+        plt.close(ax.figure)
 
 
 class TestPlotYieldPoint:
