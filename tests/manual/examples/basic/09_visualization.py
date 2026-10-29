@@ -413,9 +413,9 @@ fig, ax = plt.subplots(figsize=(10, 6))
 # axを渡すことでplt.showは呼び出されない
 (
     collection.ops.select(steps=step_middle)  # まず特定ステップのデータを選択
-    .multiply("Force1", 1000)  # kN -> N に変換
+    .multiply("Force1", 1000, result_column="Force1*1000")  # kN -> N に変換
     .divide("Force1*1000", area_mm2, result_column="Stress_MPa")  # N/mm² = MPa に変換
-    .multiply("Displacement1", 100)  # mm -> 0.1mm に変換（分かりやすくするため）
+    .multiply("Displacement1", 100, result_column="Displacement1*100")  # mm -> 0.1mm に変換（分かりやすくするため）
     .divide(
         "Displacement1*100", length_mm, result_column="Strain_percent"
     )  # % = (ΔL/L₀)*100 に変換

@@ -52,21 +52,21 @@ ops = collection.ops
 
 print("1. 基本的な算術演算")
 # 足し算: 定数加算
-result = ops.add("Force1", 1.0).end()  # Force1 + 1.0
+result = ops.add("Force1", 1.0, result_column="Force1+1.0").end()  # Force1 + 1.0
 print(f"Force1 + 1.0 = {result['Force1+1.0'].values}")
 
 # 引き算: 列同士
-result = ops.subtract("Force2", "Force1").end()  # Force2 - Force1
+result = ops.subtract("Force2", "Force1", result_column="Force2-Force1").end()  # Force2 - Force1
 print(f"Force2 - Force1 = {result['Force2-Force1'].values}")
 
 # 掛け算: 定数乗算
-result = ops.multiply("Displacement1", 10).end()  # Displacement1 * 10
+result = ops.multiply("Displacement1", 10, result_column="Displacement1*10").end()  # Displacement1 * 10
 print(f"Displacement1 * 10 = {result['Displacement1*10'].values}")
 
 # 割り算: 列同士（有効な分子に対して分母が 0 だと ValueError になるため、先に 0 の行を除く）
 result = (
     ops.filter_by_condition("Displacement1", lambda x: x != 0)
-    .divide("Force1", "Displacement1")
+    .divide("Force1", "Displacement1", result_column="Force1/Displacement1")
     .end()
 )  # Force1 / Displacement1
 print(f"Force1 / Displacement1 = {result['Force1/Displacement1'].values}")

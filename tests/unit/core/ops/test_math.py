@@ -36,31 +36,31 @@ def ops(sample_collection):
 class TestAddOperation:
     """add関数の構造テスト"""
     def test_add_columns(self, sample_collection):
-        result = sample_collection.ops.add("A", "B").end()
+        result = sample_collection.ops.add("A", "B", result_column="A+B").end()
         assert "A+B" in result.columns
         assert isinstance(result, ColumnCollection)
         assert isinstance(result["A+B"].attrs, Mapping)
 
     def test_add_constant(self, sample_collection):
-        result = sample_collection.ops.add("A", 10).end()
+        result = sample_collection.ops.add("A", 10, result_column="A+10").end()
         assert "A+10" in result.columns
 
 class TestSubtractOperation:
     """subtract関数の構造テスト"""
     def test_subtract_columns(self, sample_collection):
-        result = sample_collection.ops.subtract("A", "B").end()
+        result = sample_collection.ops.subtract("A", "B", result_column="A-B").end()
         assert "A-B" in result.columns
 
 class TestMultiplyOperation:
     """multiply関数の構造テスト"""
     def test_multiply_columns(self, sample_collection):
-        result = sample_collection.ops.multiply("A", "B").end()
+        result = sample_collection.ops.multiply("A", "B", result_column="A*B").end()
         assert "A*B" in result.columns
 
 class TestDivideOperation:
     """divide関数の構造テスト"""
     def test_divide_columns(self, sample_collection):
-        result = sample_collection.ops.divide("C", "A").end()
+        result = sample_collection.ops.divide("C", "A", result_column="C/A").end()
         assert "C/A" in result.columns
 
 class TestCalculateOperation:
@@ -72,18 +72,20 @@ class TestCalculateOperation:
         np.testing.assert_allclose(result["C"].values, a + b * 2)
         assert result["C"].unit == "kN"
 
-    def test_default_names(self, sample_collection):
-        def doubled(A):
-            return A * 2
+    def test_result_column_is_required(self, sample_collection):
+        with pytest.raises(TypeError, match="result_column"):
+            sample_collection.ops.calculate(lambda A: A * 2)
 
-        assert "doubled" in sample_collection.ops.calculate(doubled).end().columns
-        assert "calculate" in sample_collection.ops.calculate(lambda A: A).end().columns
+    def test_explicit_existing_name_overwrites(self, sample_collection):
+        result = sample_collection.ops.calculate(lambda A: A * 2, result_column="A").end()
+        np.testing.assert_allclose(result["A"].values, sample_collection["A"].values * 2)
+        assert result.columns == sample_collection.columns
 
     def test_missing_values_are_nan_and_scalar_broadcasts(self):
         coll = ColumnCollection({"A": [1.0, None, 3.0]})
-        np.testing.assert_array_equal(coll.ops.calculate(lambda A: A * 2).end()["calculate"].values,
+        np.testing.assert_array_equal(coll.ops.calculate(lambda A: A * 2, result_column="calculate").end()["calculate"].values,
                                       [2.0, np.nan, 6.0])
-        assert coll.ops.calculate(lambda: 5.0).end()["calculate"].to_list() == [5.0, 5.0, 5.0]
+        assert coll.ops.calculate(lambda: 5.0, result_column="calculate").end()["calculate"].to_list() == [5.0, 5.0, 5.0]
 
     def test_column_mapping(self):
         coll = ColumnCollection({"Force 1": [1.0, 2.0]})
@@ -97,7 +99,7 @@ class TestCalculateOperation:
             A[:] = 0
             return A
 
-        coll.ops.calculate(mutate)
+        coll.ops.calculate(mutate, result_column="mutate")
         assert coll["A"].to_list() == [1.0, 2.0]
 
     def test_positional_only_and_keyword_only_parameters(self):
@@ -106,88 +108,88 @@ class TestCalculateOperation:
         def combine(A, /, B, *, C):
             return A + B + C
 
-        assert coll.ops.calculate(combine).end()["combine"].to_list() == [111.0, 222.0]
+        assert coll.ops.calculate(combine, result_column="combine").end()["combine"].to_list() == [111.0, 222.0]
 
         def first(x, /):
             return x * 2
 
-        result = coll.ops.calculate(first, columns={"x": "B"}).end()
+        result = coll.ops.calculate(first, columns={"x": "B"}, result_column="first").end()
         assert result["first"].to_list() == [20.0, 40.0]
 
     def test_errors(self, sample_collection):
         with pytest.raises(KeyError, match="'X'"):
-            sample_collection.ops.calculate(lambda X: X)
+            sample_collection.ops.calculate(lambda X: X, result_column="calculate")
         with pytest.raises(ValueError, match="可変長引数"):
-            sample_collection.ops.calculate(lambda *cols: cols[0])
+            sample_collection.ops.calculate(lambda *cols: cols[0], result_column="calculate")
         with pytest.raises(ValueError, match="行数"):
-            sample_collection.ops.calculate(lambda A: A[:2])
+            sample_collection.ops.calculate(lambda A: A[:2], result_column="calculate")
         with pytest.raises(TypeError, match="数値列ではありません"):
-            ColumnCollection({"S": ["x"]}).ops.calculate(lambda S: S)
+            ColumnCollection({"S": ["x"]}).ops.calculate(lambda S: S, result_column="calculate")
 
 class TestDiffOperation:
     """diff関数の構造テスト"""
     def test_diff_basic(self, sample_collection):
-        result = sample_collection.ops.diff("A", "B").end()
+        result = sample_collection.ops.diff("A", "B", result_column="d(A)/d(B)").end()
         assert "d(A)/d(B)" in result.columns
         assert isinstance(result["d(A)/d(B)"].attrs, Mapping)
 
 class TestIntegrateOperation:
     """integrate関数の構造テスト"""
     def test_integrate_constant(self, sample_collection):
-        result = sample_collection.ops.integrate("A", "B").end()
+        result = sample_collection.ops.integrate("A", "B", result_column="∫AdB").end()
         assert "∫AdB" in result.columns
         assert isinstance(result["∫AdB"].attrs, Mapping)
 
 class TestExponentialAndLogarithmicFunctions:
     def test_log_natural(self, sample_collection):
-        result = sample_collection.ops.log("log_input").end()
+        result = sample_collection.ops.log("log_input", result_column="log(log_input)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_log_base10(self, sample_collection):
-        result = sample_collection.ops.log("log_input", base=10).end()
+        result = sample_collection.ops.log("log_input", base=10, result_column="log10(log_input)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_log_custom_base(self, sample_collection):
-        result = sample_collection.ops.log("log_input", base=2).end()
+        result = sample_collection.ops.log("log_input", base=2, result_column="log2(log_input)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_log_negative(self, sample_collection):
-        result = sample_collection.ops.log("negative").end()
+        result = sample_collection.ops.log("negative", result_column="log(negative)").end()
         assert isinstance(result, ColumnCollection)
 
 class TestPowerFunctions:
     def test_sqrt(self, sample_collection):
-        result = sample_collection.ops.sqrt("sqrt_input").end()
+        result = sample_collection.ops.sqrt("sqrt_input", result_column="sqrt(sqrt_input)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_sqrt_negative(self, sample_collection):
-        result = sample_collection.ops.sqrt("negative").end()
+        result = sample_collection.ops.sqrt("negative", result_column="sqrt(negative)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_pow(self, sample_collection):
-        result = sample_collection.ops.pow("exp_input", 2).end()
+        result = sample_collection.ops.pow("exp_input", 2, result_column="exp_input^2").end()
         assert isinstance(result, ColumnCollection)
 
 class TestOtherFunctions:
     def test_abs(self, sample_collection):
-        result = sample_collection.ops.abs_values("abs_input").end()
+        result = sample_collection.ops.abs_values("abs_input", result_column="abs(abs_input)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_round_values(self, sample_collection):
-        result0 = sample_collection.ops.round_values("abs_input", decimals=0).end()
+        result0 = sample_collection.ops.round_values("abs_input", decimals=0, result_column="round(abs_input, 0)").end()
         assert isinstance(result0, ColumnCollection)
         
     def test_with_none(self, sample_collection):
-        result_abs = sample_collection.ops.abs_values("with_none").end()
+        result_abs = sample_collection.ops.abs_values("with_none", result_column="abs(with_none)").end()
         assert isinstance(result_abs, ColumnCollection)
 
 class TestNormalizationFunctions:
     def test_normalize_minmax(self, sample_collection):
-        result = sample_collection.ops.normalize("norm_input", method="minmax").end()
+        result = sample_collection.ops.normalize("norm_input", method="minmax", result_column="norm_minmax(norm_input)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_normalize_zscore(self, sample_collection):
-        result = sample_collection.ops.normalize("norm_input", method="zscore").end()
+        result = sample_collection.ops.normalize("norm_input", method="zscore", result_column="norm_zscore(norm_input)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_normalize_constant_values(self):
@@ -195,36 +197,36 @@ class TestNormalizationFunctions:
             step=[1, 2, 3, 4, 5],
             columns={"const": [10, 10, 10, 10, 10]}
         )
-        result_minmax = collection.ops.normalize("const", method="minmax").end()
+        result_minmax = collection.ops.normalize("const", method="minmax", result_column="norm_minmax(const)").end()
         assert isinstance(result_minmax, ColumnCollection)
 
     def test_normalize_with_none(self, sample_collection):
-        result = sample_collection.ops.normalize("with_none", method="minmax").end()
+        result = sample_collection.ops.normalize("with_none", method="minmax", result_column="norm_minmax(with_none)").end()
         assert isinstance(result, ColumnCollection)
 
     def test_invalid_normalize_method(self, sample_collection):
         with pytest.raises(ValueError, match="methodは"):
-            sample_collection.ops.normalize("norm_input", method="invalid").end()
+            sample_collection.ops.normalize("norm_input", method="invalid", result_column="norm_invalid(norm_input)").end()
 
 class TestErrorHandling:
     def test_nonexistent_column(self, sample_collection):
         with pytest.raises(KeyError):
-            sample_collection.ops.abs_values("nonexistent").end()
+            sample_collection.ops.abs_values("nonexistent", result_column="abs(nonexistent)").end()
 
 class TestOperationChaining:
     def test_chained_operations(self, ops):
         result = (
-            ops.abs_values("negative")
-            .pow("abs(negative)", 2)
+            ops.abs_values("negative", result_column="abs(negative)")
+            .pow("abs(negative)", 2, result_column="abs(negative)^2")
             .end()
         )
         assert isinstance(result, ColumnCollection)
     
     def test_complex_transform_chain(self, ops):
         result = (
-            ops.normalize("norm_input", method="minmax")
-            .pow("norm_minmax(norm_input)", 2)
-            .round_values("norm_minmax(norm_input)^2", 1)
+            ops.normalize("norm_input", method="minmax", result_column="norm_minmax(norm_input)")
+            .pow("norm_minmax(norm_input)", 2, result_column="norm_minmax(norm_input)^2")
+            .round_values("norm_minmax(norm_input)^2", 1, result_column="round(norm_minmax(norm_input)^2, 1)")
             .end()
         )
         assert isinstance(result, ColumnCollection)
@@ -257,8 +259,8 @@ class TestAverageColumnsOperation:
 class TestUnitPropagation:
     def test_units_follow_design_rules(self):
         c = ColumnCollection({"P": [1.0, 2.0], "d": [0.5, 1.0]}, units={"P": "kN", "d": "mm"})
-        r = (c.ops.add("P", "P").multiply("P", 2).multiply("P", "d").divide("P", 2, result_column="half")
-             .pow("P", 2).normalize("P").diff("P", "d").calculate(lambda P: P * 2).end())
+        r = (c.ops.add("P", "P", result_column="P+P").multiply("P", 2, result_column="P*2").multiply("P", "d", result_column="P*d").divide("P", 2, result_column="half")
+             .pow("P", 2, result_column="P^2").normalize("P", result_column="norm_minmax(P)").diff("P", "d", result_column="d(P)/d(d)").calculate(lambda P: P * 2, result_column="calculate").end())
         assert r["P+P"].unit == "kN"
         assert r["P*2"].unit == "kN"
         assert r["P*d"].unit is None
@@ -270,4 +272,4 @@ class TestUnitPropagation:
 
     def test_explicit_unit_wins(self):
         c = ColumnCollection({"P": [1.0, 2.0], "d": [0.5, 1.0]}, units={"P": "kN", "d": "mm"})
-        assert c.ops.multiply("P", "d", unit="kN·mm").end()["P*d"].unit == "kN·mm"
+        assert c.ops.multiply("P", "d", unit="kN·mm", result_column="P*d").end()["P*d"].unit == "kN·mm"

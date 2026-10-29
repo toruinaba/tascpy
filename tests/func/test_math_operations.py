@@ -45,14 +45,14 @@ def test_average_columns():
     assert np.isnan(avg_vals2[3])
     
     # 3. Automatic naming
-    result3 = collection.ops.average_columns(["A", "B"]).end()
+    result3 = collection.ops.average_columns(["A", "B"], result_column="average_columns(A,B)").end()
     assert "average_columns(A,B)" in result3.columns
 
 def test_average_columns_rejects_non_numeric_columns():
     collection = ColumnCollection({"A": [1.0, 2.0], "S": ["x", "y"]}, step=[1, 2])
 
     with pytest.raises(TypeError, match="数値列ではありません"):
-        collection.ops.average_columns(["A", "S"])
+        collection.ops.average_columns(["A", "S"], result_column="average_columns(A,S)")
     # 列を省略した場合は数値列だけが対象
     result = collection.ops.average_columns(result_column="avg").end()
     np.testing.assert_allclose(result["avg"].values, [1.0, 2.0])

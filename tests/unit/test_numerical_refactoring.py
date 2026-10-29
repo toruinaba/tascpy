@@ -47,11 +47,11 @@ class TestNumericalRefactoring:
 
     def test_math_add_numpy(self, collection):
         # A + B
-        res = collection.ops.add("A", "B").end()
+        res = collection.ops.add("A", "B", result_column="A+B").end()
         np.testing.assert_array_equal(res["A+B"].values, [11.0, 22.0, 33.0, 44.0, 55.0])
         
         # A + C (with None)
-        res2 = collection.ops.add("A", "C").end()
+        res2 = collection.ops.add("A", "C", result_column="A+C").end()
         # 1+1=2, 2-1=1, 3+0=3, 4+None=None, 5+5=10
         # 4+None=None -> NaN
         expected = np.array([2.0, 1.0, 3.0, np.nan, 10.0])
@@ -59,12 +59,12 @@ class TestNumericalRefactoring:
 
     def test_transform_log(self, collection):
         # log(A)
-        res = collection.ops.log("A").end()
+        res = collection.ops.log("A", result_column="log(A)").end()
         expected = [math.log(x) for x in range(1, 6)]
         np.testing.assert_allclose(res["log(A)"].values, expected)
         
         # log(C) -> 1.0 (0.0), -1.0 (None), 0.0 (None), None (None), 5.0 (log(5))
-        res2 = collection.ops.log("C").end()
+        res2 = collection.ops.log("C", result_column="log(C)").end()
         vals = res2["log(C)"].values
         assert vals[0] == 0.0
         assert np.isnan(vals[1]) # -1.0
@@ -91,7 +91,7 @@ class TestNumericalRefactoring:
         
         # stats.detect_outliers
         # It creates a flag column (0/1)
-        res = c.ops.detect_outliers("X", window_size=3, threshold=0.5).end()
+        res = c.ops.detect_outliers("X", window_size=3, threshold=0.5, result_column="outlier(X)").end()
         # 100 should be outlier
         # The result column name is "outlier({column})" by default in stats.py
         flags = res["outlier(X)"].values

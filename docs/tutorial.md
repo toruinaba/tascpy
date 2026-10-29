@@ -74,7 +74,7 @@
 サイクル番号を列として見たいときや、数え方を変えたいときは `mark_cycles` で列を作ります。作った列をサイクルを使う操作に使うときは、`cycle_column` で列名を渡します。
 
 ```pycon
->>> cycled = ld.mark_cycles().end()
+>>> cycled = ld.mark_cycles(result_column="荷重_cycle").end()
 >>> cycled.columns
 ['荷重', '変位', '荷重_cycle']
 >>> cycled["荷重_cycle"].values[::20]

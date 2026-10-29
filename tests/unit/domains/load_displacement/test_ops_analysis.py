@@ -145,7 +145,7 @@ class TestLoadDisplacementAnalysis:
     def test_calculate_slopes_basic(self):
         """calculate_slopesの基本機能テスト"""
         # 傾き計算を実行
-        result = self.ld_collection.ops.calculate_slopes().end()
+        result = self.ld_collection.ops.calculate_slopes(result_column="slope_data").end()
 
         # 結果のコレクション型の確認
         assert isinstance(result, LoadDisplacementCollection)
@@ -170,7 +170,7 @@ class TestLoadDisplacementAnalysis:
     def test_calculate_slopes_custom_columns(self):
         """カスタム列名でのcalculate_slopes機能テスト"""
         # カスタム列名のコレクションで傾き計算を実行
-        result = self.custom_ld_collection.ops.calculate_slopes().end()
+        result = self.custom_ld_collection.ops.calculate_slopes(result_column="slope_data").end()
 
         # 結果列の存在を確認
         expected_column = "slope_data"
@@ -212,7 +212,7 @@ class TestLoadDisplacementAnalysis:
     def test_calculate_slopes_edge_cases(self):
         """エッジケースでのcalculate_slopes機能テスト（xの値が同じケースなど）"""
         # エッジケースのコレクションで傾き計算を実行
-        result = self.edge_ld_collection.ops.calculate_slopes().end()
+        result = self.edge_ld_collection.ops.calculate_slopes(result_column="slope_data").end()
 
         # 結果列の存在を確認
         expected_column = "slope_data"

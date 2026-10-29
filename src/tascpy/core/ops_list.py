@@ -18,7 +18,7 @@ class OpsList(Generic[O]):
 
     Examples:
         >>> parts = col.ops.split_by_integers([1, 1, 1, 2, 2, 2])
-        >>> smoothed = parts.map(lambda o: o.moving_average("荷重"))
+        >>> smoothed = parts.map(lambda o: o.moving_average("荷重", result_column="荷重_平滑"))
         >>> parts.collect(lambda o: o.end()["荷重"].max())
         [80.0, 115.0]
     """

@@ -49,7 +49,7 @@ def test_skeleton_curve_drops_results(cyclic):
 
 def test_cycle_column_omitted_counts_load_sign_changes(cyclic):
     omitted = cyclic.ops.to_skeleton_curve().end()
-    explicit = cyclic.ops.mark_cycles().to_skeleton_curve(cycle_column="load_cycle").end()
+    explicit = cyclic.ops.mark_cycles(result_column="load_cycle").to_skeleton_curve(cycle_column="load_cycle").end()
     np.testing.assert_allclose(omitted.load_data, explicit.load_data)
     np.testing.assert_allclose(omitted.displacement_data, explicit.displacement_data)
     assert "load_cycle" not in cyclic.ops.to_skeleton_curve().end().columns

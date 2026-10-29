@@ -27,7 +27,7 @@ class TestLoadDisplacementCycles:
     def test_mark_cycles_basic(self):
         """mark_cyclesの基本動作テスト"""
         # mark_cyclesを呼び出し
-        result = self.ld_collection.ops.mark_cycles().end()
+        result = self.ld_collection.ops.mark_cycles(result_column="load_cycle").end()
 
         # 結果がLoadDisplacementCollectionであることを確認
         assert isinstance(result, LoadDisplacementCollection)
@@ -63,7 +63,7 @@ class TestLoadDisplacementCycles:
         """カスタムステップ増分でのmark_cyclesテスト"""
         # ステップ増分を1.0に設定（デフォルトは0.5）
         # 引数名を'step_increment'から'step'に修正
-        result = self.ld_collection.ops.mark_cycles(step=1.0).end()
+        result = self.ld_collection.ops.mark_cycles(step=1.0, result_column="load_cycle").end()
 
         # サイクル列の値を確認（列名はload_cycle）
         cycles = result["load_cycle"].values
@@ -73,7 +73,7 @@ class TestLoadDisplacementCycles:
         np.testing.assert_array_equal(cycles, expected_cycles)
 
         # ステップ増分を0.25に設定
-        result = self.ld_collection.ops.mark_cycles(step=0.25).end()
+        result = self.ld_collection.ops.mark_cycles(step=0.25, result_column="load_cycle").end()
 
         # サイクル列の値を確認
         cycles = result["load_cycle"].values
@@ -84,11 +84,8 @@ class TestLoadDisplacementCycles:
 
     def test_split_by_cycles_basic(self):
         """split_by_cycles関数の基本動作テスト"""
-        # まずサイクル列を追加
-        with_cycles = self.ld_collection.ops.mark_cycles().end()
-
-        # split_by_cycles関数を呼び出し
-        result = with_cycles.ops.split_by_cycles().end()
+        # サイクル列を省略すると荷重の符号反転から数える
+        result = self.ld_collection.ops.split_by_cycles().end()
 
         # 結果がリストであることを確認
         assert isinstance(result, list)
@@ -110,8 +107,8 @@ class TestLoadDisplacementCycles:
     def test_split_by_cycles_without_cycle_column(self):
         """サイクル列を省略すると、荷重の符号反転から数えたサイクルで分割する"""
         omitted = [len(c) for c in self.ld_collection.ops.split_by_cycles().end()]
-        marked = self.ld_collection.ops.mark_cycles().end()
-        explicit = [len(c) for c in marked.ops.split_by_cycles(cycle_column=f"{marked.load_column}_cycle").end()]
+        marked = self.ld_collection.ops.mark_cycles(result_column="cycle").end()
+        explicit = [len(c) for c in marked.ops.split_by_cycles(cycle_column="cycle").end()]
         assert omitted == explicit
 
     def test_mark_cycles_zero_crossing(self):
@@ -125,7 +122,7 @@ class TestLoadDisplacementCycles:
         ld_collection = collection.ops.as_domain(as_load_displacement).end()
 
         # サイクル計算
-        result = ld_collection.ops.mark_cycles().end()
+        result = ld_collection.ops.mark_cycles(result_column="load_cycle").end()
         # 列名をcycleからload_cycleに修正
         cycles = result["load_cycle"].values
 
@@ -146,7 +143,7 @@ class TestLoadDisplacementUnits:
         )
 
     def test_result_units(self):
-        ops = self.ld.ops.mark_cycles().calculate_slopes()
+        ops = self.ld.ops.mark_cycles(result_column="P_cycle").calculate_slopes(result_column="slope_data")
         result = ops.end()
         assert result["P_cycle"].unit == ""
         assert result["slope_data"].unit == "kN/mm"
@@ -159,12 +156,25 @@ class TestLoadDisplacementUnits:
         assert (point.x_unit, point.y_unit) == ("mm", "kN")
 
     def test_hysteresis_table(self):
-        table = self.ld.ops.mark_cycles().to_hysteresis_table().end()
+        table = self.ld.ops.to_hysteresis_table().end()
         assert "cycle" not in table.columns
         assert table.step.tolist() == sorted(set(table.step.tolist()))
         assert table.units == {"energy": "kN*mm", "max_load": "kN", "min_load": "kN",
                                "max_disp": "mm", "min_disp": "mm"}
 
     def test_stiffness_degradation_table(self):
-        table = self.ld.ops.mark_cycles().to_stiffness_table().end()
+        table = self.ld.ops.to_stiffness_table().end()
         assert table.units == {"stiffness": "kN/mm"}
+
+
+@pytest.mark.parametrize("call", [
+    lambda o: o.mark_cycles(),
+    lambda o: o.calculate_slopes(),
+    lambda o: o.find_peaks_and_valleys(),
+    lambda o: o.add("P", "d"),
+])
+def test_column_adding_ops_require_result_column(call):
+    ld = ColumnCollection({"P": [0.0, 1.0, -1.0], "d": [0.0, 1.0, 0.5]}).ops.as_domain(
+        as_load_displacement, load_column="P", displacement_column="d")
+    with pytest.raises(TypeError, match="result_column"):
+        call(ld)

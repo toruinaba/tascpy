@@ -25,7 +25,7 @@ class StrainOps(CoordinateOps[StrainCollection]):
 
     def calculate_rosette_strains(self, rosette_name: Optional[str] = None, columns: Optional[List[str]] = None,
                                   rosette_type: str = "rectangular", orientation: float = 0.0,
-                                  prefix: Optional[str] = None) -> Self:
+                                  *, prefix: str) -> Self:
         """3 軸ロゼットから主ひずみ・最大せん断ひずみ・主方向を計算し、列を追加します
 
         追加される列: "{prefix}_e1", "{prefix}_e2", "{prefix}_gamma", "{prefix}_theta"
@@ -35,10 +35,10 @@ class StrainOps(CoordinateOps[StrainCollection]):
             columns: ゲージの列名 [e1, e2, e3]
             rosette_type: "rectangular" または "delta"
             orientation: 第 1 ゲージの角度（度、X 軸基準・反時計回り）
-            prefix: 結果列の接頭辞（省略時は rosette_name または "rosette"）
+            prefix: 結果列の接頭辞
 
         Examples:
-            >>> result = strain.ops.calculate_rosette_strains("R1").end()
+            >>> result = strain.ops.calculate_rosette_strains("R1", prefix="R1").end()
             >>> round(float(result["R1_e1"].values[1]), 1), result["R1_e1"].unit, result["R1_theta"].unit
             (101.7, 'ue', 'deg')
         """
@@ -48,8 +48,6 @@ class StrainOps(CoordinateOps[StrainCollection]):
                 columns = info.get("columns", columns)
                 rosette_type = info.get("type", rosette_type)
                 orientation = info.get("orientation", orientation)
-            prefix = prefix or rosette_name
-        prefix = prefix or "rosette"
 
         if not columns or len(columns) != 3:
             raise ValueError("3つのひずみカラムを指定する必要があります")
@@ -74,7 +72,7 @@ class StrainOps(CoordinateOps[StrainCollection]):
             ).with_coordinates(name, x, y, z)
         return self._next(result)
 
-    def calculate_stress(self, load_column: str, area: float, result_column: str = "stress",
+    def calculate_stress(self, load_column: str, area: float, *, result_column: str,
                          unit: str = "MPa") -> Self:
         """応力 = 荷重 / 断面積 を新しい列として追加します
 

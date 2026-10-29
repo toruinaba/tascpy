@@ -52,7 +52,7 @@ class CoordinateOps(CoreOps[CC_co]):
 
     def interpolate_at_point(self, x: float, y: float, z: Optional[float] = None,
                              source_columns: Optional[List[str]] = None, method: str = "inverse_distance",
-                             power: float = 2.0, result_column: Optional[str] = None,
+                             power: float = 2.0, *, result_column: str,
                              unit: Optional[str] = None) -> Self:
         """座標 (x, y[, z]) での値を行ごとに補間した列を追加します
 
@@ -63,7 +63,7 @@ class CoordinateOps(CoreOps[CC_co]):
             source_columns: 補間元の列（省略時は座標を持つ全列）
             method: "inverse_distance" または "nearest"
             power: 逆距離加重のべき指数
-            result_column: 結果列名（省略時は "interp(x, y[, z])"）
+            result_column: 結果列名（既存列を指定すると上書き）
 
         Examples:
             >>> center = coord.ops.interpolate_at_point(5.0, 0.0, source_columns=["CH1", "CH2"], result_column="center").end()
@@ -75,18 +75,17 @@ class CoordinateOps(CoreOps[CC_co]):
         target = [x, y, z] if use_z else [x, y]
         result = interpolate(points, values, target, method=method, power=power)
 
-        name = result_column or f"interp({', '.join(f'{v:g}' for v in target)})"
         collection = self._c.with_column(
-            name, result, unit=unit if unit is not None else self._common_unit(names),
+            result_column, result, unit=unit if unit is not None else self._common_unit(names),
             attrs={"interpolation": self._info(method, power, names)},
-        ).with_coordinates(name, x, y, z)
+        ).with_coordinates(result_column, x, y, z)
         return self._next(collection)
 
     def spatial_interpolation_to_points(self, source_columns: Optional[List[str]] = None,
                                         target_columns: Optional[List[str]] = None,
                                         method: str = "inverse_distance", power: float = 2.0,
-                                        result_prefix: str = "interp_") -> Self:
-        """補間先の列の座標位置での値を、補間元の列から行ごとに補間して "{prefix}{補間先の列名}" 列として追加します
+                                        *, result_prefix: str) -> Self:
+        """補間先の列の座標位置での値を、補間元の列から行ごとに補間して "{result_prefix}{補間先の列名}" 列として追加します
 
         補間元と補間先がすべて z 座標を持つ場合は 3 次元、それ以外は x, y で補間します。
 

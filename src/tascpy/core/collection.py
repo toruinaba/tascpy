@@ -181,7 +181,7 @@ class ColumnCollection:
 
     @property
     def ops(self) -> "CoreOps[Self]":
-        """メソッドチェーンで演算・抽出を行う操作オブジェクト (例: `coll.ops.add("A", "B").end()`)"""
+        """メソッドチェーンで演算・抽出を行う操作オブジェクト (例: `coll.ops.add("A", "B", result_column="合計").end()`)"""
         from .ops import CoreOps
 
         return CoreOps(self)

@@ -114,7 +114,6 @@ custom_result = collection.ops.custom_combine(
     "sin_wave",
     "cos_wave",
     combine_func=lambda x, y: np.sqrt(x**2 + y**2),  # ベクトル長さ計算
-    func_name="vector_magnitude",
     result_column="magnitude",
 ).end()
 
@@ -144,7 +143,6 @@ complex_chain_result = (
         "temp1",
         "cos_wave",
         combine_func=lambda x, y: 0.7 * x + 0.3 * y,  # 加重平均
-        func_name="weighted_avg",
         result_column="weighted",
     )
     # 結果を別の計算に利用

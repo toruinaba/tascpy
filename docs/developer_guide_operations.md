@@ -8,7 +8,7 @@
 | ops | `src/tascpy/core/ops.py`（汎用）、`src/tascpy/domains/<ドメイン>/ops.py` | コレクションから列を取り出し、numeric を呼び、結果を格納した新しいコレクションを返すメソッド |
 
 ```text
-col.ops.add("A", "B")
+col.ops.add("A", "B", result_column="合計")
   └─ CoreOps.add()                       # ops 層: 列の解決・結果の格納
        └─ numeric.math.add()             # numeric 層: 計算のみ
 ```
@@ -38,6 +38,7 @@ col.ops.add("A", "B")
 
 - 値への集約は結果を `results` に入れず、そのまま返します。保存したいときは呼び出し側が `with_result` で付けます（解析結果がデータの変更に追従しないため、自動では付けません）。
 - サイクル列など、他の操作が作った列を名前から推測しません。省略時は既定の規則でその場で計算し、既存の列を使うときは列名を引数で受け取ります。
+- 列を足す操作は、結果の列名をキーワード専用の必須引数 `result_column` で受け取ります（複数の列を作る操作は接頭辞を必須にします）。操作の側で既定の列名は決めません。既存の列名を指定した場合は、意図した上書きとして扱います。
 - 解析の条件はキーワード専用引数（`*` 以降）にします。
 
 ```python
@@ -64,7 +65,7 @@ ld.ops.as_core()                               # ドメインの設定を外す 
 
 ```python
 parts = ld.ops.split_by_cycles()
-parts.map(lambda o: o.moving_average("荷重"))     # 各要素に操作を適用 -> OpsList
+parts.map(lambda o: o.moving_average("荷重", result_column="荷重_平滑"))  # 各要素に操作を適用 -> OpsList
 parts.collect(lambda o: o.end()["荷重"].max())    # 値のリスト
 parts.collect(lambda o: o.stiffness())            # 結果オブジェクトのリスト
 parts.filter(lambda c: len(c) > 10)              # コレクションで絞り込み
@@ -101,13 +102,12 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 列を追加する操作であれば `_with_column` を使います。結果の単位は、明示された `unit` がなければ `default_unit` になります。`default_unit` は [単位の方針](developer_guide_design.md#単位の方針) に従って決め、自明でなければ `None` にします。
 
 ```python
-    def scale_load(self, factor: float, result_column: Optional[str] = None,
+    def scale_load(self, factor: float, *, result_column: str,
                    unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """荷重を factor 倍した列を追加します（単位は荷重の単位）"""
         load = self._c.load_column
         values = self._numeric(load) * factor
-        return self._with_column(result_column or f"{load}*{factor}", values, unit, ch,
-                                 default_unit=self._unit_of(load))
+        return self._with_column(result_column, values, unit, ch, default_unit=self._unit_of(load))
 ```
 
 行の抽出・検索などの表操作は numeric に置かず、ops の中で polars の式やコレクションのメソッド（`take` / `select` など）で実装します。

@@ -13,14 +13,14 @@ from tascpy.domains import as_coordinate, as_load_displacement, as_strain
 
 
 def core_chain(col: ColumnCollection) -> None:
-    ops = col.ops.add("A", "B").filter_by_value("S", "a").moving_average("A")
+    ops = col.ops.add("A", "B", result_column="A+B").filter_by_value("S", "a").moving_average("A", result_column="ma3(A)")
     assert_type(ops, CoreOps[ColumnCollection])
     assert_type(ops.end(), ColumnCollection)
     assert_type(col.ops.split_by_integers([1, 2]), OpsList[CoreOps[ColumnCollection]])
 
 
 def ld_chain(ld: LoadDisplacementCollection) -> None:
-    ops = ld.ops.remove_consecutive_duplicates_across().mark_cycles()
+    ops = ld.ops.remove_consecutive_duplicates_across().mark_cycles(result_column="cycle")
     assert_type(ops, LoadDisplacementOps)
     assert_type(ops.end(), LoadDisplacementCollection)
     assert_type(ops.split_by_cycles()[0], LoadDisplacementOps)
@@ -36,17 +36,19 @@ def reducers_end_the_chain(ld: LoadDisplacementCollection, sc: StrainCollection,
     assert_type(cc.ops.clusters(n_clusters=2), Dict[str, int])
     assert_type(cc.ops.nearest_neighbors("a"), Dict[str, float])
     ld.ops.stiffness(0.1, 0.5)  # pyright: ignore[reportCallIssue]
+    ld.ops.add("P", "d")  # pyright: ignore[reportCallIssue]
+    ld.ops.mark_cycles()  # pyright: ignore[reportCallIssue]
 
 
 def domain_conversion(col: ColumnCollection) -> None:
     assert_type(col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="D").to_skeleton_curve(),
                 LoadDisplacementOps)
-    assert_type(col.ops.as_domain(as_strain).calculate_rosette_strains(columns=["a", "b", "c"]), StrainOps)
-    assert_type(col.ops.as_domain(as_coordinate).interpolate_at_point(0.0, 0.0).end(), CoordinateCollection)
+    assert_type(col.ops.as_domain(as_strain).calculate_rosette_strains(columns=["a", "b", "c"], prefix="rosette"), StrainOps)
+    assert_type(col.ops.as_domain(as_coordinate).interpolate_at_point(0.0, 0.0, result_column="interp(0, 0)").end(), CoordinateCollection)
 
 
 def strain_inherits_coordinate(sc: StrainCollection) -> None:
-    assert_type(sc.ops.interpolate_at_point(0.0, 0.0).calculate_stress("F", 2.0), StrainOps)
+    assert_type(sc.ops.interpolate_at_point(0.0, 0.0, result_column="interp(0, 0)").calculate_stress("F", 2.0, result_column="stress"), StrainOps)
     assert_type(sc.ops.end(), StrainCollection)
 
 

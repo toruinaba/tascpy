@@ -30,7 +30,7 @@ def sample_collection():
 
 def test_switch_by_step_structure(sample_collection):
     """Test switch_by_step injects columns and metadata correctly"""
-    result = sample_collection.ops.switch_by_step("col1", "col2", threshold=5, compare_mode="index"
+    result = sample_collection.ops.switch_by_step("col1", "col2", threshold=5, compare_mode="index", result_column="switch_by_step(col1,col2)"
     ).end()
     
     assert isinstance(result, ColumnCollection)
@@ -42,7 +42,7 @@ def test_switch_by_step_structure(sample_collection):
 
 def test_blend_by_step_structure(sample_collection):
     """Test blend_by_step structural properties"""
-    result = sample_collection.ops.blend_by_step("col1", "col2", start=2, end=7
+    result = sample_collection.ops.blend_by_step("col1", "col2", start=2, end=7, result_column="blend_by_step(col1,col2)"
     ).end()
     
     assert isinstance(result, ColumnCollection)
@@ -53,7 +53,7 @@ def test_blend_by_step_structure(sample_collection):
 
 def test_conditional_select_structure(sample_collection):
     """Test conditional_select structural properties"""
-    result = sample_collection.ops.conditional_select("col1", "col2", "cond", threshold=0.5
+    result = sample_collection.ops.conditional_select("col1", "col2", "cond", threshold=0.5, result_column="conditional_select(col1,col2)"
     ).end()
     
     assert isinstance(result, ColumnCollection)
@@ -62,7 +62,7 @@ def test_conditional_select_structure(sample_collection):
 
 def test_sum_columns_structure(sample_collection):
     """Test sum_columns structural properties"""
-    result = sample_collection.ops.sum_columns(columns=["col1", "col2"]).end()
+    result = sample_collection.ops.sum_columns(columns=["col1", "col2"], result_column="sum_columns(col1,col2)").end()
     
     assert isinstance(result, ColumnCollection)
     result_col = [c for c in result.columns if "sum" in c]
@@ -70,7 +70,7 @@ def test_sum_columns_structure(sample_collection):
 
 def test_average_columns_structure(sample_collection):
     """Test average_columns structural properties"""
-    result = sample_collection.ops.average_columns(columns=["col1", "col2"]).end()
+    result = sample_collection.ops.average_columns(columns=["col1", "col2"], result_column="average_columns(col1,col2)").end()
     
     assert isinstance(result, ColumnCollection)
     result_col = [c for c in result.columns if "average" in c]
@@ -92,7 +92,7 @@ def test_average_columns_values():
 def test_sum_and_average_require_columns(method):
     col = ColumnCollection({"a": [1.0, 2.0]})
     with pytest.raises(ValueError, match="対象の列が指定されていません"):
-        getattr(col.ops, method)([])
+        getattr(col.ops, method)([], result_column="r")
 
 
 def test_custom_combine_structure(sample_collection):
@@ -100,7 +100,7 @@ def test_custom_combine_structure(sample_collection):
     def my_add(x, y):
         return x + y + 1
         
-    result = sample_collection.ops.custom_combine("col1", "col2", combine_func=my_add, func_name="my_add"
+    result = sample_collection.ops.custom_combine("col1", "col2", combine_func=my_add, result_column="my_add"
     ).end()
     
     assert isinstance(result, ColumnCollection)

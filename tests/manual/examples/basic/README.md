@@ -104,9 +104,9 @@
    # 数学的操作のチェーンメソッド例
    result = (
        collection.ops
-       .add("Force1", 1.0)  # 値の加算
-       .subtract("Force2", "Force1")  # 列同士の減算
-       .multiply("Displacement1", 10)  # 値の乗算
+       .add("Force1", 1.0, result_column="Force1+1.0")  # 値の加算
+       .subtract("Force2", "Force1", result_column="Force2-Force1")  # 列同士の減算
+       .multiply("Displacement1", 10, result_column="Displacement1*10")  # 値の乗算
        .end()
    )
    
@@ -114,7 +114,7 @@
    result = (
        collection.ops
        .filter_by_condition("Displacement1", lambda x: x != 0)
-       .divide("Force1", "Displacement1")
+       .divide("Force1", "Displacement1", result_column="Force1/Displacement1")
        .end()
    )
    
@@ -297,9 +297,9 @@ tascpy の大きな特徴は、メソッドチェーンによるデータ処理�
 # 基本的なチェーンパターン
 result = (
     collection.ops      # 操作の開始
-    .add("Force1", 1.0)       # 最初の操作
-    .multiply("Force1", 2.0)       # 2番目の操作
-    .divide("Force1", "Displacement1")       # 3番目の操作
+    .add("Force1", 1.0, result_column="Force1+1.0")       # 最初の操作
+    .multiply("Force1", 2.0, result_column="Force1*2.0")       # 2番目の操作
+    .divide("Force1", "Displacement1", result_column="Force1/Displacement1")       # 3番目の操作
     .end()              # チェーンの終了と結果の取得
 )
 ```
