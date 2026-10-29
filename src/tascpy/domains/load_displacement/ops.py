@@ -10,7 +10,7 @@ from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import Column
 from tascpy.core.ops import CoreOps, to_float_array
 from tascpy.core.ops_list import OpsList
-from tascpy.core.result import ScalarResult
+from tascpy.core.result import PointResult, ScalarResult
 from tascpy.numeric.curve import compute_peaks_and_valleys, compute_slopes, compute_stiffness, compute_yield_point
 from tascpy.numeric.hysteresis import (
     compute_cumulative_curve,
@@ -26,17 +26,11 @@ from .collection import LoadDisplacementCollection
 class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     """荷重-変位コレクションの操作（汎用操作も全て利用可能）"""
 
-    def _cycle_column(self, cycle_column: Optional[str]) -> str:
-        if cycle_column is not None:
-            self._column_values(cycle_column)
-            return cycle_column
-        for name in self._c.columns:
-            if "cycle" in name.lower():
-                return name
-        raise KeyError(
-            "サイクル列が指定されておらず、自動検出もできませんでした。"
-            "事前に cycle_count() でサイクル列を作成するか、cycle_column を指定してください。"
-        )
+    def _cycle_markers(self, cycle_column: Optional[str]) -> np.ndarray:
+        """サイクル番号の配列（cycle_column の省略時は荷重の符号反転から数える。mark_cycles の既定と同じ）"""
+        if cycle_column is None:
+            return compute_cycle_markers(self._c.load_data)
+        return to_float_array(self._column_values(cycle_column))
 
     def _ld_arrays(self) -> Tuple[np.ndarray, np.ndarray]:
         return self._c.displacement_data, self._c.load_data
@@ -52,15 +46,16 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         return self._with_column(result_column or "slope_data", compute_slopes(*self._ld_arrays()), unit, ch,
                                  self._ld_unit("/"))
 
-    def calculate_stiffness(self, range_start: float = 0.2, range_end: float = 0.8,
-                            method: str = "linear_regression") -> Self:
-        """最大荷重に対する比率で指定した範囲の剛性を計算し、結果 "stiffness" に格納します
+    def stiffness(self, *, range_start: float = 0.2, range_end: float = 0.8,
+                  method: str = "linear_regression") -> ScalarResult:
+        """最大荷重に対する比率で指定した範囲の剛性を求めます（単位は "荷重/変位"）
 
         変位が変化しない区間があると計算に失敗するため、事前に
         `remove_consecutive_duplicates_across()` で重複を除くことを推奨します。
 
         単調載荷の曲線を前提にしています。繰り返し載荷のデータにそのまま使うと、範囲に入る除荷途中の点も
-        計算に含まれ、エラーにならずに誤った値になります。初期剛性は最初の載荷区間を抜き出してから求めてください。
+        計算に含まれ、エラーにならずに誤った値になります。`to_skeleton_curve()` でスケルトン曲線にするか、
+        最初の載荷区間を抜き出してから求めてください。
 
         Args:
             range_start: 範囲の開始比率
@@ -68,43 +63,40 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             method: "linear_regression" または "secant"
 
         Examples:
-            >>> stiffness = ld.ops.calculate_stiffness(0.1, 0.8).end().results["stiffness"]
-            >>> round(stiffness.value, 1), stiffness.unit
+            >>> k = ld.ops.stiffness(range_start=0.1, range_end=0.8)
+            >>> round(k.value, 1), k.unit
             (40.0, 'kN/mm')
 
-            繰り返し載荷のデータ（`cyclic`）では、荷重が初めて下がる手前までを抜き出してから求めます。
+            繰り返し載荷のデータ（`cyclic`）では、スケルトン曲線から求めます。
 
-            >>> round(cyclic.ops.calculate_stiffness(0.1, 0.5).end().results["stiffness"].value, 1)  # 生データのまま（誤り）
+            >>> round(cyclic.ops.stiffness(range_start=0.1, range_end=0.5).value, 1)  # 生データのまま（誤り）
             8.6
-            >>> first_loading = cyclic.head(int(np.argmax(np.diff(cyclic.load_data) < 0)) + 1)
-            >>> round(first_loading.ops.calculate_stiffness(0.1, 0.5).end().results["stiffness"].value, 1)
+            >>> round(cyclic.ops.to_skeleton_curve().stiffness(range_start=0.1, range_end=0.5).value, 1)
             40.0
         """
         value = compute_stiffness(*self._ld_arrays(), range_start=range_start, range_end=range_end, method=method)
-        return self._with_result(ScalarResult(name="stiffness", value=value, unit=self._ld_unit("/")))
+        return ScalarResult(name="stiffness", value=value, unit=self._ld_unit("/"))
 
-    def find_yield_point(self, method: str = "offset", offset_value: float = 0.002, range_start: float = 0.1,
-                         range_end: float = 0.3, factor: float = 0.33,
-                         fail_silently: bool = False) -> Self:
-        """降伏点を検出し、結果 "yield_point" (PointResult) に格納します
+    def yield_point(self, *, method: str = "offset", offset_value: float = 0.002, range_start: float = 0.1,
+                    range_end: float = 0.3, factor: float = 0.33, fail_silently: bool = False) -> PointResult:
+        """降伏点を求めます（x: 変位, y: 荷重。metadata に is_valid と計算条件）
 
         初期剛性を最大荷重の range_start〜range_end の範囲から求め、
         - "offset": 初期剛性線を offset_value だけ平行移動した直線との交点
         - "general": 接線剛性が初期剛性 × factor を下回る点
         を降伏点とします。
 
-        単調載荷の曲線を前提にしています（`calculate_stiffness` と同じ）。繰り返し載荷のデータでは、
-        `skeleton_curve()` でスケルトン曲線にしてから求めてください。
+        単調載荷の曲線を前提にしています（`stiffness` と同じ）。繰り返し載荷のデータでは、
+        `to_skeleton_curve()` でスケルトン曲線にしてから求めてください。
 
         Examples:
-            >>> pt = ld.ops.find_yield_point(method="offset", offset_value=0.5, range_start=0.1, range_end=0.8).end().results["yield_point"]
+            >>> pt = ld.ops.yield_point(offset_value=0.5, range_start=0.1, range_end=0.8)
             >>> round(pt.x, 2), round(pt.y, 1), pt.x_unit, pt.y_unit
             (3.0, 100.0, 'mm', 'kN')
 
             繰り返し載荷のデータ（`cyclic`）では、スケルトン曲線から求めます。
 
-            >>> pt = (cyclic.ops.cycle_count().skeleton_curve()
-            ...       .find_yield_point(offset_value=0.5, range_start=0.1, range_end=0.5).end().results["yield_point"])
+            >>> pt = cyclic.ops.to_skeleton_curve().yield_point(offset_value=0.5, range_start=0.1, range_end=0.5)
             >>> round(pt.x, 2), round(pt.y, 1)
             (3.06, 102.2)
         """
@@ -112,13 +104,16 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             *self._ld_arrays(), method=method, offset_value=offset_value, range_start=range_start,
             range_end=range_end, factor=factor, fail_silently=fail_silently,
         )
-        return self._with_point("yield_point", outcome, x_unit=self._c.displacement.unit, y_unit=self._c.load.unit)
+        return self._point("yield_point", outcome, x_unit=self._c.displacement.unit, y_unit=self._c.load.unit)
 
     # ── サイクル ──────────────────────────────
 
-    def cycle_count(self, column: Optional[str] = None, step: float = 0.5, result_column: Optional[str] = None,
+    def mark_cycles(self, *, column: Optional[str] = None, step: float = 0.5, result_column: Optional[str] = None,
                     unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """荷重の符号反転に基づくサイクル番号の列 ("{荷重列}_cycle") を追加します
+
+        サイクルを使う操作（`to_skeleton_curve` など）は cycle_column の省略時に同じ規則でサイクルを数えるため、
+        この列は既定と異なる数え方をしたいときや、サイクル番号を列として使いたいときに作ります。
 
         Args:
             column: 判定に使う列（省略時は荷重列）
@@ -128,9 +123,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         markers = compute_cycle_markers(to_float_array(self._column_values(source)), step=step)
         return self._with_column(result_column or f"{source}_cycle", markers.tolist(), unit, ch, default_unit="")
 
-    def split_by_cycles(self, cycle_column: Optional[str] = None) -> OpsList[Self]:
-        """サイクル番号ごとに分割します（サイクル列は省略時に自動検出）"""
-        return self.split_by_integers(self._cycle_column(cycle_column))
+    def split_by_cycles(self, *, cycle_column: Optional[str] = None) -> OpsList[Self]:
+        """サイクル番号ごとに分割します（cycle_column の省略時は荷重の符号反転から数える）"""
+        return self.split_by_integers(self._cycle_markers(cycle_column))
 
     def find_peaks_and_valleys(self, column: Optional[str] = None, distance: int = 1,
                                threshold: Optional[float] = None, result_column: Optional[str] = None,
@@ -149,8 +144,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def _per_cycle(self, cycle_column: Optional[str],
                    func: Callable[[np.ndarray, np.ndarray], tuple],
                    outputs: List[Dict[str, Any]]) -> CoreOps[ColumnCollection]:
-        name = self._cycle_column(cycle_column)
-        markers = to_float_array(self._column_values(name))
+        markers = self._cycle_markers(cycle_column)
         keys = list(dict.fromkeys(v for v in markers if not np.isnan(v)))
         rows = [func(self._c.displacement_data[markers == k], self._c.load_data[markers == k]) for k in keys]
 
@@ -160,9 +154,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             for i, spec in enumerate(outputs)
         }
         steps = [int(k) if float(k).is_integer() else k for k in keys]
-        return CoreOps(ColumnCollection(columns, step=steps, metadata=dict(self._c.metadata, grouped_by=name)))
+        return CoreOps(ColumnCollection(columns, step=steps, metadata=self._c.metadata))
 
-    def analyze_hysteresis(self, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
+    def to_hysteresis_table(self, *, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの履歴エネルギーと最大・最小荷重/変位を集計した表を返します
 
         戻り値のステップはサイクル番号、列は energy（単位は "荷重*変位"）/ max_load / min_load / max_disp / min_disp です。
@@ -176,7 +170,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             {"name": "min_disp", "unit": disp_unit},
         ])
 
-    def analyze_stiffness_degradation(self, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
+    def to_stiffness_table(self, *, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの割線剛性を集計した表を返します（列: stiffness）"""
         return self._per_cycle(cycle_column, lambda d, p: (compute_secant_stiffness(d, p),), [
             {"name": "stiffness", "unit": self._ld_unit("/"), "attrs": {"description": "Secant stiffness"}},
@@ -184,15 +178,16 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
     # ── 特殊曲線 ──────────────────────────────
 
-    def skeleton_curve(self, cycle_column: Optional[str] = None, has_decrease: bool = False,
-                       decrease_type: str = "envelope") -> Self:
+    def to_skeleton_curve(self, *, cycle_column: Optional[str] = None, has_decrease: bool = False,
+                          decrease_type: str = "envelope") -> Self:
         """スケルトン曲線を、荷重・変位の2列と "source_step" 列を持つ新しい荷重-変位コレクションとして返します
 
         変位列はサイクルごとにずらした値です。"source_step" は各点の元データのステップで、
         他の列は `select(steps=...)` で元データから取り出せます。
+        cycle_column の省略時は、荷重の符号反転からサイクルを数えます（`mark_cycles` の既定と同じ）。
 
         Examples:
-            >>> skel = cyclic.ops.cycle_count().skeleton_curve().end()
+            >>> skel = cyclic.ops.to_skeleton_curve().end()
             >>> skel.columns
             ['荷重', '変位', 'source_step']
             >>> skel["source_step"].values
@@ -203,8 +198,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         return self._curve(*compute_skeleton_curve(*self._all_cycle_arrays(cycle_column), has_decrease=has_decrease,
                                                    decrease_type=decrease_type, return_index=True))
 
-    def cumulative_curve(self, cycle_column: Optional[str] = None) -> Self:
-        """累積塑性変形-荷重曲線を、`skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
+    def to_cumulative_curve(self, *, cycle_column: Optional[str] = None) -> Self:
+        """累積塑性変形-荷重曲線を、`to_skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
 
         荷重 0 まで延長した点は元データの行がないため、"source_step" は欠損になります。
         """
@@ -223,5 +218,4 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         return self._next(curve)
 
     def _all_cycle_arrays(self, cycle_column: Optional[str]):
-        name = self._cycle_column(cycle_column)
-        return self._c.displacement_data, self._c.load_data, to_float_array(self._column_values(name))
+        return self._c.displacement_data, self._c.load_data, self._cycle_markers(cycle_column)

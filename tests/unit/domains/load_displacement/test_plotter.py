@@ -19,53 +19,51 @@ def close_figures():
 
 @pytest.fixture
 def ld():
-    """解析結果を持つ荷重-変位コレクション（P [kN], d [mm]）"""
+    """荷重-変位コレクション（P [kN], d [mm]）"""
     col = ColumnCollection({"P": [0.0, 2.0, 4.0], "d": [0.0, 1.0, 2.0]}, units={"P": "kN", "d": "mm"})
-    col = col.with_result(PointResult("yield_point", 1.5, 3.0, metadata={
-        "method": "offset", "initial_slope": 2.0, "parameters": {"offset_value": 0.1, "range_start": 0.1, "range_end": 0.5},
-    }))
-    return col.ops.as_domain(as_load_displacement, "P", "d").end()
+    return col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
 
 
 @pytest.fixture
-def ld_without_results():
-    return ColumnCollection({"P": [0.0, 1.0], "d": [0.0, 1.0]}).ops.as_domain(as_load_displacement, "P", "d").end()
+def point():
+    return PointResult("yield_point", 1.5, 3.0, metadata={
+        "method": "offset", "initial_slope": 2.0, "parameters": {"offset_value": 0.1, "range_start": 0.1, "range_end": 0.5},
+    })
+
+
+@pytest.fixture
+def ld_short():
+    col = ColumnCollection({"P": [0.0, 1.0], "d": [0.0, 1.0]})
+    return col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
 
 
 def _line(ax, label):
     return next(line for line in ax.lines if line.get_label() == label)
 
 
-def test_does_not_show(ld, monkeypatch):
+def test_does_not_show(ld, point, monkeypatch):
     shown = []
     monkeypatch.setattr(plt, "show", lambda *a, **k: shown.append(True))
     ld.plot.plot_load_displacement()
-    ld.plot.plot_yield_analysis_details()
+    ld.plot.plot_yield_analysis_details(point)
     assert shown == []
 
 
-@pytest.mark.parametrize("method", ["plot_yield_point", "plot_yield_analysis_details"])
-def test_missing_results_raise(ld_without_results, method):
-    with pytest.raises(ValueError):
-        getattr(ld_without_results.plot, method)()
-
-
-def test_yield_point_from_results(ld):
-    ax = ld.plot.plot_yield_point()
-    point = next(c for c in ax.collections if c.get_label() == "Yield Point (offset)")
-    np.testing.assert_array_equal(point.get_offsets()[0], [1.5, 3.0])
+def test_yield_point(ld, point):
+    ax = ld.plot.plot_yield_point(point)
+    marker = next(c for c in ax.collections if c.get_label() == "Yield Point (offset)")
+    np.testing.assert_array_equal(marker.get_offsets()[0], [1.5, 3.0])
     assert "Offset Line" in [line.get_label() for line in ax.lines]
 
 
-def test_yield_point_explicit_values_win(ld):
-    ax = ld.plot.plot_yield_point(yield_disp=0.5, yield_load=1.0, yield_method="general",
-                                  yield_parameters={"factor": 0.5})
-    point = next(c for c in ax.collections if c.get_label() == "Yield Point (general)")
-    np.testing.assert_array_equal(point.get_offsets()[0], [0.5, 1.0])
+def test_yield_point_from_ops(ld):
+    point = ld.ops.yield_point(method="general", range_start=0.1, range_end=0.9, fail_silently=True)
+    ax = ld.plot.plot_yield_point(point)
+    assert any(c.get_label() == "Yield Point (general)" for c in ax.collections)
 
 
-def test_yield_details_show_units_and_range(ld):
-    ax = ld.plot.plot_yield_analysis_details()
+def test_yield_details_show_units_and_range(ld, point):
+    ax = ld.plot.plot_yield_analysis_details(point)
     text = ax.texts[0].get_text()
     assert "1.5000 mm" in text and "3.0000 kN" in text and "2.0000 kN/mm" in text
     assert any(c.get_label().startswith("Initial Slope Range") for c in ax.collections)
@@ -73,16 +71,17 @@ def test_yield_details_show_units_and_range(ld):
 
 def test_yield_details_range_ignores_missing_loads():
     col = ColumnCollection({"P": [0.0, 1.0, None, 4.0, 5.0], "d": [0.0, 1.0, 2.0, 3.0, 4.0]})
-    col = col.with_result(PointResult("yield_point", 3.0, 4.0, metadata={
-        "method": "offset", "initial_slope": 1.0, "parameters": {"range_start": 0.1, "range_end": 0.9}}))
-    ax = col.ops.as_domain(as_load_displacement, "P", "d").end().plot.plot_yield_analysis_details()
+    point = PointResult("yield_point", 3.0, 4.0, metadata={
+        "method": "offset", "initial_slope": 1.0, "parameters": {"range_start": 0.1, "range_end": 0.9}})
+    ld = col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
+    ax = ld.plot.plot_yield_analysis_details(point)
     highlighted = next(c for c in ax.collections if c.get_label().startswith("Initial Slope Range"))
     np.testing.assert_array_equal(highlighted.get_offsets()[:, 1], [1.0, 4.0])
 
 
-def test_compare_yield_methods_warns_on_failure(ld_without_results):
+def test_compare_yield_methods_warns_on_failure(ld_short):
     with pytest.warns(UserWarning, match="降伏点を求められませんでした"):
-        ax = ld_without_results.plot.compare_yield_methods(methods=[{"method": "offset"}])
+        ax = ld_short.plot.compare_yield_methods(methods=[{"method": "offset"}])
     assert ax.get_title() == "Comparison of Yield Point Methods"
 
 
@@ -98,8 +97,8 @@ def test_plot_multiple_curves(ld):
     assert ax.get_xlabel() == "d [mm]"
 
 
-def test_title_kwarg_is_not_duplicated(ld):
-    ax = ld.plot.plot_yield_point(title="Custom")
+def test_title_kwarg_is_not_duplicated(ld, point):
+    ax = ld.plot.plot_yield_point(point, title="Custom")
     assert ax.get_title() == "Custom"
 
 
@@ -110,9 +109,10 @@ def test_original_curve_supports_scatter(ld):
 
 def test_peak_ignores_rows_with_missing_displacement():
     col = ColumnCollection({"P": [0.0, 2.0, 5.0, -100.0], "d": [0.0, 1.0, 2.0, None]})
-    col = col.with_result(PointResult("yield_point", 1.5, 3.0, metadata={
-        "method": "offset", "initial_slope": 2.0, "parameters": {"offset_value": 0.5, "range_start": 0.3, "range_end": 1.0}}))
-    ax = col.ops.as_domain(as_load_displacement, "P", "d").end().plot.plot_yield_analysis_details()
+    point = PointResult("yield_point", 1.5, 3.0, metadata={
+        "method": "offset", "initial_slope": 2.0, "parameters": {"offset_value": 0.5, "range_start": 0.3, "range_end": 1.0}})
+    ld = col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
+    ax = ld.plot.plot_yield_analysis_details(point)
     offset = next(line for line in ax.lines if line.get_label() == "Offset Line")
     assert offset._xy1[0] == 0.5  # 正側へずらす（変位が欠損した -100 kN の行は使わない）
     highlighted = next(c for c in ax.collections if c.get_label().startswith("Initial Slope Range"))
@@ -122,17 +122,7 @@ def test_peak_ignores_rows_with_missing_displacement():
 def test_compare_yield_methods_empty_list_runs_nothing(ld, monkeypatch):
     calls = []
     ops_type = type(ld.ops)
-    original = ops_type.find_yield_point
-    monkeypatch.setattr(ops_type, "find_yield_point", lambda self, **k: (calls.append(k), original(self, **k))[1])
+    original = ops_type.yield_point
+    monkeypatch.setattr(ops_type, "yield_point", lambda self, **k: (calls.append(k), original(self, **k))[1])
     ld.plot.compare_yield_methods(methods=[])
     assert calls == []
-
-
-def test_wrong_result_type_raises_type_error():
-    from tascpy.core.result import ScalarResult
-
-    col = ColumnCollection({"P": [0.0, 1.0], "d": [0.0, 1.0]})
-    col = col.with_result(ScalarResult("yield_point", 1.0))
-    ld = col.ops.as_domain(as_load_displacement, "P", "d").end()
-    with pytest.raises(TypeError, match="PointResult"):
-        ld.plot.plot_yield_point()

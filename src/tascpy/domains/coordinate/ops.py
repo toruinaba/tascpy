@@ -12,14 +12,7 @@ from tascpy.numeric.spatial import interpolate, kmeans
 
 from .collection import CoordinateCollection
 
-CC = TypeVar("CC", bound=CoordinateCollection)
 CC_co = TypeVar("CC_co", bound=CoordinateCollection, covariant=True)
-
-
-def _with_domain_metadata(collection: CC, key: str, value: Dict[str, Any]) -> CC:
-    domain_md = dict(collection.metadata.get("coordinate_domain", {}))
-    domain_md[key] = value
-    return collection.with_metadata(coordinate_domain=domain_md)
 
 
 class CoordinateOps(CoreOps[CC_co]):
@@ -125,11 +118,10 @@ class CoordinateOps(CoreOps[CC_co]):
             ).with_coordinates(name, tx, ty, tz)
         return self._next(collection)
 
-    def interpolate_grid(self, x_range: Tuple[float, float], y_range: Tuple[float, float],
-                         grid_size: Tuple[int, int] = (10, 10), source_columns: Optional[List[str]] = None,
-                         row: int = 0, method: str = "inverse_distance", power: float = 2.0,
-                         result_name: str = "grid") -> Self:
-        """指定した行の値を矩形グリッド上に補間し、結果 result_name (GridResult) に格納します
+    def grid(self, *, x_range: Tuple[float, float], y_range: Tuple[float, float],
+             grid_size: Tuple[int, int] = (10, 10), source_columns: Optional[List[str]] = None,
+             row: int = 0, method: str = "inverse_distance", power: float = 2.0) -> GridResult:
+        """指定した行の値を矩形グリッド上に補間します
 
         Args:
             x_range: X の範囲 (最小, 最大)
@@ -139,7 +131,7 @@ class CoordinateOps(CoreOps[CC_co]):
             row: 補間する行のインデックス（負の値は末尾から）
 
         Examples:
-            >>> grid = coord.ops.interpolate_grid((0, 10), (0, 10), (20, 20), row=-1).end().results["grid"]
+            >>> grid = coord.ops.grid(x_range=(0, 10), y_range=(0, 10), grid_size=(20, 20), row=-1)
             >>> grid.values.shape
             (20, 20)
         """
@@ -153,20 +145,15 @@ class CoordinateOps(CoreOps[CC_co]):
         grid = interpolate(points, values[:, row], np.column_stack([gx.ravel(), gy.ravel()]),
                            method=method, power=power).reshape(ny, nx)
         step = self._c.step[row]
-        return self._with_result(GridResult(
-            result_name, xs, ys, grid, unit=self._common_unit(names),
+        return GridResult(
+            "grid", xs, ys, grid, unit=self._common_unit(names),
             metadata=self._info(method, power, names, row=row, step=step.item() if hasattr(step, "item") else step),
-        ))
+        )
 
     # ── 近傍・クラスタリング ─────────────────────
 
-    def find_nearest_neighbors(self, column: str, n_neighbors: int = 3,
-                               result_column: Optional[str] = None) -> Self:
-        """座標空間で column に最も近い n 列を探す
-
-        結果はメタデータ coordinate_domain.nearest_neighbors_{column} と、
-        attrs に結果を持つ列 "{column}_neighbors"（値は 1.0）に格納します。
-        """
+    def nearest_neighbors(self, column: str, *, n_neighbors: int = 3) -> Dict[str, float]:
+        """座標空間で column に近い列を、近い順に {列名: 距離} で返します（座標を持つ列が対象）"""
         if column not in self._c:
             raise ValueError(f"指定されたカラム '{column}' が見つかりません。")
         valid = self._c.get_columns_with_coordinates()
@@ -177,37 +164,14 @@ class CoordinateOps(CoreOps[CC_co]):
 
         candidates = [(name, self._c.calculate_distance(column, name)) for name in valid if name != column]
         neighbors = sorted((c for c in candidates if not np.isnan(c[1])), key=lambda c: c[1])[:n_neighbors]
-        info = {
-            "operation": "find_nearest_neighbors",
-            "base_column": column,
-            "neighbors": [name for name, _ in neighbors],
-            "distances": [float(d) for _, d in neighbors],
-        }
-        new = self._c.with_column(result_column or f"{column}_neighbors", np.ones(len(self._c)), unit="", attrs=info)
-        return self._next(_with_domain_metadata(new, f"nearest_neighbors_{column}", info))
+        return {name: float(d) for name, d in neighbors}
 
-    def spatial_clustering(self, n_clusters: int = 2, columns: Optional[List[str]] = None,
-                           result_column: str = "cluster", algorithm: str = "kmeans") -> Self:
-        """座標に基づいて列をクラスタリングする
-
-        各列の attrs に "cluster_id" を付与し、結果をメタデータ coordinate_domain.clustering_result と
-        attrs に結果を持つ列 result_column（値は欠損）に格納します。
-        """
+    def clusters(self, *, n_clusters: int = 2, columns: Optional[List[str]] = None,
+                 algorithm: str = "kmeans") -> Dict[str, int]:
+        """座標に基づいて列をクラスタリングし、{列名: クラスタ番号} を返します"""
         matrix, valid = self._c.get_coordinate_matrix(columns, include_z=True)
         if len(valid) < n_clusters:
             raise ValueError(f"クラスタ数({n_clusters})が有効な座標データの数({len(valid)})を上回っています。")
         if algorithm.lower() != "kmeans":
             raise NotImplementedError(f"アルゴリズム '{algorithm}' は未実装です。")
-
-        labels = [int(label) for label in kmeans(matrix, n_clusters)]
-        info = {
-            "operation": "spatial_clustering",
-            "algorithm": algorithm,
-            "n_clusters": n_clusters,
-            "assignments": dict(zip(valid, labels)),
-        }
-        new = self._c
-        for name, label in zip(valid, labels):
-            new = new.with_attrs(name, cluster_id=label)
-        new = new.with_column(result_column, np.full(len(self._c), np.nan), unit="", attrs=info)
-        return self._next(_with_domain_metadata(new, "clustering_result", info))
+        return {name: int(label) for name, label in zip(valid, kmeans(matrix, n_clusters))}

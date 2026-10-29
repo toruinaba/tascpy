@@ -41,7 +41,7 @@ print(f"   - 単位: {collection.units}")
 print("2. 荷重-変位ドメインへの変換")
 ld_collection = (
     collection.ops.as_domain(as_load_displacement, load_column="Force1", displacement_column="Displacement1")
-    .cycle_count()
+    .mark_cycles()
     .end()
 )
 
@@ -65,8 +65,8 @@ print("   - 基本的な荷重-変位曲線を保存しました")
 
 # 4. スケルトン曲線と累積曲線を作成します（曲線はそれぞれ新しい荷重-変位コレクションになります）
 print("4. スケルトン曲線・累積曲線の作成")
-skeleton_data = ld_collection.ops.skeleton_curve().end()
-cumulative_data = ld_collection.ops.cumulative_curve().end()
+skeleton_data = ld_collection.ops.to_skeleton_curve().end()
+cumulative_data = ld_collection.ops.to_cumulative_curve().end()
 print(f"   - スケルトン曲線の列: {skeleton_data.columns}")
 
 # 5. 元データとスケルトン曲線を同じ Axes に重ねてプロットします
@@ -92,12 +92,11 @@ print("   - 累積曲線を保存しました")
 
 # 7. スケルトン曲線から降伏点を求めて描画します
 print("7. スケルトン曲線の降伏点")
-yield_data = skeleton_data.ops.find_yield_point(fail_silently=True).end()
-point = yield_data.results["yield_point"]
+point = skeleton_data.ops.yield_point(fail_silently=True)
 print(f"   - 降伏点: 変位 {point.x} {point.x_unit}, 荷重 {point.y} {point.y_unit}")
 if point.metadata["is_valid"]:
     fig4, ax4 = plt.subplots(figsize=(8, 6))
-    yield_data.plot.plot_yield_point(ax=ax4)
+    skeleton_data.plot.plot_yield_point(point, ax=ax4)
     fig4.savefig(Path(__file__).parent / "imgs" / "skeleton_yield_point.png")
     print("   - スケルトン曲線の降伏点を保存しました")
 

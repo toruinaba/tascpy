@@ -107,22 +107,20 @@ if valid_slopes:
 print("\n===== 初期剛性の計算 =====")
 
 # calculate_stiffnessは剛性値を結果 "stiffness" (ScalarResult) に格納する
-stiffness = ld_collection.ops.calculate_stiffness(
+stiffness = ld_collection.ops.stiffness(
     range_start=0.1,  # 初期10%（荷重範囲の相対位置）
     range_end=0.4,  # 40%まで（荷重範囲の相対位置）
-    method="linear_regression",
-).end().results["stiffness"].value
+    method="linear_regression").value
 
 print(
     f"線形回帰による初期剛性: {stiffness:.3f} {ld_collection[ld_collection.load_column].unit}/{ld_collection[ld_collection.displacement_column].unit}"
 )
 
 # 異なる範囲での初期剛性計算
-stiffness_alt = ld_collection.ops.calculate_stiffness(
+stiffness_alt = ld_collection.ops.stiffness(
     range_start=0.0,  # 最小荷重から
     range_end=0.2,  # 最大荷重の20%まで
-    method="linear_regression",
-).end().results["stiffness"].value
+    method="linear_regression").value
 
 print(
     f"小さい範囲での初期剛性: {stiffness_alt:.3f} {ld_collection[ld_collection.load_column].unit}/{ld_collection[ld_collection.displacement_column].unit}"
@@ -132,18 +130,17 @@ print(
 print("\n===== 降伏点の解析 =====")
 
 # チェーンメソッドでオフセット法による降伏点の特定
-yield_offset_result = ld_collection.ops.find_yield_point(
+yield_offset_result = ld_collection.ops.yield_point(
     method="offset",
     range_start=0.05,  # 荷重の5%から (より初期部分を使用)
     range_end=0.25,  # 荷重の25%まで (非線形になる前の範囲)
     offset_value=0.01,  # 1.0%オフセット（引数はひずみに合わせ0.01などが入る想定ですが、計算しやすいよう適宜調整してください）
-).end()
+)
 
 # 結果を取得
-yield_pt_offset = yield_offset_result.results["yield_point"]
-yield_disp_offset = yield_pt_offset.x
-yield_load_offset = yield_pt_offset.y
-initial_slope_offset = yield_pt_offset.metadata.get("initial_slope", 0.0)
+yield_disp_offset = yield_offset_result.x
+yield_load_offset = yield_offset_result.y
+initial_slope_offset = yield_offset_result.metadata.get("initial_slope", 0.0)
 
 print(f"オフセット法による降伏点:")
 print(
@@ -155,18 +152,17 @@ print(
 print(f"  初期勾配 = {initial_slope_offset:.3f}")
 
 # チェーンメソッドで一般降伏法による降伏点を特定します
-yield_general_result = ld_collection.ops.find_yield_point(
+yield_general_result = ld_collection.ops.yield_point(
     method="general",
     range_start=0.05,  # オフセット法と同じ設定です
     range_end=0.25,  # オフセット法と同じ設定です
     factor=0.25,  # 初期勾配の25%を降伏点と定義します
-).end()
+)
 
 # 結果を取得
-yield_pt_general = yield_general_result.results["yield_point"]
-yield_disp_general = yield_pt_general.x
-yield_load_general = yield_pt_general.y
-initial_slope_general = yield_pt_general.metadata.get("initial_slope", 0.0)
+yield_disp_general = yield_general_result.x
+yield_load_general = yield_general_result.y
+initial_slope_general = yield_general_result.metadata.get("initial_slope", 0.0)
 
 print(f"一般降伏法による降伏点:")
 print(
@@ -215,7 +211,7 @@ ax1.plot(
 )
 
 # オフセットラインの表示
-offset_value = yield_pt_offset.metadata.get("parameters", {}).get("offset_value", 0.01)
+offset_value = yield_offset_result.metadata.get("parameters", {}).get("offset_value", 0.01)
 ax1.plot(
     x_vals,
     initial_slope_offset * x_vals
@@ -225,7 +221,7 @@ ax1.plot(
 )
 
 # 一般降伏法のラインの表示
-factor = yield_pt_general.metadata.get("parameters", {}).get("factor", 0.25)
+factor = yield_general_result.metadata.get("parameters", {}).get("factor", 0.25)
 ax1.plot(
     x_vals,
     initial_slope_general * factor * x_vals,
@@ -281,15 +277,14 @@ print("\n===== チェーンメソッドによる複雑な解析と可視化 ====
 
 # 複数の降伏点定義を比較するためのメソッドパラメータ
 methods = [
-    {"method": "offset", "offset_value": 1.0, "result_prefix": "yield_offset_small"},
+    {"method": "offset", "offset_value": 1.0},
     {
         "method": "offset",
         "offset_value": 2.0,
-        "result_prefix": "yield_offset_standard",
     },
-    {"method": "offset", "offset_value": 5.0, "result_prefix": "yield_offset_large"},
-    {"method": "general", "factor": 0.33, "result_prefix": "yield_general_33"},
-    {"method": "general", "factor": 0.50, "result_prefix": "yield_general_50"},
+    {"method": "offset", "offset_value": 5.0},
+    {"method": "general", "factor": 0.33},
+    {"method": "general", "factor": 0.50},
 ]
 
 # チェーンメソッドで降伏点比較分析を実行
@@ -330,26 +325,22 @@ report_collection = (
 # 降伏点解析は手法ごとに別々に実行してから表示します
 
 # 前処理結果に対するオフセット法
-report_offset = report_collection.ops.find_yield_point(
+report_offset = report_collection.ops.yield_point(
     method="offset", offset_value=0.01
-).end()
-yield_pt_std_offset = report_offset.results["yield_point"]
-
+)
 # 前処理結果に対する一般降伏法
-report_general = report_collection.ops.find_yield_point(
+report_general = report_collection.ops.yield_point(
     method="general", factor=0.33
-).end()
-yield_pt_std_general = report_general.results["yield_point"]
-
+)
 # 結果データから降伏点の情報を取得
 offset_yield_point = {
-    "displacement": yield_pt_std_offset.x,
-    "load": yield_pt_std_offset.y,
+    "displacement": report_offset.x,
+    "load": report_offset.y,
 }
 
 general_yield_point = {
-    "displacement": yield_pt_std_general.x,
-    "load": yield_pt_std_general.y,
+    "displacement": report_general.x,
+    "load": report_general.y,
 }
 
 print("前処理と降伏点解析の結果:")

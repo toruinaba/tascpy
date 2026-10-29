@@ -80,12 +80,12 @@ class TestCalculateStiffness:
         # stiffness = 2.0
         # range_start=0.2, range_end=0.8
         # max load = 20. range 4 to 16.
-        val = linear_collection.ops.calculate_stiffness(method="linear_regression").end()
-        assert val.results["stiffness"].value == pytest.approx(2.0)
+        val = linear_collection.ops.stiffness(method="linear_regression")
+        assert val.value == pytest.approx(2.0)
 
     def test_secant(self, linear_collection):
-        val = linear_collection.ops.calculate_stiffness(method="secant").end()
-        assert val.results["stiffness"].value == pytest.approx(2.0)
+        val = linear_collection.ops.stiffness(method="secant")
+        assert val.value == pytest.approx(2.0)
 
     def test_insufficient_range_data(self, linear_collection):
         # linear_collection has 101 points (0..10). max load 20.
@@ -96,7 +96,7 @@ class TestCalculateStiffness:
         # 5.05 / 20 = 0.2525
         # 5.15 / 20 = 0.2575
         with pytest.raises(ValueError, match="十分なデータがありません"):
-            linear_collection.ops.calculate_stiffness(range_start=0.2525, range_end=0.2575).end()
+            linear_collection.ops.stiffness(range_start=0.2525, range_end=0.2575)
 
 class TestFindYieldPoint:
     def test_offset_method_success(self, bilinear_collection):
@@ -124,19 +124,16 @@ class TestFindYieldPoint:
         # Intersection with plastic line y = x + 45.
         # 10x - 10 = x + 45 -> 9x = 55 -> x = 6.11.
         
-        res = bilinear_collection.ops.find_yield_point(
+        res = bilinear_collection.ops.yield_point(
             method="offset", 
-            offset_value=1.0, 
-        ).end()
+            offset_value=1.0)
         
         # Check result metadata status
-        assert "yield_point" in res.results
-        yp = res.results["yield_point"]
-        assert yp.metadata["is_valid"] is True
+        assert res.metadata["is_valid"] is True
         
         # Check values
-        yp_disp = yp.x
-        yp_load = yp.y
+        yp_disp = res.x
+        yp_load = res.y
         
         assert yp_disp == pytest.approx(6.11, abs=0.1)
         # y = 10(6.11 - 1) = 51.1
@@ -147,25 +144,21 @@ class TestFindYieldPoint:
         # y = 2x. Offset y = 2(x - 1) = 2x - 2.
         # Parallel, no intersection.
         
-        res = linear_collection.ops.find_yield_point(
+        res = linear_collection.ops.yield_point(
             method="offset",
             offset_value=1.0,
-            fail_silently=True,
-        ).end()
+            fail_silently=True)
         
-        assert "yield_point" in res.results
-        yp = res.results["yield_point"]
-        assert yp.metadata["is_valid"] is False
-        assert np.isnan(yp.x)
-        assert np.isnan(yp.y)
+        assert res.metadata["is_valid"] is False
+        assert np.isnan(res.x)
+        assert np.isnan(res.y)
 
     def test_offset_method_fail_raise(self, linear_collection):
         # By default it doesn't raise exception for no intersection, it just sets is_valid=False
-        res = linear_collection.ops.find_yield_point(
+        res = linear_collection.ops.yield_point(
             method="offset",
-            offset_value=1.0,
-        ).end()
-        assert res.results["yield_point"].metadata["is_valid"] is False
+            offset_value=1.0)
+        assert res.metadata["is_valid"] is False
 
     def test_general_method_success(self, bilinear_collection):
         # General method: point where slope becomes factor * initial_slope
@@ -174,24 +167,20 @@ class TestFindYieldPoint:
         # Factor = 0.5 -> Threshold = 5.
         # Slope becomes 1 (which is < 5) at plastic region (index 6, x=6).
         
-        res = bilinear_collection.ops.find_yield_point(
+        res = bilinear_collection.ops.yield_point(
             method="general",
-            factor=0.5,
-        ).end()
+            factor=0.5)
         
-        assert "yield_point" in res.results
-        yp = res.results["yield_point"]
-        assert yp.metadata["is_valid"] is True
+        assert res.metadata["is_valid"] is True
         
-        yp_disp = yp.x
+        yp_disp = res.x
         assert yp_disp == pytest.approx(6.0, abs=1.0)
 
 
     def test_verify_debug_info(self, bilinear_collection):
-        res = bilinear_collection.ops.find_yield_point(
+        res = bilinear_collection.ops.yield_point(
             method="offset",
-            offset_value=1.0,
-        ).end()
-        debug_info = res.results["yield_point"].metadata
+            offset_value=1.0)
+        debug_info = res.metadata
         assert "initial_slope" in debug_info
         assert "diff_stats" in debug_info

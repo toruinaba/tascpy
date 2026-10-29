@@ -100,10 +100,9 @@ def main():
     ax.set_title("センサー間距離")
     save(fig, "coordinate_distance_matrix.png")
 
-    # 4. 空間クラスタリング（CoordinateCollection.spatial_clustering）
+    # 4. 空間クラスタリング（CoordinateOps.clusters）
     print("## 4. 空間クラスタリング（k-means, 4 クラスタ）")
-    clustered = data.ops.spatial_clustering(n_clusters=4).end()
-    assignments = clustered.metadata["coordinate_domain"]["clustering_result"]["assignments"]
+    assignments = data.ops.clusters(n_clusters=4)
     labels = np.array([assignments[name] for name in names])
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.scatter(points[:, 0], points[:, 1], c=labels, cmap="tab10", s=120)

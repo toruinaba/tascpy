@@ -75,15 +75,15 @@ numeric のテストと ops のテストを分けて書きます。[テスト戦
 docstring は Google スタイルの日本語で記述します。API リファレンスは mkdocstrings で docstring から生成されます（`docs/api/`）。
 
 ```python
-def calculate_stiffness(self, range_start: float = 0.2, range_end: float = 0.8) -> Self:
-    """最大荷重に対する比率で指定した範囲の剛性を計算し、結果 "stiffness" に格納します
+def stiffness(self, *, range_start: float = 0.2, range_end: float = 0.8) -> ScalarResult:
+    """最大荷重に対する比率で指定した範囲の剛性を求めます
 
     Args:
         range_start: 範囲の開始比率
         range_end: 範囲の終了比率
 
     Examples:
-        >>> col.ops.calculate_stiffness(0.1, 0.4).end().results["stiffness"].value
+        >>> col.ops.stiffness(range_start=0.1, range_end=0.4).value
     """
 ```
 

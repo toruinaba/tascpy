@@ -7,6 +7,7 @@ from typing import List, Optional, Self
 import numpy as np
 
 from tascpy.core.ops import to_float_array
+from tascpy.core.result import PointResult
 from tascpy.domains.coordinate.ops import CoordinateOps
 from tascpy.numeric.curve import compute_yield_point
 from tascpy.numeric.rosette import compute_rosette_strains
@@ -92,12 +93,12 @@ class StrainOps(CoordinateOps[StrainCollection]):
         )
         return self._next(result)
 
-    def find_yield_point(self, stress_column: str, strain_column: str, method: str = "offset",
-                         offset_value: float = 0.002, range_start: float = 0.1, range_end: float = 0.3,
-                         factor: float = 0.33, fail_silently: bool = False) -> Self:
-        """応力-ひずみ関係から降伏点を検出し、結果 "yield_point" (x: ひずみ, y: 応力) に格納します
+    def yield_point(self, *, stress_column: str, strain_column: str, method: str = "offset",
+                    offset_value: float = 0.002, range_start: float = 0.1, range_end: float = 0.3,
+                    factor: float = 0.33, fail_silently: bool = False) -> PointResult:
+        """応力-ひずみ関係から降伏点を求めます（x: ひずみ, y: 応力。metadata に is_valid と計算条件）
 
-        アルゴリズムは荷重-変位ドメインの find_yield_point と同じです。
+        アルゴリズムは荷重-変位ドメインの yield_point と同じです。
         """
         stress = self._float_column(stress_column, "応力カラム")
         strain = self._float_column(strain_column, "ひずみカラム")
@@ -106,5 +107,5 @@ class StrainOps(CoordinateOps[StrainCollection]):
             range_start=range_start, range_end=range_end, factor=factor,
             fail_silently=fail_silently,
         )
-        return self._with_point("yield_point", outcome, x_unit=self._unit_of(strain_column),
-                                y_unit=self._unit_of(stress_column))
+        return self._point("yield_point", outcome, x_unit=self._unit_of(strain_column),
+                           y_unit=self._unit_of(stress_column))

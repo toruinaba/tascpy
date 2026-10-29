@@ -52,7 +52,7 @@
 3. **[02_coordinate_visualization_advanced.py](./coordinate/02_coordinate_visualization_advanced.py)** - 高度な座標可視化
    - 等高線・3D 表面プロット
    - `calculate_distance` による距離行列と近傍探索
-   - `spatial_clustering` による k-means クラスタリング
+   - `ops.clusters` による k-means クラスタリング
    - 温度勾配のベクトル場
 
 4. **[03_coordinate_timeseries.py](./coordinate/03_coordinate_timeseries.py)** - 時系列座標データ
@@ -87,8 +87,11 @@ matrix, valid_names = collection.get_coordinate_matrix(include_z=True)
 # 距離計算
 distance = collection.calculate_distance("sensor1", "sensor2")
 
-# 座標による k-means クラスタリング（結果は metadata["coordinate_domain"]["clustering_result"]）
-clustered = collection.ops.spatial_clustering(n_clusters=3).end()
+# 座標による k-means クラスタリング（{列名: クラスタ番号} を返す）
+assignments = collection.ops.clusters(n_clusters=3)
+
+# 近い列を近い順に {列名: 距離} で返す
+neighbors = collection.ops.nearest_neighbors("sensor1", n_neighbors=3)
 ```
 
 #### 2. 空間補間（CoordinateOps）
@@ -102,8 +105,8 @@ result = collection.ops.spatial_interpolation_to_points(
     source_columns=["sensor1", "sensor2"], target_columns=["sensor3"]
 ).end()
 
-# 指定行の値を矩形グリッド上に補間（結果は results["grid"] の GridResult）
-grid = collection.ops.interpolate_grid(x_range=(0, 10), y_range=(0, 10), grid_size=(20, 20), row=-1).end().results["grid"]
+# 指定行の値を矩形グリッド上に補間（GridResult を返す）
+grid = collection.ops.grid(x_range=(0, 10), y_range=(0, 10), grid_size=(20, 20), row=-1)
 grid.values  # (ny, nx)
 ```
 
@@ -127,21 +130,17 @@ grid.values  # (ny, nx)
    # 荷重-変位曲線のプロット
    ld_collection.plot.plot_load_displacement()
 
-   # 初期剛性（結果 "stiffness" に格納）
-   stiffness = (
-       ld_collection.ops.calculate_stiffness(range_start=0.1, range_end=0.4)
-       .end().results["stiffness"].value
-   )
+   # 初期剛性（ScalarResult を返す）
+   stiffness = ld_collection.ops.stiffness(range_start=0.1, range_end=0.4).value
    ```
 
 2. **[02_load_displacement_special_curves.py](./load_displacement/02_load_displacement_special_curves.py)** - 特殊曲線の生成とプロット
-   - サイクル列の作成（`cycle_count`）
-   - スケルトン曲線・累積曲線の生成
+   - スケルトン曲線・累積曲線の生成（新しい荷重-変位コレクション）
+   - スケルトン曲線からの降伏点
 
    ```python
-   cycled = ld_collection.ops.cycle_count()     # "Force1_cycle" 列を追加
-   skeleton = cycled.skeleton_curve().end()     # サイクル列は自動検出。曲線を荷重-変位コレクションとして返す
-   cumulative = cycled.cumulative_curve().end()
+   skeleton = ld_collection.ops.to_skeleton_curve().end()     # サイクルは荷重の符号反転から数える
+   cumulative = ld_collection.ops.to_cumulative_curve().end()
    ax = ld_collection.plot.plot_load_displacement(label="original")
    skeleton.plot.plot_load_displacement(ax=ax, color="red", label="skeleton")
    ```
@@ -152,32 +151,34 @@ grid.values  # (ny, nx)
    - 降伏点の可視化
 
    ```python
-   result = ld_collection.ops.find_yield_point(
+   point = ld_collection.ops.yield_point(
        method="offset", offset_value=0.002, range_start=0.1, range_end=0.4
-   ).end()
-   point = result.results["yield_point"]   # PointResult (x: 変位, y: 荷重)
+   )   # PointResult (x: 変位, y: 荷重)
+   ld_collection.plot.plot_yield_point(point)
    ```
 
 ### 荷重-変位ドメインの主要機能
 
 `ld_collection.ops` では汎用操作に加えて以下が使えます。
 
-| メソッド | 内容 | 結果の格納先 |
+| メソッド | 内容 | 戻り値 |
 |---|---|---|
-| `calculate_slopes()` | 区間ごとの傾き | 列 `slope_data` |
-| `calculate_stiffness(range_start, range_end, method)` | 初期剛性 | `results["stiffness"]` |
-| `find_yield_point(method, offset_value, ...)` | 降伏点 | `results["yield_point"]` |
-| `cycle_count(column, step)` | サイクル番号 | 列 `{荷重列}_cycle` |
-| `split_by_cycles(cycle_column)` | サイクルごとに分割 | `OpsList` |
-| `find_peaks_and_valleys(column, distance)` | ピーク/バレーのマーカー | 列 `peak_valley` |
-| `skeleton_curve(cycle_column)` | スケルトン曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`） |
-| `cumulative_curve(cycle_column)` | 累積曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`） |
-| `analyze_hysteresis(cycle_column)` | サイクルごとの履歴エネルギー・最大最小値 | 集計表（`ColumnCollection`） |
-| `analyze_stiffness_degradation(cycle_column)` | サイクルごとの割線剛性 | 集計表（`ColumnCollection`） |
+| `calculate_slopes()` | 区間ごとの傾き | 列 `slope_data` を足した Ops |
+| `mark_cycles(column=, step=)` | サイクル番号 | 列 `{荷重列}_cycle` を足した Ops |
+| `find_peaks_and_valleys(column=, distance=)` | ピーク/バレーのマーカー | 列 `peak_valley` を足した Ops |
+| `split_by_cycles(cycle_column=)` | サイクルごとに分割 | `OpsList` |
+| `to_skeleton_curve(cycle_column=)` | スケルトン曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`）の Ops |
+| `to_cumulative_curve(cycle_column=)` | 累積曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`）の Ops |
+| `to_hysteresis_table(cycle_column=)` | サイクルごとの履歴エネルギー・最大最小値 | 集計表の Ops |
+| `to_stiffness_table(cycle_column=)` | サイクルごとの割線剛性 | 集計表の Ops |
+| `stiffness(range_start=, range_end=, method=)` | 初期剛性 | `ScalarResult` |
+| `yield_point(method=, offset_value=, ...)` | 降伏点 | `PointResult` |
+
+`cycle_column` を省略すると、荷重の符号反転からサイクルを数えます（`mark_cycles` の既定と同じ）。
 
 ```python
 # サイクルごとの履歴エネルギー
-table = ld_collection.ops.cycle_count().analyze_hysteresis().end()
+table = ld_collection.ops.to_hysteresis_table().end()
 print(table["energy"].values)
 ```
 
