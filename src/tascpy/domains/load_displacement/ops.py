@@ -40,10 +40,10 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
     # ── 解析 ──────────────────────────────────
 
-    def calculate_slopes(self, result_column: Optional[str] = None, unit: Optional[str] = None,
+    def calculate_slopes(self, *, result_column: str, unit: Optional[str] = None,
                          ch: Optional[str] = None) -> Self:
         """区間ごとの傾き (dP/dδ) を新しい列として追加します（単位は "荷重/変位"）"""
-        return self._with_column(result_column or "slope_data", compute_slopes(*self._ld_arrays()), unit, ch,
+        return self._with_column(result_column, compute_slopes(*self._ld_arrays()), unit, ch,
                                  self._ld_unit("/"))
 
     def stiffness(self, *, range_start: float = 0.2, range_end: float = 0.8,
@@ -108,9 +108,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
     # ── サイクル ──────────────────────────────
 
-    def mark_cycles(self, *, column: Optional[str] = None, step: float = 0.5, result_column: Optional[str] = None,
+    def mark_cycles(self, *, column: Optional[str] = None, step: float = 0.5, result_column: str,
                     unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """荷重の符号反転に基づくサイクル番号の列 ("{荷重列}_cycle") を追加します
+        """荷重の符号反転に基づくサイクル番号の列を追加します
 
         サイクルを使う操作（`to_skeleton_curve` など）は cycle_column の省略時に同じ規則でサイクルを数えるため、
         この列は既定と異なる数え方をしたいときや、サイクル番号を列として使いたいときに作ります。
@@ -121,16 +121,16 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """
         source = column or self._c.load_column
         markers = compute_cycle_markers(to_float_array(self._column_values(source)), step=step)
-        return self._with_column(result_column or f"{source}_cycle", markers.tolist(), unit, ch, default_unit="")
+        return self._with_column(result_column, markers.tolist(), unit, ch, default_unit="")
 
     def split_by_cycles(self, *, cycle_column: Optional[str] = None) -> OpsList[Self]:
         """サイクル番号ごとに分割します（cycle_column の省略時は荷重の符号反転から数える）"""
         return self.split_by_integers(self._cycle_markers(cycle_column))
 
     def find_peaks_and_valleys(self, column: Optional[str] = None, distance: int = 1,
-                               threshold: Optional[float] = None, result_column: Optional[str] = None,
+                               threshold: Optional[float] = None, *, result_column: str,
                                unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """ピーク (1) / バレー (-1) / その他 (0) のマーカー列 "peak_valley" を追加します
+        """ピーク (1) / バレー (-1) / その他 (0) のマーカー列を追加します
 
         Args:
             column: 対象列（省略時は荷重列）
@@ -139,7 +139,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """
         values = self._c.load_data if column is None else to_float_array(self._column_values(column))
         flags = compute_peaks_and_valleys(values, distance=distance, threshold=threshold)
-        return self._with_column(result_column or "peak_valley", flags, unit, ch, default_unit="")
+        return self._with_column(result_column, flags, unit, ch, default_unit="")
 
     def _per_cycle(self, cycle_column: Optional[str],
                    func: Callable[[np.ndarray, np.ndarray], tuple],

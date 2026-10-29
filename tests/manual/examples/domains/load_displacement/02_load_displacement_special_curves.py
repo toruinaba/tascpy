@@ -41,7 +41,7 @@ print(f"   - 単位: {collection.units}")
 print("2. 荷重-変位ドメインへの変換")
 ld_collection = (
     collection.ops.as_domain(as_load_displacement, load_column="Force1", displacement_column="Displacement1")
-    .mark_cycles()
+    .mark_cycles(result_column="Force1_cycle")
     .end()
 )
 

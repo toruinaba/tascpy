@@ -314,7 +314,7 @@ class TestLoadDisplacementPlotFunctional:
 
     def test_curve_overlay_plot(self, load_displacement_data):
         """スケルトン曲線・累積曲線のコレクションを元データと重ねてプロットする"""
-        cycled = load_displacement_data.ops.mark_cycles()
+        cycled = load_displacement_data.ops
         skeleton = cycled.to_skeleton_curve().end()
         cumulative = cycled.to_cumulative_curve().end()
 
@@ -336,7 +336,7 @@ class TestLoadDisplacementPlotFunctional:
         降伏点解析結果とスケルトン曲線を一つのグラフに表示
         """
         # スケルトン曲線を生成
-        skeleton_result = load_displacement_data.ops.mark_cycles().to_skeleton_curve().end()
+        skeleton_result = load_displacement_data.ops.to_skeleton_curve().end()
 
         # スケルトン曲線に対して降伏点解析を実行
         # スケルトン曲線に対しては異なるオフセット値を使用して差を生み出す

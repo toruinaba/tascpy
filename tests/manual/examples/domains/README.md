@@ -102,7 +102,7 @@ result = collection.ops.interpolate_at_point(x=5.0, y=5.0, result_column="center
 
 # 補間元の列の値から、ターゲット列の座標位置の値を行ごとに補間（"interp_sensor3" 列）
 result = collection.ops.spatial_interpolation_to_points(
-    source_columns=["sensor1", "sensor2"], target_columns=["sensor3"]
+    source_columns=["sensor1", "sensor2"], target_columns=["sensor3"], result_prefix="interp_"
 ).end()
 
 # 指定行の値を矩形グリッド上に補間（GridResult を返す）

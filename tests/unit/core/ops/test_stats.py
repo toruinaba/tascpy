@@ -25,7 +25,7 @@ class TestMovingAverage:
     """moving_average関数の構造テスト"""
 
     def test_basic_moving_average(self, sample_collection):
-        result = sample_collection.ops.moving_average("normal", window_size=3).end()
+        result = sample_collection.ops.moving_average("normal", window_size=3, result_column="ma3(normal)").end()
         assert isinstance(result, ColumnCollection)
         assert "ma3(normal)" in result.columns
         assert len(result["ma3(normal)"].values) == 7
@@ -37,7 +37,7 @@ class TestMovingAverage:
         assert "smooth_data" in result.columns
 
     def test_with_none_values(self, sample_collection):
-        result = sample_collection.ops.moving_average("with_none", window_size=3).end()
+        result = sample_collection.ops.moving_average("with_none", window_size=3, result_column="ma3(with_none)").end()
         assert isinstance(result, ColumnCollection)
         assert "ma3(with_none)" in result.columns
 
@@ -46,21 +46,21 @@ class TestDetectOutliers:
     """detect_outliers関数の構造テスト"""
 
     def test_basic_outlier_detection(self, sample_collection):
-        result = sample_collection.ops.detect_outliers("with_outliers", window_size=3, threshold=0.5
+        result = sample_collection.ops.detect_outliers("with_outliers", window_size=3, threshold=0.5, result_column="outlier(with_outliers)"
         ).end()
         assert isinstance(result, ColumnCollection)
         assert "outlier(with_outliers)" in result.columns
 
     def test_custom_threshold(self, sample_collection):
-        high_threshold = sample_collection.ops.detect_outliers("with_outliers", threshold=0.8).end()
-        low_threshold = sample_collection.ops.detect_outliers("with_outliers", threshold=0.3).end()
+        high_threshold = sample_collection.ops.detect_outliers("with_outliers", threshold=0.8, result_column="outlier(with_outliers)").end()
+        low_threshold = sample_collection.ops.detect_outliers("with_outliers", threshold=0.3, result_column="outlier(with_outliers)").end()
         assert isinstance(high_threshold, ColumnCollection)
         assert isinstance(low_threshold, ColumnCollection)
 
     def test_operations_integration(self, ops):
         result = (
-            ops.moving_average("normal", window_size=5)
-            .detect_outliers("with_outliers", window_size=3, threshold=0.5)
+            ops.moving_average("normal", window_size=5, result_column="ma5(normal)")
+            .detect_outliers("with_outliers", window_size=3, threshold=0.5, result_column="outlier(with_outliers)")
             .end()
         )
         assert isinstance(result, ColumnCollection)
@@ -68,7 +68,7 @@ class TestDetectOutliers:
         assert "outlier(with_outliers)" in result.columns
 
     def test_with_none_values(self, sample_collection):
-        result = sample_collection.ops.detect_outliers("with_none", window_size=3, threshold=0.5
+        result = sample_collection.ops.detect_outliers("with_none", window_size=3, threshold=0.5, result_column="outlier(with_none)"
         ).end()
         assert isinstance(result, ColumnCollection)
         assert "outlier(with_none)" in result.columns

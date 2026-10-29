@@ -39,7 +39,7 @@ docstring の `Examples` と `docs/tutorial.md` は `pytest` で実行し、表�
 
 数学的ロジックとデータハンドリングを分けることで、バグの場所を切り分けやすくするためです。
 
-例えば `col.ops.average_columns(["A", "B"])` が失敗したとき、
+例えば `col.ops.average_columns(["A", "B"], result_column="平均")` が失敗したとき、
 * numeric のテストが落ちていれば、平均の計算そのものにバグがあります
 * numeric は通り ops が落ちていれば、列の取り出しや欠損値の変換、結果の格納にバグがあります
 

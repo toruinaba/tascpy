@@ -9,4 +9,4 @@ from tascpy.domains import LoadDisplacementCollection
 assert_type(tascpy.ColumnCollection, type[ColumnCollection])
 assert_type(tascpy.LoadDisplacementCollection, type[LoadDisplacementCollection])
 assert_type(tascpy.load("data.txt"), ColumnCollection)
-assert_type(tascpy.ColumnCollection({"A": [1.0]}).ops.add("A", 1.0).end(), ColumnCollection)
+assert_type(tascpy.ColumnCollection({"A": [1.0]}).ops.add("A", 1.0, result_column="A+1.0").end(), ColumnCollection)

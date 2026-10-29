@@ -33,7 +33,7 @@ def test_model_does_not_load_matplotlib_until_plot():
         import sys
         import tascpy
         col = tascpy.ColumnCollection({"A": [1.0, 2.0]})
-        col.ops.add("A", 1.0).end()
+        col.ops.add("A", 1.0, result_column="A+1.0").end()
         tascpy.load, tascpy.LoadDisplacementCollection
         assert "matplotlib" not in sys.modules
 

@@ -51,7 +51,7 @@ class TestCoordinateInterpolation:
 
     def test_interpolate_at_point(self):
         """4 隅から等距離の中心では 4 点の平均になる（z を指定すると z を持つ列だけが補間元）"""
-        result = self.collection.ops.interpolate_at_point(x=5.0, y=5.0, z=0.0).end()
+        result = self.collection.ops.interpolate_at_point(x=5.0, y=5.0, z=0.0, result_column="interp(5, 5, 0)").end()
 
         assert result is not self.collection
         assert isinstance(result, CoordinateCollection)
@@ -95,12 +95,12 @@ class TestCoordinateInterpolation:
 
     def test_interpolate_at_point_mixed_units_is_none(self):
         coll = self.collection.with_meta("point2", unit="mm")
-        result = coll.ops.interpolate_at_point(x=1.0, y=0.0, source_columns=["point1", "point2"]).end()
+        result = coll.ops.interpolate_at_point(x=1.0, y=0.0, source_columns=["point1", "point2"], result_column="interp(1, 0)").end()
         assert result[result.columns[-1]].unit is None
 
     def test_invalid_method(self):
         with pytest.raises(ValueError, match="inverse_distance"):
-            self.collection.ops.interpolate_at_point(x=0.0, y=0.0, method="linear")
+            self.collection.ops.interpolate_at_point(x=0.0, y=0.0, method="linear", result_column="interp(0, 0)")
 
     def test_grid(self):
         """グリッドの値を GridResult として返す"""
@@ -132,7 +132,7 @@ class TestCoordinateInterpolation:
     def test_spatial_interpolation_to_points(self):
         """補間先の列の座標位置で、補間元の列から行ごとに補間する"""
         result = self.collection.ops.spatial_interpolation_to_points(
-            source_columns=self.CORNERS, target_columns=["target_point"],
+            source_columns=self.CORNERS, target_columns=["target_point"], result_prefix="interp_"
         ).end()
 
         assert isinstance(result, CoordinateCollection)
@@ -148,13 +148,13 @@ class TestCoordinateInterpolation:
 
     def test_spatial_interpolation_default_targets(self):
         """補間先を省略すると、補間元以外の座標を持つ列が補間先になる"""
-        result = self.collection.ops.spatial_interpolation_to_points(source_columns=self.CORNERS).end()
+        result = self.collection.ops.spatial_interpolation_to_points(source_columns=self.CORNERS, result_prefix="interp_").end()
         assert result.columns[-1] == "interp_target_point"
         with pytest.raises(ValueError, match="補間先"):
-            self.collection.ops.spatial_interpolation_to_points()
+            self.collection.ops.spatial_interpolation_to_points(result_prefix="interp_")
 
     def test_requires_coordinates(self):
         """座標を持つ列がない場合は ValueError"""
         no_coords = CoordinateCollection({"a": Column("a", unit="m", values=[1.0, 2.0])}, step=[0, 1])
         with pytest.raises(ValueError, match="有効な座標データがありません"):
-            no_coords.ops.interpolate_at_point(x=0.0, y=0.0)
+            no_coords.ops.interpolate_at_point(x=0.0, y=0.0, result_column="interp(0, 0)")

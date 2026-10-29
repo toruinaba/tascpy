@@ -84,7 +84,7 @@ interact(
    display(intermediate.head())  # Jupyterの display 関数で表示
    
    # 続けて処理
-   final_result = intermediate.ops.add("Force", 10).end()
+   final_result = intermediate.ops.add("Force", 10, result_column="Force+10").end()
    ```
 
 3. **コードセルの分割**: 処理ステップごとにセルを分けることで、部分的な実行と結果確認が容易になります

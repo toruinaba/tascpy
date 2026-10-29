@@ -60,11 +60,6 @@ def to_float_array(values: Any) -> np.ndarray:
     return np.array([_to_float(v) for v in arr.ravel()], dtype=float).reshape(arr.shape)
 
 
-def _label(operand: Any) -> str:
-    s = str(operand)
-    return f"({s})" if any(op in s for op in "+-") else s
-
-
 class CoreOps(Generic[C_co]):
     """ColumnCollection に対するメソッドチェーン用の操作クラス
 
@@ -198,16 +193,10 @@ class CoreOps(Generic[C_co]):
 
         return OpsList([self._next(self._c.take(rows)) for rows in row_groups])
 
-    def _binary(self, name: str, func: Callable, value1: Operand, value2: Operand,
-                result_column: Optional[str], unit: Optional[str], ch: Optional[str],
-                default_unit: Optional[str]) -> Self:
+    def _binary(self, func: Callable, value1: Operand, value2: Operand, result_column: str,
+                unit: Optional[str], ch: Optional[str], default_unit: Optional[str]) -> Self:
         values = func(self._numeric(value1), self._numeric(value2))
-        return self._with_column(result_column or f"{_label(value1)}{name}{_label(value2)}",
-                                 values, unit, ch, default_unit)
-
-    def _unary(self, label: str, values: Any, result_column: Optional[str], unit: Optional[str],
-               ch: Optional[str], default_unit: Optional[str]) -> Self:
-        return self._with_column(result_column or label, values, unit, ch, default_unit)
+        return self._with_column(result_column, values, unit, ch, default_unit)
 
     # ── チェーン制御・ドメイン変換 ───────────────────
 
@@ -251,39 +240,39 @@ class CoreOps(Generic[C_co]):
 
     # ── 四則演算 ─────────────────────────────────
 
-    def add(self, value1: Operand, value2: Operand, result_column: Optional[str] = None,
+    def add(self, value1: Operand, value2: Operand, *, result_column: str,
             unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """要素ごとの和を新しい列として追加します
 
         Args:
             value1: 第1引数（列名または数値・配列）
             value2: 第2引数（列名または数値・配列）
-            result_column: 結果列名（省略時は "A+B" 形式）。既存列を指定すると上書き
+            result_column: 結果列名（既存列を指定すると上書き）
             unit: 結果の単位（省略時は最初の列の単位）
             ch: 結果のチャンネル名
 
         Examples:
-            >>> col.ops.add("CH1", "CH2").end()["CH1+CH2"].values
+            >>> col.ops.add("CH1", "CH2", result_column="合計").end()["合計"].values
             array([  0., 150., 300., 450., 600., 750.])
             >>> col.ops.add("CH1", 10.5, result_column="補正後").end()["補正後"].unit
             'ue'
         """
-        return self._binary("+", np.add, value1, value2, result_column, unit, ch,
+        return self._binary(np.add, value1, value2, result_column, unit, ch,
                             self._first_unit(value1, value2))
 
-    def subtract(self, value1: Operand, value2: Operand, result_column: Optional[str] = None,
+    def subtract(self, value1: Operand, value2: Operand, *, result_column: str,
                  unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """要素ごとの差 (value1 - value2) を新しい列として追加します（単位は最初の列の単位）"""
-        return self._binary("-", np.subtract, value1, value2, result_column, unit, ch,
+        return self._binary(np.subtract, value1, value2, result_column, unit, ch,
                             self._first_unit(value1, value2))
 
-    def multiply(self, value1: Operand, value2: Operand, result_column: Optional[str] = None,
+    def multiply(self, value1: Operand, value2: Operand, *, result_column: str,
                  unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """要素ごとの積を新しい列として追加します（単位は列×スカラーならその列の単位、それ以外は None）"""
-        return self._binary("*", np.multiply, value1, value2, result_column, unit, ch,
+        return self._binary(np.multiply, value1, value2, result_column, unit, ch,
                             self._scaled_unit(value1, value2))
 
-    def divide(self, value1: Operand, value2: Operand, result_column: Optional[str] = None,
+    def divide(self, value1: Operand, value2: Operand, *, result_column: str,
                unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """要素ごとの商 (value1 / value2) を新しい列として追加します（単位の規則は multiply と同じ）
 
@@ -300,8 +289,7 @@ class CoreOps(Generic[C_co]):
                 raise ValueError("ゼロによる除算が発生しました")
         with np.errstate(divide="ignore", invalid="ignore"):
             values = np.divide(numerator, denominator)
-        return self._with_column(result_column or f"{_label(value1)}/{_label(value2)}", values, unit, ch,
-                                 self._scaled_unit(value1, value2))
+        return self._with_column(result_column, values, unit, ch, self._scaled_unit(value1, value2))
 
     # ── 微分・積分 ───────────────────────────────
 
@@ -315,7 +303,7 @@ class CoreOps(Generic[C_co]):
         return f"{y_unit}{sep}{x_unit}" if y_unit and x_unit else None
 
     def diff(self, y_column: Operand, x_column: Operand, method: str = "central",
-             result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+             *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """離散微分 dy/dx を新しい列として追加します（欠損を含む場合は全て欠損、単位は "y/x"）
 
         Args:
@@ -325,11 +313,11 @@ class CoreOps(Generic[C_co]):
         """
         y, x, has_missing = self._strict_pair(y_column, x_column)
         values = np.full(len(y), np.nan) if has_missing else f_math.diff(x, y, method=method)
-        return self._with_column(result_column or f"d({y_column})/d({x_column})", values, unit, ch,
+        return self._with_column(result_column, values, unit, ch,
                                  self._compound_unit(y_column, x_column, "/"))
 
     def integrate(self, y_column: Operand, x_column: Operand, method: str = "trapezoid", initial_value: float = 0.0,
-                  result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+                  *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """離散積分 ∫y dx を新しい列として追加します（欠損を含む場合は全て欠損、単位は "y*x"）
 
         Args:
@@ -339,17 +327,17 @@ class CoreOps(Generic[C_co]):
         y, x, has_missing = self._strict_pair(y_column, x_column)
         values = (np.full(len(y), np.nan) if has_missing
                   else f_math.integrate(x, y, method=method, initial_value=initial_value))
-        return self._with_column(result_column or f"∫{y_column}d{x_column}", values, unit, ch,
+        return self._with_column(result_column, values, unit, ch,
                                  self._compound_unit(y_column, x_column, "*"))
 
-    def calculate(self, func: Callable[..., Any], result_column: Optional[str] = None,
+    def calculate(self, func: Callable[..., Any], *, result_column: str,
                   columns: Optional[Dict[str, str]] = None, unit: Optional[str] = None,
                   ch: Optional[str] = None) -> Self:
         """関数の引数名を列名として各列の値（float の numpy 配列、欠損は NaN）を渡し、戻り値を新しい列として追加します
 
         Args:
             func: 列の値を受け取って配列（またはスカラー）を返す関数
-            result_column: 結果列名（省略時は関数名、lambda なら "calculate"）
+            result_column: 結果列名（既存列を指定すると上書き）
             columns: 引数名と列名が異なる場合の対応 {引数名: 列名}（列名が識別子として使えない場合など）
             unit: 結果の単位（省略時は None）
             ch: 結果のチャンネル名
@@ -388,102 +376,94 @@ class CoreOps(Generic[C_co]):
             values = np.full(len(self._c), float(values))
         if values.shape != (len(self._c),):
             raise ValueError(f"関数の戻り値の形 {values.shape} が行数 ({len(self._c)}) と一致しません")
-        name = getattr(func, "__name__", "<lambda>")
-        return self._with_column(result_column or ("calculate" if name == "<lambda>" else name), values, unit, ch)
+        return self._with_column(result_column, values, unit, ch)
 
     # ── 単項変換 ─────────────────────────────────
 
-    def log(self, values: Operand, base: float = math.e, result_column: Optional[str] = None,
+    def log(self, values: Operand, base: float = math.e, *, result_column: str,
             unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """対数を新しい列として追加します（単位は None）"""
-        prefix = "log" if base == math.e else ("log10" if base == 10 else f"log{base}")
-        return self._unary(f"{prefix}({values})", f_math.log(self._numeric(values), base=base),
-                           result_column, unit, ch, None)
+        return self._with_column(result_column, f_math.log(self._numeric(values), base=base), unit, ch)
 
-    def sqrt(self, values: Operand, result_column: Optional[str] = None,
+    def sqrt(self, values: Operand, *, result_column: str,
              unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """平方根を新しい列として追加します（単位は None）"""
         with np.errstate(invalid="ignore"):
             result = np.sqrt(self._numeric(values))
-        return self._unary(f"sqrt({values})", result, result_column, unit, ch, None)
+        return self._with_column(result_column, result, unit, ch)
 
-    def pow(self, values: Operand, exponent: float = 1.0, result_column: Optional[str] = None,
+    def pow(self, values: Operand, exponent: float = 1.0, *, result_column: str,
             unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """べき乗を新しい列として追加します（単位は None）"""
         with np.errstate(invalid="ignore"):
             result = np.power(self._numeric(values), exponent)
-        return self._unary(f"{values}^{exponent}", result, result_column, unit, ch, None)
+        return self._with_column(result_column, result, unit, ch)
 
-    def abs_values(self, values: Operand, result_column: Optional[str] = None,
+    def abs_values(self, values: Operand, *, result_column: str,
                    unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """絶対値を新しい列として追加します"""
-        return self._unary(f"abs({values})", np.abs(self._numeric(values)),
-                           result_column, unit, ch, self._unit_of(values))
+        return self._with_column(result_column, np.abs(self._numeric(values)), unit, ch, self._unit_of(values))
 
     abs = abs_values
 
-    def round_values(self, values: Operand, decimals: int = 0, result_column: Optional[str] = None,
+    def round_values(self, values: Operand, decimals: int = 0, *, result_column: str,
                      unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """四捨五入した値を新しい列として追加します"""
-        return self._unary(f"round({values}, {decimals})",
-                           np.round(self._numeric(values), decimals),
-                           result_column, unit, ch, self._unit_of(values))
+        return self._with_column(result_column, np.round(self._numeric(values), decimals), unit, ch, self._unit_of(values))
 
-    def normalize(self, values: Operand, method: str = "minmax", result_column: Optional[str] = None,
+    def normalize(self, values: Operand, method: str = "minmax", *, result_column: str,
                   unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """正規化した値を新しい列として追加します（単位は ""）
 
         Args:
             method: 正規化手法 ("minmax", "zscore")
         """
-        return self._unary(f"norm_{method}({values})", f_math.normalize(self._numeric(values), method=method),
-                           result_column, unit, ch, "")
+        return self._with_column(result_column, f_math.normalize(self._numeric(values), method=method), unit, ch, "")
 
     # ── 統計 ──────────────────────────────────
 
     def moving_average(self, column: Operand, window_size: int = 3,
-                       result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+                       *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """移動平均を新しい列として追加します
 
         Args:
             window_size: ウィンドウサイズ
         """
         values = f_stats.moving_average(self._numeric(column), window_size=window_size)
-        return self._unary(f"ma{window_size}({column})", values, result_column, unit, ch, self._unit_of(column))
+        return self._with_column(result_column, values, unit, ch, self._unit_of(column))
 
     def detect_outliers(self, column: Operand, window_size: int = 3, threshold: float = 0.5,
                         min_abs_value: float = 1e-10, scale_factor: float = 1.0,
-                        result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+                        *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """外れ値フラグ（0: 正常, 1: 外れ値）を新しい列として追加します"""
         flags = f_stats.detect_outliers(
             self._numeric(column), window_size=window_size, threshold=threshold,
             min_abs_value=min_abs_value, scale_factor=scale_factor,
         )
-        return self._unary(f"outlier({column})", flags, result_column, unit, ch, "")
+        return self._with_column(result_column, flags, unit, ch, "")
 
     def gaussian_filter(self, column: Operand, sigma: float = 1.0, window_size: Optional[int] = None,
-                        result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+                        *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """ガウシアンフィルタで平滑化した値を新しい列として追加します"""
         values = f_stats.gaussian_filter(self._numeric(column), sigma=sigma, window_size=window_size)
-        return self._unary(f"gaussian(col={column},sigma={sigma})", values, result_column, unit, ch,
-                           self._unit_of(column))
+        return self._with_column(result_column, values, unit, ch, self._unit_of(column))
 
     # ── 列の合成 ───────────────────────────────
 
     def switch_by_step(self, v1: Operand, v2: Operand, threshold: Union[int, float] = 0, compare_mode: str = "value",
                        by_step_value: bool = True, tolerance: Optional[float] = None,
-                       result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+                       *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """ステップ値（またはインデックス）の閾値を境に v1 から v2 へ切り替えた列を追加します"""
         values = f_combine.switch_by_step(
             steps=self._c.step, v1=self._raw(v1), v2=self._raw(v2), threshold=threshold,
             compare_mode=compare_mode, by_step_value=by_step_value, tolerance=tolerance,
         )
-        return self._unary(f"switch_by_step({v1},{v2})", values, result_column, unit, ch, self._unit_of(v1))
+        return self._with_column(result_column, values, unit, ch, self._unit_of(v1))
 
     def blend_by_step(self, v1: Operand, v2: Operand, start: Union[int, float] = 0, end: Union[int, float] = 1,
                       compare_mode: str = "value", by_step_value: bool = True, blend_method: str = "linear",
                       tolerance: Optional[float] = None,
-                      result_column: Optional[str] = None, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+                      *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """ステップ区間 [start, end] で v1 から v2 へ滑らかにブレンドした列を追加します
 
         Args:
@@ -493,18 +473,17 @@ class CoreOps(Generic[C_co]):
             steps=self._c.step, v1=self._raw(v1), v2=self._raw(v2), start=start, end=end,
             compare_mode=compare_mode, by_step_value=by_step_value, blend_method=blend_method, tolerance=tolerance,
         )
-        return self._unary(f"blend_by_step({v1},{v2})", values, result_column, unit, ch, self._unit_of(v1))
+        return self._with_column(result_column, values, unit, ch, self._unit_of(v1))
 
-    def sum_columns(self, columns: Optional[List[str]] = None, result_column: Optional[str] = None,
+    def sum_columns(self, columns: Optional[List[str]] = None, *, result_column: str,
                     unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """複数列を行ごとに合計した列を追加します（省略時は全数値列、欠損を含む行は欠損）"""
         names = self._numeric_columns(columns)
         values = np.sum(self._stack_numeric(names, "合計"), axis=0)
-        return self._unary(f"sum_columns({','.join(names)})", values, result_column, unit, ch,
-                           self._first_unit(*names))
+        return self._with_column(result_column, values, unit, ch, self._first_unit(*names))
 
     def average_columns(self, columns: Optional[List[str]] = None, ignore_nan: bool = True,
-                        result_column: Optional[str] = None, unit: Optional[str] = None,
+                        *, result_column: str, unit: Optional[str] = None,
                         ch: Optional[str] = None) -> Self:
         """複数列を行ごとに平均した列を追加します（省略時は全数値列）
 
@@ -521,11 +500,10 @@ class CoreOps(Generic[C_co]):
         with np.errstate(invalid="ignore"), warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)  # 全て欠損の行の nanmean
             values = np.nanmean(stacked, axis=0) if ignore_nan else np.mean(stacked, axis=0)
-        return self._unary(f"average_columns({','.join(names)})", values, result_column, unit, ch,
-                           self._first_unit(*names))
+        return self._with_column(result_column, values, unit, ch, self._first_unit(*names))
 
     def conditional_select(self, v1: Operand, v2: Operand, cond_values: Operand, threshold: Union[int, float] = 0,
-                           compare: str = ">", result_column: Optional[str] = None,
+                           compare: str = ">", *, result_column: str,
                            unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """条件列と閾値の比較結果が真なら v1、偽なら v2 を選んだ列を追加します
 
@@ -536,22 +514,19 @@ class CoreOps(Generic[C_co]):
             v1=self._raw(v1), v2=self._raw(v2), cond_values=self._raw(cond_values),
             threshold=threshold, compare=compare,
         )
-        return self._unary(f"conditional_select({v1},{v2})", values, result_column, unit, ch, self._unit_of(v1))
+        return self._with_column(result_column, values, unit, ch, self._unit_of(v1))
 
     def custom_combine(self, v1: Operand, v2: Operand, combine_func: Callable[[Any, Any], Any],
-                       func_name: Optional[str] = None, result_column: Optional[str] = None,
+                       *, result_column: str,
                        unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """任意の関数で 2 列を合成した列を追加します（単位は unit で指定、省略時は None）
 
         Examples:
-            >>> col.ops.custom_combine("CH1", "CH2", lambda x, y: x - y, func_name="diff").end().columns[-1]
+            >>> col.ops.custom_combine("CH1", "CH2", lambda x, y: x - y, result_column="diff").end().columns[-1]
             'diff'
         """
         values = f_combine.custom_combine(v1=self._raw(v1), v2=self._raw(v2), combine_func=combine_func)
-        name = func_name or getattr(combine_func, "__name__", "<lambda>")
-        if name == "<lambda>":
-            name = "custom_combine"
-        return self._unary(name, values, result_column, unit, ch, None)
+        return self._with_column(result_column, values, unit, ch)
 
     # ── 行の抽出・除外 ─────────────────────────────
 
