@@ -27,7 +27,7 @@ def ld_chain(ld: LoadDisplacementCollection) -> None:
 
 
 def domain_conversion(col: ColumnCollection) -> None:
-    assert_type(col.ops.as_domain(as_load_displacement, "P", "D").create_skeleton_curve(), LoadDisplacementOps)
+    assert_type(col.ops.as_domain(as_load_displacement, "P", "D").skeleton_curve(), LoadDisplacementOps)
     assert_type(col.ops.as_domain(as_strain).calculate_rosette_strains(columns=["a", "b", "c"]), StrainOps)
     assert_type(col.ops.as_domain(as_coordinate).interpolate_at_point(0.0, 0.0).end(), CoordinateCollection)
 

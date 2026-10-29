@@ -7,8 +7,7 @@ import numpy as np
 import pytest
 
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import Column
-from tascpy.core.result import PointResult, XYSeriesResult
+from tascpy.core.result import PointResult
 from tascpy.domains import as_load_displacement
 
 
@@ -22,8 +21,6 @@ def close_figures():
 def ld():
     """解析結果を持つ荷重-変位コレクション（P [kN], d [mm]）"""
     col = ColumnCollection({"P": [0.0, 2.0, 4.0], "d": [0.0, 1.0, 2.0]}, units={"P": "kN", "d": "mm"})
-    col = col.with_result(XYSeriesResult("skeleton_curve", Column("x", [1.0, 2.0]), Column("y", [2.0, 4.0])))
-    col = col.with_result(XYSeriesResult("cumulative_curve", Column("x", [3.0, 4.0]), Column("y", [5.0, 6.0])))
     col = col.with_result(PointResult("yield_point", 1.5, 3.0, metadata={
         "method": "offset", "initial_slope": 2.0, "parameters": {"offset_value": 0.1, "range_start": 0.1, "range_end": 0.5},
     }))
@@ -43,27 +40,11 @@ def test_does_not_show(ld, monkeypatch):
     shown = []
     monkeypatch.setattr(plt, "show", lambda *a, **k: shown.append(True))
     ld.plot.plot_load_displacement()
-    ld.plot.plot_skeleton_curve()
     ld.plot.plot_yield_analysis_details()
     assert shown == []
 
 
-def test_labels_use_units_even_without_original(ld):
-    ax = ld.plot.plot_skeleton_curve(plot_original=False)
-    assert (ax.get_xlabel(), ax.get_ylabel()) == ("d [mm]", "P [kN]")
-    assert [line.get_label() for line in ax.lines] == ["Skeleton Curve"]
-
-
-def test_skeleton_and_cumulative_from_results(ld):
-    ax = ld.plot.plot_skeleton_curve()
-    np.testing.assert_array_equal(_line(ax, "Skeleton Curve").get_xdata(), [1.0, 2.0])
-    np.testing.assert_array_equal(_line(ax, "Original Data").get_ydata(), [0.0, 2.0, 4.0])
-    ax = ld.plot.plot_cumulative_curve()
-    np.testing.assert_array_equal(_line(ax, "Cumulative Curve").get_ydata(), [5.0, 6.0])
-
-
-@pytest.mark.parametrize("method", ["plot_skeleton_curve", "plot_cumulative_curve", "plot_yield_point",
-                                    "plot_yield_analysis_details"])
+@pytest.mark.parametrize("method", ["plot_yield_point", "plot_yield_analysis_details"])
 def test_missing_results_raise(ld_without_results, method):
     with pytest.raises(ValueError):
         getattr(ld_without_results.plot, method)()
@@ -109,12 +90,11 @@ def test_plot_multiple_curves(ld):
     curves = [
         {"x": np.array([1.0]), "y": np.array([2.0]), "kwargs": {"label": "explicit"}},
         {"type": "original", "kwargs": {"label": "original"}},
-        {"type": "skeleton", "kwargs": {"label": "skeleton"}},
         {"type": "unknown"},
     ]
     with pytest.warns(UserWarning, match="未知の曲線"):
         ax = ld.plot.plot_multiple_curves(curves)
-    assert [line.get_label() for line in ax.lines] == ["explicit", "original", "skeleton"]
+    assert [line.get_label() for line in ax.lines] == ["explicit", "original"]
     assert ax.get_xlabel() == "d [mm]"
 
 
@@ -152,9 +132,7 @@ def test_wrong_result_type_raises_type_error():
     from tascpy.core.result import ScalarResult
 
     col = ColumnCollection({"P": [0.0, 1.0], "d": [0.0, 1.0]})
-    col = col.with_result(ScalarResult("skeleton_curve", 1.0)).with_result(ScalarResult("yield_point", 1.0))
+    col = col.with_result(ScalarResult("yield_point", 1.0))
     ld = col.ops.as_domain(as_load_displacement, "P", "d").end()
-    with pytest.raises(TypeError, match="XYSeriesResult"):
-        ld.plot.plot_skeleton_curve()
     with pytest.raises(TypeError, match="PointResult"):
         ld.plot.plot_yield_point()

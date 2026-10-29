@@ -29,7 +29,7 @@ result = (
     ld.ops
     .remove_consecutive_duplicates_across()   # CoreOps の操作
     .cycle_count()                             # LoadDisplacementOps の操作
-    .create_skeleton_curve()
+    .skeleton_curve()                          # 曲線を新しいコレクションとして返す
     .end()                                     # -> LoadDisplacementCollection
 )
 ```
@@ -116,7 +116,6 @@ numeric 関数のテストと、ops メソッドのテストを分けて書き�
 | `_mask(expr)` | polars の式から行マスクを作る（欠損は False） |
 | `_with_result(result)` | `AnalysisResult`（`ScalarResult` など）を `results` に追加 |
 | `_with_point(name, (is_valid, x, y, info), x_unit, y_unit)` | `PointResult` を追加（降伏点など） |
-| `_with_curve(name, x, y, x_unit, y_unit)` | `XYSeriesResult` を追加（スケルトン曲線など） |
 | `_split(row_groups)` | 行グループごとに分割して `OpsList` を返す |
 
 コレクションは不変なので、どのヘルパーも新しいコレクションを返します。

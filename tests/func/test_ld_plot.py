@@ -352,235 +352,23 @@ class TestLoadDisplacementPlotFunctional:
         assert integration_plot_path.stat().st_size > 0
         assert results_path.stat().st_size > 0
 
-    def test_skeleton_curve_plot(self, load_displacement_data):
-        """スケルトン曲線のプロット機能をテスト
+    def test_curve_overlay_plot(self, load_displacement_data):
+        """スケルトン曲線・累積曲線のコレクションを元データと重ねてプロットする"""
+        cycled = load_displacement_data.ops.cycle_count()
+        skeleton = cycled.skeleton_curve().end()
+        cumulative = cycled.cumulative_curve().end()
 
-        荷重-変位データからスケルトン曲線を作成し、プロット機能をテスト
-        """
-        # スケルトン曲線を生成
-        skeleton_result = load_displacement_data.ops.cycle_count().create_skeleton_curve().end()
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        load_displacement_data.plot.plot_load_displacement(ax=ax1, color="gray", alpha=0.5, label="元データ")
+        skeleton.plot.plot_load_displacement(ax=ax1, color="red", linewidth=2, label="スケルトン曲線")
+        cumulative.plot.plot_load_displacement(ax=ax2, color="blue", linewidth=2, label="累積曲線")
 
-        # スケルトン曲線をプロット
-        skeleton_x_data = np.array(skeleton_result.results["skeleton_curve"].to_dict()["data"]["x"])
-        skeleton_y_data = np.array(skeleton_result.results["skeleton_curve"].to_dict()["data"]["y"])
-        skeleton_result.plot.plot_skeleton_curve(
-            skeleton_x=skeleton_x_data,
-            skeleton_y=skeleton_y_data
-        )
-        fig1 = plt.gcf()
+        overlay_path = Path(self.temp_dir) / "curve_overlay.png"
+        fig.savefig(overlay_path)
+        plt.close(fig)
 
-        # プロット結果を保存
-        skeleton_plot_path = Path(self.temp_dir) / "skeleton_curve.png"
-        fig1.savefig(skeleton_plot_path)
-        plt.close(fig1)
-
-        # 元データを表示せずにプロット (plot_originalは廃止されたため複数曲線を駆使する)
-        skeleton_curve_x = skeleton_result.results["skeleton_curve"].to_dict()["data"]["x"]
-        skeleton_curve_y = skeleton_result.results["skeleton_curve"].to_dict()["data"]["y"]
-        # plot_original=False を渡す形式へ
-        skeleton_result.plot.plot_skeleton_curve(
-            skeleton_x=np.array(skeleton_curve_x),
-            skeleton_y=np.array(skeleton_curve_y),
-            plot_original=False
-        )
-        fig2 = plt.gcf()
-        no_original_path = Path(self.temp_dir) / "skeleton_only_curve.png"
-        fig2.savefig(no_original_path)
-        plt.close(fig2)
-
-        # カスタマイズしたプロット（色、線のスタイル、マーカー）
-        original_kwargs = {
-            "color": "gray",
-            "alpha": 0.3,
-            "linestyle": "--",
-            "label": "元データ",
-        }
-        skeleton_kwargs = {
-            "color": "red",
-            "linewidth": 2,
-            "marker": "o",
-            "markersize": 4,
-            "label": "スケルトン曲線",
-        }
-
-        skeleton_result.plot.plot_skeleton_curve(
-            skeleton_x=skeleton_x_data,
-            skeleton_y=skeleton_y_data,
-            original_kwargs=original_kwargs,
-            skeleton_kwargs=skeleton_kwargs,
-        )
-        fig3 = plt.gcf()
-        custom_plot_path = Path(self.temp_dir) / "custom_skeleton_curve.png"
-        fig3.savefig(custom_plot_path)
-        plt.close(fig3)
-
-        # ファイルが作成されたことを確認
-        assert skeleton_plot_path.exists()
-        assert no_original_path.exists()
-        assert custom_plot_path.exists()
-
-        # ファイルサイズが0より大きいことを確認
-        assert skeleton_plot_path.stat().st_size > 0
-        assert no_original_path.stat().st_size > 0
-        assert custom_plot_path.stat().st_size > 0
-
-    def test_cumulative_curve_plot(self, load_displacement_data):
-        """累積曲線のプロット機能をテスト
-
-        荷重-変位データから累積曲線を作成し、プロット機能をテスト
-        """
-        # 累積曲線を生成
-        cumulative_result = load_displacement_data.ops.cycle_count().create_cumulative_curve().end()
-
-        # 累積曲線をプロット
-        cumulative_x_data = np.array(cumulative_result.results["cumulative_curve"].to_dict()["data"]["x"])
-        cumulative_y_data = np.array(cumulative_result.results["cumulative_curve"].to_dict()["data"]["y"])
-        cumulative_result.plot.plot_cumulative_curve(
-            cumulative_x=cumulative_x_data,
-            cumulative_y=cumulative_y_data
-        )
-        fig1 = plt.gcf()
-
-        # プロット結果を保存
-        cumulative_plot_path = Path(self.temp_dir) / "cumulative_curve.png"
-        fig1.savefig(cumulative_plot_path)
-        plt.close(fig1)
-
-        # 元データを表示せずにプロット (plot_originalは廃止されたため複数曲線を駆使する)
-        cumulative_curve_x = cumulative_result.results["cumulative_curve"].to_dict()["data"]["x"]
-        cumulative_curve_y = cumulative_result.results["cumulative_curve"].to_dict()["data"]["y"]
-        # plot_original=False を渡す形式へ
-        cumulative_result.plot.plot_cumulative_curve(
-            cumulative_x=np.array(cumulative_curve_x),
-            cumulative_y=np.array(cumulative_curve_y),
-            plot_original=False
-        )
-        fig2 = plt.gcf()
-        no_original_path = Path(self.temp_dir) / "cumulative_only_curve.png"
-        fig2.savefig(no_original_path)
-        plt.close(fig2)
-
-        # カスタマイズしたプロット
-        original_kwargs = {
-            "color": "gray",
-            "alpha": 0.3,
-            "linestyle": "--",
-            "label": "元データ",
-        }
-        cumulative_kwargs = {
-            "color": "blue",
-            "linewidth": 2,
-            "marker": "s",
-            "markersize": 4,
-            "label": "累積曲線",
-        }
-
-        cumulative_result.plot.plot_cumulative_curve(
-            cumulative_x=cumulative_x_data,
-            cumulative_y=cumulative_y_data,
-            original_kwargs=original_kwargs,
-            cumulative_kwargs=cumulative_kwargs,
-        )
-        fig3 = plt.gcf()
-        custom_plot_path = Path(self.temp_dir) / "custom_cumulative_curve.png"
-        fig3.savefig(custom_plot_path)
-        plt.close(fig3)
-
-        # ファイルが作成されたことを確認
-        assert cumulative_plot_path.exists()
-        assert no_original_path.exists()
-        assert custom_plot_path.exists()
-
-        # ファイルサイズが0より大きいことを確認
-        assert cumulative_plot_path.stat().st_size > 0
-        assert no_original_path.stat().st_size > 0
-        assert custom_plot_path.stat().st_size > 0
-
-    def test_multiple_curves_plot(self, load_displacement_data):
-        """複数曲線の同時プロット機能をテスト
-
-        元データ、スケルトン曲線、累積曲線を1つのグラフに表示
-        """
-        # スケルトン曲線と累積曲線を生成
-        with_skeleton = load_displacement_data.ops.cycle_count().create_skeleton_curve().end()
-        with_both = with_skeleton.ops.create_cumulative_curve().end()
-
-        # 全ての曲線を一つのグラフにプロット
-        curves = [
-            {
-                "type": "original",
-                "kwargs": {"color": "gray", "alpha": 0.5, "label": "元データ"},
-            },
-            {
-                "type": "skeleton",
-                "kwargs": {"color": "red", "linewidth": 2, "label": "スケルトン曲線"},
-            },
-            {
-                "type": "cumulative",
-                "kwargs": {"color": "blue", "linewidth": 2, "label": "累積曲線"},
-            },
-        ]
-
-        with_both.plot.plot_multiple_curves(curves=curves)
-        fig1 = plt.gcf()
-
-        # プロット結果を保存
-        multiple_plot_path = Path(self.temp_dir) / "multiple_curves.png"
-        fig1.savefig(multiple_plot_path)
-        plt.close(fig1)
-
-        # 特定の曲線だけをプロット
-        selected_curves = [
-            {
-                "type": "original",
-                "kwargs": {"color": "lightgray", "alpha": 0.3, "label": "元データ"},
-            },
-            {
-                "type": "cumulative",
-                "kwargs": {"color": "purple", "linewidth": 2.5, "label": "累積曲線"},
-            },
-        ]
-
-        with_both.plot.plot_multiple_curves(curves=selected_curves)
-        fig2 = plt.gcf()
-        selected_plot_path = Path(self.temp_dir) / "selected_curves.png"
-        fig2.savefig(selected_plot_path)
-        plt.close(fig2)
-
-        # カスタム軸上にプロット
-        fig3, (ax3, ax4) = plt.subplots(1, 2, figsize=(12, 5))
-
-        # 左側のプロット：スケルトン曲線のみ
-        skeleton_curves = [
-            {"type": "original", "kwargs": {"color": "gray", "alpha": 0.3}},
-            {"type": "skeleton", "kwargs": {"color": "red", "linewidth": 2}},
-        ]
-        with_both.plot.plot_multiple_curves(curves=skeleton_curves, ax=ax3)
-        ax3.set_title("スケルトン曲線")
-
-        # 右側のプロット：累積曲線のみ
-        cumulative_curves = [
-            {"type": "original", "kwargs": {"color": "gray", "alpha": 0.3}},
-            {"type": "cumulative", "kwargs": {"color": "blue", "linewidth": 2}},
-        ]
-        with_both.plot.plot_multiple_curves(curves=cumulative_curves, ax=ax4)
-        ax4.set_title("累積曲線")
-
-        # プロット結果を保存
-        side_by_side_path = Path(self.temp_dir) / "side_by_side_curves.png"
-        fig3.tight_layout()
-        fig3.savefig(side_by_side_path)
-        plt.close(fig3)
-
-        # ファイルが作成されたことを確認
-        assert multiple_plot_path.exists()
-        assert selected_plot_path.exists()
-        assert side_by_side_path.exists()
-
-        # ファイルサイズが0より大きいことを確認
-        assert multiple_plot_path.stat().st_size > 0
-        assert selected_plot_path.stat().st_size > 0
-        assert side_by_side_path.stat().st_size > 0
+        assert [line.get_label() for line in ax1.lines] == ["元データ", "スケルトン曲線"]
+        assert overlay_path.stat().st_size > 0
 
     def test_plot_yield_with_curves(self, load_displacement_data):
         """降伏点解析とスケルトン曲線を組み合わせたテスト
@@ -588,7 +376,7 @@ class TestLoadDisplacementPlotFunctional:
         降伏点解析結果とスケルトン曲線を一つのグラフに表示
         """
         # スケルトン曲線を生成
-        skeleton_result = load_displacement_data.ops.cycle_count().create_skeleton_curve().end()
+        skeleton_result = load_displacement_data.ops.cycle_count().skeleton_curve().end()
 
         # スケルトン曲線に対して降伏点解析を実行
         # スケルトン曲線に対しては異なるオフセット値を使用して差を生み出す
@@ -604,11 +392,7 @@ class TestLoadDisplacementPlotFunctional:
         load_displacement_data.plot.plot_load_displacement(ax=axs[0, 0])
         axs[0, 0].set_title("元の荷重-変位曲線")
 
-        # スケルトン曲線 (複数曲線としてplotする方式に変更)
-        skeleton_curves = [
-            {"type": "skeleton", "kwargs": {"color": "red"}}
-        ]
-        skeleton_result.plot.plot_multiple_curves(curves=skeleton_curves, ax=axs[0, 1])
+        skeleton_result.plot.plot_load_displacement(ax=axs[0, 1], color="red")
         axs[0, 1].set_title("スケルトン曲線")
 
         # 元データに対する降伏点解析

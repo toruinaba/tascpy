@@ -94,7 +94,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         を降伏点とします。
 
         単調載荷の曲線を前提にしています（`calculate_stiffness` と同じ）。繰り返し載荷のデータでは、
-        スケルトン曲線を求めてから `tascpy.numeric.curve.compute_yield_point` で計算してください。
+        `skeleton_curve()` でスケルトン曲線にしてから求めてください。
 
         Examples:
             >>> pt = ld.ops.find_yield_point(method="offset", offset_value=0.5, range_start=0.1, range_end=0.8).end().results["yield_point"]
@@ -103,9 +103,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
             繰り返し載荷のデータ（`cyclic`）では、スケルトン曲線から求めます。
 
-            >>> from tascpy.numeric.curve import compute_yield_point
-            >>> skeleton = cyclic.ops.cycle_count().create_skeleton_curve().end().results["skeleton_curve"]
-            >>> pt = compute_yield_point(skeleton.x.values, skeleton.y.values, offset_value=0.5, range_start=0.1, range_end=0.5)
+            >>> pt = (cyclic.ops.cycle_count().skeleton_curve()
+            ...       .find_yield_point(offset_value=0.5, range_start=0.1, range_end=0.5).end().results["yield_point"])
             >>> round(pt.x, 2), round(pt.y, 1)
             (3.06, 102.2)
         """
@@ -185,20 +184,43 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
     # ── 特殊曲線 ──────────────────────────────
 
-    def create_skeleton_curve(self, cycle_column: Optional[str] = None, has_decrease: bool = False,
-                              decrease_type: str = "envelope") -> Self:
-        """スケルトン曲線を生成し、結果 "skeleton_curve" (XYSeriesResult) に格納します"""
-        x, y = compute_skeleton_curve(*self._all_cycle_arrays(cycle_column), has_decrease=has_decrease,
-                                      decrease_type=decrease_type)
-        return self._with_curve("skeleton_curve", x, y, *self._curve_units())
+    def skeleton_curve(self, cycle_column: Optional[str] = None, has_decrease: bool = False,
+                       decrease_type: str = "envelope") -> Self:
+        """スケルトン曲線を、荷重・変位の2列と "source_step" 列を持つ新しい荷重-変位コレクションとして返します
 
-    def create_cumulative_curve(self, cycle_column: Optional[str] = None) -> Self:
-        """累積塑性変形-荷重曲線を生成し、結果 "cumulative_curve" (XYSeriesResult) に格納します"""
-        x, y = compute_cumulative_curve(*self._all_cycle_arrays(cycle_column))
-        return self._with_curve("cumulative_curve", x, y, *self._curve_units())
+        変位列はサイクルごとにずらした値です。"source_step" は各点の元データのステップで、
+        他の列は `select(steps=...)` で元データから取り出せます。
 
-    def _curve_units(self) -> Tuple[Optional[str], Optional[str]]:
-        return self._c.displacement.unit, self._c.load.unit
+        Examples:
+            >>> skel = cyclic.ops.cycle_count().skeleton_curve().end()
+            >>> skel.columns
+            ['荷重', '変位', 'source_step']
+            >>> skel["source_step"].values
+            array([ 1.,  2.,  3.,  4., 21., 22., 23., 24.])
+            >>> len(cyclic.ops.select(steps=skel["source_step"].values.tolist()).end())
+            8
+        """
+        return self._curve(*compute_skeleton_curve(*self._all_cycle_arrays(cycle_column), has_decrease=has_decrease,
+                                                   decrease_type=decrease_type, return_index=True))
+
+    def cumulative_curve(self, cycle_column: Optional[str] = None) -> Self:
+        """累積塑性変形-荷重曲線を、`skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
+
+        荷重 0 まで延長した点は元データの行がないため、"source_step" は欠損になります。
+        """
+        return self._curve(*compute_cumulative_curve(*self._all_cycle_arrays(cycle_column), return_index=True))
+
+    def _curve(self, displacement: np.ndarray, load: np.ndarray, rows: np.ndarray) -> Self:
+        c = self._c
+        steps = c.step
+        values = {c.load_column: load, c.displacement_column: displacement}
+        curve = LoadDisplacementCollection(
+            {**{name: values[name] for name in c.columns if name in values},
+             "source_step": [steps[i].item() if i >= 0 else None for i in rows]},
+            load_column=c.load_column, displacement_column=c.displacement_column,
+            meta={name: c[name].meta for name in values}, units={"source_step": ""}, metadata=c.metadata,
+        )
+        return self._next(curve)
 
     def _all_cycle_arrays(self, cycle_column: Optional[str]):
         name = self._cycle_column(cycle_column)

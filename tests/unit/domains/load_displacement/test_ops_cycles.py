@@ -146,13 +146,12 @@ class TestLoadDisplacementUnits:
         )
 
     def test_result_units(self):
-        result = (self.ld.ops.cycle_count().calculate_slopes().calculate_stiffness(0.1, 0.5)
-                  .create_skeleton_curve().end())
+        result = self.ld.ops.cycle_count().calculate_slopes().calculate_stiffness(0.1, 0.5).end()
         assert result["P_cycle"].unit == ""
         assert result["slope_data"].unit == "kN/mm"
         assert result.results["stiffness"].unit == "kN/mm"
-        curve = result.results["skeleton_curve"]
-        assert (curve.x.unit, curve.y.unit) == ("mm", "kN")
+        curve = result.ops.skeleton_curve().end()
+        assert (curve.displacement.unit, curve.load.unit) == ("mm", "kN")
 
     def test_yield_point_units(self):
         point = self.ld.ops.find_yield_point(fail_silently=True).end().results["yield_point"]
