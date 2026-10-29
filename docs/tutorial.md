@@ -149,6 +149,18 @@ array([ 80., 106., 114.,  90.])
 
 1 サイクル目（±2 mm）は弾性範囲なのでエネルギーは 0 です。4 サイクル目は最後に 0 mm へ戻る途中までの部分です。
 
+`to_hysteresis_table` は `split_by_cycles` でサイクルごとに分け、`to_table` で 1 サイクルを 1 行に集約したものです。同じ形で、サイクルごとに好きな値を集約できます。関数が `stiffness` などの単位付きの結果を返すと、単位も列に引き継がれます。
+
+```pycon
+>>> per_cycle = ld.split_by_cycles().to_table(
+...     peak=lambda o: o.end()["荷重"].max(),
+...     secant=lambda o: o.stiffness(range_start=0.0, range_end=1.0, method="secant"),
+... ).end()
+>>> per_cycle.step.tolist(), per_cycle["peak"].values, per_cycle["secant"].unit
+([1, 2, 3, 4], array([ 80., 106., 114.,  90.]), 'kN/mm')
+
+```
+
 ## 7. 描画する
 
 `plot` のメソッドは matplotlib の Axes を返します（表示は呼び出し側で行います。Jupyter では自動で表示されます）。元データとスケルトン曲線は、同じ Axes にそれぞれのコレクションから描画して重ねます。降伏点は `yield_point` の結果を渡して描画します。

@@ -178,3 +178,13 @@ def test_column_adding_ops_require_result_column(call):
         as_load_displacement, load_column="P", displacement_column="d")
     with pytest.raises(TypeError, match="result_column"):
         call(ld)
+
+
+def test_hysteresis_table_matches_split_by_cycles_to_table():
+    ld = ColumnCollection({"P": [5, 10, 5, -5, -10, -5, 5, 15, 5], "d": [0.5, 1, 0.5, -0.5, -1, -0.5, 0.5, 2, 1]},
+                          units={"P": "kN", "d": "mm"}).ops.as_domain(
+        as_load_displacement, load_column="P", displacement_column="d")
+    table = ld.to_hysteresis_table().end()
+    manual = ld.split_by_cycles().to_table(max_load=lambda o: o.end()["P"].max()).end()
+    assert table.step.tolist() == manual.step.tolist()
+    np.testing.assert_allclose(table["max_load"].values, manual["max_load"].values)
