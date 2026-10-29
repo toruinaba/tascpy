@@ -92,10 +92,11 @@ class OpsList(Generic[O]):
 
         columns の各関数は要素の操作オブジェクトを受け取り、スカラー、ScalarResult（単位付きの 1 列）、
         PointResult（"{名前}_x" / "{名前}_y" の 2 列）のいずれかを返します。
+        同じ関数は全要素で同じ種類・同じ単位の値を返す必要があります。
 
         Raises:
-            ValueError: columns を指定しない場合
-            TypeError: 関数がそれ以外の値を返した場合
+            ValueError: columns を指定しない場合、要素が空の場合、要素によって単位が異なる場合、列名が重なる場合
+            TypeError: 関数が使えない値を返した場合、要素によって戻り値の種類が異なる場合
 
         Examples:
             >>> table = col.ops.split_by_integers([1, 1, 1, 2, 2, 2]).to_table(
@@ -105,17 +106,29 @@ class OpsList(Generic[O]):
         """
         if not columns:
             raise ValueError("集約する列を指定してください")
+        if not self._items:
+            raise ValueError("集約する要素がありません")
         values: Dict[str, List[Any]] = {}
         units: Dict[str, Optional[str]] = {}
         for name, func in columns.items():
-            if not self._items:
-                values[name] = []
-            for item in self._items:
-                for column, value, unit in _cells(name, func(item)):
-                    values.setdefault(column, []).append(value)
-                    units.setdefault(column, unit)
-        metadata = self._items[0].end().metadata if self._items else {}
-        return CoreOps(ColumnCollection(values, step=self._keys, units=units, metadata=metadata))
+            layout: Optional[List[Tuple[str, Optional[str]]]] = None
+            for item, key in zip(self._items, self._keys):
+                cells = _cells(name, func(item))
+                current = [(column, unit) for column, _, unit in cells]
+                if layout is None:
+                    layout = current
+                    for column, unit in layout:
+                        if column in values:
+                            raise ValueError(f"to_table の列名 '{column}' が重なっています")
+                        values[column], units[column] = [], unit
+                elif [c for c, _ in current] != [c for c, _ in layout]:
+                    raise TypeError(f"to_table の '{name}' の戻り値の種類が要素によって異なります（キー {key}）")
+                elif current != layout:
+                    raise ValueError(f"to_table の '{name}' の単位が要素によって異なります"
+                                     f"（{[u for _, u in layout]} とキー {key} の {[u for _, u in current]}）")
+                for column, value, _ in cells:
+                    values[column].append(value)
+        return CoreOps(ColumnCollection(values, step=self._keys, units=units, metadata=self._items[0].end().metadata))
 
     def end(self) -> List[Any]:
         """コレクションのリストを返します"""

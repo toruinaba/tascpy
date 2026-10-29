@@ -38,7 +38,7 @@ coll.results   # {名前: AnalysisResult}
 | `coll.step` / `coll.date` / `coll.time` | `np.ndarray`（`date` と `time` は存在しなければ `None`） |
 | `coll.columns` | データ列名のリスト |
 | `coll.units` | `{列名: 単位}` |
-| `coll.results["stiffness"]` | 解析結果 |
+| `coll.results["stiffness"]` | `with_result` で付けた解析結果（ops の値への集約は結果を返すだけで、自動では付けない） |
 
 `coll[...]` は列名だけを受け付けます。チャンネル名や解析結果を暗黙に探すことはしません。
 
