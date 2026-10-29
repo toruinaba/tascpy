@@ -22,15 +22,30 @@ col.ops.add("A", "B")
 | `CoordinateOps(CoreOps)` | `CoordinateCollection` | 座標補間 |
 | `StrainOps(CoordinateOps)` | `StrainCollection` | ロゼット解析、応力、降伏点（座標補間も利用可） |
 
-各コレクションの `ops` プロパティが対応するクラスを返します。操作は全て通常のメソッドとして定義されているため、IDE の補完と型チェックがそのまま効きます。チェーンを続ける操作は `Self` を返し、`end()` でコレクションを取り出します。
+各コレクションの `ops` プロパティが対応するクラスを返します。操作は全て通常のメソッドとして定義されているため、IDE の補完と型チェックがそのまま効きます。
+
+## 操作の種類と命名
+
+操作は戻り値で分け、チェーンの流れが変わるものだけを名前で示します。
+
+| 種類 | 戻り値 | 命名 | 例 |
+|---|---|---|---|
+| 変換（列を足す・行を絞る） | `Self`（チェーンが続く） | 動詞（印なし） | `add`、`select`、`mark_cycles` |
+| 同じデータを別のドメインとして扱う | 別の Ops | `as_*` | `as_domain`、`as_core` |
+| 新しい表への集約 | 別の Ops（新しい表でチェーンが続く） | `to_<名詞>` | `to_skeleton_curve`、`to_hysteresis_table` |
+| 値への集約 | 結果オブジェクトや値（チェーンが終わる） | 名詞 | `stiffness`、`yield_point`、`grid` |
+| 分割 | `OpsList` | `split_*` | `split_by_cycles` |
+
+- 値への集約は結果を `results` に入れず、そのまま返します。保存したいときは呼び出し側が `with_result` で付けます（解析結果がデータの変更に追従しないため、自動では付けません）。
+- サイクル列など、他の操作が作った列を名前から推測しません。省略時は既定の規則でその場で計算し、既存の列を使うときは列名を引数で受け取ります。
+- 解析の条件はキーワード専用引数（`*` 以降）にします。
 
 ```python
-result = (
+point = (
     ld.ops
-    .remove_consecutive_duplicates_across()   # CoreOps の操作
-    .cycle_count()                             # LoadDisplacementOps の操作
-    .skeleton_curve()                          # 曲線を新しいコレクションとして返す
-    .end()                                     # -> LoadDisplacementCollection
+    .remove_consecutive_duplicates_across()   # 変換 (CoreOps)
+    .to_skeleton_curve()                       # 新しい表 (LoadDisplacementOps)
+    .yield_point(offset_value=0.5)             # 値 -> PointResult
 )
 ```
 
@@ -39,7 +54,7 @@ result = (
 ```python
 from tascpy.domains import as_coordinate, as_load_displacement, as_strain
 
-col.ops.as_domain(as_load_displacement, "荷重", "変位")   # -> LoadDisplacementOps
+col.ops.as_domain(as_load_displacement, load_column="荷重", displacement_column="変位")  # -> LoadDisplacementOps
 col.ops.as_domain(as_coordinate, coordinates={...})       # -> CoordinateOps
 col.ops.as_domain(as_strain, rosettes={...})              # -> StrainOps
 ld.ops.as_core()                               # ドメインの設定を外す -> CoreOps
@@ -48,9 +63,10 @@ ld.ops.as_core()                               # ドメインの設定を外す 
 `split_by_integers` / `split_at_indices` / `split_by_cycles` は `OpsList` を返します。
 
 ```python
-parts = ld.ops.cycle_count().split_by_cycles()
-parts.map(lambda o: o.find_yield_point())        # 各要素に操作を適用 -> OpsList
+parts = ld.ops.split_by_cycles()
+parts.map(lambda o: o.moving_average("荷重"))     # 各要素に操作を適用 -> OpsList
 parts.collect(lambda o: o.end()["荷重"].max())    # 値のリスト
+parts.collect(lambda o: o.stiffness())            # 結果オブジェクトのリスト
 parts.filter(lambda c: len(c) > 10)              # コレクションで絞り込み
 parts.concat()                                   # 連結 -> 操作オブジェクト
 parts.end()                                      # コレクションのリスト
@@ -76,10 +92,10 @@ def compute_peak_load(load_data: np.ndarray) -> float:
 class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     ...
 
-    def find_peak_load(self) -> Self:
-        """最大荷重を求め、結果 "peak_load" に格納します"""
+    def peak_load(self) -> ScalarResult:
+        """最大荷重を求めます（単位は荷重の単位）"""
         value = compute_peak_load(self._c.load_data)
-        return self._with_result(ScalarResult(name="peak_load", value=value))
+        return ScalarResult(name="peak_load", value=value, unit=self._c.load.unit)
 ```
 
 列を追加する操作であれば `_with_column` を使います。結果の単位は、明示された `unit` がなければ `default_unit` になります。`default_unit` は [単位の方針](developer_guide_design.md#単位の方針) に従って決め、自明でなければ `None` にします。
@@ -114,11 +130,10 @@ numeric 関数のテストと、ops メソッドのテストを分けて書き�
 | `_with_column(name, values, unit, ch, default_unit=)` | 結果を列として追加・上書き。NaN は欠損 (null) として格納 |
 | `_with_rows(rows, **metadata)` | 行インデックスまたはブールマスクで行を抽出 |
 | `_mask(expr)` | polars の式から行マスクを作る（欠損は False） |
-| `_with_result(result)` | `AnalysisResult`（`ScalarResult` など）を `results` に追加 |
-| `_with_point(name, (is_valid, x, y, info), x_unit, y_unit)` | `PointResult` を追加（降伏点など） |
+| `_point(name, (is_valid, x, y, info), x_unit, y_unit)` | 計算結果を `PointResult` にする（降伏点など。is_valid は metadata に入る） |
 | `_split(row_groups)` | 行グループごとに分割して `OpsList` を返す |
 
-コレクションは不変なので、どのヘルパーも新しいコレクションを返します。
+コレクションは不変なので、コレクションを返すヘルパーはどれも新しいコレクションを返します。
 
 ## 新しいドメインを追加する
 

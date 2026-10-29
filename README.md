@@ -85,19 +85,18 @@ ld = (
     collection.ops
     .as_domain(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
     .remove_consecutive_duplicates_across()
-    .calculate_stiffness(range_start=0.1, range_end=0.5)
-    .find_yield_point(method="offset", offset_value=0.002)  # 0.2%オフセット法
-    .end()
 )
 
-stiffness = ld.results["stiffness"]
+stiffness = ld.stiffness(range_start=0.1, range_end=0.5)        # 値を返してチェーンが終わる
 print(f"初期剛性: {stiffness.value:.2f} {stiffness.unit}")      # 例: kN/mm
-yield_pt = ld.results["yield_point"]
+yield_pt = ld.yield_point(method="offset", offset_value=0.002)  # 0.2%オフセット法
 print(f"降伏荷重: {yield_pt.y:.2f} {yield_pt.y_unit}")
 print(f"降伏変位: {yield_pt.x:.2f} {yield_pt.x_unit}")
 ```
 
-`collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。`as_domain` に変換関数（`tascpy.as_load_displacement` など）を渡してドメインに変換すると、変換の引数とドメイン固有の操作（`find_yield_point` など）も補完されます。
+`collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。`as_domain` に変換関数（`tascpy.as_load_displacement` など）を渡してドメインに変換すると、変換の引数とドメイン固有の操作（`yield_point` など）も補完されます。
+
+繰り返し載荷のデータでは、`ld.to_skeleton_curve()` でスケルトン曲線（新しい荷重-変位コレクション）にしてから `yield_point` などを求めます。
 
 ### 可視化の例
 

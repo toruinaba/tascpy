@@ -110,32 +110,21 @@ import tascpy
 collection = tascpy.load("load_displacement_data.csv", format_name="csv")
 ld_ops = collection.ops.as_domain(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
 
-# 2. 特性解析（初期剛性、降伏点）
-analysis_result = (
-    ld_ops
-    .calculate_stiffness(range_start=0.1, range_end=0.5)  # 結果は results["stiffness"]
-    .find_yield_point(method="offset", offset_value=0.002)  # 結果は results["yield_point"]
-    .end()
-)
-stiffness = analysis_result.results["stiffness"].value
-yield_point = analysis_result.results["yield_point"]
+# 2. 特性解析（初期剛性、降伏点）。どちらも値を返してチェーンが終わる
+stiffness = ld_ops.stiffness(range_start=0.1, range_end=0.5)          # ScalarResult
+yield_point = ld_ops.yield_point(method="offset", offset_value=0.002)  # PointResult
 
 # 3. 可視化（降伏点・初期剛性線・オフセット線を描画）
 fig, ax = plt.subplots(figsize=(10, 8))
-analysis_result.plot.plot_yield_point(
-    yield_disp=yield_point.x,
-    yield_load=yield_point.y,
-    yield_method="offset",
-    initial_slope=yield_point.metadata.get("initial_slope", stiffness),
-    ax=ax,
-)
+ld = ld_ops.end()
+ld.plot.plot_yield_point(yield_point, ax=ax)
 plt.show()
 
 # 4. 結果の出力
-print(f"初期剛性: {stiffness:.2f} kN/mm")
-print(f"降伏荷重: {yield_point.y:.2f} kN")
-print(f"降伏変位: {yield_point.x:.2f} mm")
-print(f"最大荷重: {analysis_result['Force'].max():.2f} kN")
+print(f"初期剛性: {stiffness.value:.2f} {stiffness.unit}")
+print(f"降伏荷重: {yield_point.y:.2f} {yield_point.y_unit}")
+print(f"降伏変位: {yield_point.x:.2f} {yield_point.x_unit}")
+print(f"最大荷重: {ld['Force'].max():.2f} kN")
 ```
 
 ## 補足情報
@@ -208,21 +197,16 @@ ld_ops = (
     .as_domain(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
 )
 
-# 4. 分析と計算
-result = (
-    ld_ops
-    .calculate_stiffness(range_start=0.1, range_end=0.5)
-    .find_yield_point(method="offset", offset_value=0.002)
-    .end()
-)
+# 4. 分析と計算（値を返す操作はチェーンの最後に置く）
+stiffness = ld_ops.stiffness(range_start=0.1, range_end=0.5)
+yield_point = ld_ops.yield_point(method="offset", offset_value=0.002)
 
 # 5. 可視化と結果確認
-result.plot.plot_load_displacement(marker="o", linestyle="-")
+ld_ops.end().plot.plot_load_displacement(marker="o", linestyle="-")
 
-yield_point = result.results["yield_point"]
-print(f"剛性: {result.results['stiffness'].value:.2f} kN/mm")
-print(f"降伏荷重: {yield_point.y:.2f} kN")
-print(f"降伏変位: {yield_point.x:.2f} mm")
+print(f"剛性: {stiffness.value:.2f} {stiffness.unit}")
+print(f"降伏荷重: {yield_point.y:.2f} {yield_point.y_unit}")
+print(f"降伏変位: {yield_point.x:.2f} {yield_point.x_unit}")
 ```
 
 ## ヘルプとドキュメント
