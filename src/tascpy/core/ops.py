@@ -15,7 +15,7 @@ import polars as pl
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import KEEP, Column
-from tascpy.core.result import AnalysisResult, PointResult
+from tascpy.core.result import PointResult
 from tascpy.numeric import combine as f_combine
 from tascpy.numeric import math as f_math
 from tascpy.numeric import stats as f_stats
@@ -177,16 +177,14 @@ class CoreOps(Generic[C_co]):
             name, values, unit=unit if unit is not None else default_unit, ch=KEEP if ch is None else ch,
         ))
 
-    def _with_result(self, result: AnalysisResult) -> Self:
-        return self._next(self._c.with_result(result))
-
-    def _with_point(self, name: str, outcome: tuple, x_unit: Optional[str] = None,
-                    y_unit: Optional[str] = None) -> Self:
-        """(is_valid, x, y, info) 形式の計算結果を PointResult として格納する"""
+    @staticmethod
+    def _point(name: str, outcome: tuple, x_unit: Optional[str] = None,
+               y_unit: Optional[str] = None) -> PointResult:
+        """(is_valid, x, y, info) 形式の計算結果を PointResult にする（is_valid は metadata に入れる）"""
         is_valid, x, y = outcome[0], outcome[1], outcome[2]
         info = dict(outcome[3]) if len(outcome) > 3 else {}
         info["is_valid"] = is_valid
-        return self._with_result(PointResult(name=name, x=x, y=y, x_unit=x_unit, y_unit=y_unit, metadata=info))
+        return PointResult(name=name, x=x, y=y, x_unit=x_unit, y_unit=y_unit, metadata=info)
 
     def _with_rows(self, rows: Any, **metadata: Any) -> Self:
         result = self._c.take(rows)

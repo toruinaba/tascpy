@@ -23,7 +23,7 @@ def cyclic():
 
 @pytest.mark.parametrize("decrease_type", ["envelope", "continuous_only", "both"])
 def test_skeleton_curve_matches_numeric(cyclic, decrease_type):
-    curve = cyclic.ops.skeleton_curve(cycle_column="cycle", has_decrease=True, decrease_type=decrease_type).end()
+    curve = cyclic.ops.to_skeleton_curve(cycle_column="cycle", has_decrease=True, decrease_type=decrease_type).end()
     d, p, rows = compute_skeleton_curve(np.array(DISPS, float), np.array(LOADS, float), np.array(CYCLES),
                                         has_decrease=True, decrease_type=decrease_type, return_index=True)
     np.testing.assert_allclose(curve.displacement_data, d)
@@ -32,7 +32,7 @@ def test_skeleton_curve_matches_numeric(cyclic, decrease_type):
 
 
 def test_skeleton_curve_is_load_displacement_collection(cyclic):
-    curve = cyclic.ops.skeleton_curve(cycle_column="cycle").end()
+    curve = cyclic.ops.to_skeleton_curve(cycle_column="cycle").end()
     assert isinstance(curve, LoadDisplacementCollection)
     assert curve.columns == ["load", "disp", "source_step"]
     assert (curve.load_column, curve.displacement_column) == ("load", "disp")
@@ -43,31 +43,39 @@ def test_skeleton_curve_is_load_displacement_collection(cyclic):
 
 
 def test_skeleton_curve_drops_results(cyclic):
-    with_result = cyclic.ops.calculate_stiffness().end()
-    assert "stiffness" not in with_result.ops.skeleton_curve(cycle_column="cycle").end().results
+    with_result = cyclic.with_result(cyclic.ops.stiffness())
+    assert "stiffness" not in with_result.ops.to_skeleton_curve(cycle_column="cycle").end().results
+
+
+def test_cycle_column_omitted_counts_load_sign_changes(cyclic):
+    omitted = cyclic.ops.to_skeleton_curve().end()
+    explicit = cyclic.ops.mark_cycles().to_skeleton_curve(cycle_column="load_cycle").end()
+    np.testing.assert_allclose(omitted.load_data, explicit.load_data)
+    np.testing.assert_allclose(omitted.displacement_data, explicit.displacement_data)
+    assert "load_cycle" not in cyclic.ops.to_skeleton_curve().end().columns
 
 
 def test_skeleton_curve_does_not_repeat_points(cyclic):
-    curve = cyclic.ops.skeleton_curve(cycle_column="cycle", has_decrease=True, decrease_type="envelope").end()
+    curve = cyclic.ops.to_skeleton_curve(cycle_column="cycle", has_decrease=True, decrease_type="envelope").end()
     steps = curve["source_step"].values
     assert len(np.unique(steps)) == len(steps)
 
 
 def test_skeleton_curve_chains_into_yield_point(cyclic):
-    point = (cyclic.ops.skeleton_curve(cycle_column="cycle")
-             .find_yield_point(range_start=0.1, range_end=0.5, fail_silently=True).end().results["yield_point"])
+    point = (cyclic.ops.to_skeleton_curve(cycle_column="cycle")
+             .yield_point(range_start=0.1, range_end=0.5, fail_silently=True))
     assert (point.x_unit, point.y_unit) == ("mm", "kN")
 
 
 def test_source_step_selects_original_rows(cyclic):
-    curve = cyclic.ops.skeleton_curve(cycle_column="cycle").end()
+    curve = cyclic.ops.to_skeleton_curve(cycle_column="cycle").end()
     rows = cyclic.ops.select(steps=curve["source_step"].values.tolist()).end()
     np.testing.assert_allclose(rows.load_data, curve.load_data)
     assert "strain" in rows.columns
 
 
 def test_cumulative_curve(cyclic):
-    curve = cyclic.ops.cumulative_curve(cycle_column="cycle").end()
+    curve = cyclic.ops.to_cumulative_curve(cycle_column="cycle").end()
     d, p, rows = compute_cumulative_curve(np.array(DISPS, float), np.array(LOADS, float), np.array(CYCLES),
                                           return_index=True)
     assert curve.columns == ["load", "disp", "source_step"]

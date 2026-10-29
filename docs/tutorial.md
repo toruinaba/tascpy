@@ -43,36 +43,45 @@
 
 ## 3. 荷重-変位ドメインに変換する
 
-`as_domain` に変換関数 `tascpy.as_load_displacement` と、荷重列・変位列を渡します。戻り値は荷重-変位ドメインの操作オブジェクトで、`cycle_count` や `skeleton_curve` などの操作が使えるようになります（IDE でも補完されます）。
+`as_domain` に変換関数 `tascpy.as_load_displacement` と、荷重列・変位列を渡します。戻り値は荷重-変位ドメインの操作オブジェクトで、`to_skeleton_curve` や `yield_point` などの操作が使えるようになります（IDE でも補完されます）。
 
 ```pycon
->>> ld = col.ops.as_domain(tascpy.as_load_displacement, "荷重", "変位")
+>>> ld = col.ops.as_domain(tascpy.as_load_displacement, load_column="荷重", displacement_column="変位")
 >>> type(ld).__name__
 'LoadDisplacementOps'
 
 ```
 
-## 4. サイクルを数えてスケルトン曲線を求める
+操作は戻り値によって3種類あり、名前で見分けられます。
 
-`cycle_count` は荷重の符号の反転からサイクル番号の列を追加します。操作はつなげて書き、最後に `end()` でコレクションを取り出します。
+- 列を足す・行を絞るなどの変換（`mark_cycles`、`select` など）は、同じ操作オブジェクトを返してチェーンが続きます。最後に `end()` でコレクションを取り出します。
+- `to_` で始まる操作（`to_skeleton_curve`、`to_hysteresis_table` など）は、新しい表のコレクションに変わります。チェーンはその表で続きます。
+- 名詞の操作（`stiffness`、`yield_point`）は値を求めて返し、チェーンはそこで終わります。
 
-```pycon
->>> cycled = ld.cycle_count().end()
->>> cycled.columns
-['荷重', '変位', '荷重_cycle']
->>> cycled["荷重_cycle"].values[::20]
-array([1., 1., 2., 2., 3., 3., 4.])
+## 4. スケルトン曲線を求める
 
-```
-
-`skeleton_curve` はそのサイクル番号を使ってスケルトン曲線を求め、曲線そのものを新しい荷重-変位コレクションとして返します。列は荷重・変位（サイクルごとにずらした値）と、各点の元データのステップ `source_step` だけで、単位は元の列から引き継ぎます。
+`to_skeleton_curve` はスケルトン曲線を求め、曲線そのものを新しい荷重-変位コレクションとして返します。列は荷重・変位（サイクルごとにずらした値）と、各点の元データのステップ `source_step` だけで、単位は元の列から引き継ぎます。サイクルは荷重の符号の反転から数えます。
 
 ```pycon
->>> skeleton = cycled.ops.skeleton_curve().end()
+>>> skeleton = ld.to_skeleton_curve().end()
 >>> skeleton.columns
 ['荷重', '変位', 'source_step']
 >>> round(float(skeleton.displacement_data.max()), 1), skeleton.displacement.unit, round(float(skeleton.load_data.max()), 1), skeleton.load.unit
 (6.0, 'mm', 114.0, 'kN')
+
+```
+
+サイクル番号を列として見たいときや、数え方を変えたいときは `mark_cycles` で列を作ります。作った列をサイクルを使う操作に使うときは、`cycle_column` で列名を渡します。
+
+```pycon
+>>> cycled = ld.mark_cycles().end()
+>>> cycled.columns
+['荷重', '変位', '荷重_cycle']
+>>> cycled["荷重_cycle"].values[::20]
+array([1., 1., 2., 2., 3., 3., 4.])
+>>> same = cycled.ops.to_skeleton_curve(cycle_column="荷重_cycle").end()
+>>> np.allclose(same.load_data, skeleton.load_data)
+True
 
 ```
 
@@ -87,31 +96,36 @@ array([1., 1., 2., 2., 3., 3., 4.])
 
 ## 5. 剛性と降伏点を求める
 
-剛性と降伏点は単調な曲線を前提にした計算なので、繰り返し載荷のデータではスケルトン曲線から求めます。スケルトン曲線も荷重-変位コレクションなので、そのまま操作をつなげられます。
+剛性と降伏点は単調な曲線を前提にした計算なので、繰り返し載荷のデータではスケルトン曲線から求めます。`stiffness` と `yield_point` は単位付きの結果を返します。
 
 ```pycon
->>> analyzed = (skeleton.ops.calculate_stiffness(range_start=0.1, range_end=0.5)
-...             .find_yield_point(method="offset", offset_value=0.5, range_start=0.1, range_end=0.5).end())
->>> stiffness, point = analyzed.results["stiffness"], analyzed.results["yield_point"]
+>>> stiffness = skeleton.ops.stiffness(range_start=0.1, range_end=0.5)
 >>> round(stiffness.value, 1), stiffness.unit
 (40.0, 'kN/mm')
->>> point.metadata["is_valid"], round(point.x, 2), round(point.y, 1)
-(True, 3.06, 102.2)
+>>> point = skeleton.ops.yield_point(method="offset", offset_value=0.5, range_start=0.1, range_end=0.5)
+>>> point.metadata["is_valid"], round(point.x, 2), point.x_unit, round(point.y, 1), point.y_unit
+(True, 3.06, 'mm', 102.2, 'kN')
 
 ```
 
-初期剛性 40 kN/mm の直線を変位方向に 0.5 mm ずらした直線と、スケルトン曲線の交点が降伏点です。
-
-繰り返し載荷の生データに `calculate_stiffness` や `find_yield_point` をそのまま使うと、範囲に入る除荷途中の点も計算に含まれ、エラーにならずに誤った値になります。初期剛性だけが必要なら、荷重が初めて下がる手前までの最初の載荷区間を抜き出して使えます。
+初期剛性 40 kN/mm の直線を変位方向に 0.5 mm ずらした直線と、スケルトン曲線の交点が降伏点です。チェーンの最後に書くこともできます。
 
 ```pycon
->>> round(ld.calculate_stiffness(range_start=0.1, range_end=0.5).end().results["stiffness"].value, 1)  # 生データのまま（誤り）
+>>> round(ld.to_skeleton_curve().yield_point(offset_value=0.5, range_start=0.1, range_end=0.5).x, 2)
+3.06
+
+```
+
+繰り返し載荷の生データに `stiffness` や `yield_point` をそのまま使うと、範囲に入る除荷途中の点も計算に含まれ、エラーにならずに誤った値になります。初期剛性だけが必要なら、荷重が初めて下がる手前までの最初の載荷区間を抜き出して使うこともできます。
+
+```pycon
+>>> round(ld.stiffness(range_start=0.1, range_end=0.5).value, 1)  # 生データのまま（誤り）
 1.5
 >>> first_loading = col.head(int(np.argmax(np.diff(col["荷重"].values) < 0)) + 1)
 >>> len(first_loading), first_loading["荷重"].max()
 (20, 80.0)
->>> first = first_loading.ops.as_domain(tascpy.as_load_displacement, "荷重", "変位")
->>> round(first.calculate_stiffness(range_start=0.1, range_end=0.5).end().results["stiffness"].value, 1)
+>>> first = first_loading.ops.as_domain(tascpy.as_load_displacement, load_column="荷重", displacement_column="変位")
+>>> round(first.stiffness(range_start=0.1, range_end=0.5).value, 1)
 40.0
 
 ```
@@ -120,10 +134,10 @@ array([1., 1., 2., 2., 3., 3., 4.])
 
 ## 6. サイクルごとに集計する
 
-`analyze_hysteresis` はサイクルごとの履歴エネルギー（ループの面積）と、荷重・変位の最大・最小を表にして返します。表のステップはサイクル番号です。
+`to_hysteresis_table` はサイクルごとの履歴エネルギー（ループの面積）と、荷重・変位の最大・最小を表にして返します。表のステップはサイクル番号です。
 
 ```pycon
->>> table = cycled.ops.analyze_hysteresis().end()
+>>> table = ld.to_hysteresis_table().end()
 >>> table.step.tolist()
 [1, 2, 3, 4]
 >>> table["energy"].values.round(1), table["energy"].unit
@@ -137,23 +151,23 @@ array([ 80., 106., 114.,  90.])
 
 ## 7. 描画する
 
-`plot` のメソッドは matplotlib の Axes を返します（表示は呼び出し側で行います。Jupyter では自動で表示されます）。元データとスケルトン曲線は、同じ Axes にそれぞれのコレクションから描画して重ねます。
+`plot` のメソッドは matplotlib の Axes を返します（表示は呼び出し側で行います。Jupyter では自動で表示されます）。元データとスケルトン曲線は、同じ Axes にそれぞれのコレクションから描画して重ねます。降伏点は `yield_point` の結果を渡して描画します。
 
 ```pycon
->>> ax = cycled.plot.plot_load_displacement(color="gray", label="元データ")
+>>> ax = col.plot.plot(x_column="変位", y_column="荷重", color="gray", label="元データ")
 >>> ax = skeleton.plot.plot_load_displacement(ax=ax, color="red", label="スケルトン曲線")
 >>> ax.get_xlabel(), ax.get_ylabel(), len(ax.lines)
 ('変位 [mm]', '荷重 [kN]', 2)
->>> ax = analyzed.plot.plot_yield_point()  # スケルトン曲線と降伏点
+>>> ax = skeleton.plot.plot_yield_point(point)  # スケルトン曲線と降伏点
 
 ```
 
 ## 8. 保存する
 
-Parquet 形式で保存すると、列の単位に加えて、解析結果とドメインの設定（荷重列・変位列）も復元できます。
+Parquet 形式で保存すると、列の単位とドメインの設定（荷重列・変位列）を復元できます。解析結果も一緒に保存したいときは、`with_result` でコレクションに付けてから保存します。
 
 ```pycon
->>> analyzed.io.to_parquet("skeleton.parquet")
+>>> skeleton.with_result(stiffness).with_result(point).io.to_parquet("skeleton.parquet")
 >>> restored = tascpy.load_parquet("skeleton.parquet")
 >>> type(restored).__name__, restored.load_column, list(restored.results)
 ('LoadDisplacementCollection', '荷重', ['stiffness', 'yield_point'])
@@ -162,7 +176,7 @@ Parquet 形式で保存すると、列の単位に加えて、解析結果とド
 
 ## 9. numpy の配列だけで計算する
 
-`tascpy.numeric` の関数は、tascpy のコレクションを使わずに numpy の配列に直接使えます。サイクル番号を省略すると、荷重の符号の反転から数えます（`cycle_count` と同じ規則です）。結果は 4・5 で求めたものと一致します。
+`tascpy.numeric` の関数は、tascpy のコレクションを使わずに numpy の配列に直接使えます。サイクル番号を省略すると、荷重の符号の反転から数えます（`to_skeleton_curve` と同じ規則です）。結果は 4・5 で求めたものと一致します。
 
 ```pycon
 >>> from tascpy.numeric.curve import compute_yield_point

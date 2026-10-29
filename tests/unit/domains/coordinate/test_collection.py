@@ -143,7 +143,7 @@ class TestCoordinateCollection:
             self._coord(coordinates=str(tmp_path / "missing.json"))
 
 
-def test_find_nearest_neighbors():
+def test_nearest_neighbors():
     """基準列からの距離が近い順に近傍列を返す"""
     collection = CoordinateCollection(
         {name: [1.0, 2.0] for name in ["A", "B", "C", "D"]},
@@ -155,16 +155,12 @@ def test_find_nearest_neighbors():
             "D": {"x": 0.0, "y": 2.0},
         },
     )
-    result = collection.ops.find_nearest_neighbors("A", n_neighbors=2).end()
-    info = result.metadata["coordinate_domain"]["nearest_neighbors_A"]
-    assert info["neighbors"] == ["C", "D"]
-    assert info["distances"] == [1.0, 2.0]
-    assert "A_neighbors" in result.columns
-    assert result.meta["A_neighbors"].attrs["neighbors"] == ["C", "D"]
-    assert "A_neighbors" not in collection.columns
+    neighbors = collection.ops.nearest_neighbors("A", n_neighbors=2)
+    assert neighbors == {"C": 1.0, "D": 2.0}
+    assert list(neighbors) == ["C", "D"]
 
 
-def test_spatial_clustering():
+def test_clusters():
     collection = CoordinateCollection(
         {name: [1.0, 2.0] for name in ["A", "B", "C", "D"]},
         step=[1, 2],
@@ -175,10 +171,8 @@ def test_spatial_clustering():
             "D": {"x": 10.1, "y": 10.0, "z": 0.0},
         },
     )
-    result = collection.ops.spatial_clustering(n_clusters=2).end()
-    assignments = result.metadata["coordinate_domain"]["clustering_result"]["assignments"]
+    assignments = collection.ops.clusters(n_clusters=2)
+    assert set(assignments) == {"A", "B", "C", "D"}
     assert assignments["A"] == assignments["B"]
     assert assignments["C"] == assignments["D"]
     assert assignments["A"] != assignments["C"]
-    assert result.meta["A"].attrs["cluster_id"] == assignments["A"]
-    assert "cluster" in result.columns

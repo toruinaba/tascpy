@@ -102,13 +102,11 @@ class TestCoordinateInterpolation:
         with pytest.raises(ValueError, match="inverse_distance"):
             self.collection.ops.interpolate_at_point(x=0.0, y=0.0, method="linear")
 
-    def test_interpolate_grid(self):
-        """グリッドの値を GridResult として格納する"""
-        result = self.collection.ops.interpolate_grid(
-            x_range=(0.0, 10.0), y_range=(0.0, 10.0), grid_size=(3, 3), source_columns=self.CORNERS,
-        ).end()
+    def test_grid(self):
+        """グリッドの値を GridResult として返す"""
+        grid = self.collection.ops.grid(
+            x_range=(0.0, 10.0), y_range=(0.0, 10.0), grid_size=(3, 3), source_columns=self.CORNERS)
 
-        grid = result.results["grid"]
         np.testing.assert_allclose(grid.x, [0.0, 5.0, 10.0])
         np.testing.assert_allclose(grid.y, [0.0, 5.0, 10.0])
         assert grid.values.shape == (3, 3)
@@ -120,18 +118,16 @@ class TestCoordinateInterpolation:
         assert np.isclose(grid.values[1, 1], 25.0)
         assert grid.unit == "m"
         assert grid.metadata["row"] == 0
-        assert result.columns == self.collection.columns
 
-    def test_interpolate_grid_row_and_name(self):
+    def test_grid_row(self):
         coll = self.collection.with_column("point1", [10.0, 10.0, 10.0, 10.0, 100.0])
-        result = coll.ops.interpolate_grid(
+        grid = coll.ops.grid(
             x_range=(0.0, 0.0), y_range=(0.0, 0.0), grid_size=(1, 1), source_columns=self.CORNERS,
-            row=-1, method="nearest", result_name="last",
-        ).end()
-        assert result.results["last"].values[0, 0] == 100.0
-        assert result.results["last"].metadata["step"] == 4
+            row=-1, method="nearest")
+        assert grid.values[0, 0] == 100.0
+        assert grid.metadata["step"] == 4
         with pytest.raises(IndexError):
-            coll.ops.interpolate_grid((0, 1), (0, 1), row=5)
+            coll.ops.grid(x_range=(0, 1), y_range=(0, 1), row=5)
 
     def test_spatial_interpolation_to_points(self):
         """補間先の列の座標位置で、補間元の列から行ごとに補間する"""

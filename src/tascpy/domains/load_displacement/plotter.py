@@ -1,28 +1,17 @@
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 from matplotlib.axes import Axes
 
 from tascpy.core.plot.plotter import CorePlotter, axis_label
-from tascpy.core.result import AnalysisResult, PointResult
+from tascpy.core.result import PointResult
 
 from . import draw as ld_plot
 
 if TYPE_CHECKING:
     from .collection import LoadDisplacementCollection
-
-R = TypeVar("R", bound=AnalysisResult)
-
-
-def _typed_result(result: Optional[AnalysisResult], name: str, cls: Type[R], missing: str) -> R:
-    """解析結果が存在し、期待した型であることを確かめて返します"""
-    if result is None:
-        raise ValueError(missing)
-    if not isinstance(result, cls):
-        raise TypeError(f"解析結果 '{name}' は {cls.__name__} ではありません ({type(result).__name__})")
-    return result
 
 
 @dataclass
@@ -37,20 +26,11 @@ class _Axes:
     y_unit: Optional[str]
 
 
-@dataclass
-class _Yield:
-    disp: float
-    load: float
-    method: str
-    initial_slope: float
-    parameters: Dict[str, Any]
-
-
 class LoadDisplacementPlotter(CorePlotter):
     """荷重-変位コレクションのプロッター
 
     X 軸・Y 軸の列を省略すると変位列・荷重列を使い、軸ラベルは "列名 [単位]" にします。
-    降伏点は解析結果（results）から取得します。
+    降伏点は `ops.yield_point()` の結果 (PointResult) を渡します。
     """
 
     _collection: "LoadDisplacementCollection"
@@ -66,24 +46,6 @@ class LoadDisplacementPlotter(CorePlotter):
             x_unit=x_col.unit, y_unit=y_col.unit,
         )
 
-    def _yield_point(self, result_prefix: str, yield_disp: Optional[float], yield_load: Optional[float],
-                     yield_method: Optional[str], initial_slope: Optional[float],
-                     yield_parameters: Optional[Dict[str, Any]]) -> _Yield:
-        """引数で指定された値を優先し、指定がなければ解析結果 "{result_prefix}_point" から取得します"""
-        info: Dict[str, Any] = {}
-        if yield_disp is None or yield_load is None:
-            name = f"{result_prefix}_point"
-            point = _typed_result(self._collection.results.get(name), name, PointResult,
-                                  "コレクションに降伏点の解析結果が含まれていません")
-            yield_disp, yield_load = point.x, point.y
-            info = point.metadata or {}
-        return _Yield(
-            disp=float(yield_disp), load=float(yield_load),
-            method=yield_method or info.get("method", "unknown"),
-            initial_slope=initial_slope if initial_slope is not None else info.get("initial_slope", 1.0),
-            parameters=yield_parameters if yield_parameters is not None else info.get("parameters", {}),
-        )
-
     def plot_load_displacement(self, x_column: Optional[str] = None, y_column: Optional[str] = None,
                                ax: Optional[Axes] = None, x_label: Optional[str] = None,
                                y_label: Optional[str] = None, **kwargs: Any) -> Axes:
@@ -91,57 +53,58 @@ class LoadDisplacementPlotter(CorePlotter):
         a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_load_displacement(a.x, a.y, x_label=a.x_label, y_label=a.y_label, ax=ax, **kwargs)
 
-    def plot_yield_point(self, yield_disp: Optional[float] = None, yield_load: Optional[float] = None,
-                         yield_method: Optional[str] = None, initial_slope: Optional[float] = None,
-                         yield_parameters: Optional[Dict[str, Any]] = None, x_column: Optional[str] = None,
+    @staticmethod
+    def _yield_args(point: PointResult) -> tuple:
+        info = point.metadata
+        return (float(point.x), float(point.y), info.get("method", "unknown"), info.get("initial_slope", 1.0),
+                info.get("parameters", {}))
+
+    def plot_yield_point(self, point: PointResult, *, x_column: Optional[str] = None,
                          y_column: Optional[str] = None, x_label: Optional[str] = None,
                          y_label: Optional[str] = None, ax: Optional[Axes] = None,
                          plot_original_data: bool = True, plot_initial_slope: bool = True,
-                         plot_offset_line: bool = True, result_prefix: str = "yield", **kwargs: Any) -> Axes:
-        """降伏点の解析結果を描画します（値の省略時は解析結果 "{result_prefix}_point" を使う）"""
-        yp = self._yield_point(result_prefix, yield_disp, yield_load, yield_method, initial_slope, yield_parameters)
+                         plot_offset_line: bool = True, **kwargs: Any) -> Axes:
+        """降伏点 (`ops.yield_point()` の結果) を、このコレクションの荷重-変位曲線と重ねて描画します
+
+        Examples:
+            >>> ax = ld.plot.plot_yield_point(ld.ops.yield_point(offset_value=0.5, range_start=0.1, range_end=0.8))
+        """
         a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_yield_point(
-            yp.disp, yp.load, yp.method, yp.initial_slope, yp.parameters, x_values=a.x, y_values=a.y,
+            *self._yield_args(point), x_values=a.x, y_values=a.y,
             x_label=a.x_label, y_label=a.y_label, ax=ax, plot_original_data=plot_original_data,
             plot_initial_slope=plot_initial_slope, plot_offset_line=plot_offset_line, **kwargs,
         )
 
-    def plot_yield_analysis_details(self, yield_disp: Optional[float] = None, yield_load: Optional[float] = None,
-                                    yield_method: Optional[str] = None, initial_slope: Optional[float] = None,
-                                    yield_parameters: Optional[Dict[str, Any]] = None,
-                                    x_column: Optional[str] = None, y_column: Optional[str] = None,
-                                    x_label: Optional[str] = None, y_label: Optional[str] = None,
-                                    ax: Optional[Axes] = None, plot_original: bool = True,
-                                    result_prefix: str = "yield", **kwargs: Any) -> Axes:
+    def plot_yield_analysis_details(self, point: PointResult, *, x_column: Optional[str] = None,
+                                    y_column: Optional[str] = None, x_label: Optional[str] = None,
+                                    y_label: Optional[str] = None, ax: Optional[Axes] = None,
+                                    plot_original: bool = True, **kwargs: Any) -> Axes:
         """降伏点の図に、初期勾配の計算範囲と降伏点の数値（単位付き）を加えて描画します"""
-        yp = self._yield_point(result_prefix, yield_disp, yield_load, yield_method, initial_slope, yield_parameters)
         a = self._ld_axes(x_column, y_column, x_label, y_label)
         return ld_plot.plot_yield_analysis_details(
-            yp.disp, yp.load, yp.method, yp.initial_slope, yp.parameters, x_values=a.x, y_values=a.y,
+            *self._yield_args(point), x_values=a.x, y_values=a.y,
             x_label=a.x_label, y_label=a.y_label, ax=ax, x_unit=a.x_unit, y_unit=a.y_unit,
             plot_original_data=plot_original, **kwargs,
         )
 
-    def compare_yield_methods(self, methods: Optional[List[Dict[str, Any]]] = None,
+    def compare_yield_methods(self, methods: Optional[List[Dict[str, Any]]] = None, *,
                               x_column: Optional[str] = None, y_column: Optional[str] = None,
                               x_label: Optional[str] = None, y_label: Optional[str] = None,
                               ax: Optional[Axes] = None, **kwargs: Any) -> Axes:
         """複数の手法で降伏点を求めて重ねて描画します（求められなかった手法は警告を出して飛ばす）
 
         Args:
-            methods: find_yield_point に渡す引数のリスト（省略時は offset と general）
+            methods: `ops.yield_point` に渡す引数のリスト（省略時は offset と general）
         """
         defaults: List[Dict[str, Any]] = [{"method": "offset"}, {"method": "general"}]
         results = []
         for params in defaults if methods is None else methods:
-            params = {k: v for k, v in params.items() if k != "result_prefix"}
             try:
-                found = self._collection.ops.find_yield_point(**params).end().results.get("yield_point")
+                point = self._collection.ops.yield_point(**params)
             except ValueError as e:
                 warnings.warn(f"降伏点を求められませんでした {params}: {e}", stacklevel=2)
                 continue
-            point = _typed_result(found, "yield_point", PointResult, "find_yield_point が結果を返しませんでした")
             md = point.metadata
             results.append({
                 "yield_disp": point.x, "yield_load": point.y, "method": md.get("method"),

@@ -24,10 +24,10 @@ class TestLoadDisplacementCycles:
         # 荷重-変位コレクションを作成
         self.ld_collection = collection.ops.as_domain(as_load_displacement).end()
 
-    def test_cycle_count_basic(self):
-        """cycle_count関数の基本動作テスト"""
-        # cycle_count関数を呼び出し
-        result = self.ld_collection.ops.cycle_count().end()
+    def test_mark_cycles_basic(self):
+        """mark_cyclesの基本動作テスト"""
+        # mark_cyclesを呼び出し
+        result = self.ld_collection.ops.mark_cycles().end()
 
         # 結果がLoadDisplacementCollectionであることを確認
         assert isinstance(result, LoadDisplacementCollection)
@@ -42,14 +42,14 @@ class TestLoadDisplacementCycles:
         expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2]
         np.testing.assert_array_equal(cycles, expected_cycles)
 
-    def test_cycle_count_with_custom_column(self):
-        """カスタムカラム名でのcycle_count関数テスト"""
+    def test_mark_cycles_with_custom_column(self):
+        """カスタムカラム名でのmark_cyclesテスト"""
         # カスタムカラム名でコレクションを作成
         custom_collection = ColumnCollection({"force": self.loads, "disp": self.displacements}, step=self.steps)
         ld_custom = custom_collection.ops.as_domain(as_load_displacement, "force", "disp").end()
 
-        # カスタム結果列名を指定してcycle_count関数を呼び出し
-        result = ld_custom.ops.cycle_count(result_column="cycle_marker").end()
+        # カスタム結果列名を指定してmark_cyclesを呼び出し
+        result = ld_custom.ops.mark_cycles(result_column="cycle_marker").end()
 
         # 指定した列が追加されていることを確認
         assert "cycle_marker" in result.columns
@@ -59,11 +59,11 @@ class TestLoadDisplacementCycles:
         expected_cycles = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2]
         np.testing.assert_array_equal(cycles, expected_cycles)
 
-    def test_cycle_count_with_custom_step(self):
-        """カスタムステップ増分でのcycle_count関数テスト"""
+    def test_mark_cycles_with_custom_step(self):
+        """カスタムステップ増分でのmark_cyclesテスト"""
         # ステップ増分を1.0に設定（デフォルトは0.5）
         # 引数名を'step_increment'から'step'に修正
-        result = self.ld_collection.ops.cycle_count(step=1.0).end()
+        result = self.ld_collection.ops.mark_cycles(step=1.0).end()
 
         # サイクル列の値を確認（列名はload_cycle）
         cycles = result["load_cycle"].values
@@ -73,7 +73,7 @@ class TestLoadDisplacementCycles:
         np.testing.assert_array_equal(cycles, expected_cycles)
 
         # ステップ増分を0.25に設定
-        result = self.ld_collection.ops.cycle_count(step=0.25).end()
+        result = self.ld_collection.ops.mark_cycles(step=0.25).end()
 
         # サイクル列の値を確認
         cycles = result["load_cycle"].values
@@ -85,7 +85,7 @@ class TestLoadDisplacementCycles:
     def test_split_by_cycles_basic(self):
         """split_by_cycles関数の基本動作テスト"""
         # まずサイクル列を追加
-        with_cycles = self.ld_collection.ops.cycle_count().end()
+        with_cycles = self.ld_collection.ops.mark_cycles().end()
 
         # split_by_cycles関数を呼び出し
         result = with_cycles.ops.split_by_cycles().end()
@@ -100,7 +100,7 @@ class TestLoadDisplacementCycles:
     def test_split_by_cycles_custom_column(self):
         """カスタムサイクル列でのsplit_by_cycles関数テスト"""
         # カスタム列名でサイクル列を追加
-        with_cycles = self.ld_collection.ops.cycle_count(result_column="cycle_marker").end()
+        with_cycles = self.ld_collection.ops.mark_cycles(result_column="cycle_marker").end()
 
         # カスタム列名を指定してsplit_by_cycles関数を呼び出し
         result = with_cycles.ops.split_by_cycles(cycle_column="cycle_marker").end()
@@ -108,13 +108,13 @@ class TestLoadDisplacementCycles:
         assert [len(c) for c in result] == [8, 2]
 
     def test_split_by_cycles_without_cycle_column(self):
-        """サイクル列がないときのsplit_by_cycles関数テスト"""
-        # サイクル列を追加せずに直接split_by_cyclesを呼び出し
-        # 内部でエラーになることを確認
-        with pytest.raises(KeyError, match="サイクル列が指定されておらず、自動検出もできませんでした。"):
-            result = self.ld_collection.ops.split_by_cycles().end()
+        """サイクル列を省略すると、荷重の符号反転から数えたサイクルで分割する"""
+        omitted = [len(c) for c in self.ld_collection.ops.split_by_cycles().end()]
+        marked = self.ld_collection.ops.mark_cycles().end()
+        explicit = [len(c) for c in marked.ops.split_by_cycles(cycle_column=f"{marked.load_column}_cycle").end()]
+        assert omitted == explicit
 
-    def test_cycle_count_zero_crossing(self):
+    def test_mark_cycles_zero_crossing(self):
         """ゼロ交差でのサイクル増加テスト"""
         # 特殊なケース：0を交差するケース（正->負、負->正）
         steps = list(range(7))
@@ -125,7 +125,7 @@ class TestLoadDisplacementCycles:
         ld_collection = collection.ops.as_domain(as_load_displacement).end()
 
         # サイクル計算
-        result = ld_collection.ops.cycle_count().end()
+        result = ld_collection.ops.mark_cycles().end()
         # 列名をcycleからload_cycleに修正
         cycles = result["load_cycle"].values
 
@@ -146,24 +146,25 @@ class TestLoadDisplacementUnits:
         )
 
     def test_result_units(self):
-        result = self.ld.ops.cycle_count().calculate_slopes().calculate_stiffness(0.1, 0.5).end()
+        ops = self.ld.ops.mark_cycles().calculate_slopes()
+        result = ops.end()
         assert result["P_cycle"].unit == ""
         assert result["slope_data"].unit == "kN/mm"
-        assert result.results["stiffness"].unit == "kN/mm"
-        curve = result.ops.skeleton_curve().end()
+        assert ops.stiffness(range_start=0.1, range_end=0.5).unit == "kN/mm"
+        curve = ops.to_skeleton_curve().end()
         assert (curve.displacement.unit, curve.load.unit) == ("mm", "kN")
 
     def test_yield_point_units(self):
-        point = self.ld.ops.find_yield_point(fail_silently=True).end().results["yield_point"]
+        point = self.ld.ops.yield_point(fail_silently=True)
         assert (point.x_unit, point.y_unit) == ("mm", "kN")
 
     def test_hysteresis_table(self):
-        table = self.ld.ops.cycle_count().analyze_hysteresis().end()
+        table = self.ld.ops.mark_cycles().to_hysteresis_table().end()
         assert "cycle" not in table.columns
         assert table.step.tolist() == sorted(set(table.step.tolist()))
         assert table.units == {"energy": "kN*mm", "max_load": "kN", "min_load": "kN",
                                "max_disp": "mm", "min_disp": "mm"}
 
     def test_stiffness_degradation_table(self):
-        table = self.ld.ops.cycle_count().analyze_stiffness_degradation().end()
+        table = self.ld.ops.mark_cycles().to_stiffness_table().end()
         assert table.units == {"stiffness": "kN/mm"}

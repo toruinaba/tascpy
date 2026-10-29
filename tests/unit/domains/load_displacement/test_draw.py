@@ -66,11 +66,9 @@ def sample_load_displacement_data():
 
 
 @pytest.fixture
-def sample_with_yield_point(sample_load_displacement_data):
-    """降伏点情報を含むサンプルデータ"""
-    # オフセット法で降伏点を計算
-    result = sample_load_displacement_data.ops.find_yield_point(method="offset", offset_value=0.002).end()
-    return result
+def offset_yield_point(sample_load_displacement_data):
+    """オフセット法で求めた降伏点"""
+    return sample_load_displacement_data.ops.yield_point(method="offset", offset_value=0.002)
 
 
 @pytest.fixture
@@ -152,7 +150,7 @@ class TestPlotLoadDisplacement:
 
     def test_overlay_skeleton_curve(self, sample_with_cyclic_data):
         """スケルトン曲線のコレクションを元データと同じ Axes に重ねて描画できる"""
-        skeleton = sample_with_cyclic_data.ops.skeleton_curve(cycle_column="cycle").end()
+        skeleton = sample_with_cyclic_data.ops.to_skeleton_curve(cycle_column="cycle").end()
         ax = sample_with_cyclic_data.plot.plot_load_displacement(label="original")
         skeleton.plot.plot_load_displacement(ax=ax, label="skeleton", color="red")
 
@@ -166,9 +164,9 @@ class TestPlotLoadDisplacement:
 class TestPlotYieldPoint:
     """plot_yield_point関数のテスト"""
 
-    def test_yield_point_visualization(self, sample_with_yield_point):
+    def test_yield_point_visualization(self, sample_load_displacement_data, offset_yield_point):
         """降伏点の可視化テスト"""
-        result_collection = sample_with_yield_point.plot.plot_yield_point()
+        sample_load_displacement_data.plot.plot_yield_point(offset_yield_point)
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -187,11 +185,9 @@ class TestPlotYieldPoint:
 
         plt.close(fig)
 
-    def test_without_original_data(self, sample_with_yield_point):
+    def test_without_original_data(self, sample_load_displacement_data, offset_yield_point):
         """元データをプロットせずに降伏点のみ表示するテスト"""
-        result_collection = sample_with_yield_point.plot.plot_yield_point(
-            plot_original_data=False
-        )
+        sample_load_displacement_data.plot.plot_yield_point(offset_yield_point, plot_original_data=False)
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -214,9 +210,9 @@ class TestPlotYieldPoint:
     def test_general_yield_method(self, sample_load_displacement_data):
         """一般降伏法による降伏点表示のテスト"""
         # 一般降伏法で降伏点を計算
-        general_result = sample_load_displacement_data.ops.find_yield_point(method="general", factor=0.33).end()
+        general_point = sample_load_displacement_data.ops.yield_point(method="general", factor=0.33)
 
-        result_collection = general_result.plot.plot_yield_point()
+        sample_load_displacement_data.plot.plot_yield_point(general_point)
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -236,9 +232,9 @@ class TestPlotYieldPoint:
 class TestPlotYieldAnalysisDetails:
     """plot_yield_analysis_details関数のテスト"""
 
-    def test_analysis_details(self, sample_with_yield_point):
+    def test_analysis_details(self, sample_load_displacement_data, offset_yield_point):
         """降伏点解析詳細表示のテスト"""
-        result_collection = sample_with_yield_point.plot.plot_yield_analysis_details()
+        sample_load_displacement_data.plot.plot_yield_analysis_details(offset_yield_point)
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -263,13 +259,6 @@ class TestPlotYieldAnalysisDetails:
 
         plt.close(fig)
 
-    def test_error_without_yield_data(self, sample_load_displacement_data):
-        """降伏点情報がない場合のエラーテスト"""
-        with pytest.raises(
-            ValueError, match="コレクションに降伏点の解析結果が含まれていません"
-        ):
-            sample_load_displacement_data.plot.plot_yield_analysis_details()
-
 
 class TestCompareYieldMethods:
     """compare_yield_methods関数のテスト"""
@@ -277,17 +266,9 @@ class TestCompareYieldMethods:
     def test_methods_comparison(self, sample_load_displacement_data):
         """複数の降伏点計算手法の比較テスト"""
         methods = [
-            {
-                "method": "offset",
-                "offset_value": 0.002,
-                "result_prefix": "yield_offset_small",
-            },
-            {
-                "method": "offset",
-                "offset_value": 0.005,
-                "result_prefix": "yield_offset_large",
-            },
-            {"method": "general", "factor": 0.33, "result_prefix": "yield_general"},
+            {"method": "offset", "offset_value": 0.002},
+            {"method": "offset", "offset_value": 0.005},
+            {"method": "general", "factor": 0.33},
         ]
 
         result_collection = sample_load_displacement_data.plot.compare_yield_methods(

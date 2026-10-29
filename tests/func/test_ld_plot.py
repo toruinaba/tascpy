@@ -110,9 +110,9 @@ class TestLoadDisplacementPlotFunctional:
         各プロット機能を順番に使用し、一連のワークフローをテスト
         """
         # 降伏点解析
-        offset_result = load_displacement_data.ops.find_yield_point(method="offset", offset_value=0.002).end()
+        offset_result = load_displacement_data.ops.yield_point(method="offset", offset_value=0.002)
 
-        general_result = load_displacement_data.ops.find_yield_point(method="general", factor=0.33).end()
+        general_result = load_displacement_data.ops.yield_point(method="general", factor=0.33)
 
         # 基本的な荷重-変位プロット
         load_displacement_data.plot.plot_load_displacement()
@@ -123,13 +123,8 @@ class TestLoadDisplacementPlotFunctional:
 
         # オフセット法による降伏点プロット
         # 解析結果から値を抽出して渡す
-        offset_yp = offset_result.results["yield_point"]
         load_displacement_data.plot.plot_yield_point(
-            yield_disp=offset_yp.x,
-            yield_load=offset_yp.y,
-            yield_method=offset_yp.metadata["method"],
-            initial_slope=offset_yp.metadata["initial_slope"],
-            yield_parameters=offset_yp.metadata.get("parameters", {})
+            offset_result
         )
         fig2 = plt.gcf()
         offset_plot_path = Path(self.temp_dir) / "offset_yield_plot.png"
@@ -137,13 +132,8 @@ class TestLoadDisplacementPlotFunctional:
         plt.close(fig2)
 
         # 一般降伏法による降伏点プロット
-        general_yp = general_result.results["yield_point"]
         load_displacement_data.plot.plot_yield_point(
-            yield_disp=general_yp.x,
-            yield_load=general_yp.y,
-            yield_method=general_yp.metadata["method"],
-            initial_slope=general_yp.metadata["initial_slope"],
-            yield_parameters=general_yp.metadata.get("parameters", {})
+            general_result
         )
         fig3 = plt.gcf()
         general_plot_path = Path(self.temp_dir) / "general_yield_plot.png"
@@ -152,11 +142,7 @@ class TestLoadDisplacementPlotFunctional:
 
         # 詳細解析情報プロット
         load_displacement_data.plot.plot_yield_analysis_details(
-            yield_disp=offset_yp.x,
-            yield_load=offset_yp.y,
-            yield_method=offset_yp.metadata["method"],
-            initial_slope=offset_yp.metadata["initial_slope"],
-            yield_parameters=offset_yp.metadata.get("parameters", {})
+            offset_result
         )
         fig4 = plt.gcf()
         details_plot_path = Path(self.temp_dir) / "yield_analysis_details.png"
@@ -168,14 +154,12 @@ class TestLoadDisplacementPlotFunctional:
             {
                 "method": "offset",
                 "offset_value": 0.002,
-                "result_prefix": "yield_offset",
             },
             {
                 "method": "offset",
                 "offset_value": 0.005,
-                "result_prefix": "yield_offset_large",
             },
-            {"method": "general", "factor": 0.33, "result_prefix": "yield_general"},
+            {"method": "general", "factor": 0.33},
         ]
 
         load_displacement_data.plot.compare_yield_methods(methods=methods)
@@ -218,21 +202,15 @@ class TestLoadDisplacementPlotFunctional:
         ax1.grid(True, linestyle="--", alpha=0.5)
 
         # 異なる範囲設定での降伏点計算
-        custom_result = load_displacement_data.ops.find_yield_point(
+        custom_result = load_displacement_data.ops.yield_point(
             method="offset",
             offset_value=0.001,
             range_start=0.2,
-            range_end=0.4,
-        ).end()
+            range_end=0.4)
 
         # カスタマイズされた降伏点プロット
-        custom_yp = custom_result.results["yield_point"]
         load_displacement_data.plot.plot_yield_analysis_details(
-            yield_disp=custom_yp.x,
-            yield_load=custom_yp.y,
-            yield_method=custom_yp.metadata["method"],
-            initial_slope=custom_yp.metadata["initial_slope"],
-            yield_parameters=custom_yp.metadata.get("parameters", {}),
+            custom_result,
             ax=ax2, color="green", marker="s", linestyle="-."
         )
         ax2.set_title("Custom Yield Analysis")
@@ -251,30 +229,27 @@ class TestLoadDisplacementPlotFunctional:
         """実用的なデータ解析フローの統合テスト"""
 
         # 3つの異なる降伏点定義でデータを解析
-        offset_small = load_displacement_data.ops.find_yield_point(
+        offset_small = load_displacement_data.ops.yield_point(
             method="offset",
-            offset_value=0.001,
-        ).end()
+            offset_value=0.001)
 
-        offset_standard = load_displacement_data.ops.find_yield_point(
+        offset_standard = load_displacement_data.ops.yield_point(
             method="offset",
-            offset_value=0.002,
-        ).end()
+            offset_value=0.002)
 
-        general = load_displacement_data.ops.find_yield_point(
+        general = load_displacement_data.ops.yield_point(
             method="general",
-            factor=0.33,
-        ).end()
+            factor=0.33)
 
         # 降伏解析結果の詳細を取得
-        small_yield_data = offset_small.results["yield_point"].metadata
-        standard_yield_data = offset_standard.results["yield_point"].metadata
-        general_yield_data = general.results["yield_point"].metadata
+        small_yield_data = offset_small.metadata
+        standard_yield_data = offset_standard.metadata
+        general_yield_data = general.metadata
 
         # 結果の比較
-        small_yield_load = offset_small.results["yield_point"].y
-        standard_yield_load = offset_standard.results["yield_point"].y
-        general_yield_load = general.results["yield_point"].y
+        small_yield_load = offset_small.y
+        standard_yield_load = offset_standard.y
+        general_yield_load = general.y
 
         # オフセット値が増えると降伏荷重も増えるはず
         assert small_yield_load <= standard_yield_load
@@ -286,35 +261,20 @@ class TestLoadDisplacementPlotFunctional:
         load_displacement_data.plot.plot_load_displacement(ax=axs[0, 0])
         axs[0, 0].set_title("Raw Load-Displacement Data")
 
-        offset_small_yp = offset_small.results["yield_point"]
         load_displacement_data.plot.plot_yield_analysis_details(
-            yield_disp=offset_small_yp.x,
-            yield_load=offset_small_yp.y,
-            yield_method=offset_small_yp.metadata["method"],
-            initial_slope=offset_small_yp.metadata["initial_slope"],
-            yield_parameters=offset_small_yp.metadata.get("parameters", {}),
+            offset_small,
             ax=axs[0, 1]
         )
         axs[0, 1].set_title("Offset Method (0.1% Strain)")
 
-        offset_std_yp = offset_standard.results["yield_point"]
         load_displacement_data.plot.plot_yield_analysis_details(
-            yield_disp=offset_std_yp.x,
-            yield_load=offset_std_yp.y,
-            yield_method=offset_std_yp.metadata["method"],
-            initial_slope=offset_std_yp.metadata["initial_slope"],
-            yield_parameters=offset_std_yp.metadata.get("parameters", {}),
+            offset_standard,
             ax=axs[1, 0]
         )
         axs[1, 0].set_title("Offset Method (0.2% Strain)")
 
-        general_yp_int = general.results["yield_point"]
         load_displacement_data.plot.plot_yield_analysis_details(
-            yield_disp=general_yp_int.x,
-            yield_load=general_yp_int.y,
-            yield_method=general_yp_int.metadata["method"],
-            initial_slope=general_yp_int.metadata["initial_slope"],
-            yield_parameters=general_yp_int.metadata.get("parameters", {}),
+            general,
             ax=axs[1, 1]
         )
         axs[1, 1].set_title("General Yield Method (33% Slope)")
@@ -335,13 +295,13 @@ class TestLoadDisplacementPlotFunctional:
                 "Method,Offset/Factor,Yield Load (kN),Yield Displacement (mm),Initial Slope (kN/mm)\n"
             )
             f.write(
-                f"Offset,0.001,{offset_small.results['yield_point'].y:.2f},{offset_small.results['yield_point'].x:.4f},{small_yield_data['initial_slope']:.2f}\n"
+                f"Offset,0.001,{offset_small.y:.2f},{offset_small.x:.4f},{small_yield_data['initial_slope']:.2f}\n"
             )
             f.write(
-                f"Offset,0.002,{offset_standard.results['yield_point'].y:.2f},{offset_standard.results['yield_point'].x:.4f},{standard_yield_data['initial_slope']:.2f}\n"
+                f"Offset,0.002,{offset_standard.y:.2f},{offset_standard.x:.4f},{standard_yield_data['initial_slope']:.2f}\n"
             )
             f.write(
-                f"General,0.33,{general.results['yield_point'].y:.2f},{general.results['yield_point'].x:.4f},{general_yield_data['initial_slope']:.2f}\n"
+                f"General,0.33,{general.y:.2f},{general.x:.4f},{general_yield_data['initial_slope']:.2f}\n"
             )
 
         # ファイルが作成されたことを確認
@@ -354,9 +314,9 @@ class TestLoadDisplacementPlotFunctional:
 
     def test_curve_overlay_plot(self, load_displacement_data):
         """スケルトン曲線・累積曲線のコレクションを元データと重ねてプロットする"""
-        cycled = load_displacement_data.ops.cycle_count()
-        skeleton = cycled.skeleton_curve().end()
-        cumulative = cycled.cumulative_curve().end()
+        cycled = load_displacement_data.ops.mark_cycles()
+        skeleton = cycled.to_skeleton_curve().end()
+        cumulative = cycled.to_cumulative_curve().end()
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
         load_displacement_data.plot.plot_load_displacement(ax=ax1, color="gray", alpha=0.5, label="元データ")
@@ -376,14 +336,14 @@ class TestLoadDisplacementPlotFunctional:
         降伏点解析結果とスケルトン曲線を一つのグラフに表示
         """
         # スケルトン曲線を生成
-        skeleton_result = load_displacement_data.ops.cycle_count().skeleton_curve().end()
+        skeleton_result = load_displacement_data.ops.mark_cycles().to_skeleton_curve().end()
 
         # スケルトン曲線に対して降伏点解析を実行
         # スケルトン曲線に対しては異なるオフセット値を使用して差を生み出す
-        yield_result = skeleton_result.ops.find_yield_point(
+        yield_result = skeleton_result.ops.yield_point(
             method="offset",
             offset_value=0.005,  # 0.002から0.005に変更
-        ).end()
+        )
 
         # 2x2のグリッドで異なる解析結果を表示
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
@@ -396,29 +356,19 @@ class TestLoadDisplacementPlotFunctional:
         axs[0, 1].set_title("スケルトン曲線")
 
         # 元データに対する降伏点解析
-        original_yield = load_displacement_data.ops.find_yield_point(
+        original_yield = load_displacement_data.ops.yield_point(
             method="offset",
             offset_value=0.002,  # 元データには0.002を使用
-        ).end()
-        orig_yp = original_yield.results["yield_point"]
+        )
         load_displacement_data.plot.plot_yield_point(
-            yield_disp=orig_yp.x,
-            yield_load=orig_yp.y,
-            yield_method=orig_yp.metadata["method"],
-            initial_slope=orig_yp.metadata["initial_slope"],
-            yield_parameters=orig_yp.metadata.get("parameters", {}),
+            original_yield,
             ax=axs[1, 0]
         )
         axs[1, 0].set_title("元データの降伏点")
 
         # スケルトン曲線に対する降伏点解析
-        skel_yp = yield_result.results["yield_point"]
         skeleton_result.plot.plot_yield_point(
-            yield_disp=skel_yp.x,
-            yield_load=skel_yp.y,
-            yield_method=skel_yp.metadata["method"],
-            initial_slope=skel_yp.metadata["initial_slope"],
-            yield_parameters=skel_yp.metadata.get("parameters", {}),
+            yield_result,
             ax=axs[1, 1]
         )
         axs[1, 1].set_title("スケルトン曲線の降伏点")
@@ -437,21 +387,21 @@ class TestLoadDisplacementPlotFunctional:
         assert combined_plot_path.stat().st_size > 0
 
         # 結果のサマリデータを検証
-        original_yield_data = original_yield.results["yield_point"].metadata
-        skeleton_yield_data = yield_result.results["yield_point"].metadata
+        original_yield_data = original_yield.metadata
+        skeleton_yield_data = yield_result.metadata
 
         # スケルトン曲線の降伏点は元データの降伏点と異なるはず
         # 異なるオフセット値を使用しているので値も異なるはず
         # 厳密な不等式ではなく、結果がきちんと出ていることを確認
         assert (
             abs(
-                original_yield.results["yield_point"].x
-                - yield_result.results["yield_point"].x
+                original_yield.x
+                - yield_result.x
             )
             > 0.001
         )
         assert (
-            abs(original_yield.results["yield_point"].y - yield_result.results["yield_point"].y) > 0.005
+            abs(original_yield.y - yield_result.y) > 0.005
         )  # 0.1から0.05に調整 -> 0.005に緩和
 
         # 結果のサマリをファイル出力
@@ -459,10 +409,10 @@ class TestLoadDisplacementPlotFunctional:
         with open(results_path, "w") as f:
             f.write("データタイプ,降伏荷重 (kN),降伏変位 (mm),初期勾配 (kN/mm)\n")
             f.write(
-                f"元データ,{original_yield.results['yield_point'].y:.2f},{original_yield.results['yield_point'].x:.4f},{original_yield_data['initial_slope']:.2f}\n"
+                f"元データ,{original_yield.y:.2f},{original_yield.x:.4f},{original_yield_data['initial_slope']:.2f}\n"
             )
             f.write(
-                f"スケルトン曲線,{yield_result.results['yield_point'].y:.2f},{yield_result.results['yield_point'].x:.4f},{skeleton_yield_data['initial_slope']:.2f}\n"
+                f"スケルトン曲線,{yield_result.y:.2f},{yield_result.x:.4f},{skeleton_yield_data['initial_slope']:.2f}\n"
             )
 
         # ファイルが作成されたことを確認
@@ -480,7 +430,7 @@ class TestLoadDisplacementPlotFunctional:
             pytest.skip("CI環境では視覚確認テストをスキップ")
 
         # 降伏点解析の実行
-        offset_result = load_displacement_data.ops.find_yield_point(method="offset", offset_value=0.002).end()
+        offset_result = load_displacement_data.ops.yield_point(method="offset", offset_value=0.002)
 
         # 複数の手法の比較
         methods = [
@@ -509,5 +459,5 @@ class TestLoadDisplacementPlotFunctional:
         plt.close(fig)  # 手動実行時のみ表示される
 
         # 詳細解析プロット
-        offset_result.plot.plot_yield_analysis_details()
+        load_displacement_data.plot.plot_yield_analysis_details(offset_result)
         plt.show()  # 手動実行時のみ表示される
