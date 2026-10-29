@@ -188,10 +188,10 @@ class CoreOps(Generic[C_co]):
     def _mask(self, expr: pl.Expr) -> np.ndarray:
         return self._c.df.select(expr.fill_null(False)).to_series().to_numpy()
 
-    def _split(self, row_groups: List[Any]) -> "OpsList[Self]":
+    def _split(self, row_groups: List[Any], keys: Optional[List[Any]] = None) -> "OpsList[Self]":
         from .ops_list import OpsList
 
-        return OpsList([self._next(self._c.take(rows)) for rows in row_groups])
+        return OpsList([self._next(self._c.take(rows)) for rows in row_groups], keys)
 
     def _binary(self, func: Callable, value1: Operand, value2: Operand, result_column: str,
                 unit: Optional[str], ch: Optional[str], default_unit: Optional[str]) -> Self:
@@ -652,19 +652,21 @@ class CoreOps(Generic[C_co]):
     def split_by_integers(self, markers: Union[str, List[int], np.ndarray]) -> "OpsList[Self]":
         """行ごとの整数マーカー（列名または配列）の値ごとにコレクションを分割します（欠損の行は除外）
 
+        各要素のキー（`OpsList.keys`）はマーカーの値です。
+
         Examples:
             >>> parts = col.ops.split_by_integers([1, 1, 1, 2, 2, 3])
-            >>> [len(c) for c in parts.end()]
-            [3, 2, 1]
+            >>> [len(c) for c in parts.end()], parts.keys
+            ([3, 2, 1], [1, 2, 3])
         """
         values = to_float_array(self._raw(markers))
         if len(values) != len(self._c):
             raise ValueError(f"マーカーの長さ ({len(values)}) が行数 ({len(self._c)}) と一致しません")
         keys = np.unique(values[~np.isnan(values)])
-        return self._split([np.flatnonzero(values == k) for k in keys])
+        return self._split([np.flatnonzero(values == k) for k in keys], keys.tolist())
 
     def split_at_indices(self, indices: Union[int, List[int]]) -> "OpsList[Self]":
-        """指定したインデックスでコレクションを分割します
+        """指定したインデックスでコレクションを分割します（各要素のキーは区間の番号 0, 1, ...）
 
         Raises:
             IndexError: インデックスが 0〜行数 の範囲外の場合

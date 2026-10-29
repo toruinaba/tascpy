@@ -32,7 +32,7 @@ col.ops.add("A", "B", result_column="合計")
 |---|---|---|---|
 | 変換（列を足す・行を絞る） | `Self`（チェーンが続く） | 動詞（印なし） | `add`、`select`、`mark_cycles` |
 | 同じデータを別のドメインとして扱う | 別の Ops | `as_*` | `as_domain`、`as_core` |
-| 新しい表への集約 | 別の Ops（新しい表でチェーンが続く） | `to_<名詞>` | `to_skeleton_curve`、`to_hysteresis_table` |
+| 新しい表への集約 | 別の Ops（新しい表でチェーンが続く） | `to_<名詞>` | `to_skeleton_curve`、`to_hysteresis_table`、`OpsList.to_table` |
 | 値への集約 | 結果オブジェクトや値（チェーンが終わる） | 名詞 | `stiffness`、`yield_point`、`grid` |
 | 分割 | `OpsList` | `split_*` | `split_by_cycles` |
 
@@ -68,6 +68,8 @@ parts = ld.ops.split_by_cycles()
 parts.map(lambda o: o.moving_average("荷重", result_column="荷重_平滑"))  # 各要素に操作を適用 -> OpsList
 parts.collect(lambda o: o.end()["荷重"].max())    # 値のリスト
 parts.collect(lambda o: o.stiffness())            # 結果オブジェクトのリスト
+parts.to_table(k=lambda o: o.stiffness())         # 1 要素 1 行の表 -> CoreOps（ステップは分割のキー）
+parts.keys                                       # 分割のキー（サイクル番号など）
 parts.filter(lambda c: len(c) > 10)              # コレクションで絞り込み
 parts.concat()                                   # 連結 -> 操作オブジェクト
 parts.end()                                      # コレクションのリスト

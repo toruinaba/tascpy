@@ -2,29 +2,59 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Generic, Iterator, List, TypeVar, Union, overload
+from numbers import Number
+from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union, overload
 
-from tascpy.core.collection import concat
+import numpy as np
+
+from tascpy.core.collection import ColumnCollection, concat
 
 from .ops import CoreOps
+from .result import PointResult, ScalarResult
 
 O = TypeVar("O", bound=CoreOps[Any])
 O2 = TypeVar("O2", bound=CoreOps[Any])
 T = TypeVar("T")
 
 
+def _cells(name: str, value: Any) -> List[Tuple[str, Any, Optional[str]]]:
+    """to_table の関数の戻り値を (列名, 値, 単位) の並びにする"""
+    if isinstance(value, ScalarResult):
+        return [(name, value.value, value.unit)]
+    if isinstance(value, PointResult):
+        return [(f"{name}_x", value.x, value.x_unit), (f"{name}_y", value.y, value.y_unit)]
+    if value is None or isinstance(value, (Number, np.generic)):
+        return [(name, value, None)]
+    raise TypeError(f"to_table の '{name}' の戻り値 ({type(value).__name__}) は使えません"
+                    "（スカラー・ScalarResult・PointResult のいずれか）")
+
+
+def _step(key: Any) -> Any:
+    return int(key) if isinstance(key, float) and key.is_integer() else key
+
+
 class OpsList(Generic[O]):
-    """操作オブジェクトのリスト
+    """操作オブジェクトのリスト（各要素は分割のキーを持つ）
 
     Examples:
         >>> parts = col.ops.split_by_integers([1, 1, 1, 2, 2, 2])
+        >>> parts.keys
+        [1, 2]
         >>> smoothed = parts.map(lambda o: o.moving_average("荷重", result_column="荷重_平滑"))
         >>> parts.collect(lambda o: o.end()["荷重"].max())
         [80.0, 115.0]
     """
 
-    def __init__(self, items: List[O]) -> None:
+    def __init__(self, items: List[O], keys: Optional[Sequence[Any]] = None) -> None:
         self._items = list(items)
+        self._keys = list(range(len(self._items))) if keys is None else [_step(k) for k in keys]
+        if len(self._keys) != len(self._items):
+            raise ValueError(f"キーの数 ({len(self._keys)}) が要素の数 ({len(self._items)}) と一致しません")
+
+    @property
+    def keys(self) -> List[Any]:
+        """各要素の分割のキー（`split_by_integers` ならマーカーの値、`split_at_indices` なら区間の番号）"""
+        return list(self._keys)
 
     def __len__(self) -> int:
         return len(self._items)
@@ -38,7 +68,7 @@ class OpsList(Generic[O]):
     def __getitem__(self, index: slice) -> OpsList[O]: ...
     def __getitem__(self, index: Union[int, slice]) -> Union[O, OpsList[O]]:
         if isinstance(index, slice):
-            return OpsList(self._items[index])
+            return OpsList(self._items[index], self._keys[index])
         return self._items[index]
 
     def __repr__(self) -> str:
@@ -46,7 +76,7 @@ class OpsList(Generic[O]):
 
     def map(self, func: Callable[[O], O2]) -> OpsList[O2]:
         """各要素に操作を適用し、チェーンを継続します"""
-        return OpsList([func(item) for item in self._items])
+        return OpsList([func(item) for item in self._items], self._keys)
 
     def collect(self, func: Callable[[O], T]) -> List[T]:
         """各要素に関数を適用し、結果をリストで返します"""
@@ -54,7 +84,38 @@ class OpsList(Generic[O]):
 
     def filter(self, predicate: Callable[[Any], bool]) -> OpsList[O]:
         """predicate(collection) が True の要素だけを残します"""
-        return OpsList([item for item in self._items if predicate(item.end())])
+        kept = [(item, key) for item, key in zip(self._items, self._keys) if predicate(item.end())]
+        return OpsList([item for item, _ in kept], [key for _, key in kept])
+
+    def to_table(self, **columns: Callable[[O], Any]) -> CoreOps[ColumnCollection]:
+        """各要素を 1 行に集約した表を返します（ステップは分割のキー）
+
+        columns の各関数は要素の操作オブジェクトを受け取り、スカラー、ScalarResult（単位付きの 1 列）、
+        PointResult（"{名前}_x" / "{名前}_y" の 2 列）のいずれかを返します。
+
+        Raises:
+            ValueError: columns を指定しない場合
+            TypeError: 関数がそれ以外の値を返した場合
+
+        Examples:
+            >>> table = col.ops.split_by_integers([1, 1, 1, 2, 2, 2]).to_table(
+            ...     max_load=lambda o: o.end()["荷重"].max(), rows=lambda o: len(o.end()))
+            >>> table.end().step.tolist(), table.end()["max_load"].values
+            ([1, 2], array([ 80., 115.]))
+        """
+        if not columns:
+            raise ValueError("集約する列を指定してください")
+        values: Dict[str, List[Any]] = {}
+        units: Dict[str, Optional[str]] = {}
+        for name, func in columns.items():
+            if not self._items:
+                values[name] = []
+            for item in self._items:
+                for column, value, unit in _cells(name, func(item)):
+                    values.setdefault(column, []).append(value)
+                    units.setdefault(column, unit)
+        metadata = self._items[0].end().metadata if self._items else {}
+        return CoreOps(ColumnCollection(values, step=self._keys, units=units, metadata=metadata))
 
     def end(self) -> List[Any]:
         """コレクションのリストを返します"""

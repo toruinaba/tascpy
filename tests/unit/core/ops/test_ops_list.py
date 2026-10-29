@@ -173,3 +173,38 @@ def test_collection_list_with_nested_structures(collection_list):
     assert len(nested_results[0]) == 2  # グループ1を2つに分割
     assert len(nested_results[1]) == 2  # グループ2を2つに分割
     assert len(nested_results[2]) == 2  # グループ3を2つに分割
+
+
+def test_split_keys_follow_map_filter_and_slice(collection_list, sample_collection):
+    assert collection_list.keys == [1, 2, 3]
+    assert collection_list.map(lambda o: o.add("A", 1, result_column="A1")).keys == [1, 2, 3]
+    assert collection_list.filter(lambda c: c["A"].values[0] > 10).keys == [2, 3]
+    assert collection_list[1:].keys == [2, 3]
+    assert sample_collection.ops.split_at_indices([2, 4]).keys == [0, 1, 2]
+
+
+def test_to_table_rows_are_split_keys(collection_list):
+    table = collection_list.to_table(max_a=lambda o: o.end()["A"].max(), rows=lambda o: len(o.end())).end()
+    assert table.step.tolist() == [1, 2, 3]
+    np.testing.assert_allclose(table["max_a"].values, [30, 50, 60])
+    np.testing.assert_allclose(table["rows"].values, [2, 2, 2])
+    assert table.units == {"max_a": None, "rows": None}
+
+
+def test_to_table_expands_results_with_units(collection_list):
+    from tascpy.core.result import PointResult, ScalarResult
+
+    table = collection_list.to_table(
+        mean=lambda o: ScalarResult("mean", float(o.end()["A"].values.mean()), unit="m"),
+        peak=lambda o: PointResult("peak", 1.0, float(o.end()["A"].max()), x_unit="s", y_unit="m"),
+    ).end()
+    assert table.columns == ["mean", "peak_x", "peak_y"]
+    assert table.units == {"mean": "m", "peak_x": "s", "peak_y": "m"}
+    np.testing.assert_allclose(table["peak_y"].values, [30, 50, 60])
+
+
+def test_to_table_rejects_unsupported_values(collection_list):
+    with pytest.raises(TypeError, match="to_table"):
+        collection_list.to_table(rows=lambda o: o.end())
+    with pytest.raises(ValueError, match="集約する列"):
+        collection_list.to_table()

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Self, Tuple
+from typing import Callable, Optional, Self, Tuple
 
 import numpy as np
 
 from tascpy.core.collection import ColumnCollection
-from tascpy.core.column import Column
 from tascpy.core.ops import CoreOps, to_float_array
 from tascpy.core.ops_list import OpsList
 from tascpy.core.result import PointResult, ScalarResult
@@ -141,40 +140,31 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         flags = compute_peaks_and_valleys(values, distance=distance, threshold=threshold)
         return self._with_column(result_column, flags, unit, ch, default_unit="")
 
-    def _per_cycle(self, cycle_column: Optional[str],
-                   func: Callable[[np.ndarray, np.ndarray], tuple],
-                   outputs: List[Dict[str, Any]]) -> CoreOps[ColumnCollection]:
-        markers = self._cycle_markers(cycle_column)
-        keys = list(dict.fromkeys(v for v in markers if not np.isnan(v)))
-        rows = [func(self._c.displacement_data[markers == k], self._c.load_data[markers == k]) for k in keys]
-
-        columns = {
-            spec["name"]: Column(spec["name"], [row[i] for row in rows], unit=spec.get("unit"),
-                                 attrs=spec.get("attrs"))
-            for i, spec in enumerate(outputs)
-        }
-        steps = [int(k) if float(k).is_integer() else k for k in keys]
-        return CoreOps(ColumnCollection(columns, step=steps, metadata=self._c.metadata))
-
     def to_hysteresis_table(self, *, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの履歴エネルギーと最大・最小荷重/変位を集計した表を返します
 
         戻り値のステップはサイクル番号、列は energy（単位は "荷重*変位"）/ max_load / min_load / max_disp / min_disp です。
+        `split_by_cycles(...).to_table(...)` の決まった組み合わせです。
         """
         load_unit, disp_unit = self._c.load.unit, self._c.displacement.unit
-        return self._per_cycle(cycle_column, compute_hysteresis_energy, [
-            {"name": "energy", "unit": self._ld_unit("*"), "attrs": {"description": "Hysteresis loop area"}},
-            {"name": "max_load", "unit": load_unit},
-            {"name": "min_load", "unit": load_unit},
-            {"name": "max_disp", "unit": disp_unit},
-            {"name": "min_disp", "unit": disp_unit},
-        ])
+
+        def part(index: int, name: str, unit: Optional[str]) -> Callable[[LoadDisplacementOps], ScalarResult]:
+            return lambda o: ScalarResult(name, compute_hysteresis_energy(*o._ld_arrays())[index], unit=unit)
+
+        return self.split_by_cycles(cycle_column=cycle_column).to_table(
+            energy=part(0, "energy", self._ld_unit("*")),
+            max_load=part(1, "max_load", load_unit),
+            min_load=part(2, "min_load", load_unit),
+            max_disp=part(3, "max_disp", disp_unit),
+            min_disp=part(4, "min_disp", disp_unit),
+        )
 
     def to_stiffness_table(self, *, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの割線剛性を集計した表を返します（列: stiffness）"""
-        return self._per_cycle(cycle_column, lambda d, p: (compute_secant_stiffness(d, p),), [
-            {"name": "stiffness", "unit": self._ld_unit("/"), "attrs": {"description": "Secant stiffness"}},
-        ])
+        unit = self._ld_unit("/")
+        return self.split_by_cycles(cycle_column=cycle_column).to_table(
+            stiffness=lambda o: ScalarResult("stiffness", compute_secant_stiffness(*o._ld_arrays()), unit=unit),
+        )
 
     # ── 特殊曲線 ──────────────────────────────
 
