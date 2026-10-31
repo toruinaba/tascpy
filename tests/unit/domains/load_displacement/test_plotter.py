@@ -79,22 +79,27 @@ def test_yield_details_range_ignores_missing_loads():
     np.testing.assert_array_equal(highlighted.get_offsets()[:, 1], [1.0, 4.0])
 
 
-def test_compare_yield_methods_warns_on_failure(ld_short):
-    with pytest.warns(UserWarning, match="降伏点を求められませんでした"):
-        ax = ld_short.plot.compare_yield_methods(methods=[{"method": "offset"}])
+def test_compare_yield_points_skips_invalid_points(ld, point):
+    failed = PointResult("yield_point", float("nan"), float("nan"), metadata={"method": "general", "is_valid": False})
+    with pytest.warns(UserWarning, match="求まらなかった降伏点"):
+        ax = ld.plot.compare_yield_points([point, failed])
     assert ax.get_title() == "Comparison of Yield Point Methods"
+    assert [c.get_label() for c in ax.collections] == ["Offset (0.1)"]
+
+
+def test_compare_yield_points_does_not_run_analysis(ld, point, monkeypatch):
+    monkeypatch.setattr(type(ld.ops), "yield_point", lambda self, **k: pytest.fail("plotter must not analyse"))
+    ld.plot.compare_yield_points([point])
 
 
 def test_plot_multiple_curves(ld):
-    curves = [
-        {"x": np.array([1.0]), "y": np.array([2.0]), "kwargs": {"label": "explicit"}},
-        {"type": "original", "kwargs": {"label": "original"}},
-        {"type": "unknown"},
-    ]
-    with pytest.warns(UserWarning, match="未知の曲線"):
-        ax = ld.plot.plot_multiple_curves(curves)
-    assert [line.get_label() for line in ax.lines] == ["explicit", "original"]
+    curves = [{"x": np.array([1.0]), "y": np.array([2.0]), "kwargs": {"label": "explicit"}}]
+    ax = ld.plot.plot_multiple_curves(curves, plot_original=True, original_kwargs={"label": "original"})
+    assert [line.get_label() for line in ax.lines] == ["original", "explicit"]
     assert ax.get_xlabel() == "d [mm]"
+    assert [line.get_label() for line in ld.plot.plot_multiple_curves(curves).lines] == ["explicit"]
+    with pytest.raises(ValueError, match="x / y がありません"):
+        ld.plot.plot_multiple_curves([{"kwargs": {}}])
 
 
 def test_title_kwarg_is_not_duplicated(ld, point):
@@ -103,7 +108,7 @@ def test_title_kwarg_is_not_duplicated(ld, point):
 
 
 def test_original_curve_supports_scatter(ld):
-    ax = ld.plot.plot_multiple_curves([{"type": "original", "kwargs": {"plot_type": "scatter", "s": 20}}])
+    ax = ld.plot.plot_multiple_curves([], plot_original=True, original_kwargs={"plot_type": "scatter", "s": 20})
     assert len(ax.collections) == 1
 
 
@@ -117,12 +122,3 @@ def test_peak_ignores_rows_with_missing_displacement():
     assert offset._xy1[0] == 0.5  # 正側へずらす（変位が欠損した -100 kN の行は使わない）
     highlighted = next(c for c in ax.collections if c.get_label().startswith("Initial Slope Range"))
     np.testing.assert_array_equal(highlighted.get_offsets()[:, 1], [2.0, 5.0])
-
-
-def test_compare_yield_methods_empty_list_runs_nothing(ld, monkeypatch):
-    calls = []
-    ops_type = type(ld.ops)
-    original = ops_type.yield_point
-    monkeypatch.setattr(ops_type, "yield_point", lambda self, **k: (calls.append(k), original(self, **k))[1])
-    ld.plot.compare_yield_methods(methods=[])
-    assert calls == []

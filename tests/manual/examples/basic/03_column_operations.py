@@ -137,8 +137,8 @@ print("8. 高度な列変換と処理")
 advanced_result = (
     result.ops.filter_out_none()  # 欠損値を持つ行を除外
     .select(columns=["Force1", "Force1_x2", "Stiffness1"])  # 必要な列のみ選択
-    .abs_values("Force1", result_column="Force1_abs")  # 絶対値を計算
-    .round_values(
+    .abs("Force1", result_column="Force1_abs")  # 絶対値を計算
+    .round(
         "Stiffness1", decimals=1, result_column="Stiffness1_rounded"
     )  # 剛性の値を丸める
     .end()

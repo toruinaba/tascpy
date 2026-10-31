@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 
-from tascpy.numeric import stats as functional_stats
-
 from . import plotly_backend
 
 
@@ -105,13 +103,12 @@ def plot(
     return ax
 
 
-def visualize_outliers(
+def plot_outliers(
     x_values: np.ndarray,
     y_values: np.ndarray,
+    flags: np.ndarray,
     x_label: str = "",
     y_label: str = "",
-    window_size: int = 3,
-    threshold: float = 0.5,
     highlight_color: str = "red",
     plot_type: str = "scatter",
     show_normal: bool = True,
@@ -120,19 +117,16 @@ def visualize_outliers(
     outlier_marker: str = "o",
     outlier_size: int = 50,
     ax: Optional[Axes] = None,
-    min_abs_value: float = 1e-10,
-    scale_factor: float = 1.0,
     **kwargs: Any
 ) -> Axes:
-    """移動平均に基づく外れ値を検出し、正常値と外れ値を色分けして描画します。
+    """外れ値フラグ（0: 正常, 1: 外れ値）に基づいて、正常値と外れ値を色分けして描画します。
 
     Args:
         x_values: X 軸データの配列
-        y_values: Y 軸データの配列（外れ値検出の対象）
+        y_values: Y 軸データの配列
+        flags: 外れ値フラグの配列（`stats.detect_outliers` などの結果）
         x_label: X 軸のラベル
         y_label: Y 軸のラベル
-        window_size: 外れ値検出用の移動平均ウィンドウサイズ
-        threshold: 外れ値判定の閾値
         highlight_color: 外れ値の色
         plot_type: 正常値の描画方法 ("line" または "scatter")
         show_normal: 正常値も描画するかどうか
@@ -141,17 +135,11 @@ def visualize_outliers(
         outlier_marker: 外れ値のマーカー形状
         outlier_size: 外れ値のマーカーサイズ
         ax: 描画先の Axes（None の場合は新しい図を作成）
-        min_abs_value: ゼロ除算防止の最小絶対値
-        scale_factor: スケールファクタ
         **kwargs: 正常値の描画に渡す追加引数
 
     Returns:
         Axes: 描画した Axes（タイトルに検出数を表示）
     """
-    flags = functional_stats.detect_outliers(
-        y_values, window_size=window_size, threshold=threshold,
-        min_abs_value=min_abs_value, scale_factor=scale_factor,
-    )
     x_normal, y_normal, x_out, y_out, outlier_count = prepare_outlier_data(x_values, y_values, flags)
 
     ax = new_axes(ax, figsize=(10, 6))

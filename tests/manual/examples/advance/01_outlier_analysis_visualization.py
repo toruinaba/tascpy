@@ -6,7 +6,7 @@
 
 1. 異常値を含むサンプルデータの生成
 2. 移動平均の計算と可視化
-3. 異常値の検出と可視化（visualize_outliers メソッドの使用）
+3. 異常値の検出と可視化（ops.detect_outliers で判定し、plot.plot_outliers で描画）
 4. 異常値の除去（remove_outliers メソッド）と効果の確認
 5. クリーニング後のデータ分析とトレンド可視化
 
@@ -163,14 +163,20 @@ ax1 = plt.subplot(2, 1, 1)  # 最初のサブプロット
 ax2 = plt.subplot(2, 1, 2)  # 2つ目のサブプロット
 
 # 厳しいしきい値と緩いしきい値で異常値検出を行う
-# 欠損除去はチェーンで行い、描画はコレクションの plot で行う（ax を渡すので plt.show は呼ばれない）
+# 判定は ops で行って結果を列にし、描画はその列を plot に渡す（ax を渡すので plt.show は呼ばれない）
 vis_source = filtered_collection.ops.filter_out_none(columns=["data"]).end()
-vis_source.plot.visualize_outliers(
-    column="data", window_size=15, threshold=0.3, plot_type="line",
+flagged = (
+    vis_source.ops
+    .detect_outliers("data", window_size=15, threshold=0.3, result_column="flag_strict")
+    .detect_outliers("data", window_size=15, threshold=0.9, result_column="flag_loose")
+    .end()
+)
+flagged.plot.plot_outliers(
+    "data", flags_column="flag_strict", plot_type="line",
     highlight_color="red", outlier_marker="o", ax=ax1, normal_alpha=0.7,
 )
-vis_source.plot.visualize_outliers(
-    column="data", window_size=15, threshold=0.9, plot_type="line",
+flagged.plot.plot_outliers(
+    "data", flags_column="flag_loose", plot_type="line",
     highlight_color="orange", outlier_marker="^", ax=ax2, normal_alpha=0.7,
 )
 

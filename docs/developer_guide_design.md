@@ -129,5 +129,5 @@ numeric は、TASC 以外のデータにも単体で使えるように、numpy �
 
 - ドメインのコレクションは `ColumnCollection` のサブクラスです。ドメイン固有の設定（荷重-変位の `load_column` / `displacement_column`、ひずみの `rosettes`）は属性として持ち、`with_*` で操作しても引き継がれます。
 - 変換は `ops.as_domain(as_load_displacement, ...)`、`ops.as_domain(as_coordinate, ...)`、`ops.as_domain(as_strain, ...)` で行います。設定が不正な場合（列が存在しない場合など）はその時点でエラーになります。
-- コレクションが持つのは設定と、設定を読むだけの問い合わせ（`get_column_coordinates`、`calculate_distance` など）です。新しい列や結果を作る処理は ops に置きます（`nearest_neighbors`、`clusters` は `CoordinateOps`）。
+- コレクションが持つのは設定と、設定を読むだけの問い合わせ（`get_column_coordinates`、`distance` など）です。新しい列や結果を作る処理は ops に置きます（`nearest_neighbors`、`clusters` は `CoordinateOps`）。
 - 座標は列ごとの値なので、`ColumnMeta.attrs["coordinates"]`（`{"x", "y", "z"}`）に持ちます。こうしておけば、列の改名や選択に自動で追従します。

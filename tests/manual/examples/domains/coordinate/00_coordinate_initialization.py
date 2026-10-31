@@ -49,7 +49,7 @@ cols_with_coords = collection1.get_columns_with_coordinates()
 print(f"座標を持つカラム: {cols_with_coords}")
 
 # 2つのセンサー間の距離を計算
-distance = collection1.calculate_distance("sensor1", "sensor3")
+distance = collection1.distance("sensor1", "sensor3")
 print(f"sensor1とsensor3の間の距離: {distance:.2f}")
 
 # --------------------------------------------------------------------------

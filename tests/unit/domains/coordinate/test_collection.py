@@ -83,12 +83,12 @@ class TestCoordinateCollection:
         assert "sensor3" in with_coords
         assert "sensor2" not in with_coords
 
-    def test_calculate_distance(self):
+    def test_distance(self):
         coll = self._coord().with_coordinates("sensor1", x=0.0, y=0.0).with_coordinates("sensor2", x=3.0, y=4.0)
-        assert coll.calculate_distance("sensor1", "sensor2") == 5.0
+        assert coll.distance("sensor1", "sensor2") == 5.0
 
         coll = coll.with_coordinates("sensor1", z=0.0).with_coordinates("sensor2", z=12.0)
-        assert coll.calculate_distance("sensor1", "sensor2") == 13.0
+        assert coll.distance("sensor1", "sensor2") == 13.0
 
     def test_missing_column(self):
         coll = self._coord()
@@ -100,15 +100,15 @@ class TestCoordinateCollection:
             coll.get_column_coordinates("sensor3")
         assert "見つかりません" in str(exc_info.value)
 
-    def test_calculate_distance_error(self):
+    def test_distance_error(self):
         coll = self._coord()
         with pytest.raises(ValueError) as exc_info:
-            coll.calculate_distance("sensor1", "sensor2")
+            coll.distance("sensor1", "sensor2")
         assert "座標情報が不足" in str(exc_info.value)
 
         coll = coll.with_coordinates("sensor1", x=1.0, y=1.0).with_coordinates("sensor2", x=2.0)
         with pytest.raises(ValueError) as exc_info:
-            coll.calculate_distance("sensor1", "sensor2")
+            coll.distance("sensor1", "sensor2")
         assert "座標情報が不足" in str(exc_info.value)
 
     def test_initialization_with_coordinates(self):

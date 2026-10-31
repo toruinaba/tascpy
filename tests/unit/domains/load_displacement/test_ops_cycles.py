@@ -170,7 +170,7 @@ class TestLoadDisplacementUnits:
 @pytest.mark.parametrize("call", [
     lambda o: o.mark_cycles(),
     lambda o: o.calculate_slopes(),
-    lambda o: o.find_peaks_and_valleys(),
+    lambda o: o.mark_peaks_and_valleys(),
     lambda o: o.add("P", "d"),
 ])
 def test_column_adding_ops_require_result_column(call):

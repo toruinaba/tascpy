@@ -172,15 +172,15 @@ class TestPowerFunctions:
 
 class TestOtherFunctions:
     def test_abs(self, sample_collection):
-        result = sample_collection.ops.abs_values("abs_input", result_column="abs(abs_input)").end()
+        result = sample_collection.ops.abs("abs_input", result_column="abs(abs_input)").end()
         assert isinstance(result, ColumnCollection)
 
-    def test_round_values(self, sample_collection):
-        result0 = sample_collection.ops.round_values("abs_input", decimals=0, result_column="round(abs_input, 0)").end()
+    def test_round(self, sample_collection):
+        result0 = sample_collection.ops.round("abs_input", decimals=0, result_column="round(abs_input, 0)").end()
         assert isinstance(result0, ColumnCollection)
         
     def test_with_none(self, sample_collection):
-        result_abs = sample_collection.ops.abs_values("with_none", result_column="abs(with_none)").end()
+        result_abs = sample_collection.ops.abs("with_none", result_column="abs(with_none)").end()
         assert isinstance(result_abs, ColumnCollection)
 
 class TestNormalizationFunctions:
@@ -211,12 +211,12 @@ class TestNormalizationFunctions:
 class TestErrorHandling:
     def test_nonexistent_column(self, sample_collection):
         with pytest.raises(KeyError):
-            sample_collection.ops.abs_values("nonexistent", result_column="abs(nonexistent)").end()
+            sample_collection.ops.abs("nonexistent", result_column="abs(nonexistent)").end()
 
 class TestOperationChaining:
     def test_chained_operations(self, ops):
         result = (
-            ops.abs_values("negative", result_column="abs(negative)")
+            ops.abs("negative", result_column="abs(negative)")
             .pow("abs(negative)", 2, result_column="abs(negative)^2")
             .end()
         )
@@ -226,7 +226,7 @@ class TestOperationChaining:
         result = (
             ops.normalize("norm_input", method="minmax", result_column="norm_minmax(norm_input)")
             .pow("norm_minmax(norm_input)", 2, result_column="norm_minmax(norm_input)^2")
-            .round_values("norm_minmax(norm_input)^2", 1, result_column="round(norm_minmax(norm_input)^2, 1)")
+            .round("norm_minmax(norm_input)^2", 1, result_column="round(norm_minmax(norm_input)^2, 1)")
             .end()
         )
         assert isinstance(result, ColumnCollection)

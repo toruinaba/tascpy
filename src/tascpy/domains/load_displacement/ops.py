@@ -126,7 +126,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """サイクル番号ごとに分割します（cycle_column の省略時は荷重の符号反転から数える）"""
         return self.split_by_integers(self._cycle_markers(cycle_column))
 
-    def find_peaks_and_valleys(self, column: Optional[str] = None, distance: int = 1,
+    def mark_peaks_and_valleys(self, column: Optional[str] = None, distance: int = 1,
                                threshold: Optional[float] = None, *, result_column: str,
                                unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """ピーク (1) / バレー (-1) / その他 (0) のマーカー列を追加します

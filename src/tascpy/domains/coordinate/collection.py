@@ -138,7 +138,7 @@ class CoordinateCollection(ColumnCollection):
             raise ValueError("有効な座標データが見つかりません")
         return np.array(rows), valid
 
-    def calculate_distance(self, column1: str, column2: str) -> float:
+    def distance(self, column1: str, column2: str) -> float:
         """2列の座標間のユークリッド距離（どちらかに z がなければ 2D）"""
         x1, y1, z1 = self.get_column_coordinates(column1)
         x2, y2, z2 = self.get_column_coordinates(column2)

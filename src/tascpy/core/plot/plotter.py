@@ -94,27 +94,32 @@ class CorePlotter:
         return core_plot.plot_const_x({c.name: c[row] for c in columns}, np.asarray(x_values), x_label=x_label,
                                       y_label=y_label, ax=ax, **kwargs)
 
-    def visualize_outliers(
+    def plot_outliers(
         self,
         column: str,
+        *,
+        flags_column: str,
         x_column: Optional[str] = None,
         ax: Optional[Axes] = None,
         **kwargs: Any
     ) -> Axes:
-        """外れ値を検出して色分けして描画します
+        """外れ値フラグの列（`ops.detect_outliers` の結果など）に基づいて、column を色分けして描画します
 
         Args:
-            column: 対象の列名
+            column: 描画する列名
+            flags_column: 外れ値フラグ（0: 正常, 1: 外れ値）の列名
             x_column: X 軸の列名（省略時は step）
             ax: 描画先の Axes
-            **kwargs: 描画関数に渡す追加引数（window_size, threshold など）
+            **kwargs: 描画関数に渡す追加引数（highlight_color, plot_type など）
 
         Examples:
-            >>> ax = col.plot.visualize_outliers("荷重")
+            >>> flagged = col.ops.detect_outliers("荷重", result_column="外れ値").end()
+            >>> ax = flagged.plot.plot_outliers("荷重", flags_column="外れ値")
         """
         y_vals, auto_y = self._extract_axis(column)
         x_vals, auto_x = self._extract_axis(x_column)
-        return core_plot.visualize_outliers(x_vals, y_vals, x_label=auto_x, y_label=auto_y, ax=ax, **kwargs)
+        flags = self._collection[flags_column].values
+        return core_plot.plot_outliers(x_vals, y_vals, flags, x_label=auto_x, y_label=auto_y, ax=ax, **kwargs)
 
     def iplot(
         self,

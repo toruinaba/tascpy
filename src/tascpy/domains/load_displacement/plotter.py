@@ -1,6 +1,6 @@
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -88,52 +88,41 @@ class LoadDisplacementPlotter(CorePlotter):
             plot_original_data=plot_original, **kwargs,
         )
 
-    def compare_yield_methods(self, methods: Optional[List[Dict[str, Any]]] = None, *,
-                              x_column: Optional[str] = None, y_column: Optional[str] = None,
-                              x_label: Optional[str] = None, y_label: Optional[str] = None,
-                              ax: Optional[Axes] = None, **kwargs: Any) -> Axes:
-        """複数の手法で降伏点を求めて重ねて描画します（求められなかった手法は警告を出して飛ばす）
+    def compare_yield_points(self, points: Sequence[PointResult], *, x_column: Optional[str] = None,
+                             y_column: Optional[str] = None, x_label: Optional[str] = None,
+                             y_label: Optional[str] = None, ax: Optional[Axes] = None, **kwargs: Any) -> Axes:
+        """複数の降伏点（`ops.yield_point()` の結果）を、このコレクションの荷重-変位曲線と重ねて描画します
 
-        Args:
-            methods: `ops.yield_point` に渡す引数のリスト（省略時は offset と general）
+        求まらなかった点（metadata の is_valid が False）は警告を出して描画しません。
+
+        Examples:
+            >>> points = [ld.ops.yield_point(method="offset", offset_value=0.5, range_start=0.1, range_end=0.8),
+            ...           ld.ops.yield_point(method="general", range_start=0.1, range_end=0.8)]
+            >>> ax = ld.plot.compare_yield_points(points)
         """
-        defaults: List[Dict[str, Any]] = [{"method": "offset"}, {"method": "general"}]
         results = []
-        for params in defaults if methods is None else methods:
-            try:
-                point = self._collection.ops.yield_point(**params)
-            except ValueError as e:
-                warnings.warn(f"降伏点を求められませんでした {params}: {e}", stacklevel=2)
-                continue
+        for point in points:
             md = point.metadata
+            if not md.get("is_valid", True):
+                warnings.warn(f"求まらなかった降伏点は描画しません（{md.get('method', 'unknown')}）", stacklevel=2)
+                continue
             results.append({
                 "yield_disp": point.x, "yield_load": point.y, "method": md.get("method"),
                 "initial_slope": md.get("initial_slope"), "parameters": md.get("parameters", {}),
             })
         a = self._ld_axes(x_column, y_column, x_label, y_label)
-        return ld_plot.compare_yield_methods(results, x_values=a.x, y_values=a.y, x_label=a.x_label,
-                                             y_label=a.y_label, ax=ax, **kwargs)
+        return ld_plot.compare_yield_points(results, x_values=a.x, y_values=a.y, x_label=a.x_label,
+                                            y_label=a.y_label, ax=ax, **kwargs)
 
-    def plot_multiple_curves(self, curves: List[Dict[str, Any]], x_label: Optional[str] = None,
+    def plot_multiple_curves(self, curves: Sequence[Dict[str, Any]], *, plot_original: bool = False,
+                             original_kwargs: Optional[Dict[str, Any]] = None, x_label: Optional[str] = None,
                              y_label: Optional[str] = None, ax: Optional[Axes] = None,
                              x_column: Optional[str] = None, y_column: Optional[str] = None) -> Axes:
-        """複数の曲線を重ねて描画します
+        """複数の曲線 {"x": 配列, "y": 配列, "kwargs": {...}} を重ねて描画します
 
-        curves の各要素は {"type": "original", "kwargs": {...}}、または {"x": 配列, "y": 配列, "kwargs": {...}} です。
-        スケルトン曲線などの別のコレクションは x / y で渡すか、同じ ax にそのコレクションの plot で描画します。
+        plot_original=True のときは、このコレクションの荷重-変位曲線も描画します（original_kwargs は core の plot に渡すため、
+        plot_type="scatter" なども指定できます）。別のコレクションの曲線は、同じ ax にそのコレクションの plot で描画することもできます。
         """
         a = self._ld_axes(x_column, y_column, x_label, y_label)
-        curves_data = []
-        for curve in curves:
-            if "x" in curve and "y" in curve:
-                curves_data.append(curve)
-                continue
-            kind = curve.get("type")
-            item: Dict[str, Any] = {"type": kind, "kwargs": curve.get("kwargs", {})}
-            if kind == "original":
-                item["x"], item["y"] = a.x, a.y
-            else:
-                warnings.warn(f"未知の曲線の種類です: {kind}", stacklevel=2)
-                continue
-            curves_data.append(item)
-        return ld_plot.plot_multiple_curves(curves_data, x_label=a.x_label, y_label=a.y_label, ax=ax)
+        original = (a.x, a.y, original_kwargs or {}) if plot_original else None
+        return ld_plot.plot_multiple_curves(list(curves), x_label=a.x_label, y_label=a.y_label, ax=ax, original=original)

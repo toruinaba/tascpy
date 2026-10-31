@@ -3,8 +3,7 @@
 配列を受け取って描画し、Axes を返します。図の表示（plt.show）は呼び出し側で行います。
 """
 
-import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -209,7 +208,7 @@ def plot_yield_analysis_details(
     return ax
 
 
-def compare_yield_methods(
+def compare_yield_points(
     yield_results: List[Dict[str, Any]],
     x_values: Optional[np.ndarray] = None,
     y_values: Optional[np.ndarray] = None,
@@ -231,10 +230,10 @@ def compare_yield_methods(
 
     Examples:
         >>> import numpy as np
-        >>> from tascpy.domains.load_displacement.draw import compare_yield_methods
+        >>> from tascpy.domains.load_displacement.draw import compare_yield_points
         >>> results = [{"method": "offset", "yield_disp": 1.2, "yield_load": 5.5, "initial_slope": 5.0,
         ...             "parameters": {"offset_value": 0.2}}]
-        >>> ax = compare_yield_methods(results)
+        >>> ax = compare_yield_points(results)
     """
     ax = new_axes(ax, figsize=(10, 6))
     _plot_original(ax, x_values, y_values, x_label, y_label,
@@ -271,29 +270,33 @@ def plot_multiple_curves(
     x_label: str = "Displacement",
     y_label: str = "Load",
     ax: Optional[Axes] = None,
+    original: Optional[Tuple[np.ndarray, np.ndarray, Dict[str, Any]]] = None,
 ) -> Axes:
     """複数の曲線を重ねて描画します
 
     Args:
-        curves_data: [{"type": "original" | 任意, "x": 配列, "y": 配列, "kwargs": {...}}, ...]
-            "original" は core の plot で描画するため、kwargs に plot_type="scatter" なども指定できます
+        curves_data: [{"x": 配列, "y": 配列, "kwargs": {...}}, ...]
         x_label: X 軸ラベル
         y_label: Y 軸ラベル
         ax: 描画先の Axes（None の場合は新しい図を作成）
+        original: 元データの (x, y, kwargs)。core の plot で最初に描画するため、kwargs に plot_type="scatter" なども指定できます
 
-    Returns:
-        Axes: 描画した Axes（x / y がない曲線は警告を出して飛ばす）
+    Raises:
+        ValueError: 曲線に x / y がない場合
+
+    Examples:
+        >>> import numpy as np
+        >>> from tascpy.domains.load_displacement.draw import plot_multiple_curves
+        >>> ax = plot_multiple_curves([{"x": np.array([0, 1]), "y": np.array([0, 2]), "kwargs": {"label": "a"}}])
     """
     ax = new_axes(ax, figsize=(10, 8))
-    for curve in curves_data:
-        x_arr, y_arr = curve.get("x"), curve.get("y")
-        if x_arr is None or y_arr is None:
-            warnings.warn(f"曲線 '{curve.get('type', 'unknown')}' の x / y がないため描画しません", stacklevel=2)
-            continue
-        if curve.get("type") == "original":
-            core_plot(x_arr, y_arr, ax=ax, **{"title": "", **curve.get("kwargs", {})})
-        else:
-            ax.plot(x_arr, y_arr, **curve.get("kwargs", {}))
+    if original is not None:
+        x_arr, y_arr, kwargs = original
+        core_plot(x_arr, y_arr, ax=ax, **{"title": "", **kwargs})
+    for i, curve in enumerate(curves_data):
+        if curve.get("x") is None or curve.get("y") is None:
+            raise ValueError(f"{i} 番目の曲線に x / y がありません")
+        ax.plot(curve["x"], curve["y"], **curve.get("kwargs", {}))
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     if ax.get_legend_handles_labels()[0]:

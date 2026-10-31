@@ -172,7 +172,7 @@ advanced_result = (
     .calculate(
         lambda Force1, Force2: np.where(Force1 > 0, Force2 / Force1, np.nan), result_column="ForceRatio"
     )  # 荷重比（Force1 が 0 以下の行は欠損）
-    .round_values(
+    .round(
         "TotalStiffness", decimals=2, result_column="StiffnessRounded"
     )  # 剛性値の丸め
     .end()

@@ -162,7 +162,7 @@ class TestLoadDisplacementPlotFunctional:
             {"method": "general", "factor": 0.33},
         ]
 
-        load_displacement_data.plot.compare_yield_methods(methods=methods)
+        load_displacement_data.plot.compare_yield_points([load_displacement_data.ops.yield_point(**m) for m in methods])
         fig5 = plt.gcf()
         comparison_plot_path = Path(self.temp_dir) / "yield_methods_comparison.png"
         fig5.savefig(comparison_plot_path)
@@ -450,7 +450,7 @@ class TestLoadDisplacementPlotFunctional:
         ]
 
         # プロット表示
-        load_displacement_data.plot.compare_yield_methods(methods=methods)
+        load_displacement_data.plot.compare_yield_points([load_displacement_data.ops.yield_point(**m) for m in methods])
         fig = plt.gcf()
 
         # 保存場所
