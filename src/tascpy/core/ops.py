@@ -16,6 +16,7 @@ import polars as pl
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import KEEP, Column
 from tascpy.core.result import PointResult
+from tascpy.core.row import Row
 from tascpy.numeric import combine as f_combine
 from tascpy.numeric import math as f_math
 from tascpy.numeric import stats as f_stats
@@ -530,6 +531,30 @@ class CoreOps(Generic[C_co]):
 
     # ── 行の抽出・除外 ─────────────────────────────
 
+    def join(self, other: Union["CoreOps[Any]", ColumnCollection]) -> Self:
+        """ステップが同じ別の表の列を横に足します（集約した表を並べるときなど。列のメタは引き継ぐ）
+
+        Raises:
+            ValueError: ステップが一致しない場合、列名が重なる場合
+
+        Examples:
+            >>> parts = col.ops.split_by_integers([1, 1, 1, 2, 2, 2])
+            >>> peak = parts.collect(lambda o: o.end()["荷重"].max()).to_table(name="peak")
+            >>> rows = parts.collect(lambda o: len(o.end())).to_table(name="rows")
+            >>> peak.join(rows).end().columns
+            ['peak', 'rows']
+        """
+        right = other.end() if isinstance(other, CoreOps) else other
+        if len(right) != len(self._c) or not np.array_equal(right.step, self._c.step):
+            raise ValueError("ステップが一致しない表は結合できません")
+        overlap = [name for name in right.columns if name in self._c]
+        if overlap:
+            raise ValueError(f"列名が重なっています: {overlap}")
+        collection = self._c
+        for name in right.columns:
+            collection = collection.with_column(name, right[name])
+        return self._next(collection)
+
     def select(self, columns: Optional[List[str]] = None, indices: Optional[List[int]] = None,
                steps: Optional[List[Union[int, float]]] = None, by_step_value: bool = True,
                tolerance: Optional[float] = None) -> Self:
@@ -571,16 +596,21 @@ class CoreOps(Generic[C_co]):
             selected_steps=selected.step.tolist(), missing_steps=missing, by_step_value=by_step_value,
         ))
 
-    def fetch_near_step(self, column: str, target_value: float) -> Self:
-        """指定列の値が target_value に最も近い 1 行を抽出します
+    def nearest_row(self, column: str, value: float) -> Row:
+        """指定列の値が value に最も近い 1 行を返します（データの行を選ぶ値への集約）
 
         Raises:
             ValueError: 列が数値でない、または有効な値がない場合
+
+        Examples:
+            >>> row = col.ops.nearest_row("荷重", 100.0)
+            >>> row["荷重"], row.unit("荷重"), row.step
+            (100.0, 'kN', 4)
         """
-        idx = self._c[column].nearest_index(target_value)
+        idx = self._c[column].nearest_index(value)
         if idx is None:
             raise ValueError(f"列 '{column}' に比較できる数値がありません")
-        return self._with_rows([idx])
+        return self._c[idx]
 
     def filter_by_value(self, column: str, value: Any, tolerance: Optional[float] = None) -> Self:
         """指定列の値が value と一致する（tolerance 指定時は ±tolerance 以内の）行を抽出します

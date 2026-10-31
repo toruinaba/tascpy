@@ -185,6 +185,6 @@ def test_hysteresis_table_matches_split_by_cycles_to_table():
                           units={"P": "kN", "d": "mm"}).ops.as_domain(
         as_load_displacement, load_column="P", displacement_column="d")
     table = ld.to_hysteresis_table().end()
-    manual = ld.split_by_cycles().to_table(max_load=lambda o: o.end()["P"].max()).end()
+    manual = ld.split_by_cycles().collect(lambda o: o.end()["P"].max()).to_table(name="max_load").end()
     assert table.step.tolist() == manual.step.tolist()
     np.testing.assert_allclose(table["max_load"].values, manual["max_load"].values)

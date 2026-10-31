@@ -101,7 +101,7 @@ print(f"降伏変位: {yield_pt.x:.2f} {yield_pt.x_unit}")
 ```python
 skeleton = ld.to_skeleton_curve()                               # 新しい荷重-変位コレクションの操作
 point = skeleton.yield_point(offset_value=0.5)                  # PointResult
-per_cycle = ld.split_by_cycles().to_table(peak=lambda o: o.end()["Force"].max())  # サイクルごとの表
+per_cycle = ld.split_by_cycles().collect(lambda o: o.end()["Force"].max()).to_table(name="peak")  # サイクルごとの表
 ```
 
 剛性・降伏点などの値は結果オブジェクトとして返り、コレクションの `results` には自動では入りません。Parquet に一緒に保存したいときは `collection.with_result(point)` で付けます。

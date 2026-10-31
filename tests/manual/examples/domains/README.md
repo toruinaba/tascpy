@@ -178,7 +178,7 @@ grid.values  # (ny, nx)
 
 列を足す操作は、結果の列名 `result_column` を必ず指定します（既定の列名はありません）。剛性・降伏点などの値は結果オブジェクトとして返り、コレクションの `results` には自動では入りません。保存したいときは `with_result` で付けます。
 
-集計表（`to_hysteresis_table` など）の行はサイクル番号の昇順です。サイクルごとに任意の値を集計するときは `split_by_cycles().to_table(...)` を使います。
+集計表（`to_hysteresis_table` など）の行はサイクル番号の昇順です。サイクルごとに任意の値を集計するときは `split_by_cycles().collect(...).to_table(name=...)` を使います。
 
 ```python
 # サイクルごとの履歴エネルギー
