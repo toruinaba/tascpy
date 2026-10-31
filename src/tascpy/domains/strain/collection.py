@@ -41,7 +41,9 @@ class StrainCollection(CoordinateCollection):
     @classmethod
     def from_collection(cls, collection: ColumnCollection, *, rosettes: Optional[Mapping[str, Rosette]] = None,
                         coordinates: Optional[Coordinates] = None) -> Self:
-        new = super().from_collection(collection, coordinates=coordinates)
+        # CoordinateCollection.from_collection と同じ処理。jedi（marimo の補完）は classmethod 内の
+        # super() を解決できず戻り値の型を見失うため、super() を使わずに書く
+        new = collection._as_class(cls)._with_coordinate_map(coordinates)
         new._rosettes = {name: _checked_rosette(name, info) for name, info in (rosettes or {}).items()}
         return new
 

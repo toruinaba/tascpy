@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Self, Tuple
+from typing import Optional, Self, Tuple, TypeVar
 
 import numpy as np
 
@@ -20,6 +20,9 @@ from tascpy.numeric.hysteresis import (
 )
 
 from .collection import LoadDisplacementCollection
+
+# OpsList[Self] は jedi（marimo の補完）が要素の型を解決できないため、self を TypeVar で受ける
+LS = TypeVar("LS", bound="LoadDisplacementOps")
 
 
 class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
@@ -116,7 +119,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         markers = compute_cycle_markers(to_float_array(self._column_values(source)), step=step)
         return self._with_column(result_column, markers.tolist(), unit, ch, default_unit="")
 
-    def split_by_cycles(self, *, cycle_column: Optional[str] = None) -> OpsList[Self]:
+    def split_by_cycles(self: LS, *, cycle_column: Optional[str] = None) -> OpsList[LS]:
         """サイクル番号ごとに分割します（cycle_column の省略時は荷重の符号反転から数える）"""
         return self.split_by_integers(self._cycle_markers(cycle_column))
 

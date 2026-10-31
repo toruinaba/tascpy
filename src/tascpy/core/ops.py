@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 C_co = TypeVar("C_co", bound=ColumnCollection, covariant=True)
 O = TypeVar("O", bound="CoreOps[Any]", covariant=True)
 P = ParamSpec("P")
+# OpsList[Self] は jedi（marimo の補完）が要素の型を解決できないため、分割系は self を TypeVar で受ける
+S = TypeVar("S", bound="CoreOps[Any]")
 
 
 class HasOps(Protocol[O]):
@@ -189,7 +191,7 @@ class CoreOps(Generic[C_co]):
     def _mask(self, expr: pl.Expr) -> np.ndarray:
         return self._c.df.select(expr.fill_null(False)).to_series().to_numpy()
 
-    def _split(self, row_groups: List[Any], keys: Optional[List[Any]] = None) -> "OpsList[Self]":
+    def _split(self: S, row_groups: List[Any], keys: Optional[List[Any]] = None) -> "OpsList[S]":
         from .ops_list import OpsList
 
         return OpsList([self._next(self._c.take(rows)) for rows in row_groups], keys)
@@ -684,7 +686,7 @@ class CoreOps(Generic[C_co]):
 
     # ── 分割 ─────────────────────────────────
 
-    def split_by_integers(self, markers: Union[str, List[int], np.ndarray]) -> "OpsList[Self]":
+    def split_by_integers(self: S, markers: Union[str, List[int], np.ndarray]) -> "OpsList[S]":
         """行ごとの整数マーカー（列名または配列）の値ごとにコレクションを分割します（欠損の行は除外）
 
         各要素のキー（`OpsList.keys`）はマーカーの値です。
@@ -700,7 +702,7 @@ class CoreOps(Generic[C_co]):
         keys = np.unique(values[~np.isnan(values)])
         return self._split([np.flatnonzero(values == k) for k in keys], keys.tolist())
 
-    def split_at_indices(self, indices: Union[int, List[int]]) -> "OpsList[Self]":
+    def split_at_indices(self: S, indices: Union[int, List[int]]) -> "OpsList[S]":
         """指定したインデックスでコレクションを分割します（各要素のキーは区間の番号 0, 1, ...）
 
         Raises:
