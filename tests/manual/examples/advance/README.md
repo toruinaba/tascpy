@@ -13,12 +13,15 @@
    - 前処理後データのトレンド分析
    
    ```python
-   # 異常値の可視化（欠損除去はチェーン、描画はコレクションの plot で行う）
-   clean = filtered_collection.ops.filter_out_none(columns=["data"]).end()
-   clean.plot.visualize_outliers(
-       column="data",
-       window_size=15,
-       threshold=0.3,  # しきい値
+   # 異常値の可視化（判定は ops で列にし、描画はその列を plot に渡す）
+   clean = (
+       filtered_collection.ops.filter_out_none(columns=["data"])
+       .detect_outliers("data", window_size=15, threshold=0.3, result_column="flag")  # しきい値
+       .end()
+   )
+   clean.plot.plot_outliers(
+       "data",
+       flags_column="flag",
        plot_type="line",
        highlight_color="red",
        outlier_marker="o",
@@ -59,11 +62,10 @@ flagged_collection = (
     .end()
 )
 
-# 検出した異常値の視覚化
-collection.plot.visualize_outliers(
-    column="data",
-    window_size=15,
-    threshold=0.5,
+# 検出した異常値の視覚化（判定結果の列を渡す。plot の中では判定しない）
+flagged_collection.plot.plot_outliers(
+    "data",
+    flags_column="outlier_flag",
     plot_type="line",
     highlight_color="red",
     outlier_marker="o",

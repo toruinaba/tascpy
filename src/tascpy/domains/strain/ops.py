@@ -25,20 +25,20 @@ class StrainOps(CoordinateOps[StrainCollection]):
 
     def calculate_rosette_strains(self, rosette_name: Optional[str] = None, columns: Optional[List[str]] = None,
                                   rosette_type: str = "rectangular", orientation: float = 0.0,
-                                  *, prefix: str) -> Self:
+                                  *, result_prefix: str) -> Self:
         """3 軸ロゼットから主ひずみ・最大せん断ひずみ・主方向を計算し、列を追加します
 
-        追加される列: "{prefix}_e1", "{prefix}_e2", "{prefix}_gamma", "{prefix}_theta"
+        追加される列: "{result_prefix}_e1", "{result_prefix}_e2", "{result_prefix}_gamma", "{result_prefix}_theta"
 
         Args:
             rosette_name: 登録済みロゼット名（指定時は columns / rosette_type / orientation を上書き）
             columns: ゲージの列名 [e1, e2, e3]
             rosette_type: "rectangular" または "delta"
             orientation: 第 1 ゲージの角度（度、X 軸基準・反時計回り）
-            prefix: 結果列の接頭辞
+            result_prefix: 結果列の接頭辞
 
         Examples:
-            >>> result = strain.ops.calculate_rosette_strains("R1", prefix="R1").end()
+            >>> result = strain.ops.calculate_rosette_strains("R1", result_prefix="R1").end()
             >>> round(float(result["R1_e1"].values[1]), 1), result["R1_e1"].unit, result["R1_theta"].unit
             (101.7, 'ue', 'deg')
         """
@@ -65,33 +65,11 @@ class StrainOps(CoordinateOps[StrainCollection]):
             ("gamma", gamma_max, "Max Shear Strain"),
             ("theta", theta, "Principal Direction Angle (deg)"),
         ]:
-            name = f"{prefix}_{suffix}"
+            name = f"{result_prefix}_{suffix}"
             result = result.with_column(
                 name, values, unit="deg" if suffix == "theta" else unit,
                 attrs={"description": description, "source_rosette": rosette_name or "manual"},
             ).with_coordinates(name, x, y, z)
-        return self._next(result)
-
-    def calculate_stress(self, load_column: str, area: float, *, result_column: str,
-                         unit: Optional[str] = None) -> Self:
-        """応力 = 荷重 / 断面積 を新しい列として追加します
-
-        断面積は単位を持たないため、結果の単位は推測しません。unit で指定してください（省略時は None = 不明）。
-
-        Examples:
-            >>> stress = strain.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力", unit="kN/mm2").end()
-            >>> stress["応力"].values, stress["応力"].unit
-            (array([ 0. ,  4. ,  8. , 10. , 11. , 11.5]), 'kN/mm2')
-        """
-        stress = self._float_column(load_column, "荷重カラム") / area
-        result = self._c.with_column(
-            result_column, stress, unit=unit,
-            attrs={
-                "description": f"Calculated Stress (Load: {load_column}, Area: {area})",
-                "source_load": load_column,
-                "area": area,
-            },
-        )
         return self._next(result)
 
     def yield_point(self, *, stress_column: str, strain_column: str, method: str = "offset",

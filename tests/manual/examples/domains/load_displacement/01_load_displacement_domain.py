@@ -289,7 +289,7 @@ methods = [
 
 # チェーンメソッドで降伏点比較分析を実行
 fig, ax = plt.subplots(figsize=(10, 7))
-ld_collection.plot.compare_yield_methods(methods=methods, ax=ax)
+ld_collection.plot.compare_yield_points([ld_collection.ops.yield_point(**m) for m in methods], ax=ax)
 
 plt.title("様々な降伏点定義方法の比較")
 plt.tight_layout()

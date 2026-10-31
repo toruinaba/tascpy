@@ -260,20 +260,19 @@ class TestPlotYieldAnalysisDetails:
         plt.close(fig)
 
 
-class TestCompareYieldMethods:
-    """compare_yield_methods関数のテスト"""
+class TestCompareYieldPoints:
+    """compare_yield_points関数のテスト"""
 
     def test_methods_comparison(self, sample_load_displacement_data):
         """複数の降伏点計算手法の比較テスト"""
-        methods = [
-            {"method": "offset", "offset_value": 0.002},
-            {"method": "offset", "offset_value": 0.005},
-            {"method": "general", "factor": 0.33},
+        ops = sample_load_displacement_data.ops
+        points = [
+            ops.yield_point(method="offset", offset_value=0.002),
+            ops.yield_point(method="offset", offset_value=0.005),
+            ops.yield_point(method="general", factor=0.33),
         ]
 
-        result_collection = sample_load_displacement_data.plot.compare_yield_methods(
-            methods=methods
-        )
+        sample_load_displacement_data.plot.compare_yield_points(points)
 
         # 現在のaxとfigureを取得
         fig = plt.gcf()
@@ -289,19 +288,5 @@ class TestCompareYieldMethods:
         legend_texts = [text.get_text() for text in legend.get_texts()]
         assert any("Offset" in text for text in legend_texts)
         assert any("General" in text for text in legend_texts)
-
-        plt.close(fig)
-
-    def test_default_methods(self, sample_load_displacement_data):
-        """デフォルトメソッドを使用したテスト"""
-        result_collection = sample_load_displacement_data.plot.compare_yield_methods()
-
-        # 現在のaxとfigureを取得
-        fig = plt.gcf()
-        ax = plt.gca()
-
-        # デフォルトで2つの降伏点がプロットされるはず
-        scatter_points = [c for c in ax.collections if isinstance(c, PathCollection)]
-        assert len(scatter_points) >= 2
 
         plt.close(fig)

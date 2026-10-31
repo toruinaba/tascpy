@@ -44,12 +44,12 @@ def reducers_end_the_chain(ld: LoadDisplacementCollection, sc: StrainCollection,
 def domain_conversion(col: ColumnCollection) -> None:
     assert_type(col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="D").to_skeleton_curve(),
                 LoadDisplacementOps)
-    assert_type(col.ops.as_domain(as_strain).calculate_rosette_strains(columns=["a", "b", "c"], prefix="rosette"), StrainOps)
+    assert_type(col.ops.as_domain(as_strain).calculate_rosette_strains(columns=["a", "b", "c"], result_prefix="rosette"), StrainOps)
     assert_type(col.ops.as_domain(as_coordinate).interpolate_at_point(0.0, 0.0, result_column="interp(0, 0)").end(), CoordinateCollection)
 
 
 def strain_inherits_coordinate(sc: StrainCollection) -> None:
-    assert_type(sc.ops.interpolate_at_point(0.0, 0.0, result_column="interp(0, 0)").calculate_stress("F", 2.0, result_column="stress"), StrainOps)
+    assert_type(sc.ops.interpolate_at_point(0.0, 0.0, result_column="interp(0, 0)").divide("F", 2.0, result_column="stress"), StrainOps)
     assert_type(sc.ops.end(), StrainCollection)
 
 

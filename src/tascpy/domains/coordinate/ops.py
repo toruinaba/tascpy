@@ -154,14 +154,14 @@ class CoordinateOps(CoreOps[CC_co]):
     def nearest_neighbors(self, column: str, *, n_neighbors: int = 3) -> Dict[str, float]:
         """座標空間で column に近い列を、近い順に {列名: 距離} で返します（座標を持つ列が対象）"""
         if column not in self._c:
-            raise ValueError(f"指定されたカラム '{column}' が見つかりません。")
+            raise KeyError(f"列 '{column}' が存在しません")
         valid = self._c.get_columns_with_coordinates()
         if len(valid) <= 1:
             raise ValueError("十分な数の座標データがありません。")
         if column not in valid:
             raise ValueError(f"カラム '{column}' には有効な座標が設定されていません。")
 
-        candidates = [(name, self._c.calculate_distance(column, name)) for name in valid if name != column]
+        candidates = [(name, self._c.distance(column, name)) for name in valid if name != column]
         neighbors = sorted((c for c in candidates if not np.isnan(c[1])), key=lambda c: c[1])[:n_neighbors]
         return {name: float(d) for name, d in neighbors}
 

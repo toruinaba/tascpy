@@ -85,10 +85,10 @@ def main():
     ax.set_zlabel("温度 [℃]")
     save(fig, "coordinate_3d_surface.png")
 
-    # 3. 距離行列（CoordinateCollection.calculate_distance、z を含む 3D 距離）
+    # 3. 距離行列（CoordinateCollection.distance、z を含む 3D 距離）
     print("## 3. 距離行列（対角線上の 5 センサー）")
     subset = [f"sensor_{k}_{k}" for k in range(1, GRID + 1)]
-    matrix = np.array([[data.calculate_distance(a, b) for b in subset] for a in subset])
+    matrix = np.array([[data.distance(a, b) for b in subset] for a in subset])
     fig, ax = plt.subplots(figsize=(8, 7))
     im = ax.imshow(matrix, cmap="Blues")
     ax.set_xticks(range(len(subset)), subset, rotation=45, ha="right")
@@ -113,9 +113,9 @@ def main():
         members = [n for n in names if assignments[n] == cluster]
         print(f"   クラスタ {cluster}: {len(members)} センサー")
 
-    # 5. 近傍探索（calculate_distance による距離順）
+    # 5. 近傍探索（distance による距離順）
     center = "sensor_3_3"
-    nearest = sorted((data.calculate_distance(center, n), n) for n in names if n != center)[:4]
+    nearest = sorted((data.distance(center, n), n) for n in names if n != center)[:4]
     print(f"## 5. {center} の近傍: " + ", ".join(f"{n} ({d:.2f})" for d, n in nearest))
 
     # 6. 温度勾配のベクトル場

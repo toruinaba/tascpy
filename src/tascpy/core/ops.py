@@ -400,14 +400,13 @@ class CoreOps(Generic[C_co]):
             result = np.power(self._numeric(values), exponent)
         return self._with_column(result_column, result, unit, ch)
 
-    def abs_values(self, values: Operand, *, result_column: str,
+    def abs(self, values: Operand, *, result_column: str,
                    unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """絶対値を新しい列として追加します"""
         return self._with_column(result_column, np.abs(self._numeric(values)), unit, ch, self._unit_of(values))
 
-    abs = abs_values
 
-    def round_values(self, values: Operand, decimals: int = 0, *, result_column: str,
+    def round(self, values: Operand, decimals: int = 0, *, result_column: str,
                      unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """四捨五入した値を新しい列として追加します"""
         return self._with_column(result_column, np.round(self._numeric(values), decimals), unit, ch, self._unit_of(values))

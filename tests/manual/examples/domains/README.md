@@ -35,7 +35,7 @@
    cols_with_coords = collection.get_columns_with_coordinates()
    
    # 2つのセンサー間の距離を計算
-   distance = collection.calculate_distance("sensor1", "sensor3")
+   distance = collection.distance("sensor1", "sensor3")
    ```
 
 2. **[01_coordinate_visualization_basic.py](./coordinate/01_coordinate_visualization_basic.py)** - 基本的な座標可視化
@@ -51,7 +51,7 @@
 
 3. **[02_coordinate_visualization_advanced.py](./coordinate/02_coordinate_visualization_advanced.py)** - 高度な座標可視化
    - 等高線・3D 表面プロット
-   - `calculate_distance` による距離行列と近傍探索
+   - `distance` による距離行列と近傍探索
    - `ops.clusters` による k-means クラスタリング
    - 温度勾配のベクトル場
 
@@ -85,7 +85,7 @@ names = collection.get_columns_with_coordinates()
 matrix, valid_names = collection.get_coordinate_matrix(include_z=True)
 
 # 距離計算
-distance = collection.calculate_distance("sensor1", "sensor2")
+distance = collection.distance("sensor1", "sensor2")
 
 # 座標による k-means クラスタリング（{列名: クラスタ番号} を返す）
 assignments = collection.ops.clusters(n_clusters=3)
@@ -165,7 +165,7 @@ grid.values  # (ny, nx)
 |---|---|---|
 | `calculate_slopes(result_column=)` | 区間ごとの傾き | 列 `result_column` を足した Ops |
 | `mark_cycles(result_column=, column=, step=)` | サイクル番号 | 列 `result_column` を足した Ops |
-| `find_peaks_and_valleys(result_column=, column=, distance=)` | ピーク/バレーのマーカー | 列 `result_column` を足した Ops |
+| `mark_peaks_and_valleys(result_column=, column=, distance=)` | ピーク/バレーのマーカー | 列 `result_column` を足した Ops |
 | `split_by_cycles(cycle_column=)` | サイクルごとに分割 | `OpsList` |
 | `to_skeleton_curve(cycle_column=)` | スケルトン曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`）の Ops |
 | `to_cumulative_curve(cycle_column=)` | 累積曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`）の Ops |

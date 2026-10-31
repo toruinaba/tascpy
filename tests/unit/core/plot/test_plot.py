@@ -226,141 +226,48 @@ class TestPlot:
         assert result is mock_ax
 
 
-class TestVisualizeOutliers:
-    """visualize_outliers関数のテスト"""
+class TestPlotOutliers:
+    """plot_outliers: 外れ値フラグの列に基づいて色分けして描画する（判定は ops 側で行う）"""
 
-    @patch("tascpy.numeric.stats.detect_outliers")
-    @patch("matplotlib.pyplot.show")
+    @staticmethod
+    def _flagged(collection, flags):
+        return collection.with_column("flag", flags, unit="")
+
     @patch("matplotlib.pyplot.subplots")
-    def test_basic_visualization(
-        self, mock_subplots, mock_show, mock_detect_outliers, sample_collection
-    ):
-        """基本的な異常値の可視化機能が正しく動作することを確認"""
-        # detect_outliersのモック戻り値を設定 (純粋関数なのでフラグのリスト/配列を返す)
-        mock_detect_outliers.return_value = [0, 1, 0, 1, 0]
-
-        # モックの設定
-        mock_fig = MagicMock()
+    def test_basic_visualization(self, mock_subplots, sample_collection):
         mock_ax = MagicMock()
-        mock_subplots.return_value = (mock_fig, mock_ax)
-
-        # visualize_outliers関数を呼び出す
-        result = sample_collection.plot.visualize_outliers(column="y1")
-
-        # 検証: detect_outliers が呼ばれたか
-        mock_detect_outliers.assert_called_once()
-        
-        # 検証: detect_outliers が純粋な値（NumPy配列など）で呼ばれたか確認
-        # args[0] は y_values
-        call_args = mock_detect_outliers.call_args
-        assert call_args is not None
-        # args[0]にはy列の値(numpy array)が入っているはず
-        np.testing.assert_array_equal(call_args[0][0], sample_collection["y1"].values)
-
-        # 検証: matplotlibの適切なメソッドが呼ばれたか
-        # 正常値と異常値で少なくとも2回scatterが呼ばれる
+        mock_subplots.return_value = (MagicMock(), mock_ax)
+        flagged = self._flagged(sample_collection, [0, 1, 0, 1, 0])
+        result = flagged.plot.plot_outliers("y1", flags_column="flag")
+        assert result is mock_ax
         assert mock_ax.scatter.call_count >= 1
-        mock_ax.set_title.assert_called()
+        mock_ax.set_title.assert_called_with("異常値検出: y1 (検出数: 2個)")
         mock_ax.set_xlabel.assert_called()
         mock_ax.set_ylabel.assert_called()
 
-        # axがNoneの場合（新しい図を作成した場合）のみplt.showが呼ばれる
-        # 純粋関数化したため plt.show() は呼ばれない仕様に変更 (呼び出し元で制御)
-        # mock_show.assert_called_once() -> Removed
+    def test_does_not_detect_outliers_itself(self, sample_collection):
+        with patch("tascpy.numeric.stats.detect_outliers") as mock_detect:
+            self._flagged(sample_collection, [0, 0, 0, 0, 0]).plot.plot_outliers("y1", flags_column="flag", ax=MagicMock())
+        mock_detect.assert_not_called()
 
-        # 結果がAxesオブジェクトであることを確認
-        assert result is mock_ax
-
-    @patch("tascpy.numeric.stats.detect_outliers")
-    @patch("matplotlib.pyplot.show")
-    def test_existing_axes(self, mock_show, mock_detect_outliers, sample_collection):
-        """既存のAxesオブジェクトを使用する機能が正しく動作することを確認"""
-        # detect_outliersのモック戻り値を設定
-        mock_detect_outliers.return_value = [0, 1, 0, 1, 0]
-
-        # 既存のAxesオブジェクトをモックで作成
-        mock_ax = MagicMock()
-
-        # visualize_outliers関数を呼び出す
-        result = sample_collection.plot.visualize_outliers(column="y1", ax=mock_ax)
-
-        # 検証: 既存のaxesオブジェクトが使用されるか
-        assert mock_ax.scatter.call_count >= 1
-        mock_ax.set_xlabel.assert_called()
-        mock_ax.set_ylabel.assert_called()
-
-        # 既存のAxesオブジェクトを使用する場合はplt.showは呼ばれない
-        mock_show.assert_not_called()
-
-        # 結果がAxesであることを確認
-        assert result is mock_ax
-
-    @patch("tascpy.numeric.stats.detect_outliers")
-    @patch("matplotlib.pyplot.show")
     @patch("matplotlib.pyplot.subplots")
-    def test_no_outliers(
-        self, mock_subplots, mock_show, mock_detect_outliers, sample_collection
-    ):
-        """異常値がない場合の動作を確認"""
-        # detect_outliersのモック戻り値を設定（異常値なし）
-        mock_detect_outliers.return_value = [0, 0, 0, 0, 0]
-
-        # モックの設定
-        mock_fig = MagicMock()
+    def test_no_outliers(self, mock_subplots, sample_collection):
         mock_ax = MagicMock()
-        mock_subplots.return_value = (mock_fig, mock_ax)
-
-        # visualize_outliers関数を呼び出す（異常値なし）。検出数はタイトルに表示し、print はしない
+        mock_subplots.return_value = (MagicMock(), mock_ax)
         with patch("builtins.print") as mock_print:
-            result = sample_collection.plot.visualize_outliers(column="y1")
+            self._flagged(sample_collection, [0, 0, 0, 0, 0]).plot.plot_outliers("y1", flags_column="flag")
             mock_print.assert_not_called()
         mock_ax.set_title.assert_called_with("異常値検出: y1 (検出数: 0個)")
-
-        # 異常値がなくても、通常のデータポイントはプロットされるはず
         mock_ax.scatter.assert_called()
 
-        # 結果がAxesであることを確認
-        assert result is mock_ax
-
-    @patch("tascpy.numeric.stats.detect_outliers")
-    @patch("matplotlib.pyplot.show")
-    @patch("matplotlib.pyplot.subplots")
-    def test_custom_parameters(
-        self, mock_subplots, mock_show, mock_detect_outliers, sample_collection
-    ):
-        """カスタムパラメータ指定時の動作を確認"""
-        # detect_outliersのモック戻り値を設定
-        mock_detect_outliers.return_value = [0, 1, 0, 1, 0]
-
-        # モックの設定
-        mock_fig = MagicMock()
+    def test_flags_from_detect_outliers(self, sample_collection):
+        flagged = sample_collection.ops.detect_outliers("y1", result_column="flag").end()
         mock_ax = MagicMock()
-        mock_subplots.return_value = (mock_fig, mock_ax)
+        assert flagged.plot.plot_outliers("y1", flags_column="flag", ax=mock_ax, highlight_color="red") is mock_ax
 
-        # カスタムパラメータを指定してvisualize_outliers関数を呼び出す
-        result = sample_collection.plot.visualize_outliers(
-            column="y1",
-            window_size=5,
-            threshold=0.3,
-            highlight_color="red",
-            show_normal=True,
-            normal_color="blue",
-            normal_alpha=0.5,
-            outlier_marker="x",
-            outlier_size=100,
-        )
-
-        # 検証: detect_outliers がカスタムパラメータで呼ばれたか
-        # 注意: 引数の順序やキーワード引数を正確にチェック
-        args, kwargs = mock_detect_outliers.call_args
-        assert kwargs["window_size"] == 5
-        assert kwargs["threshold"] == 0.3
-        # result_columnは渡されない（純粋関数コールなので不要）
-
-        # 結果がAxesであることを確認
-        assert result is mock_ax
-
-
+    def test_missing_flags_column(self, sample_collection):
+        with pytest.raises(KeyError):
+            sample_collection.plot.plot_outliers("y1", flags_column="flag")
 
 
 class TestPlotConstX:
