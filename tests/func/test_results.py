@@ -35,21 +35,21 @@ class Test_results:
         extracted.io.to_csv(str(output_file))
         ref_load1 = 200.0
         ref_load2 = 600.0
-        fetched_step1 = extracted.ops.fetch_near_step("P_total", ref_load1).end()
-        fetched_step2 = extracted.ops.fetch_near_step("P_total", ref_load2).end()
+        fetched_step1 = extracted.ops.nearest_row("P_total", ref_load1)
+        fetched_step2 = extracted.ops.nearest_row("P_total", ref_load2)
         fig = plt.figure(figsize=(10, 3))
         ax1 = fig.add_subplot(1, 3, 1)
         # Create explicit axes for tests
         extracted.plot.plot(x_column="梁変位", y_column="P_total", ax=ax1, linewidth=0.5)
         ax1.scatter(
-            [fetched_step1["梁変位"].values],
-            [fetched_step1["P_total"].values],
+            [fetched_step1["梁変位"]],
+            [fetched_step1["P_total"]],
             marker="o",
             color="r",
         )
         ax1.scatter(
-            [fetched_step2["梁変位"].values],
-            [fetched_step2["P_total"].values],
+            [fetched_step2["梁変位"]],
+            [fetched_step2["P_total"]],
             marker="^",
             color="b",
         )
@@ -58,10 +58,11 @@ class Test_results:
         distance = [0.0, 50.0, 100.0, 200.0, 300.0]
         plot_list1 = ["b11", "b21", "b31", "b41", "b51"]
         plot_list2 = ["b12", "b22", "b32", "b42", "b52"]
-        fetched_step1.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="o", color="r")
-        fetched_step2.plot.plot_const_x(distance, plot_list1, ax=ax2, marker="^", color="b")
-        fetched_step1.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="o", color="r")
-        fetched_step2.plot.plot_const_x(distance, plot_list2, ax=ax3, marker="^", color="b")
+        row1, row2 = extracted.step_index(fetched_step1.step), extracted.step_index(fetched_step2.step)
+        extracted.plot.plot_const_x(distance, plot_list1, row=row1, ax=ax2, marker="o", color="r")
+        extracted.plot.plot_const_x(distance, plot_list1, row=row2, ax=ax2, marker="^", color="b")
+        extracted.plot.plot_const_x(distance, plot_list2, row=row1, ax=ax3, marker="o", color="r")
+        extracted.plot.plot_const_x(distance, plot_list2, row=row2, ax=ax3, marker="^", color="b")
         ax2.set_xlim(0, 300.0)
         ax2.set_ylim(50, 110.0)
         ax3.set_xlim(0, 300.0)

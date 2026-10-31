@@ -149,15 +149,25 @@ array([ 80., 106., 114.,  90.])
 
 1 サイクル目（±2 mm）は弾性範囲なのでエネルギーは 0 です。4 サイクル目は最後に 0 mm へ戻る途中までの部分です。
 
-`to_hysteresis_table` は `split_by_cycles` でサイクルごとに分け、`to_table` で 1 サイクルを 1 行に集約したものです。同じ形で、サイクルごとに好きな値を集約できます。関数が `stiffness` などの単位付きの結果を返すと、単位も列に引き継がれます。
+サイクルごとに好きな値を集めるときは、`split_by_cycles` でサイクルごとに分け、`collect` で各サイクルの値を求めます。`collect` の結果はそのままリストとして使え、`to_table(name=...)` で 1 サイクル 1 行の表（ステップはサイクル番号）にできます。ステップが同じ表は `join` で横に並べられます。
 
 ```pycon
->>> per_cycle = ld.split_by_cycles().to_table(
-...     peak=lambda o: o.end()["荷重"].max(),
-...     secant=lambda o: o.stiffness(range_start=0.0, range_end=1.0, method="secant"),
-... ).end()
->>> per_cycle.step.tolist(), per_cycle["peak"].values, per_cycle["secant"].unit
-([1, 2, 3, 4], array([ 80., 106., 114.,  90.]), 'kN/mm')
+>>> cycles = ld.split_by_cycles()
+>>> peak = cycles.collect(lambda o: o.end()["荷重"].max())
+>>> peak, peak.keys
+([80.0, 106.0, 114.0, 90.0], [1, 2, 3, 4])
+>>> per_cycle = peak.to_table(name="peak").join(ld.to_stiffness_table()).end()
+>>> per_cycle.columns, per_cycle["stiffness"].unit
+(['peak', 'stiffness'], 'kN/mm')
+
+```
+
+データの行そのものを選ぶ `nearest_row` を集めると、元の列名・単位のままの表になります（元の行のステップは `source_step`）。表は荷重-変位のまま引き継がれます。
+
+```pycon
+>>> peaks = cycles.collect(lambda o: o.nearest_row("荷重", o.end()["荷重"].max())).to_table()
+>>> type(peaks).__name__, peaks.end()["変位"].values, peaks.end()["source_step"].values
+('LoadDisplacementOps', array([2., 4., 6., 0.]), array([ 19.,  59.,  99., 139.]))
 
 ```
 

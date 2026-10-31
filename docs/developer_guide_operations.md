@@ -32,10 +32,11 @@ col.ops.add("A", "B", result_column="合計")
 |---|---|---|---|
 | 変換（列を足す・行を絞る） | `Self`（チェーンが続く） | 動詞（印なし） | `add`、`select`、`mark_cycles` |
 | 同じデータを別のドメインとして扱う | 別の Ops | `as_*` | `as_domain`、`as_core` |
-| 新しい表への集約 | 別の Ops（新しい表でチェーンが続く） | `to_<名詞>` | `to_skeleton_curve`、`to_hysteresis_table`、`OpsList.to_table` |
-| 値への集約 | 結果オブジェクトや値（チェーンが終わる） | 名詞 | `stiffness`、`yield_point`、`grid` |
+| 新しい表への集約 | 別の Ops（新しい表でチェーンが続く） | `to_<名詞>` | `to_skeleton_curve`、`to_hysteresis_table`、`collect(...).to_table` |
+| 値への集約 | 結果オブジェクトや値（チェーンが終わる） | 名詞 | `stiffness`、`yield_point`、`grid`、`nearest_row` |
 | 分割 | `OpsList` | `split_*` | `split_by_cycles` |
 
+- 値への集約は、データの 1 行を選ぶものは `Row`（`nearest_row`）、計算で値を作るものは結果オブジェクト（`ScalarResult` / `PointResult` など）を返します。
 - 値への集約は結果を `results` に入れず、そのまま返します。保存したいときは呼び出し側が `with_result` で付けます（解析結果がデータの変更に追従しないため、自動では付けません）。
 - 列や単位を推測しません。ドメインへの変換（`as_load_displacement` など）は使う列を必ず受け取り、サイクル列など他の操作が作った列も名前から探しません（省略時は既定の規則でその場で計算し、既存の列を使うときは列名を引数で受け取ります）。結果の単位が決められないときは `None`（不明）にし、呼び出し側が `unit=` で指定します。
 - 列を足す操作は、結果の列名をキーワード専用の必須引数 `result_column` で受け取ります（複数の列を作る操作は接頭辞を必須にします）。操作の側で既定の列名は決めません。既存の列名を指定した場合は、意図した上書きとして扱います。
@@ -67,8 +68,10 @@ ld.ops.as_core()                               # ドメインの設定を外す 
 parts = ld.ops.split_by_cycles()
 parts.map(lambda o: o.moving_average("荷重", result_column="荷重_平滑"))  # 各要素に操作を適用 -> OpsList
 parts.collect(lambda o: o.end()["荷重"].max())    # 値のリスト
-parts.collect(lambda o: o.stiffness())            # 結果オブジェクトのリスト
-parts.to_table(k=lambda o: o.stiffness())         # 1 要素 1 行の表 -> CoreOps（ステップは分割のキー）
+parts.collect(lambda o: o.stiffness())            # 結果オブジェクトのリスト（分割のキーを持つ）
+parts.collect(lambda o: o.stiffness()).to_table(name="k")   # 1 要素 1 行の表 -> CoreOps（ステップは分割のキー）
+parts.collect(lambda o: o.nearest_row("荷重", 100.0)).to_table()   # 行の表（元の列名・ドメインのまま）
+table_a.join(table_b)                            # ステップが同じ表を横に並べる
 parts.keys                                       # 分割のキー（サイクル番号など）
 parts.filter(lambda c: len(c) > 10)              # コレクションで絞り込み
 parts.concat()                                   # 連結 -> 操作オブジェクト

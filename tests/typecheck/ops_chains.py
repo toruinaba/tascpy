@@ -6,6 +6,7 @@ from tascpy.domains import CoordinateOps, LoadDisplacementOps, StrainOps
 from tascpy.core import CoreOps, OpsList
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.result import GridResult, PointResult, ScalarResult
+from tascpy.core.row import Row
 from tascpy.domains.coordinate import CoordinateCollection
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 from tascpy.domains.strain import StrainCollection
@@ -68,3 +69,10 @@ def domain_conversion_arguments_are_checked(col: ColumnCollection) -> None:
     col.ops.as_domain(as_load_displacement, load_column=1, displacement_column="D")  # pyright: ignore[reportArgumentType]
     col.ops.as_domain(as_load_displacement)  # pyright: ignore[reportCallIssue]
     col.ops.as_domain(as_coordinate, {"a": {"x": 0.0}})  # pyright: ignore[reportCallIssue]
+
+
+def collect_to_table(ld: LoadDisplacementCollection) -> None:
+    parts = ld.ops.split_by_cycles()
+    assert_type(parts.collect(lambda o: o.nearest_row("P", 1.0)).to_table(), LoadDisplacementOps)
+    assert_type(parts.collect(lambda o: o.yield_point()).to_table(name="yp"), CoreOps[ColumnCollection])
+    assert_type(ld.ops.nearest_row("P", 1.0), Row)

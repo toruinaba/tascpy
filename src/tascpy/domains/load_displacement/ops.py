@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Self, Tuple
+from typing import Optional, Self, Tuple
 
 import numpy as np
 
@@ -144,27 +144,21 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """サイクルごとの履歴エネルギーと最大・最小荷重/変位を集計した表を返します
 
         戻り値のステップはサイクル番号、列は energy（単位は "荷重*変位"）/ max_load / min_load / max_disp / min_disp です。
-        `split_by_cycles(...).to_table(...)` の決まった組み合わせです。
         """
         load_unit, disp_unit = self._c.load.unit, self._c.displacement.unit
-
-        def part(index: int, name: str, unit: Optional[str]) -> Callable[[LoadDisplacementOps], ScalarResult]:
-            return lambda o: ScalarResult(name, compute_hysteresis_energy(*o._ld_arrays())[index], unit=unit)
-
-        return self.split_by_cycles(cycle_column=cycle_column).to_table(
-            energy=part(0, "energy", self._ld_unit("*")),
-            max_load=part(1, "max_load", load_unit),
-            min_load=part(2, "min_load", load_unit),
-            max_disp=part(3, "max_disp", disp_unit),
-            min_disp=part(4, "min_disp", disp_unit),
-        )
+        rows = self.split_by_cycles(cycle_column=cycle_column).collect(
+            lambda o: compute_hysteresis_energy(*o._ld_arrays()))
+        units = {"energy": self._ld_unit("*"), "max_load": load_unit, "min_load": load_unit,
+                 "max_disp": disp_unit, "min_disp": disp_unit}
+        columns = {name: [row[i] for row in rows] for i, name in enumerate(units)}
+        return CoreOps(ColumnCollection(columns, step=rows.keys, units=units, metadata=self._c.metadata))
 
     def to_stiffness_table(self, *, cycle_column: Optional[str] = None) -> CoreOps[ColumnCollection]:
         """サイクルごとの割線剛性を集計した表を返します（列: stiffness）"""
         unit = self._ld_unit("/")
-        return self.split_by_cycles(cycle_column=cycle_column).to_table(
-            stiffness=lambda o: ScalarResult("stiffness", compute_secant_stiffness(*o._ld_arrays()), unit=unit),
-        )
+        return self.split_by_cycles(cycle_column=cycle_column).collect(
+            lambda o: ScalarResult("stiffness", compute_secant_stiffness(*o._ld_arrays()), unit=unit),
+        ).to_table(name="stiffness")
 
     # ── 特殊曲線 ──────────────────────────────
 

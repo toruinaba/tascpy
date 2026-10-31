@@ -183,44 +183,82 @@ def test_split_keys_follow_map_filter_and_slice(collection_list, sample_collecti
     assert sample_collection.ops.split_at_indices([2, 4]).keys == [0, 1, 2]
 
 
-def test_to_table_rows_are_split_keys(collection_list):
-    table = collection_list.to_table(max_a=lambda o: o.end()["A"].max(), rows=lambda o: len(o.end())).end()
+def test_collect_keeps_keys_and_behaves_like_list(collection_list):
+    collected = collection_list.collect(lambda o: o.end()["A"].max())
+    assert collected == [30, 50, 60]
+    assert collected.keys == [1, 2, 3]
+    assert collection_list.filter(lambda c: c["A"].values[0] > 10).collect(lambda o: len(o.end())).keys == [2, 3]
+
+
+def test_value_table_rows_are_split_keys(collection_list):
+    table = collection_list.collect(lambda o: o.end()["A"].max()).to_table(name="max_a").end()
     assert table.step.tolist() == [1, 2, 3]
     np.testing.assert_allclose(table["max_a"].values, [30, 50, 60])
-    np.testing.assert_allclose(table["rows"].values, [2, 2, 2])
-    assert table.units == {"max_a": None, "rows": None}
+    assert table.units == {"max_a": None}
 
 
-def test_to_table_expands_results_with_units(collection_list):
+def test_value_table_expands_results_with_units(collection_list):
     from tascpy.core.result import PointResult, ScalarResult
 
-    table = collection_list.to_table(
-        mean=lambda o: ScalarResult("mean", float(o.end()["A"].values.mean()), unit="m"),
-        peak=lambda o: PointResult("peak", 1.0, float(o.end()["A"].max()), x_unit="s", y_unit="m"),
-    ).end()
-    assert table.columns == ["mean", "peak_x", "peak_y"]
-    assert table.units == {"mean": "m", "peak_x": "s", "peak_y": "m"}
+    mean = collection_list.collect(lambda o: ScalarResult("mean", float(o.end()["A"].values.mean()), unit="m"))
+    assert mean.to_table(name="mean").end().units == {"mean": "m"}
+    peak = collection_list.collect(lambda o: PointResult("peak", 1.0, float(o.end()["A"].max()), x_unit="s", y_unit="m"))
+    table = peak.to_table(name="peak").end()
+    assert table.columns == ["peak_x", "peak_y"]
+    assert table.units == {"peak_x": "s", "peak_y": "m"}
     np.testing.assert_allclose(table["peak_y"].values, [30, 50, 60])
 
 
-def test_to_table_rejects_unsupported_values(collection_list):
-    with pytest.raises(TypeError, match="to_table"):
-        collection_list.to_table(rows=lambda o: o.end())
-    with pytest.raises(ValueError, match="集約する列"):
-        collection_list.to_table()
+def test_join_places_tables_side_by_side(collection_list):
+    peak = collection_list.collect(lambda o: o.end()["A"].max()).to_table(name="peak")
+    rows = collection_list.collect(lambda o: len(o.end())).to_table(name="rows")
+    joined = peak.join(rows).end()
+    assert joined.columns == ["peak", "rows"]
+    with pytest.raises(ValueError, match="列名が重なっています"):
+        peak.join(peak)
+    with pytest.raises(ValueError, match="ステップが一致しない"):
+        peak.join(collection_list[:2].collect(lambda o: len(o.end())).to_table(name="n"))
 
 
-def test_to_table_requires_consistent_kind_and_unit(collection_list):
+def test_row_table_keeps_column_names_units_and_source_step(collection_list):
+    table = collection_list.collect(lambda o: o.nearest_row("A", 1000.0)).to_table().end()
+    assert table.columns == ["A", "B", "source_step"]
+    assert table.units == {"A": "m", "B": "s", "source_step": ""}
+    assert table.step.tolist() == [1, 2, 3]
+    np.testing.assert_allclose(table["A"].values, [30, 50, 60])
+    np.testing.assert_allclose(table["source_step"].values, [3, 5, 6])
+
+
+def test_row_table_keeps_the_source_domain():
+    from tascpy.domains import LoadDisplacementOps, as_load_displacement
+
+    ld = ColumnCollection({"P": [1.0, 2.0, -1.0, -3.0], "d": [0.1, 0.2, -0.1, -0.3]}, units={"P": "kN", "d": "mm"}) \
+        .ops.as_domain(as_load_displacement, load_column="P", displacement_column="d")
+    peaks = ld.split_by_cycles().collect(lambda o: o.nearest_row("P", 10.0)).to_table()
+    assert isinstance(peaks, LoadDisplacementOps)
+    assert (peaks.end().load_column, peaks.end().displacement_column) == ("P", "d")
+
+
+def test_to_table_name_must_match_the_kind_of_values(collection_list):
+    with pytest.raises(ValueError, match="name を指定してください"):
+        collection_list.collect(lambda o: 1.0).to_table()
+    with pytest.raises(ValueError, match="name は指定しません"):
+        collection_list.collect(lambda o: o.nearest_row("A", 0.0)).to_table(name="r")
+    with pytest.raises(TypeError, match="Row と他の値が混ざっています"):
+        collection_list.collect(lambda o: o.nearest_row("A", 0.0) if o.end()["A"].values[0] == 10 else 1.0).to_table()
+    with pytest.raises(TypeError, match="to_table にできない値"):
+        collection_list.collect(lambda o: o.end()).to_table(name="c")
+    with pytest.raises(ValueError, match="集約する要素がありません"):
+        collection_list.filter(lambda c: False).collect(lambda o: len(o.end())).to_table(name="n")
+
+
+def test_value_table_requires_consistent_kind_and_unit(collection_list):
     from tascpy.core.result import PointResult, ScalarResult
 
     first = lambda o: o.end()["A"].values[0] == 10
     with pytest.raises(ValueError, match="単位が要素によって異なります"):
-        collection_list.to_table(k=lambda o: o.end()["A"].max() if first(o) else ScalarResult("k", 1.0, unit="kN"))
+        collection_list.collect(lambda o: 1.0 if first(o) else ScalarResult("k", 1.0, unit="kN")).to_table(name="k")
     with pytest.raises(ValueError, match="単位が要素によって異なります"):
-        collection_list.to_table(k=lambda o: ScalarResult("k", 1.0, unit="kN" if first(o) else "N"))
+        collection_list.collect(lambda o: ScalarResult("k", 1.0, unit="kN" if first(o) else "N")).to_table(name="k")
     with pytest.raises(TypeError, match="種類が要素によって異なります"):
-        collection_list.to_table(p=lambda o: PointResult("p", 1.0, 2.0) if first(o) else 1.0)
-    with pytest.raises(ValueError, match="列名 'p_x' が重なっています"):
-        collection_list.to_table(p=lambda o: PointResult("p", 1.0, 2.0), p_x=lambda o: 1.0)
-    with pytest.raises(ValueError, match="集約する要素がありません"):
-        collection_list.filter(lambda c: False).to_table(k=lambda o: 1.0)
+        collection_list.collect(lambda o: PointResult("p", 1.0, 2.0) if first(o) else 1.0).to_table(name="p")
