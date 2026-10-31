@@ -123,9 +123,9 @@ grid.values  # (ny, nx)
 
    ```python
    # 荷重-変位ドメインへの変換
-   ld_collection = collection.ops.as_domain(tascpy.as_load_displacement, 
+   ld_collection = collection.ops.end_as(tascpy.as_load_displacement, 
        load_column="Force1", displacement_column="Displacement1"
-   ).end()
+   )
 
    # 荷重-変位曲線のプロット
    ld_collection.plot.plot_load_displacement()
@@ -202,17 +202,17 @@ python load_displacement/01_load_displacement_domain.py
 
 ```python
 # 一般的なコレクションからドメイン特化コレクションへの変換
-load_disp_collection = collection.ops.as_domain(tascpy.as_load_displacement, 
+load_disp_collection = collection.ops.end_as(tascpy.as_load_displacement, 
     load_column="Force1",
     displacement_column="Displacement1",
-).end()
+)
 
-coordinate_collection = collection.ops.as_domain(tascpy.as_coordinate, 
+coordinate_collection = collection.ops.end_as(tascpy.as_coordinate, 
     coordinates={
         "sensor1": {"x": 0.0, "y": 0.0, "z": 0.0},
         "sensor2": {"x": 10.0, "y": 0.0, "z": 0.0},
     }
-).end()
+)
 
 # ドメイン固有の設定を外して汎用コレクションに戻す
 core_collection = load_disp_collection.ops.as_core().end()

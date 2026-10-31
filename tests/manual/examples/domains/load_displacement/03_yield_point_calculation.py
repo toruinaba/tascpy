@@ -37,9 +37,9 @@ sample_csv_path = os.path.join(data_dir, "load_displacement_sample.csv")
 collection = tascpy.load(sample_csv_path, format_name="csv")
 
 # 荷重-変位ドメインに変換します
-ld_collection = collection.ops.as_domain(as_load_displacement, 
+ld_collection = collection.ops.end_as(as_load_displacement, 
     load_column="Force1", displacement_column="Displacement1"
-).end()
+)
 
 print(f"データ読み込み完了: {len(ld_collection)} 行 × {len(ld_collection.columns)} 列")
 print(

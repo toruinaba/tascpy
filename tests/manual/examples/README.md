@@ -108,7 +108,7 @@ import tascpy
 
 # 1. データの読み込みと荷重-変位ドメインへの変換
 collection = tascpy.load("load_displacement_data.csv", format_name="csv")
-ld_ops = collection.ops.as_domain(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
+ld_ops = collection.ops.end_as(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement").ops
 
 # 2. 特性解析（初期剛性、降伏点）。どちらも値を返してチェーンが終わる
 stiffness = ld_ops.stiffness(range_start=0.1, range_end=0.5)          # ScalarResult
@@ -194,7 +194,7 @@ ld_ops = (
     .filter_out_none()  # 欠損を含む行を除外
     .remove_consecutive_duplicates_across()  # 連続する重複行を除外
     # 3. ドメイン特化コレクションへの変換
-    .as_domain(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
+    .end_as(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
 )
 
 # 4. 分析と計算（値を返す操作はチェーンの最後に置く）

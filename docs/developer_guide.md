@@ -42,7 +42,7 @@ domains ──> core ──> numeric
 strain ──> coordinate（ドメイン間で許可しているのはこれだけ）
 ```
 
-`core.plot` は `coll.plot` のプロパティ内で遅延インポートしており、`import tascpy` だけでは matplotlib を読み込みません。トップレベルの `tascpy.ColumnCollection` なども初回アクセス時に import します（`import tascpy.numeric` で polars を読み込まないため）。トップレベルは組み立て役で、公開名に初めてアクセスしたときに `tascpy.domains` を import して組み込みドメインを登録します。core は domains を（遅延インポートも含めて）一切参照せず、ドメインへの変換は `CoreOps.as_domain`、Parquet からの復元はドメインのレジストリを通します。numeric はコレクションにも polars にも依存せず、numpy だけで単体利用できます。これらの境界は import-linter の契約（`pyproject.toml` の `[tool.importlinter]`）で検査します。
+`core.plot` は `coll.plot` のプロパティ内で遅延インポートしており、`import tascpy` だけでは matplotlib を読み込みません。トップレベルの `tascpy.ColumnCollection` なども初回アクセス時に import します（`import tascpy.numeric` で polars を読み込まないため）。トップレベルは組み立て役で、公開名に初めてアクセスしたときに `tascpy.domains` を import して組み込みドメインを登録します。core は domains を（遅延インポートも含めて）一切参照せず、ドメインへの変換は `CoreOps.end_as`、Parquet からの復元はドメインのレジストリを通します。numeric はコレクションにも polars にも依存せず、numpy だけで単体利用できます。これらの境界は import-linter の契約（`pyproject.toml` の `[tool.importlinter]`）で検査します。
 
 ## 開発環境のセットアップ
 

@@ -120,4 +120,4 @@ class LoadDisplacementCollection(ColumnCollection):
 
 
 as_load_displacement = LoadDisplacementCollection.from_collection
-"""`col.ops.as_domain(as_load_displacement, ...)` で荷重-変位ドメインに変換する"""
+"""`col.ops.end_as(as_load_displacement, ...)` で荷重-変位ドメインに変換する"""

@@ -22,7 +22,7 @@ class TestLoadDisplacementCycles:
         collection = ColumnCollection({"load": self.loads, "displacement": self.displacements}, step=self.steps)
 
         # 荷重-変位コレクションを作成
-        self.ld_collection = collection.ops.as_domain(as_load_displacement, load_column="load", displacement_column="displacement").end()
+        self.ld_collection = collection.ops.end_as(as_load_displacement, load_column="load", displacement_column="displacement")
 
     def test_mark_cycles_basic(self):
         """mark_cyclesの基本動作テスト"""
@@ -46,7 +46,7 @@ class TestLoadDisplacementCycles:
         """カスタムカラム名でのmark_cyclesテスト"""
         # カスタムカラム名でコレクションを作成
         custom_collection = ColumnCollection({"force": self.loads, "disp": self.displacements}, step=self.steps)
-        ld_custom = custom_collection.ops.as_domain(as_load_displacement, "force", "disp").end()
+        ld_custom = custom_collection.ops.end_as(as_load_displacement, "force", "disp")
 
         # カスタム結果列名を指定してmark_cyclesを呼び出し
         result = ld_custom.ops.mark_cycles(result_column="cycle_marker").end()
@@ -119,7 +119,7 @@ class TestLoadDisplacementCycles:
         displacements = [0.5, 0.2, 0, -0.2, -0.5, 0, 0.5]
 
         collection = ColumnCollection({"load": loads, "displacement": displacements}, step=steps)
-        ld_collection = collection.ops.as_domain(as_load_displacement, load_column="load", displacement_column="displacement").end()
+        ld_collection = collection.ops.end_as(as_load_displacement, load_column="load", displacement_column="displacement")
 
         # サイクル計算
         result = ld_collection.ops.mark_cycles(result_column="load_cycle").end()
@@ -139,7 +139,7 @@ class TestLoadDisplacementUnits:
         disps = [0, 1, 2, 1, 0, -1, -2, -1, 0, 1.5, 3, 1.5, 0]
         self.ld = (
             ColumnCollection({"P": loads, "d": disps}, units={"P": "kN", "d": "mm"})
-            .ops.as_domain(as_load_displacement, "P", "d").end()
+            .ops.end_as(as_load_displacement, "P", "d")
         )
 
     def test_result_units(self):
@@ -173,16 +173,16 @@ class TestLoadDisplacementUnits:
     lambda o: o.add("P", "d"),
 ])
 def test_column_adding_ops_require_result_column(call):
-    ld = ColumnCollection({"P": [0.0, 1.0, -1.0], "d": [0.0, 1.0, 0.5]}).ops.as_domain(
-        as_load_displacement, load_column="P", displacement_column="d")
+    ld = ColumnCollection({"P": [0.0, 1.0, -1.0], "d": [0.0, 1.0, 0.5]}).ops.end_as(
+        as_load_displacement, load_column="P", displacement_column="d").ops
     with pytest.raises(TypeError, match="result_column"):
         call(ld)
 
 
 def test_hysteresis_table_matches_split_by_cycles_to_table():
     ld = ColumnCollection({"P": [5, 10, 5, -5, -10, -5, 5, 15, 5], "d": [0.5, 1, 0.5, -0.5, -1, -0.5, 0.5, 2, 1]},
-                          units={"P": "kN", "d": "mm"}).ops.as_domain(
-        as_load_displacement, load_column="P", displacement_column="d")
+                          units={"P": "kN", "d": "mm"}).ops.end_as(
+        as_load_displacement, load_column="P", displacement_column="d").ops
     table = ld.to_hysteresis_table().end()
     manual = ld.split_by_cycles().collect(lambda o: o.end()["P"].max()).to_table(name="max_load").end()
     assert table.step.tolist() == manual.step.tolist()

@@ -43,16 +43,16 @@
 
 ## 3. 荷重-変位ドメインに変換する
 
-`as_domain` に変換関数 `tascpy.as_load_displacement` と、荷重列・変位列を渡します。戻り値は荷重-変位ドメインの操作オブジェクトで、`to_skeleton_curve` や `yield_point` などの操作が使えるようになります（IDE でも補完されます）。
+`end_as` に変換関数 `tascpy.as_load_displacement` と、荷重列・変位列を渡します。チェーンはここで終わり、荷重-変位ドメインのコレクションが返ります。その `ops` では `to_skeleton_curve` や `yield_point` などの操作が使えるようになります（IDE でも補完されます）。
 
 ```pycon
->>> ld = col.ops.as_domain(tascpy.as_load_displacement, load_column="荷重", displacement_column="変位")
->>> type(ld).__name__
-'LoadDisplacementOps'
+>>> ld = col.ops.end_as(tascpy.as_load_displacement, load_column="荷重", displacement_column="変位")
+>>> type(ld).__name__, type(ld.ops).__name__
+('LoadDisplacementCollection', 'LoadDisplacementOps')
 
 ```
 
-操作は戻り値によって次のように分かれ、名前で見分けられます（ほかに、ドメインを変える `as_*` と、分割する `split_*` があります）。
+操作は戻り値によって次のように分かれ、名前で見分けられます（ほかに、汎用のコレクションに戻す `as_core`、ドメインのコレクションに変換してチェーンを終える `end_as`、分割する `split_*` があります）。
 
 - 列を足す・行を絞るなどの変換（`mark_cycles`、`select` など）は、同じ操作オブジェクトを返してチェーンが続きます。最後に `end()` でコレクションを取り出します。
 - `to_` で始まる操作（`to_skeleton_curve`、`to_hysteresis_table` など）は、新しい表のコレクションに変わります。チェーンはその表で続きます。
@@ -63,7 +63,7 @@
 `to_skeleton_curve` はスケルトン曲線を求め、曲線そのものを新しい荷重-変位コレクションとして返します。列は荷重・変位（サイクルごとにずらした値）と、各点の元データのステップ `source_step` だけで、単位は元の列から引き継ぎます。サイクルは荷重の符号の反転から数えます。
 
 ```pycon
->>> skeleton = ld.to_skeleton_curve().end()
+>>> skeleton = ld.ops.to_skeleton_curve().end()
 >>> skeleton.columns
 ['荷重', '変位', 'source_step']
 >>> round(float(skeleton.displacement_data.max()), 1), skeleton.displacement.unit, round(float(skeleton.load_data.max()), 1), skeleton.load.unit
@@ -74,7 +74,7 @@
 サイクル番号を列として見たいときや、数え方を変えたいときは `mark_cycles` で列を作ります。作った列をサイクルを使う操作に使うときは、`cycle_column` で列名を渡します。
 
 ```pycon
->>> cycled = ld.mark_cycles(result_column="荷重_cycle").end()
+>>> cycled = ld.ops.mark_cycles(result_column="荷重_cycle").end()
 >>> cycled.columns
 ['荷重', '変位', '荷重_cycle']
 >>> cycled["荷重_cycle"].values[::20]
@@ -111,7 +111,7 @@ True
 初期剛性 40 kN/mm の直線を変位方向に 0.5 mm ずらした直線と、スケルトン曲線の交点が降伏点です。チェーンの最後に書くこともできます。
 
 ```pycon
->>> round(ld.to_skeleton_curve().yield_point(offset_value=0.5, range_start=0.1, range_end=0.5).x, 2)
+>>> round(ld.ops.to_skeleton_curve().yield_point(offset_value=0.5, range_start=0.1, range_end=0.5).x, 2)
 3.06
 
 ```
@@ -119,13 +119,13 @@ True
 繰り返し載荷の生データに `stiffness` や `yield_point` をそのまま使うと、範囲に入る除荷途中の点も計算に含まれ、エラーにならずに誤った値になります。初期剛性だけが必要なら、荷重が初めて下がる手前までの最初の載荷区間を抜き出して使うこともできます。
 
 ```pycon
->>> round(ld.stiffness(range_start=0.1, range_end=0.5).value, 1)  # 生データのまま（誤り）
+>>> round(ld.ops.stiffness(range_start=0.1, range_end=0.5).value, 1)  # 生データのまま（誤り）
 1.5
 >>> first_loading = col.head(int(np.argmax(np.diff(col["荷重"].values) < 0)) + 1)
 >>> len(first_loading), first_loading["荷重"].max()
 (20, 80.0)
->>> first = first_loading.ops.as_domain(tascpy.as_load_displacement, load_column="荷重", displacement_column="変位")
->>> round(first.stiffness(range_start=0.1, range_end=0.5).value, 1)
+>>> first = first_loading.ops.end_as(tascpy.as_load_displacement, load_column="荷重", displacement_column="変位")
+>>> round(first.ops.stiffness(range_start=0.1, range_end=0.5).value, 1)
 40.0
 
 ```
@@ -137,7 +137,7 @@ True
 `to_hysteresis_table` はサイクルごとの履歴エネルギー（ループの面積）と、荷重・変位の最大・最小を表にして返します。表のステップはサイクル番号です。
 
 ```pycon
->>> table = ld.to_hysteresis_table().end()
+>>> table = ld.ops.to_hysteresis_table().end()
 >>> table.step.tolist()
 [1, 2, 3, 4]
 >>> table["energy"].values.round(1), table["energy"].unit
@@ -152,11 +152,11 @@ array([ 80., 106., 114.,  90.])
 サイクルごとに好きな値を集めるときは、`split_by_cycles` でサイクルごとに分け、`collect` で各サイクルの値を求めます。`collect` の結果はそのままリストとして使え、`to_table(name=...)` で 1 サイクル 1 行の表（ステップはサイクル番号）にできます。ステップが同じ表は `join` で横に並べられます。
 
 ```pycon
->>> cycles = ld.split_by_cycles()
+>>> cycles = ld.ops.split_by_cycles()
 >>> peak = cycles.collect(lambda o: o.end()["荷重"].max())
 >>> peak, peak.keys
 ([80.0, 106.0, 114.0, 90.0], [1, 2, 3, 4])
->>> per_cycle = peak.to_table(name="peak").join(ld.to_stiffness_table()).end()
+>>> per_cycle = peak.to_table(name="peak").join(ld.ops.to_stiffness_table()).end()
 >>> per_cycle.columns, per_cycle["stiffness"].unit
 (['peak', 'stiffness'], 'kN/mm')
 

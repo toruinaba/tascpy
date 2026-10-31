@@ -56,7 +56,7 @@ def test_top_level_load_parquet_registers_builtin_domains(tmp_path):
         import tascpy
         from tascpy.domains import as_load_displacement
         col = tascpy.ColumnCollection({{"P": [0.0, 1.0], "d": [0.0, 1.0]}})
-        col.ops.as_domain(as_load_displacement, "P", "d").end().io.to_parquet({str(path)!r})
+        col.ops.end_as(as_load_displacement, "P", "d").io.to_parquet({str(path)!r})
     """
     reload_code = f"""
         import tascpy

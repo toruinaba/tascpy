@@ -32,12 +32,12 @@ class TestCoordinateCollection:
         assert coll["sensor1"].unit == "m"
 
     def test_from_collection(self):
-        coll = self.collection.ops.as_domain(as_coordinate).end()
+        coll = self.collection.ops.end_as(as_coordinate)
         assert isinstance(coll, CoordinateCollection)
         assert coll["sensor1"].to_list() == self.values1
 
     def test_from_collection_with_coordinates(self):
-        coll = self.collection.ops.as_domain(as_coordinate, coordinates={"sensor1": {"x": 1.0, "y": 2.0}}).end()
+        coll = self.collection.ops.end_as(as_coordinate, coordinates={"sensor1": {"x": 1.0, "y": 2.0}})
         assert coll.get_column_coordinates("sensor1") == (1.0, 2.0, None)
 
     def test_set_get_coordinates(self):

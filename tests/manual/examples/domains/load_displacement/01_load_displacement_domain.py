@@ -45,9 +45,9 @@ print(collection[disp_column].values[:5])
 print("\n===== LoadDisplacementCollectionへの変換 =====")
 
 # チェーンメソッドを使用して荷重-変位ドメインに変換
-ld_collection = collection.ops.as_domain(as_load_displacement, 
+ld_collection = collection.ops.end_as(as_load_displacement, 
     load_column=force_column, displacement_column=disp_column
-).end()
+)
 
 print(f"変換後のドメイン: {ld_collection.domain}")
 print(f"荷重カラム: {ld_collection.load_column}")
@@ -317,7 +317,7 @@ report_collection = (
         column=force_column, window_size=3, result_column="Force_Smooth"
     )  # 荷重データの平滑化
     # 平滑化したカラムを使用して新しいドメインコレクションを作成
-    .as_domain(as_load_displacement, load_column="Force_Smooth", displacement_column="Disp_Smooth")
+    .end_as(as_load_displacement, load_column="Force_Smooth", displacement_column="Disp_Smooth").ops
     .end()
 )
 # 注: PointResult は "yield_point" という名前で上書きされるため、

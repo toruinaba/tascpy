@@ -74,7 +74,7 @@ coordinates = {
 
 # 汎用コレクションを作成し、座標情報を渡して座標ドメインに変換
 collection2 = (
-    ColumnCollection(columns, step=steps).ops.as_domain(as_coordinate, coordinates=coordinates).end()
+    ColumnCollection(columns, step=steps).ops.end_as(as_coordinate, coordinates=coordinates)
 )
 
 # 作成した情報を表示

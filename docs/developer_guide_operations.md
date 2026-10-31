@@ -31,7 +31,8 @@ col.ops.add("A", "B", result_column="合計")
 | 種類 | 戻り値 | 命名 | 例 |
 |---|---|---|---|
 | 変換（列を足す・行を絞る） | `Self`（チェーンが続く） | 動詞（印なし） | `add`、`select`、`mark_cycles` |
-| 同じデータを別のドメインとして扱う | 別の Ops | `as_*` | `as_domain`、`as_core` |
+| ドメインの設定を外す | 別の Ops | `as_*` | `as_core` |
+| ドメインのコレクションに変換する | コレクション（チェーンが終わる） | `end_as` | `end_as(as_load_displacement, ...)` |
 | 新しい表への集約 | 別の Ops（新しい表でチェーンが続く） | `to_<名詞>` | `to_skeleton_curve`、`to_hysteresis_table`、`collect(...).to_table` |
 | 値への集約 | 結果オブジェクトや値（チェーンが終わる） | 名詞 | `stiffness`、`yield_point`、`grid`、`nearest_row` |
 | 分割 | `OpsList` | `split_*` | `split_by_cycles` |
@@ -52,14 +53,14 @@ point = (
 )
 ```
 
-ドメインへの変換は `as_domain` に各ドメインの変換関数（`from_collection` の別名）を渡します。変換の引数も変換後の操作も、型チェックと補完が効きます。
+ドメインへの変換は `end_as` に各ドメインの変換関数（`from_collection` の別名）を渡します。チェーンはそこで終わり、ドメインのコレクションが返ります。ドメインの操作は `.ops` で続けます。変換の引数も変換後の操作も、型チェックと補完が効きます。
 
 ```python
 from tascpy.domains import as_coordinate, as_load_displacement, as_strain
 
-col.ops.as_domain(as_load_displacement, load_column="荷重", displacement_column="変位")  # -> LoadDisplacementOps
-col.ops.as_domain(as_coordinate, coordinates={...})       # -> CoordinateOps
-col.ops.as_domain(as_strain, rosettes={...})              # -> StrainOps
+col.ops.end_as(as_load_displacement, load_column="荷重", displacement_column="変位")  # -> LoadDisplacementCollection
+col.ops.end_as(as_coordinate, coordinates={...})       # -> CoordinateCollection
+col.ops.end_as(as_strain, rosettes={...})              # -> StrainCollection
 ld.ops.as_core()                               # ドメインの設定を外す -> CoreOps
 ```
 
@@ -192,7 +193,7 @@ class TimeSeriesOps(CoreOps[TimeSeriesCollection]):
                             unit=self._unit_of(time))
 ```
 
-変換関数は `from_collection` の別名として公開します。`col.ops.as_domain(as_timeseries, "t")` で変換でき、引数は `from_collection` のシグネチャで型検査されます。
+変換関数は `from_collection` の別名として公開します。`col.ops.end_as(as_timeseries, "t")` で変換でき、引数は `from_collection` のシグネチャで型検査されます。
 
 ```python
 as_timeseries = TimeSeriesCollection.from_collection

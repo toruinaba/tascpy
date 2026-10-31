@@ -60,7 +60,7 @@ def sample_load_displacement_data():
     )
 
     # LoadDisplacementCollectionに変換
-    ld_collection = collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+    ld_collection = collection.ops.end_as(as_load_displacement, "load", "displacement")
 
     return ld_collection
 
@@ -87,7 +87,7 @@ def sample_with_cyclic_data():
     )
 
     # LoadDisplacementCollectionに変換
-    ld_collection = collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+    ld_collection = collection.ops.end_as(as_load_displacement, "load", "displacement")
 
     return ld_collection
 

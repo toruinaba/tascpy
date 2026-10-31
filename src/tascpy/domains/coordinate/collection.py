@@ -150,4 +150,4 @@ class CoordinateCollection(ColumnCollection):
 
 
 as_coordinate = CoordinateCollection.from_collection
-"""`col.ops.as_domain(as_coordinate, ...)` で座標ドメインに変換する"""
+"""`col.ops.end_as(as_coordinate, ...)` で座標ドメインに変換する"""

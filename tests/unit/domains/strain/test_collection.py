@@ -51,7 +51,7 @@ def test_rosettes_survive_operations():
 
 def test_from_collection():
     base = ColumnCollection({"ch1": [1.0], "ch2": [2.0], "ch3": [3.0]})
-    sc = base.ops.as_domain(as_strain, rosettes={"R1": ROSETTE}, coordinates={"ch1": {"x": 0.0, "y": 1.0}}).end()
+    sc = base.ops.end_as(as_strain, rosettes={"R1": ROSETTE}, coordinates={"ch1": {"x": 0.0, "y": 1.0}})
     assert isinstance(sc, StrainCollection)
     assert sc.get_rosette("R1") == ROSETTE
     assert sc.get_column_coordinates("ch1") == (0.0, 1.0, None)
