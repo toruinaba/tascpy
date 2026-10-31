@@ -22,7 +22,7 @@ class TestLoadDisplacementCycles:
         collection = ColumnCollection({"load": self.loads, "displacement": self.displacements}, step=self.steps)
 
         # 荷重-変位コレクションを作成
-        self.ld_collection = collection.ops.as_domain(as_load_displacement).end()
+        self.ld_collection = collection.ops.as_domain(as_load_displacement, load_column="load", displacement_column="displacement").end()
 
     def test_mark_cycles_basic(self):
         """mark_cyclesの基本動作テスト"""
@@ -119,7 +119,7 @@ class TestLoadDisplacementCycles:
         displacements = [0.5, 0.2, 0, -0.2, -0.5, 0, 0.5]
 
         collection = ColumnCollection({"load": loads, "displacement": displacements}, step=steps)
-        ld_collection = collection.ops.as_domain(as_load_displacement).end()
+        ld_collection = collection.ops.as_domain(as_load_displacement, load_column="load", displacement_column="displacement").end()
 
         # サイクル計算
         result = ld_collection.ops.mark_cycles(result_column="load_cycle").end()

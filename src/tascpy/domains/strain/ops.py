@@ -73,12 +73,15 @@ class StrainOps(CoordinateOps[StrainCollection]):
         return self._next(result)
 
     def calculate_stress(self, load_column: str, area: float, *, result_column: str,
-                         unit: str = "MPa") -> Self:
+                         unit: Optional[str] = None) -> Self:
         """応力 = 荷重 / 断面積 を新しい列として追加します
 
+        断面積は単位を持たないため、結果の単位は推測しません。unit で指定してください（省略時は None = 不明）。
+
         Examples:
-            >>> strain.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力").end()["応力"].values
-            array([ 0. ,  4. ,  8. , 10. , 11. , 11.5])
+            >>> stress = strain.ops.calculate_stress(load_column="荷重", area=10.0, result_column="応力", unit="kN/mm2").end()
+            >>> stress["応力"].values, stress["応力"].unit
+            (array([ 0. ,  4. ,  8. , 10. , 11. , 11.5]), 'kN/mm2')
         """
         stress = self._float_column(load_column, "荷重カラム") / area
         result = self._c.with_column(

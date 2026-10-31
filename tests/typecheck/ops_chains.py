@@ -65,5 +65,6 @@ def immutable_updates_keep_type(ld: LoadDisplacementCollection, cc: CoordinateCo
 def domain_conversion_arguments_are_checked(col: ColumnCollection) -> None:
     # as_domain は変換関数のシグネチャで引数を検査する（不要な ignore は reportUnnecessaryTypeIgnoreComment で検出）
     col.ops.as_domain(as_load_displacement, load_colum="P")  # pyright: ignore[reportCallIssue]
-    col.ops.as_domain(as_load_displacement, load_column=1)  # pyright: ignore[reportArgumentType]
+    col.ops.as_domain(as_load_displacement, load_column=1, displacement_column="D")  # pyright: ignore[reportArgumentType]
+    col.ops.as_domain(as_load_displacement)  # pyright: ignore[reportCallIssue]
     col.ops.as_domain(as_coordinate, {"a": {"x": 0.0}})  # pyright: ignore[reportCallIssue]

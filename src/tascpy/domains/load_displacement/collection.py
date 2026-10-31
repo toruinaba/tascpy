@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Self, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Self, Tuple
 
 import numpy as np
 
@@ -10,18 +10,6 @@ from tascpy.core.column import Column
 if TYPE_CHECKING:
     from .ops import LoadDisplacementOps
     from .plotter import LoadDisplacementPlotter
-
-LOAD_KEYWORDS = ("load", "force", "荷重", "力")
-DISPLACEMENT_KEYWORDS = ("disp", "displacement", "変位", "変形")
-
-
-def _guess_column(collection: ColumnCollection, keywords: Sequence[str]) -> Optional[str]:
-    for keyword in keywords:
-        for name in collection.columns:
-            if keyword.lower() in name.lower():
-                return name
-    return None
-
 
 class LoadDisplacementCollection(ColumnCollection):
     """荷重と変位の列を指定したコレクション
@@ -45,17 +33,12 @@ class LoadDisplacementCollection(ColumnCollection):
         self._validate()
 
     @classmethod
-    def from_collection(cls, collection: ColumnCollection, load_column: Optional[str] = None,
-                        displacement_column: Optional[str] = None) -> Self:
-        """既存のコレクションから作成する（列名省略時は列名のキーワードから推測）
+    def from_collection(cls, collection: ColumnCollection, load_column: str, displacement_column: str) -> Self:
+        """既存のコレクションから、荷重列・変位列を指定して作成する
 
         Raises:
-            ValueError: 列を推測できない、または列が数値でない場合
+            ValueError: 指定した列が存在しない、または数値でない場合
         """
-        load_column = load_column or _guess_column(collection, LOAD_KEYWORDS)
-        displacement_column = displacement_column or _guess_column(collection, DISPLACEMENT_KEYWORDS)
-        if not load_column or not displacement_column:
-            raise ValueError("荷重列・変位列を指定してください（列名から推測できませんでした）")
         new = collection._as_class(cls)
         new._load_column = load_column
         new._displacement_column = displacement_column
