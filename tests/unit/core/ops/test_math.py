@@ -273,3 +273,11 @@ class TestUnitPropagation:
     def test_explicit_unit_wins(self):
         c = ColumnCollection({"P": [1.0, 2.0], "d": [0.5, 1.0]}, units={"P": "kN", "d": "mm"})
         assert c.ops.multiply("P", "d", unit="kN·mm", result_column="P*d").end()["P*d"].unit == "kN·mm"
+
+
+def test_diff_missing_values_only_affect_their_neighbours():
+    coll = ColumnCollection({"P": [0.0, 10.0, None, 30.0, 40.0, 50.0], "d": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
+                            units={"P": "kN", "d": "mm"})
+    result = coll.ops.diff("P", "d", method="backward", result_column="k").end()["k"]
+    np.testing.assert_allclose(result.values, [np.nan, 10.0, np.nan, np.nan, 10.0, 10.0])
+    assert result.unit == "kN/mm"

@@ -89,8 +89,7 @@ print(f"基本荷重-変位曲線の図を保存しました: {output_path}")
 print("\n===== 傾き（接線剛性）の計算 =====")
 
 # チェーンメソッドで接線剛性を計算
-slopes_collection = ld_collection.ops.calculate_slopes(
-    result_column="Tangent_Stiffness"
+slopes_collection = ld_collection.ops.diff(ld_collection.load_column, ld_collection.displacement_column, method="backward", result_column="Tangent_Stiffness"
 ).end()
 
 slope_column = "Tangent_Stiffness"

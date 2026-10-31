@@ -159,11 +159,10 @@ grid.values  # (ny, nx)
 
 ### 荷重-変位ドメインの主要機能
 
-`ld_collection.ops` では汎用操作に加えて以下が使えます。
+`ld_collection.ops` では汎用操作に加えて以下が使えます（隣り合う点の傾き＝接線剛性は、汎用の `diff(荷重列, 変位列, method="backward", result_column=...)` で求めます）。
 
 | メソッド | 内容 | 戻り値 |
 |---|---|---|
-| `calculate_slopes(result_column=)` | 区間ごとの傾き | 列 `result_column` を足した Ops |
 | `mark_cycles(result_column=, column=, step=)` | サイクル番号 | 列 `result_column` を足した Ops |
 | `mark_peaks_and_valleys(result_column=, column=, distance=)` | ピーク/バレーのマーカー | 列 `result_column` を足した Ops |
 | `split_by_cycles(cycle_column=)` | サイクルごとに分割 | `OpsList` |

@@ -141,11 +141,11 @@ class TestLoadDisplacementAnalysis:
 
         self.empty_ld_collection = empty_collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
 
-    # calculate_slopes のテスト
-    def test_calculate_slopes_basic(self):
-        """calculate_slopesの基本機能テスト"""
+    # diff（接線剛性）のテスト
+    def test_tangent_slopes_basic(self):
+        """接線剛性 diff の基本機能テスト"""
         # 傾き計算を実行
-        result = self.ld_collection.ops.calculate_slopes(result_column="slope_data").end()
+        result = self.ld_collection.ops.diff(self.ld_collection.load_column, self.ld_collection.displacement_column, method="backward", result_column="slope_data").end()
 
         # 結果のコレクション型の確認
         assert isinstance(result, LoadDisplacementCollection)
@@ -167,10 +167,10 @@ class TestLoadDisplacementAnalysis:
         # 後半の点では傾きが減少していることを確認
         assert slopes[-1] < 10.0
 
-    def test_calculate_slopes_custom_columns(self):
-        """カスタム列名でのcalculate_slopes機能テスト"""
+    def test_tangent_slopes_custom_columns(self):
+        """カスタム列名での接線剛性 diff のテスト"""
         # カスタム列名のコレクションで傾き計算を実行
-        result = self.custom_ld_collection.ops.calculate_slopes(result_column="slope_data").end()
+        result = self.custom_ld_collection.ops.diff(self.custom_ld_collection.load_column, self.custom_ld_collection.displacement_column, method="backward", result_column="slope_data").end()
 
         # 結果列の存在を確認
         expected_column = "slope_data"
@@ -186,11 +186,11 @@ class TestLoadDisplacementAnalysis:
         for i in range(1, 5):
             assert slopes[i] == pytest.approx(10.0)
 
-    def test_calculate_slopes_result_column(self):
-        """結果カラム名を指定したcalculate_slopes機能テスト"""
+    def test_tangent_slopes_result_column(self):
+        """結果カラム名を指定した接線剛性 diff のテスト"""
         # 結果カラム名を指定して傾き計算を実行
         custom_column = "my_slopes"
-        result = self.ld_collection.ops.calculate_slopes(result_column=custom_column).end()
+        result = self.ld_collection.ops.diff(self.ld_collection.load_column, self.ld_collection.displacement_column, method="backward", result_column=custom_column).end()
 
         # 指定した結果列の存在を確認
         assert custom_column in result.columns
@@ -209,10 +209,10 @@ class TestLoadDisplacementAnalysis:
         for i in range(1, 5):
             assert slopes[i] == pytest.approx(10.0)
 
-    def test_calculate_slopes_edge_cases(self):
-        """エッジケースでのcalculate_slopes機能テスト（xの値が同じケースなど）"""
+    def test_tangent_slopes_edge_cases(self):
+        """エッジケースでの接線剛性 diff のテスト（xの値が同じケースなど）"""
         # エッジケースのコレクションで傾き計算を実行
-        result = self.edge_ld_collection.ops.calculate_slopes(result_column="slope_data").end()
+        result = self.edge_ld_collection.ops.diff(self.edge_ld_collection.load_column, self.edge_ld_collection.displacement_column, method="backward", result_column="slope_data").end()
 
         # 結果列の存在を確認
         expected_column = "slope_data"

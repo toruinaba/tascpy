@@ -1,4 +1,4 @@
-"""x-y 曲線の解析（傾き・剛性・降伏点・ピーク・面積）の純粋関数
+"""x-y 曲線の解析（剛性・降伏点・ピーク・面積）の純粋関数
 
 荷重-変位（x: 変位, y: 荷重）や応力-ひずみ（x: ひずみ, y: 応力）など、任意の x-y 曲線に使えます。
 """
@@ -6,35 +6,6 @@
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import numpy as np
-
-
-def compute_slopes(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """隣り合う点の間の傾き dy/dx を計算します。
-
-    Args:
-        x: x の配列（変位など）
-        y: y の配列（荷重など）
-
-    Returns:
-        np.ndarray: 傾きの配列（最初の要素と、x が変化しない区間は NaN）
-
-    Examples:
-        >>> from tascpy.numeric.curve import compute_slopes
-        >>> import numpy as np
-        >>> compute_slopes(np.array([0, 1, 2, 4]), np.array([0, 10, 20, 30]))
-        array([nan, 10., 10.,  5.])
-    """
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
-    if len(x) != len(y):
-        raise ValueError("x と y の長さは一致する必要があります")
-    if len(x) < 2:
-        raise ValueError("2つ以上のデータポイントが必要です")
-
-    dx = np.diff(x)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        slopes = np.where(dx != 0, np.diff(y) / dx, np.nan)
-    return np.concatenate([[np.nan], slopes])
 
 
 def _peak(y: np.ndarray) -> float:

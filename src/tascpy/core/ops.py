@@ -305,15 +305,21 @@ class CoreOps(Generic[C_co]):
 
     def diff(self, y_column: Operand, x_column: Operand, method: str = "central",
              *, result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
-        """離散微分 dy/dx を新しい列として追加します（欠損を含む場合は全て欠損、単位は "y/x"）
+        """離散微分 dy/dx を新しい列として追加します（単位は "y/x"）
+
+        計算できない点は欠損です（欠損の前後、x が変化しない区間、forward の最後の点、backward の最初の点）。
+        backward は隣り合う点の傾き（荷重-変位なら接線剛性）です。
 
         Args:
             y_column: Y データの列名
             x_column: X データの列名
             method: 微分手法 ("central", "forward", "backward")
+
+        Examples:
+            >>> col.ops.diff("荷重", "変位", method="backward", result_column="接線剛性").end()["接線剛性"].values.round(1)
+            array([ nan, 40. , 40. , 20. ,  5. ,  1.7])
         """
-        y, x, has_missing = self._strict_pair(y_column, x_column)
-        values = np.full(len(y), np.nan) if has_missing else f_math.diff(x, y, method=method)
+        values = f_math.diff(self._numeric(x_column), self._numeric(y_column), method=method)
         return self._with_column(result_column, values, unit, ch,
                                  self._compound_unit(y_column, x_column, "/"))
 

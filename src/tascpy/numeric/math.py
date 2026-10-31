@@ -103,6 +103,9 @@ def diff(
 ) -> np.ndarray:
     """x に対する y の微分係数 dy/dx を計算します。
 
+    差分を計算できない点は NaN です（x が変化しない区間、forward の最後の点、backward の最初の点）。
+    端の点を隣の値で埋めることはしません。
+
     Args:
         x (Union[np.ndarray, List[float]]): x座標の配列。
         y (Union[np.ndarray, List[float]]): y座標の配列。
@@ -113,41 +116,33 @@ def diff(
 
     Raises:
         ValueError: xとyの長さが異なる場合、またはデータ点が2点未満の場合、または無効なメソッドが指定された場合。
+
+    Examples:
+        >>> import numpy as np
+        >>> from tascpy.numeric.math import diff
+        >>> x, y = np.array([0.0, 1.0, 1.0, 2.0, 4.0]), np.array([0.0, 10.0, 12.0, 20.0, 30.0])
+        >>> diff(x, y, method="backward")
+        array([nan, 10., nan,  8.,  5.])
+        >>> diff(x, y, method="forward")
+        array([10., nan,  8.,  5., nan])
     """
-    # Ensure numpy arrays
     y_arr = np.asanyarray(y, dtype=float)
     x_arr = np.asanyarray(x, dtype=float)
-    
+
     if len(x_arr) != len(y_arr):
         raise ValueError("Length of x and y must be same")
     if len(x_arr) < 2:
         raise ValueError(f"有効なデータポイントが不足しています: {len(x_arr)} (最低2点必要)")
-
-    if method == "central":
-        result = np.gradient(y_arr, x_arr)
-             
-    elif method == "forward":
-        # Forward difference: (y[i+1] - y[i]) / (x[i+1] - x[i])
-        dx = np.diff(x_arr)
-        dy = np.diff(y_arr)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            d = dy / dx
-        # Append last element to match length
-        result = np.append(d, d[-1])
-        
-    elif method == "backward":
-        # Backward difference
-        dx = np.diff(x_arr)
-        dy = np.diff(y_arr)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            d = dy / dx
-        # Insert first element to match length
-        result = np.insert(d, 0, d[0])
-        
-    else:
+    if method not in ("central", "forward", "backward"):
         raise ValueError("Invalid method. Use 'central', 'forward', or 'backward'")
 
-    return result
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if method == "central":
+            result = np.gradient(y_arr, x_arr)
+        else:
+            slopes = np.diff(y_arr) / np.diff(x_arr)
+            result = np.append(slopes, np.nan) if method == "forward" else np.insert(slopes, 0, np.nan)
+    return np.where(np.isfinite(result), result, np.nan)
 
 def integrate(
     x: Union[np.ndarray, List[float]],

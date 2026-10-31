@@ -48,10 +48,10 @@ def bilinear_collection():
     )
     return c
 
-class TestCalculateSlopes:
+class TestTangentSlopes:
     def test_basic_slopes(self, linear_collection):
         # y = 2x, slope should be 2 everywhere
-        res = linear_collection.ops.calculate_slopes(result_column="slope_data").end()
+        res = linear_collection.ops.diff(linear_collection.load_column, linear_collection.displacement_column, method="backward", result_column="slope_data").end()
         
         slope_col_name = "slope_data"
         assert slope_col_name in res.columns
@@ -72,8 +72,8 @@ class TestCalculateSlopes:
             load_column="load",
             displacement_column="displacement",
         )
-        with pytest.raises(ValueError, match="2つ以上のデータポイントが必要です"):
-            c.ops.calculate_slopes(result_column="slope_data").end()
+        with pytest.raises(ValueError, match="有効なデータポイントが不足しています"):
+            c.ops.diff(c.load_column, c.displacement_column, method="backward", result_column="slope_data").end()
 
 class TestCalculateStiffness:
     def test_linear_regression(self, linear_collection):

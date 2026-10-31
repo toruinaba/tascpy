@@ -6,28 +6,9 @@ from tascpy.numeric.curve import (
     _yield_point_offset,
     compute_peaks_and_valleys,
     compute_polygon_area,
-    compute_slopes,
     compute_stiffness,
     compute_yield_point,
 )
-
-
-def test_compute_slopes():
-    disp = np.array([0.0, 1.0, 2.0, 2.5])
-    load = np.array([0.0, 10.0, 30.0, 30.0])
-
-    slopes = compute_slopes(disp, load)
-    assert len(slopes) == 4
-    assert np.isnan(slopes[0])
-    assert np.isclose(slopes[1], 10.0) # (10-0)/(1-0)
-    assert np.isclose(slopes[2], 20.0) # (30-10)/(2-1)
-    assert np.isclose(slopes[3], 0.0)  # (30-30)/(2.5-2)
-
-    with pytest.raises(ValueError):
-        compute_slopes(np.array([1, 2]), np.array([1, 2, 3]))
-
-    with pytest.raises(ValueError):
-        compute_slopes(np.array([1]), np.array([1]))
 
 
 def test_compute_stiffness():

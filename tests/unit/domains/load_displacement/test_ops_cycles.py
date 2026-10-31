@@ -143,7 +143,7 @@ class TestLoadDisplacementUnits:
         )
 
     def test_result_units(self):
-        ops = self.ld.ops.mark_cycles(result_column="P_cycle").calculate_slopes(result_column="slope_data")
+        ops = self.ld.ops.mark_cycles(result_column="P_cycle").diff("P", "d", method="backward", result_column="slope_data")
         result = ops.end()
         assert result["P_cycle"].unit == ""
         assert result["slope_data"].unit == "kN/mm"
@@ -169,7 +169,6 @@ class TestLoadDisplacementUnits:
 
 @pytest.mark.parametrize("call", [
     lambda o: o.mark_cycles(),
-    lambda o: o.calculate_slopes(),
     lambda o: o.mark_peaks_and_valleys(),
     lambda o: o.add("P", "d"),
 ])
