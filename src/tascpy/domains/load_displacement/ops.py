@@ -10,7 +10,7 @@ from tascpy.core.collection import ColumnCollection
 from tascpy.core.ops import CoreOps, to_float_array
 from tascpy.core.ops_list import OpsList
 from tascpy.core.result import PointResult, ScalarResult
-from tascpy.numeric.curve import compute_peaks_and_valleys, compute_slopes, compute_stiffness, compute_yield_point
+from tascpy.numeric.curve import compute_peaks_and_valleys, compute_stiffness, compute_yield_point
 from tascpy.numeric.hysteresis import (
     compute_cumulative_curve,
     compute_cycle_markers,
@@ -38,12 +38,6 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         return self._compound_unit(self._c.load_column, self._c.displacement_column, sep)
 
     # ── 解析 ──────────────────────────────────
-
-    def calculate_slopes(self, *, result_column: str, unit: Optional[str] = None,
-                         ch: Optional[str] = None) -> Self:
-        """区間ごとの傾き (dP/dδ) を新しい列として追加します（単位は "荷重/変位"）"""
-        return self._with_column(result_column, compute_slopes(*self._ld_arrays()), unit, ch,
-                                 self._ld_unit("/"))
 
     def stiffness(self, *, range_start: float = 0.2, range_end: float = 0.8,
                   method: str = "linear_regression") -> ScalarResult:

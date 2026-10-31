@@ -51,10 +51,3 @@ def test_diff_central_zero_step_is_nan_without_warning():
         res = diff(np.array([0.0, 1.0, 1.0, 2.0]), np.array([0.0, 10.0, 12.0, 20.0]), method="central")
     assert np.isfinite(res).sum() < len(res)
     assert not np.isinf(res).any()
-
-
-def test_diff_backward_matches_compute_slopes():
-    from tascpy.numeric.curve import compute_slopes
-
-    x, y = np.array([0.0, 1.0, 1.0, 2.0, 4.0]), np.array([0.0, 10.0, 12.0, 20.0, 30.0])
-    np.testing.assert_allclose(diff(x, y, method="backward"), compute_slopes(x, y))
