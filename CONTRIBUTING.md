@@ -68,7 +68,7 @@ def function(param1: str, param2: Optional[int] = None) -> Dict[str, Any]:
 2. README のバージョンバッジを更新し、PR で `master` にマージする
 3. `master` でタグを打って push する：
    ```bash
-   git tag v0.7.1
-   git push origin v0.7.1
+   git tag v0.8.0
+   git push origin v0.8.0
    ```
 4. `.github/workflows/release.yml` がビルド・検査し、タグと `__version__` が一致すれば PyPI に公開する

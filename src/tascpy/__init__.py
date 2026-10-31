@@ -5,7 +5,7 @@ tascpy - 実験データ処理のためのPythonライブラリ
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 
 # `import tascpy.numeric` で polars / matplotlib を読み込まないよう、公開名は初回アクセス時に import する
 _EXPORTS = {
