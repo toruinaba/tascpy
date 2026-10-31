@@ -1,6 +1,7 @@
 -r requirements.txt
 plotly
 pytest
+jedi
 pytest-cov
 pyright
 import-linter

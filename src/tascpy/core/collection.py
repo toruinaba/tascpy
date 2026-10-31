@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional, Self, Sequence, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional, Self, Sequence, Type, TypeVar, Union
 
 import numpy as np
 import polars as pl
@@ -151,7 +151,8 @@ class ColumnCollection:
             new._validate()
         return new
 
-    def _as_class(self, cls: type["C"]) -> "C":
+    # jedi（marimo の補完）は組み込みの type[C] を解釈できないため typing.Type を使う
+    def _as_class(self, cls: Type[C]) -> C:
         """同じデータを持つ別クラス（ドメイン）のコレクション。ドメイン固有の属性は引き継がない"""
         new = cls.__new__(cls)
         new._set(self._df, dict(self._meta), dict(self._metadata), dict(self._results))
