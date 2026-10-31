@@ -106,7 +106,7 @@ if valid_slopes:
 # ===== 初期剛性の計算（線形領域からの推定） =====
 print("\n===== 初期剛性の計算 =====")
 
-# calculate_stiffnessは剛性値を結果 "stiffness" (ScalarResult) に格納する
+# stiffness は剛性値を ScalarResult として返す（コレクションの results には入らない）
 stiffness = ld_collection.ops.stiffness(
     range_start=0.1,  # 初期10%（荷重範囲の相対位置）
     range_end=0.4,  # 40%まで（荷重範囲の相対位置）

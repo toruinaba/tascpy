@@ -96,7 +96,15 @@ print(f"降伏変位: {yield_pt.x:.2f} {yield_pt.x_unit}")
 
 `collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。`as_domain` に変換関数（`tascpy.as_load_displacement` など）を渡してドメインに変換すると、変換の引数とドメイン固有の操作（`yield_point` など）も補完されます。
 
-繰り返し載荷のデータでは、`ld.to_skeleton_curve()` でスケルトン曲線（新しい荷重-変位コレクション）にしてから `yield_point` などを求めます。
+繰り返し載荷のデータでは、`ld.to_skeleton_curve()` でスケルトン曲線（新しい荷重-変位コレクション）にしてから `yield_point` などを求めます。サイクルは荷重の符号反転から数えます。元データにサイクル番号の列があっても名前から推測して使うことはないので、使うときは `cycle_column="列名"` で指定します。
+
+```python
+skeleton = ld.to_skeleton_curve()                               # 新しい荷重-変位コレクションの操作
+point = skeleton.yield_point(offset_value=0.5)                  # PointResult
+per_cycle = ld.split_by_cycles().to_table(peak=lambda o: o.end()["Force"].max())  # サイクルごとの表
+```
+
+剛性・降伏点などの値は結果オブジェクトとして返り、コレクションの `results` には自動では入りません。Parquet に一緒に保存したいときは `collection.with_result(point)` で付けます。
 
 ### 可視化の例
 

@@ -208,3 +208,19 @@ def test_to_table_rejects_unsupported_values(collection_list):
         collection_list.to_table(rows=lambda o: o.end())
     with pytest.raises(ValueError, match="集約する列"):
         collection_list.to_table()
+
+
+def test_to_table_requires_consistent_kind_and_unit(collection_list):
+    from tascpy.core.result import PointResult, ScalarResult
+
+    first = lambda o: o.end()["A"].values[0] == 10
+    with pytest.raises(ValueError, match="単位が要素によって異なります"):
+        collection_list.to_table(k=lambda o: o.end()["A"].max() if first(o) else ScalarResult("k", 1.0, unit="kN"))
+    with pytest.raises(ValueError, match="単位が要素によって異なります"):
+        collection_list.to_table(k=lambda o: ScalarResult("k", 1.0, unit="kN" if first(o) else "N"))
+    with pytest.raises(TypeError, match="種類が要素によって異なります"):
+        collection_list.to_table(p=lambda o: PointResult("p", 1.0, 2.0) if first(o) else 1.0)
+    with pytest.raises(ValueError, match="列名 'p_x' が重なっています"):
+        collection_list.to_table(p=lambda o: PointResult("p", 1.0, 2.0), p_x=lambda o: 1.0)
+    with pytest.raises(ValueError, match="集約する要素がありません"):
+        collection_list.filter(lambda c: False).to_table(k=lambda o: 1.0)

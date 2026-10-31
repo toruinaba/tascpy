@@ -144,8 +144,11 @@ numeric 関数のテストと、ops メソッドのテストを分けて書き�
 ```python
 from typing import Any, Dict, Mapping, Self
 
+import numpy as np
+
 from tascpy.core import CoreOps
 from tascpy.core.collection import ColumnCollection
+from tascpy.core.result import ScalarResult
 
 
 class TimeSeriesCollection(ColumnCollection):
@@ -178,8 +181,11 @@ class TimeSeriesCollection(ColumnCollection):
 
 
 class TimeSeriesOps(CoreOps[TimeSeriesCollection]):
-    def mark_frequency(self, frequency: str) -> Self:
-        return self._next(self._c.with_metadata(frequency=frequency))
+    def sampling_interval(self) -> ScalarResult:
+        """時刻列の間隔の中央値を求めます（値への集約なので結果を返す）"""
+        time = self._c._time_column
+        return ScalarResult("sampling_interval", float(np.median(np.diff(self._numeric(time)))),
+                            unit=self._unit_of(time))
 ```
 
 変換関数は `from_collection` の別名として公開します。`col.ops.as_domain(as_timeseries, "t")` で変換でき、引数は `from_collection` のシグネチャで型検査されます。

@@ -163,9 +163,9 @@ grid.values  # (ny, nx)
 
 | メソッド | 内容 | 戻り値 |
 |---|---|---|
-| `calculate_slopes()` | 区間ごとの傾き | 列 `slope_data` を足した Ops |
-| `mark_cycles(column=, step=)` | サイクル番号 | 列 `{荷重列}_cycle` を足した Ops |
-| `find_peaks_and_valleys(column=, distance=)` | ピーク/バレーのマーカー | 列 `peak_valley` を足した Ops |
+| `calculate_slopes(result_column=)` | 区間ごとの傾き | 列 `result_column` を足した Ops |
+| `mark_cycles(result_column=, column=, step=)` | サイクル番号 | 列 `result_column` を足した Ops |
+| `find_peaks_and_valleys(result_column=, column=, distance=)` | ピーク/バレーのマーカー | 列 `result_column` を足した Ops |
 | `split_by_cycles(cycle_column=)` | サイクルごとに分割 | `OpsList` |
 | `to_skeleton_curve(cycle_column=)` | スケルトン曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`）の Ops |
 | `to_cumulative_curve(cycle_column=)` | 累積曲線 | 新しい荷重-変位コレクション（荷重・変位・`source_step`）の Ops |
@@ -174,7 +174,11 @@ grid.values  # (ny, nx)
 | `stiffness(range_start=, range_end=, method=)` | 初期剛性 | `ScalarResult` |
 | `yield_point(method=, offset_value=, ...)` | 降伏点 | `PointResult` |
 
-`cycle_column` を省略すると、荷重の符号反転からサイクルを数えます（`mark_cycles` の既定と同じ）。
+`cycle_column` を省略すると、荷重の符号反転からサイクルを数えます（`mark_cycles` の既定と同じ）。元データにサイクル番号の列（試験機が出力した列など）があっても、名前から推測して使うことはしません。使うときは `cycle_column="列名"` で指定してください。
+
+列を足す操作は、結果の列名 `result_column` を必ず指定します（既定の列名はありません）。剛性・降伏点などの値は結果オブジェクトとして返り、コレクションの `results` には自動では入りません。保存したいときは `with_result` で付けます。
+
+集計表（`to_hysteresis_table` など）の行はサイクル番号の昇順です。サイクルごとに任意の値を集計するときは `split_by_cycles().to_table(...)` を使います。
 
 ```python
 # サイクルごとの履歴エネルギー
