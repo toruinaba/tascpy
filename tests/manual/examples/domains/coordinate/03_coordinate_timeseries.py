@@ -45,7 +45,7 @@ def create_sample_timeseries_data() -> CoordinateCollection:
 
     collection = ColumnCollection(columns, step=list(range(N_STEPS)))
     # as_coordinate で座標ドメインに変換（型付きで CoordinateOps が返る）
-    return collection.ops.as_domain(as_coordinate, coordinates=coordinates).end()
+    return collection.ops.end_as(as_coordinate, coordinates=coordinates)
 
 
 def spatial_values(collection: CoordinateCollection, step_index: int):

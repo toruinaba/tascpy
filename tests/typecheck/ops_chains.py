@@ -42,10 +42,10 @@ def reducers_end_the_chain(ld: LoadDisplacementCollection, sc: StrainCollection,
 
 
 def domain_conversion(col: ColumnCollection) -> None:
-    assert_type(col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="D").to_skeleton_curve(),
+    assert_type(col.ops.end_as(as_load_displacement, load_column="P", displacement_column="D").ops.to_skeleton_curve(),
                 LoadDisplacementOps)
-    assert_type(col.ops.as_domain(as_strain).calculate_rosette_strains(columns=["a", "b", "c"], result_prefix="rosette"), StrainOps)
-    assert_type(col.ops.as_domain(as_coordinate).interpolate_at_point(0.0, 0.0, result_column="interp(0, 0)").end(), CoordinateCollection)
+    assert_type(col.ops.end_as(as_strain).ops.calculate_rosette_strains(columns=["a", "b", "c"], result_prefix="rosette"), StrainOps)
+    assert_type(col.ops.end_as(as_coordinate).ops.interpolate_at_point(0.0, 0.0, result_column="interp(0, 0)").end(), CoordinateCollection)
 
 
 def strain_inherits_coordinate(sc: StrainCollection) -> None:
@@ -64,11 +64,11 @@ def immutable_updates_keep_type(ld: LoadDisplacementCollection, cc: CoordinateCo
 
 
 def domain_conversion_arguments_are_checked(col: ColumnCollection) -> None:
-    # as_domain は変換関数のシグネチャで引数を検査する（不要な ignore は reportUnnecessaryTypeIgnoreComment で検出）
-    col.ops.as_domain(as_load_displacement, load_colum="P")  # pyright: ignore[reportCallIssue]
-    col.ops.as_domain(as_load_displacement, load_column=1, displacement_column="D")  # pyright: ignore[reportArgumentType]
-    col.ops.as_domain(as_load_displacement)  # pyright: ignore[reportCallIssue]
-    col.ops.as_domain(as_coordinate, {"a": {"x": 0.0}})  # pyright: ignore[reportCallIssue]
+    # end_as は変換関数のシグネチャで引数を検査する（不要な ignore は reportUnnecessaryTypeIgnoreComment で検出）
+    col.ops.end_as(as_load_displacement, load_colum="P")  # pyright: ignore[reportCallIssue]
+    col.ops.end_as(as_load_displacement, load_column=1, displacement_column="D")  # pyright: ignore[reportArgumentType]
+    col.ops.end_as(as_load_displacement)  # pyright: ignore[reportCallIssue]
+    col.ops.end_as(as_coordinate, {"a": {"x": 0.0}})  # pyright: ignore[reportCallIssue]
 
 
 def collect_to_table(ld: LoadDisplacementCollection) -> None:

@@ -40,7 +40,7 @@ print(f"   - 単位: {collection.units}")
 # 2. 荷重-変位ドメインに変換し、曲線生成に必要なサイクル列（"Force1_cycle"）を作成します
 print("2. 荷重-変位ドメインへの変換")
 ld_collection = (
-    collection.ops.as_domain(as_load_displacement, load_column="Force1", displacement_column="Displacement1")
+    collection.ops.end_as(as_load_displacement, load_column="Force1", displacement_column="Displacement1").ops
     .mark_cycles(result_column="Force1_cycle")
     .end()
 )

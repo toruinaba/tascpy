@@ -21,7 +21,7 @@ def close_figures():
 def ld():
     """荷重-変位コレクション（P [kN], d [mm]）"""
     col = ColumnCollection({"P": [0.0, 2.0, 4.0], "d": [0.0, 1.0, 2.0]}, units={"P": "kN", "d": "mm"})
-    return col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
+    return col.ops.end_as(as_load_displacement, load_column="P", displacement_column="d")
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def point():
 @pytest.fixture
 def ld_short():
     col = ColumnCollection({"P": [0.0, 1.0], "d": [0.0, 1.0]})
-    return col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
+    return col.ops.end_as(as_load_displacement, load_column="P", displacement_column="d")
 
 
 def _line(ax, label):
@@ -73,7 +73,7 @@ def test_yield_details_range_ignores_missing_loads():
     col = ColumnCollection({"P": [0.0, 1.0, None, 4.0, 5.0], "d": [0.0, 1.0, 2.0, 3.0, 4.0]})
     point = PointResult("yield_point", 3.0, 4.0, metadata={
         "method": "offset", "initial_slope": 1.0, "parameters": {"range_start": 0.1, "range_end": 0.9}})
-    ld = col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
+    ld = col.ops.end_as(as_load_displacement, load_column="P", displacement_column="d")
     ax = ld.plot.plot_yield_analysis_details(point)
     highlighted = next(c for c in ax.collections if c.get_label().startswith("Initial Slope Range"))
     np.testing.assert_array_equal(highlighted.get_offsets()[:, 1], [1.0, 4.0])
@@ -116,7 +116,7 @@ def test_peak_ignores_rows_with_missing_displacement():
     col = ColumnCollection({"P": [0.0, 2.0, 5.0, -100.0], "d": [0.0, 1.0, 2.0, None]})
     point = PointResult("yield_point", 1.5, 3.0, metadata={
         "method": "offset", "initial_slope": 2.0, "parameters": {"offset_value": 0.5, "range_start": 0.3, "range_end": 1.0}})
-    ld = col.ops.as_domain(as_load_displacement, load_column="P", displacement_column="d").end()
+    ld = col.ops.end_as(as_load_displacement, load_column="P", displacement_column="d")
     ax = ld.plot.plot_yield_analysis_details(point)
     offset = next(line for line in ax.lines if line.get_label() == "Offset Line")
     assert offset._xy1[0] == 0.5  # 正側へずらす（変位が欠損した -100 kN の行は使わない）

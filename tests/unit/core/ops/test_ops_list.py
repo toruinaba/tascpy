@@ -233,7 +233,7 @@ def test_row_table_keeps_the_source_domain():
     from tascpy.domains import LoadDisplacementOps, as_load_displacement
 
     ld = ColumnCollection({"P": [1.0, 2.0, -1.0, -3.0], "d": [0.1, 0.2, -0.1, -0.3]}, units={"P": "kN", "d": "mm"}) \
-        .ops.as_domain(as_load_displacement, load_column="P", displacement_column="d")
+        .ops.end_as(as_load_displacement, load_column="P", displacement_column="d").ops
     peaks = ld.split_by_cycles().collect(lambda o: o.nearest_row("P", 10.0)).to_table()
     assert isinstance(peaks, LoadDisplacementOps)
     assert (peaks.end().load_column, peaks.end().displacement_column) == ("P", "d")

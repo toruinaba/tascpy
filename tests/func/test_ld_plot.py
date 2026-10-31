@@ -75,7 +75,7 @@ def load_displacement_data(sample_data_path, csv_file_info):
     )
 
     # ドメインコレクションに変換
-    ld_collection = collection.ops.as_domain(as_load_displacement, force_col, disp_col).end()
+    ld_collection = collection.ops.end_as(as_load_displacement, force_col, disp_col)
 
     return ld_collection
 

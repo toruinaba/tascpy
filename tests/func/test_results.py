@@ -160,7 +160,7 @@ class Test_results:
         )
 
         # numpy で直接計算した結果と、ops で計算した結果が一致する
-        via_ops = (pd_removed_outliers.ops.as_domain(as_load_displacement, "P_total", "梁変位ﾜｲﾔ")
+        via_ops = (pd_removed_outliers.ops.end_as(as_load_displacement, "P_total", "梁変位ﾜｲﾔ").ops
                    .to_skeleton_curve(has_decrease=True).end())
         np.testing.assert_allclose(d_ske, via_ops.displacement_data)
         np.testing.assert_allclose(p_ske, via_ops.load_data)
@@ -221,7 +221,7 @@ class Test_results:
         markers = compute_cycle_markers(p_cyc)
         d_cum, p_cum = compute_cumulative_curve(d_cyc, p_cyc, markers)
 
-        via_ops = (pd_removed_outliers.ops.as_domain(as_load_displacement, "P_total", "梁変位ﾜｲﾔ")
+        via_ops = (pd_removed_outliers.ops.end_as(as_load_displacement, "P_total", "梁変位ﾜｲﾔ").ops
                    .to_cumulative_curve().end())
         np.testing.assert_allclose(d_cum, via_ops.displacement_data)
         np.testing.assert_allclose(p_cum, via_ops.load_data)

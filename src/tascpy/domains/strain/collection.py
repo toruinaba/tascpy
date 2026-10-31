@@ -83,4 +83,4 @@ class StrainCollection(CoordinateCollection):
 
 
 as_strain = StrainCollection.from_collection
-"""`col.ops.as_domain(as_strain, ...)` でひずみドメインに変換する"""
+"""`col.ops.end_as(as_strain, ...)` でひずみドメインに変換する"""

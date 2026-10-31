@@ -51,7 +51,7 @@ class TestLoadDisplacementCollection:
         np.testing.assert_array_equal(ld.displacement_data, self.displacements)
 
     def test_from_collection(self):
-        ld = self.collection.ops.as_domain(as_load_displacement, load_column="load", displacement_column="displacement").end()
+        ld = self.collection.ops.end_as(as_load_displacement, load_column="load", displacement_column="displacement")
         assert isinstance(ld, LoadDisplacementCollection)
         assert ld.load_column == "load"
         assert ld.displacement_column == "displacement"
@@ -59,7 +59,7 @@ class TestLoadDisplacementCollection:
 
     def test_from_collection_custom_columns(self):
         collection = ColumnCollection({"force": self.loads, "disp": self.displacements}, step=self.steps)
-        ld = collection.ops.as_domain(as_load_displacement, load_column="force", displacement_column="disp").end()
+        ld = collection.ops.end_as(as_load_displacement, load_column="force", displacement_column="disp")
         assert isinstance(ld, LoadDisplacementCollection)
         assert ld.load_column == "force"
         assert ld.displacement_column == "disp"
@@ -67,18 +67,18 @@ class TestLoadDisplacementCollection:
     def test_missing_columns(self):
         load_only = ColumnCollection({"load": self.loads}, step=self.steps)
         with pytest.raises(ValueError) as exc_info:
-            load_only.ops.as_domain(as_load_displacement, load_column="load", displacement_column="displacement")
+            load_only.ops.end_as(as_load_displacement, load_column="load", displacement_column="displacement")
         assert "displacement_column" in str(exc_info.value)
 
         disp_only = ColumnCollection({"displacement": self.displacements}, step=self.steps)
         with pytest.raises(ValueError) as exc_info:
-            disp_only.ops.as_domain(as_load_displacement, load_column="load", displacement_column="displacement")
+            disp_only.ops.end_as(as_load_displacement, load_column="load", displacement_column="displacement")
         assert "load_column" in str(exc_info.value)
 
     def test_columns_are_not_guessed_from_names(self):
         # 列名に "load" / "displacement" を含んでいても、指定しなければ推測しない
         with pytest.raises(TypeError):
-            self.collection.ops.as_domain(as_load_displacement)  # pyright: ignore[reportCallIssue]
+            self.collection.ops.end_as(as_load_displacement)  # pyright: ignore[reportCallIssue]
 
     def test_direct_invalid_columns(self):
         with pytest.raises(ValueError) as exc_info:

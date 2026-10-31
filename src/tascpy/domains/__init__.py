@@ -1,7 +1,7 @@
 """tascpy.domains - ドメイン（荷重-変位・座標・ひずみ）
 
 各ドメインは collection（設定）/ ops（操作）/ plotter・draw（描画）を持つパッケージです。
-`as_*` は `col.ops.as_domain(as_*, ...)` に渡す変換関数です。
+`as_*` は `col.ops.end_as(as_*, ...)` に渡す変換関数です。
 """
 
 from .coordinate import CoordinateCollection, CoordinateOps, as_coordinate

@@ -27,9 +27,9 @@ col = tascpy.ColumnCollection(
 coordinates = {"CH1": {"x": 0.0, "y": 0.0}, "CH2": {"x": 10.0, "y": 0.0}, "CH3": {"x": 0.0, "y": 10.0}}
 rosettes = {"R1": {"columns": ["CH1", "CH2", "CH3"], "type": "rectangular", "orientation": 0.0}}
 
-ld = col.ops.as_domain(as_load_displacement, "荷重", "変位").end()
-coord = col.ops.as_domain(as_coordinate, coordinates=coordinates).end()
-strain = col.ops.as_domain(as_strain, rosettes=rosettes, coordinates=coordinates).end()
+ld = col.ops.end_as(as_load_displacement, "荷重", "変位")
+coord = col.ops.end_as(as_coordinate, coordinates=coordinates)
+strain = col.ops.end_as(as_strain, rosettes=rosettes, coordinates=coordinates)
 
 cyclic_disp = np.concatenate([np.linspace(0.0, 2.0, 5), np.linspace(2.0, -2.0, 9)[1:],
                               np.linspace(-2.0, 4.0, 13)[1:], np.linspace(4.0, 0.0, 9)[1:]])
@@ -38,7 +38,7 @@ for d0, d1 in zip(np.r_[0.0, cyclic_disp[:-1]], cyclic_disp):
     p = min(max(p + 40.0 * (d1 - d0), 4.0 * d1 - 90.0), 4.0 * d1 + 90.0)
     cyclic_load.append(p)
 cyclic = (tascpy.ColumnCollection({"荷重": cyclic_load, "変位": cyclic_disp}, units={"荷重": "kN", "変位": "mm"})
-          .ops.as_domain(as_load_displacement, "荷重", "変位").end())
+          .ops.end_as(as_load_displacement, "荷重", "変位"))
 ```
 
 ファイルを読み書きする例は、このデータを保存した `data.txt` がある作業ディレクトリで実行する前提です。

@@ -83,7 +83,7 @@ restored = tascpy.load_parquet("out.parquet")
 # 荷重-変位ドメインへ変換し、剛性と降伏点を計算
 ld = (
     collection.ops
-    .as_domain(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement")
+    .end_as(tascpy.as_load_displacement, load_column="Force", displacement_column="Displacement").ops
     .remove_consecutive_duplicates_across()
 )
 
@@ -94,7 +94,7 @@ print(f"降伏荷重: {yield_pt.y:.2f} {yield_pt.y_unit}")
 print(f"降伏変位: {yield_pt.x:.2f} {yield_pt.x_unit}")
 ```
 
-`collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。`as_domain` に変換関数（`tascpy.as_load_displacement` など）を渡してドメインに変換すると、変換の引数とドメイン固有の操作（`yield_point` など）も補完されます。
+`collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。`end_as` に変換関数（`tascpy.as_load_displacement` など）を渡すと変換の引数が補完され、返ったドメインのコレクションの `.ops` ではドメイン固有の操作（`yield_point` など）も補完されます。
 
 繰り返し載荷のデータでは、`ld.to_skeleton_curve()` でスケルトン曲線（新しい荷重-変位コレクション）にしてから `yield_point` などを求めます。サイクルは荷重の符号反転から数えます。元データにサイクル番号の列があっても名前から推測して使うことはないので、使うときは `cycle_column="列名"` で指定します。
 

@@ -6,7 +6,7 @@ import inspect
 import math
 import warnings
 from typing import (
-    TYPE_CHECKING, Any, Callable, Concatenate, Dict, Generic, List, Optional, ParamSpec, Protocol, Self, Sequence,
+    TYPE_CHECKING, Any, Callable, Concatenate, Dict, Generic, List, Optional, ParamSpec, Self, Sequence,
     TypeVar, Union,
 )
 
@@ -25,17 +25,10 @@ if TYPE_CHECKING:
     from .ops_list import OpsList
 
 C_co = TypeVar("C_co", bound=ColumnCollection, covariant=True)
-O = TypeVar("O", bound="CoreOps[Any]", covariant=True)
+D = TypeVar("D", bound=ColumnCollection)
 P = ParamSpec("P")
 # OpsList[Self] は jedi（marimo の補完）が要素の型を解決できないため、分割系は self を TypeVar で受ける
 S = TypeVar("S", bound="CoreOps[Any]")
-
-
-class HasOps(Protocol[O]):
-    """`ops` プロパティで操作オブジェクトを返すコレクション"""
-
-    @property
-    def ops(self) -> O: ...
 
 Operand = Union[str, float, int, np.ndarray, Sequence[float]]
 
@@ -226,20 +219,23 @@ class CoreOps(Generic[C_co]):
         """ドメイン固有の設定を外し、汎用コレクションに変換します"""
         return CoreOps(self._c._as_class(ColumnCollection))
 
-    def as_domain(self, factory: Callable[Concatenate[ColumnCollection, P], HasOps[O]],
-                  /, *args: P.args, **kwargs: P.kwargs) -> O:
-        """ドメインのコレクションに変換し、その操作オブジェクトを返します
+    def end_as(self, factory: Callable[Concatenate[ColumnCollection, P], D],
+               /, *args: P.args, **kwargs: P.kwargs) -> D:
+        """操作チェーンを終了し、ドメインのコレクションに変換して返します
 
-        factory には各ドメインの変換関数（`from_collection`）を渡します。残りの引数は factory に渡され、
-        型チェッカーと IDE の補完もそのシグネチャに従います。
+        factory には各ドメインの変換関数（`tascpy.as_load_displacement` など、`from_collection` の別名）を渡します。
+        残りの引数は factory に渡され、型チェッカーと IDE の補完もそのシグネチャに従います。
+        変換後のドメインの操作は `.ops` で続けます。
 
         Examples:
             >>> from tascpy.domains import as_load_displacement
-            >>> ops = col.ops.as_domain(as_load_displacement, load_column="荷重", displacement_column="変位")
-            >>> type(ops).__name__, ops.end().load_column
-            ('LoadDisplacementOps', '荷重')
+            >>> ld = col.ops.end_as(as_load_displacement, load_column="荷重", displacement_column="変位")
+            >>> type(ld).__name__, ld.load_column
+            ('LoadDisplacementCollection', '荷重')
+            >>> type(ld.ops).__name__
+            'LoadDisplacementOps'
         """
-        return factory(self._c, *args, **kwargs).ops
+        return factory(self._c, *args, **kwargs)
 
     # ── 四則演算 ─────────────────────────────────
 

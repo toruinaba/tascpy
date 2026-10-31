@@ -1,6 +1,6 @@
 # Domains モジュール
 
-`tascpy.domains` の API リファレンスです。ドメインごとに、コレクション（設定）、操作（`coll.ops`）、描画（`coll.plot`）があります。変換は `col.ops.as_domain(as_load_displacement, ...)` のように、各ドメインの変換関数を渡して行います。
+`tascpy.domains` の API リファレンスです。ドメインごとに、コレクション（設定）、操作（`coll.ops`）、描画（`coll.plot`）があります。変換は `col.ops.end_as(as_load_displacement, ...)` のように、各ドメインの変換関数を渡して行います。
 
 例（Examples）の `col` / `ld` / `coord` / `strain` は [例で使うデータ](sample_data.md) で定義しています。
 

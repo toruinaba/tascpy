@@ -23,7 +23,7 @@ class TestLoadDisplacementAnalysis:
         collection = ColumnCollection({"load": self.loads, "displacement": self.displacements}, step=self.steps)
 
         # 荷重-変位コレクションを作成
-        self.ld_collection = collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+        self.ld_collection = collection.ops.end_as(as_load_displacement, "load", "displacement")
 
         # 降伏点テスト用に非線形データを準備（明確な降伏挙動を持つ）
         # オフセット法用に調整：初期勾配が10.0で後半は明確に低下し、オフセット線と交差する
@@ -57,7 +57,7 @@ class TestLoadDisplacementAnalysis:
 
         yield_collection = ColumnCollection({"load": yield_loads, "displacement": yield_disps}, step=yield_steps)
 
-        self.yield_ld_collection = yield_collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+        self.yield_ld_collection = yield_collection.ops.end_as(as_load_displacement, "load", "displacement")
 
         # 一般降伏法用のデータセット（より早い段階で傾きが変化する）
         general_steps = list(range(11))
@@ -66,7 +66,7 @@ class TestLoadDisplacementAnalysis:
 
         general_collection = ColumnCollection({"load": general_loads, "displacement": general_disps}, step=general_steps)
 
-        self.general_ld_collection = general_collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+        self.general_ld_collection = general_collection.ops.end_as(as_load_displacement, "load", "displacement")
 
         # サイクルデータのセットアップ
         cycle_steps = list(range(21))
@@ -120,12 +120,12 @@ class TestLoadDisplacementAnalysis:
         cycle_collection = ColumnCollection({"load": cycle_loads, "displacement": cycle_disps}, step=cycle_steps)
 
         # サイクル荷重-変位コレクション
-        self.cycle_ld_collection = cycle_collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+        self.cycle_ld_collection = cycle_collection.ops.end_as(as_load_displacement, "load", "displacement")
 
         # カスタム列名のコレクション
         custom_collection = ColumnCollection({"force": self.loads, "disp": self.displacements}, step=self.steps)
 
-        self.custom_ld_collection = custom_collection.ops.as_domain(as_load_displacement, "force", "disp").end()
+        self.custom_ld_collection = custom_collection.ops.end_as(as_load_displacement, "force", "disp")
 
         # エッジケースのデータ（同一変位値を含む）
         edge_steps = list(range(5))
@@ -134,12 +134,12 @@ class TestLoadDisplacementAnalysis:
 
         edge_collection = ColumnCollection({"load": edge_loads, "displacement": edge_disps}, step=edge_steps)
 
-        self.edge_ld_collection = edge_collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+        self.edge_ld_collection = edge_collection.ops.end_as(as_load_displacement, "load", "displacement")
 
         # データ不足のケース
         empty_collection = ColumnCollection({"load": [], "displacement": []}, step=[])
 
-        self.empty_ld_collection = empty_collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+        self.empty_ld_collection = empty_collection.ops.end_as(as_load_displacement, "load", "displacement")
 
     # diff（接線剛性）のテスト
     def test_tangent_slopes_basic(self):
@@ -382,7 +382,7 @@ class TestLoadDisplacementAnalysis:
 
         linear_collection = ColumnCollection({"load": loads, "displacement": disps}, step=steps)
 
-        linear_ld_collection = linear_collection.ops.as_domain(as_load_displacement, "load", "displacement").end()
+        linear_ld_collection = linear_collection.ops.end_as(as_load_displacement, "load", "displacement")
 
         # 一般降伏法では降伏点が見つからないはず
         with pytest.raises(ValueError):
