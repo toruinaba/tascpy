@@ -556,3 +556,26 @@ class TestSkeletonDecrease:
         # 最大荷重の区間（1 つ目）はずらし量 0 なので、減少部分の変位は元の値のまま
         d, p, rows = compute_skeleton_curve(self.disp, self.load, has_decrease=True, return_index=True)
         assert d[-1] == self.disp[8]
+
+
+class TestBauschingerGap:
+    # 1 つ目の区間の最大荷重 30。2 つ目の区間は 0 → 30 → 35（更新）→ 変位を伸ばしながら 20 まで低下
+    disp = np.array([0.0, 1.0, 2.0, 1.0, -1.0, 0.0, 2.0, 3.0, 4.0, 5.0, 6.0, 5.0])
+    load = np.array([0.0, 20.0, 30.0, 0.0, -20.0, 0.0, 20.0, 30.0, 35.0, 28.0, 20.0, 0.0])
+
+    def test_part_above_previous_max_is_removed_without_gap(self):
+        d, p, rows = compute_bauschinger_curve(self.disp, self.load, return_index=True)
+        np.testing.assert_allclose(d, [0.0, 2.0, 3.0, 3.0 + 2 / 7, 3.0 + 2 / 7 + 1.0])
+        np.testing.assert_allclose(p, [0.0, 20.0, 30.0, 28.0, 20.0])
+        np.testing.assert_array_equal(rows, [5, 6, 7, 9, 10])  # 戻った境界の点は、出た点 (3.0, 30) と重なるので除く
+
+    def test_clip_without_close_gaps_keeps_original_displacement(self):
+        d, p, rows = compute_load_clip(self.disp[5:11], self.load[5:11], upper=30.0)
+        np.testing.assert_allclose(d, [0.0, 2.0, 3.0, 4.0 + 5 / 7, 5.0, 6.0])
+
+    def test_close_gaps_with_exact_boundary_rows(self):
+        # 戻るときも荷重 30 の行を通る場合、その行を出た点に重ねて 1 つにする
+        d, p, rows = compute_load_clip(np.array([0.0, 3.0, 4.0, 5.0, 6.0]), np.array([0.0, 30.0, 35.0, 30.0, 20.0]),
+                                       upper=30.0, close_gaps=True)
+        np.testing.assert_allclose(d, [0.0, 3.0, 4.0])
+        np.testing.assert_array_equal(rows, [0, 1, 4])

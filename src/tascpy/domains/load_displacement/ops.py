@@ -239,16 +239,21 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             return c.take([])
         return c._replace(df=pl.concat(frames, how="diagonal_relaxed").select(c.df.columns))
 
-    def clip_load(self, *, lower: Optional[float] = None, upper: Optional[float] = None) -> Self:
+    def clip_load(self, *, lower: Optional[float] = None, upper: Optional[float] = None,
+                  close_gaps: bool = False) -> Self:
         """荷重が lower 以上・upper 以下の行を残し、範囲の境界をまたぐ位置に境界の点の行を補間で加えます
 
         加えた行は、荷重が境界の値・変位が補間値で、ステップと他の列は欠損です（`split_by_excursions` の荷重 0 の点と
         同じ扱い）。荷重・変位が欠損の行は除きます。`scan` と組み合わせると、区間ごとに「それまでの最大荷重を超える部分」
         （スケルトン部分）や「それ以下の部分」（バウシンガー部分）を取り出せます。
 
+        範囲の外に出て戻る曲線では、既定では範囲内の部分を元の変位のまま並べます（外に出ていた間の変位が残ります）。
+        close_gaps=True なら、戻った部分の変位を、出た点に続くようにずらして詰めます（バウシンガー部分の取り出しなど）。
+
         Args:
             lower: 荷重の下限（省略時は下限なし）
             upper: 荷重の上限（省略時は上限なし）
+            close_gaps: 範囲の外に出ていた間の変位を詰めるか
 
         Examples:
             >>> part = ld.ops.clip_load(lower=60.0).end()
@@ -267,7 +272,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             >>> curve["変位"].values, curve["荷重"].values
             (array([0. , 0.5, 1. , 1.5, 2. , 2. , 2.5, 3. , 3.5, 4. ]), array([  0.,  20.,  40.,  60.,  80.,  80., 100., 102., 104., 106.]))
         """
-        d, p, rows = compute_load_clip(self._c.displacement_data, self._c.load_data, lower=lower, upper=upper)
+        d, p, rows = compute_load_clip(self._c.displacement_data, self._c.load_data, lower=lower, upper=upper,
+                                       close_gaps=close_gaps)
         return self._next(self._assemble(list(zip(rows.tolist(), d.tolist(), p.tolist()))))
 
     def mark_plastic(self, *, range_start: float = 0.1, range_end: float = 0.3, direction: Direction = "both",
@@ -447,8 +453,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
         荷重 0 の点から荷重 0 の点までの区間ごとに、変位のピークまでのうちそれまでの最大荷重以下の部分を取り出し、
         `chain` の規則でつなぎます（秋山の分解。スケルトン曲線が耐力の更新部分をつなぐのに対し、こちらは残りの部分です）。
-        最初の区間は使いません。`split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=...)` →
-        `chain(変位列)` と組み立てたものと同じです。計算の詳細は `tascpy.numeric.hysteresis.compute_bauschinger_curve`
+        区間の中で最大荷重を超えて戻る場合は、超えていた間の変位を詰めます（スケルトン曲線に入る部分の変位を含まない）。
+        最初の区間は使いません。`split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=..., close_gaps=True)`
+        → `chain(変位列)` と組み立てたものと同じです。計算の詳細は `tascpy.numeric.hysteresis.compute_bauschinger_curve`
         を参照してください。
 
         Examples:

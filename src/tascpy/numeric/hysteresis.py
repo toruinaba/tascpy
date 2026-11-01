@@ -572,9 +572,12 @@ def _until_peak_entries(entries: List[_Entry], by_load: bool) -> List[_Entry]:
     return entries[: int(np.argmax(np.abs(values - values[0]))) + 1]
 
 
-def _clip_entries(entries: List[_Entry], lower: Optional[float] = None,
-                  upper: Optional[float] = None) -> List[_Entry]:
-    """荷重が lower 以上・upper 以下の点と、範囲の境界をまたぐ位置に補間で補う境界の点"""
+def _clip_entries(entries: List[_Entry], lower: Optional[float] = None, upper: Optional[float] = None,
+                  close_gaps: bool = False) -> List[_Entry]:
+    """荷重が lower 以上・upper 以下の点と、範囲の境界をまたぐ位置に補間で補う境界の点
+
+    close_gaps=True なら、範囲の外に出て戻った部分の変位を、出た点に続くようにずらす（外に出ていた間の変位を除く）。
+    """
     def inside(y: float) -> bool:
         return (lower is None or y >= lower) and (upper is None or y <= upper)
 
@@ -584,16 +587,32 @@ def _clip_entries(entries: List[_Entry], lower: Optional[float] = None,
         t = (bound - a[2]) / (b[2] - a[2])
         return (-1, a[1] + t * (b[1] - a[1]), float(bound))
 
-    out: List[_Entry] = []
+    pieces: List[List[_Entry]] = []  # 範囲内に続けている部分ごと
+    current: Optional[List[_Entry]] = None
     for k, entry in enumerate(entries):
         if k > 0:
             prev = entries[k - 1]
-            if inside(prev[2]) and not inside(entry[2]) and prev[2] not in (lower, upper):
-                out.append(crossing(prev, entry))
+            if inside(prev[2]) and not inside(entry[2]):
+                if prev[2] not in (lower, upper) and current is not None:
+                    current.append(crossing(prev, entry))
+                current = None
             elif not inside(prev[2]) and inside(entry[2]) and entry[2] not in (lower, upper):
-                out.append(crossing(prev, entry))
+                current = [crossing(prev, entry)]
+                pieces.append(current)
         if inside(entry[2]):
-            out.append(entry)
+            if current is None:
+                current = []
+                pieces.append(current)
+            current.append(entry)
+
+    out: List[_Entry] = []
+    for piece in pieces:
+        if close_gaps and out:
+            offset = out[-1][1] - piece[0][1]
+            piece = [(row, x + offset, y) for row, x, y in piece]
+            if (piece[0][1], piece[0][2]) == (out[-1][1], out[-1][2]):
+                piece = piece[1:]
+        out.extend(piece)
     return out
 
 
@@ -635,17 +654,24 @@ def compute_load_clip(
     load: np.ndarray,
     lower: Optional[float] = None,
     upper: Optional[float] = None,
+    *,
+    close_gaps: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """荷重が lower 以上・upper 以下の部分を取り出し、境界をまたぐ位置に境界の点を補間で補います。
 
     荷重・変位が欠損の点は飛ばします。境界の点は、範囲の内と外にある隣り合う2点の直線補間で、荷重は境界の値です
-    （内側の点の荷重がちょうど境界の値なら補いません）。範囲の外に出て戻る曲線では、範囲内の部分がそのまま並びます。
+    （内側の点の荷重がちょうど境界の値なら補いません）。
+
+    範囲の外に出て戻る曲線では、既定では範囲内の部分を元の変位のまま並べます（外に出ていた間の変位が、出た点と
+    戻った点の間に残ります）。close_gaps=True なら、戻った部分の変位を、出た点に続くようにずらして詰めます
+    （出た点と戻った点が同じ点になる場合は1つにします）。
 
     Args:
         displacement: 変位の配列
         load: 荷重の配列
         lower: 荷重の下限（省略時は下限なし）
         upper: 荷重の上限（省略時は上限なし）
+        close_gaps: 範囲の外に出ていた間の変位を詰めるか
 
     Returns:
         (変位, 荷重, 元の index)。補った境界の点の index は -1
@@ -656,11 +682,20 @@ def compute_load_clip(
         >>> d, p, rows = compute_load_clip(np.array([0.0, 1.0, 2.0, 3.0]), np.array([0.0, 10.0, 20.0, 30.0]), lower=15.0)
         >>> d, p, rows
         (array([1.5, 2. , 3. ]), array([15., 20., 30.]), array([-1,  2,  3]))
+
+        荷重 30 を超えて戻る曲線を、30 以下で切り出します。close_gaps=True なら、戻った部分 (4.714 から) を
+        出た点 (3.0, 30) に続くようにずらします。
+
+        >>> disp, load = np.array([0.0, 3.0, 4.0, 5.0, 6.0]), np.array([0.0, 30.0, 35.0, 28.0, 20.0])
+        >>> compute_load_clip(disp, load, upper=30.0)[0].round(3)
+        array([0.   , 3.   , 4.714, 5.   , 6.   ])
+        >>> compute_load_clip(disp, load, upper=30.0, close_gaps=True)[0].round(3)
+        array([0.   , 3.   , 3.286, 4.286])
     """
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
     entries = [(int(i), float(d[i]), float(p[i])) for i in np.flatnonzero(~(np.isnan(d) | np.isnan(p)))]
-    return _entries_to_arrays(_clip_entries(entries, lower=lower, upper=upper))
+    return _entries_to_arrays(_clip_entries(entries, lower=lower, upper=upper, close_gaps=close_gaps))
 
 
 @overload
@@ -684,9 +719,11 @@ def compute_bauschinger_curve(
     """繰り返し載荷の荷重-変位曲線から、バウシンガー部分をつないだ曲線を計算します（秋山の分解）。
 
     `compute_excursions` の区間ごとに、変位のピークまでの載荷部分のうち荷重がそれまでの区間の最大荷重以下の部分を
-    取り出し（境界の点は補間で補う）、`chain_offsets` の規則でつなぎます。最初の区間（それまでの最大荷重が 0）は
+    取り出し（境界の点は補間で補う）、`chain_offsets` の規則でつなぎます。区間の中で最大荷重を超えて戻る場合
+    （耐力を更新したあと最大荷重を下回るまで低下する区間）は、超えていた間の変位を詰めます（`compute_load_clip` の
+    close_gaps=True）。そのため、スケルトン曲線に入る耐力の更新部分の変位は含みません。最初の区間（それまでの最大荷重が 0）は
     使いません。スケルトン曲線（`compute_skeleton_curve`）が耐力の更新部分をつなぐのに対し、こちらは残りの部分です。
-    `LoadDisplacementOps` では `split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=...)`
+    `LoadDisplacementOps` では `split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=..., close_gaps=True)`
     → `chain(変位列)` と組み立てたものと同じです。
 
     Args:
@@ -725,7 +762,7 @@ def _positive_bauschinger_curve(displacement: np.ndarray, load: np.ndarray,
     for rows, x_s, x_e in _positive_excursions(d, p, markers):
         entries = _excursion_entries(d, p, rows, x_s, x_e)
         if p_max > 0:
-            parts.append(_clip_entries(_until_peak_entries(entries, by_load=False), upper=p_max))
+            parts.append(_clip_entries(_until_peak_entries(entries, by_load=False), upper=p_max, close_gaps=True))
         p_max = max(p_max, max(e[2] for e in entries))
     offsets = _chain_entries(parts)
     return _entries_to_arrays([(row, x + offset, y) for part, offset in zip(parts, offsets) for row, x, y in part])

@@ -158,7 +158,8 @@ def test_bauschinger_equals_scan_composition(cyclic, side):
         if p_max == 0:
             clipped = o.clip_load(lower=np.inf)  # 最初の区間は使わない
         else:
-            clipped = o.clip_load(upper=p_max) if side == "positive" else o.clip_load(lower=p_max)
+            clipped = (o.clip_load(upper=p_max, close_gaps=True) if side == "positive"
+                       else o.clip_load(lower=p_max, close_gaps=True))
         return clipped, sign * max(sign * p_max, sign * _peak(o, side))
 
     loading = cyclic.ops.split_by_excursions(side=side).map(lambda o: o.until_peak())
