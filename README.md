@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.8.1-green)](https://github.com/toruinaba/tascpy)
+[![Version](https://img.shields.io/badge/version-0.9.0-green)](https://github.com/toruinaba/tascpy)
 
 **tascpy** は、計測アプリケーション「tasc」などから出力される計測データの分析・可視化を効率的に行うための Python ライブラリです。直感的なインターフェースと強力なデータ処理機能を備え、メソッドチェーン形式で複雑な操作を簡潔に記述できます。
 
@@ -96,7 +96,7 @@ print(f"降伏変位: {yield_pt.x:.2f} {yield_pt.x_unit}")
 
 `collection.ops` が返す操作オブジェクトは通常のクラスなので、IDE の自動補完と型チェックがそのまま効きます。`end_as` に変換関数（`tascpy.as_load_displacement` など）を渡すと変換の引数が補完され、返ったドメインのコレクションの `.ops` ではドメイン固有の操作（`yield_point` など）も補完されます。
 
-繰り返し載荷のデータでは、`ld.to_skeleton_curve()` でスケルトン曲線（新しい荷重-変位コレクション）にしてから `yield_point` などを求めます。サイクルは荷重の符号反転から数えます。元データにサイクル番号の列があっても名前から推測して使うことはないので、使うときは `cycle_column="列名"` で指定します。
+繰り返し載荷のデータでは、`ld.to_skeleton_curve()` でスケルトン曲線（新しい荷重-変位コレクション）にしてから `yield_point` などを求めます。スケルトン曲線は、荷重 0 の点から荷重 0 の点までの区間ごとに、それまでの最大荷重を超えた部分をつないだものです。元データにサイクル番号の列があっても名前から推測して使うことはないので、使うときは `cycle_column="列名"` で指定します。反転点ごとの再降伏点や累積塑性変形の求め方は、[チュートリアル](./docs/tutorial.md) の 6 章を参照してください。
 
 ```python
 skeleton = ld.to_skeleton_curve()                               # 新しい荷重-変位コレクションの操作
