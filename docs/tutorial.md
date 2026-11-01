@@ -229,6 +229,35 @@ array([  nan,   nan,   nan, -2.91,   nan, -5.41,   nan])
 
 正側の降伏点は正側の累積曲線、負側の降伏点は負側の累積曲線の上にだけ値があります（反対側の列は欠損です）。たとえば 5 番目の半サイクル（-4 → +6 mm）の降伏点は、それまでの正側の残留変形 1.35 mm から始まる区間の上にあり、位置は 4.26 mm です。`to_cumulative_curve` の曲線と同じ座標なので、重ねて描けます。
 
+### 再降伏点を累積塑性変形に対して並べる
+
+累積曲線は正側・負側を別々につないだもので、荷重 0 を区切りにしています。正負の両方向の塑性履歴を1本の軸で数えたいときは、反転点で区切った半サイクルごとの塑性変形を累積する `mark_cumulative_plastic` を使います。半サイクルの区切りは `split_by_reversals` と同じで、半サイクルごとに反転点を原点とした剛性 K を求め（`yield_point` の初期剛性と同じ求め方なので、`range_start` / `range_end` は `yield_point` とそろえます）、載荷の向きへの塑性変形 Δd − ΔP/K を足していきます。値はすべての行にあり、単調に増えます。
+
+半サイクルの先頭の行の値が「その反転に入るまでの累積塑性変形」です。
+
+```pycon
+>>> kw = {"range_start": 0.1, "range_end": 0.5}
+>>> marked = ld.ops.mark_cumulative_plastic(result_column="累積塑性", **kw)
+>>> shifted = marked.split_by_reversals().map(lambda o: o.shift_origin())
+>>> before = shifted.collect(lambda o: float(o.end()["累積塑性"].values[0]))
+>>> [round(v, 2) for v in before]
+[0.0, 0.0, 0.0, 1.35, 4.05, 8.55, 14.85]
+
+```
+
+降伏点の位置での値を `value_at` で読むと、オフセット法の定義上、先頭の値にオフセット量（0.5 mm）を足したものになります。どちらを横軸にしても、点の並びは同じです。
+
+```pycon
+>>> def at_yield(o):
+...     pt = o.yield_point(offset_value=0.5, fail_silently=True, **kw)
+...     return o.value_at(pt, "累積塑性")
+>>> shifted.collect(at_yield).to_table(name="累積塑性").end()["累積塑性"].values.round(2)
+array([  nan,   nan,  0.5 ,  1.85,  4.55,  9.05, 15.35])
+
+```
+
+上で求めた再降伏荷重（102.2, −96.2, 96.2, −88.2, 88.2 kN）を、この値に対して正側・負側の系列に分けて描くと、累積塑性変形に伴う降伏点の推移になります。
+
 ## 7. 描画する
 
 `plot` のメソッドは matplotlib の Axes を返します（表示は呼び出し側で行います。Jupyter では自動で表示されます）。元データとスケルトン曲線は、同じ Axes にそれぞれのコレクションから描画して重ねます。降伏点は `yield_point` の結果を渡して描画します。

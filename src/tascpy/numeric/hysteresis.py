@@ -3,11 +3,12 @@
 引数はすべて (displacement, load) の順で、曲線を返す関数は (変位, 荷重) の順の配列を返します。
 """
 
+import warnings
 from typing import List, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
 
-from .curve import compute_polygon_area
+from .curve import compute_polygon_area, compute_stiffness
 
 
 def compute_cycle_markers(values: np.ndarray, step: float = 0.5) -> np.ndarray:
@@ -101,6 +102,106 @@ def compute_reversal_indices(values: np.ndarray, ratio: float = 0.05, min_amplit
         elif amplitude < min_amplitude and (value - anchor) * direction < 0:
             direction, extreme, extreme_index = -direction, value, int(i)
     return np.array(reversals, dtype=int)
+
+
+Direction = Literal["both", "positive", "negative"]
+DIRECTIONS = ("both", "positive", "negative")
+
+
+def compute_cumulative_plastic(
+    displacement: np.ndarray,
+    load: np.ndarray,
+    *,
+    ratio: float = 0.05,
+    min_amplitude: float = 0.0,
+    range_start: float = 0.1,
+    range_end: float = 0.3,
+    direction: Direction = "both",
+    reversal_values: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """反転点で区切った半サイクルごとの塑性変形を累積した値を、各行について求めます（反転点基準）。
+
+    `compute_reversal_indices` の反転点で半サイクルに分け（隣り合う半サイクルは境界の反転点を共有）、
+    半サイクルごとに始点（反転点）を原点とした Δd, ΔP と、その範囲の剛性 K
+    （`compute_stiffness(Δd, ΔP, range_start, range_end)`。`yield_point` の初期剛性と同じ求め方）から、
+    載荷の向き s への塑性変形 δp = s·(Δd − ΔP/K) を求めます。
+
+    各行の値は「それまでの半サイクルの塑性変形の合計 + その半サイクルでの δp のそれまでの最大値（負なら 0）」で、
+    単調に増えます。半サイクルの始点の値は、それまでの半サイクルの塑性変形の合計です。
+    オフセット法の降伏点では δp がオフセット量に等しいので、降伏点での値は始点の値 + オフセット量です。
+
+    Args:
+        displacement: 変位の配列
+        load: 荷重の配列
+        ratio, min_amplitude: 反転の判定（`compute_reversal_indices` と同じ）
+        range_start, range_end: 半サイクルごとの剛性を求める範囲（ΔP の最大値に対する割合）
+        direction: "both"（両方向の合計）、"positive" / "negative"（その向きに載荷する半サイクルだけを合計。
+            他の半サイクルの間は値が変わらない）
+        reversal_values: 反転を見る配列（省略時は displacement）
+
+    Returns:
+        np.ndarray: 各行の累積塑性変形（変位の単位。荷重・変位が欠損の行は NaN）
+
+    Raises:
+        ValueError: direction が未知の場合
+
+    Warns:
+        UserWarning: 剛性を求められない半サイクルがある場合（その半サイクルの塑性変形は 0 として数える）
+
+    Examples:
+        剛性 10 のバイリニアのばねを 0 → +2 → -2 → +3 と載荷します（降伏荷重 10）。
+        +2 までの半サイクルで 1.0、-2 までで 2.0、+3 までで 3.0 の塑性変形が生じます。
+
+        >>> from tascpy.numeric.hysteresis import compute_cumulative_plastic
+        >>> import numpy as np
+        >>> disp = np.array([0.0, 0.5, 1.0, 2.0, 1.5, 0.0, -1.0, -2.0, -1.0, 1.0, 3.0])
+        >>> load = np.array([0.0, 5.0, 10.0, 10.0, 5.0, -10.0, -10.0, -10.0, 0.0, 10.0, 10.0])
+        >>> compute_cumulative_plastic(disp, load, range_start=0.0, range_end=0.6)
+        array([0., 0., 0., 1., 1., 1., 2., 3., 3., 4., 6.])
+        >>> compute_cumulative_plastic(disp, load, range_start=0.0, range_end=0.6, direction="negative")
+        array([0., 0., 0., 0., 0., 0., 1., 2., 2., 2., 2.])
+    """
+    if direction not in DIRECTIONS:
+        raise ValueError(f"direction は {' / '.join(DIRECTIONS)} のいずれかにしてください: {direction}")
+
+    d = np.asarray(displacement, dtype=float)
+    p = np.asarray(load, dtype=float)
+    values = d if reversal_values is None else np.asarray(reversal_values, dtype=float)
+    result = np.full(len(d), np.nan)
+    if len(d) == 0:
+        return result
+    bounds = [0, *compute_reversal_indices(values, ratio=ratio, min_amplitude=min_amplitude).tolist(), len(d) - 1]
+
+    total = 0.0
+    failed = []
+    for n, (start, end) in enumerate(zip(bounds[:-1], bounds[1:]), start=1):
+        rows = np.arange(start, end + 1)
+        seg_d, seg_p = d[rows], p[rows]
+        valid = ~(np.isnan(seg_d) | np.isnan(seg_p))
+        if not valid.any():
+            continue
+        first = int(np.flatnonzero(valid)[0])
+        delta_d, delta_p = seg_d - seg_d[first], seg_p - seg_p[first]
+        sign = float(np.sign(delta_d[valid][np.argmax(np.abs(delta_d[valid]))]))
+        counted = direction == "both" or (sign > 0) == (direction == "positive")
+        plastic = np.zeros(len(rows))
+        if counted and sign != 0:
+            try:
+                stiffness = compute_stiffness(delta_d[valid], delta_p[valid], range_start=range_start,
+                                              range_end=range_end)
+                if not np.isfinite(stiffness) or stiffness == 0:
+                    raise ValueError("剛性が求められません")
+                plastic = np.maximum(np.fmax.accumulate(np.where(valid, sign * (delta_d - delta_p / stiffness),
+                                                                 -np.inf)), 0.0)
+            except ValueError:
+                failed.append(n)
+        # 境界の反転点は前の半サイクルの終点として書き、次の半サイクルの始点（同じ値）で上書きする
+        result[rows] = np.where(valid, total + plastic, np.nan)
+        total += float(plastic[-1]) if valid[-1] else float(np.max(plastic))
+    if failed:
+        warnings.warn(f"剛性を求められない半サイクル {failed} の塑性変形は 0 として数えました", UserWarning,
+                      stacklevel=2)
+    return result
 
 
 def _valid_pairs(displacement: np.ndarray, load: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:

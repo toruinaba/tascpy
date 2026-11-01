@@ -237,3 +237,27 @@ class TestReversals:
             as_load_displacement, load_column="P", displacement_column="d")
         with pytest.raises(ValueError):
             ld.ops.shift_origin()
+
+
+class TestMarkCumulativePlastic:
+    def setup_method(self):
+        d = [0.0, 0.5, 1.0, 2.0, 1.5, 0.0, -1.0, -2.0, -1.0, 1.0, 3.0]
+        p = [0.0, 5.0, 10.0, 10.0, 5.0, -10.0, -10.0, -10.0, 0.0, 10.0, 10.0]
+        self.ld = ColumnCollection({"P": p, "d": d}, units={"P": "kN", "d": "mm"}).ops.end_as(
+            as_load_displacement, load_column="P", displacement_column="d")
+
+    def test_values_and_unit(self):
+        marked = self.ld.ops.mark_cumulative_plastic(range_start=0.0, range_end=0.6, result_column="cp").end()
+        assert isinstance(marked, LoadDisplacementCollection)
+        assert marked["cp"].unit == "mm"
+        np.testing.assert_allclose(marked["cp"].values, [0, 0, 0, 1, 1, 1, 2, 3, 3, 4, 6])
+
+    def test_start_of_each_reversal_segment(self):
+        marked = self.ld.ops.mark_cumulative_plastic(range_start=0.0, range_end=0.6, result_column="cp").end()
+        starts = marked.ops.split_by_reversals().collect(lambda o: float(o.end()["cp"].values[0]))
+        assert starts == pytest.approx([0.0, 1.0, 3.0])
+
+    def test_direction_and_column(self):
+        marked = self.ld.ops.mark_cumulative_plastic(range_start=0.0, range_end=0.6, direction="negative",
+                                                     column="d", result_column="cp").end()
+        assert marked["cp"].values[-1] == pytest.approx(2.0)

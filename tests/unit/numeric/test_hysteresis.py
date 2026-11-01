@@ -4,6 +4,7 @@ import pytest
 from tascpy.numeric.hysteresis import (
     _extend_edge,
     compute_cumulative_curve,
+    compute_cumulative_plastic,
     compute_cumulative_positions,
     compute_cycle_markers,
     compute_hysteresis_energy,
@@ -413,3 +414,70 @@ class TestComputeReversalIndices:
     def test_negative_parameters_raise(self, kwargs):
         with pytest.raises(ValueError):
             compute_reversal_indices(np.array([0, 1, 0]), **kwargs)
+
+
+
+class TestCumulativePlastic:
+    # 剛性 10・降伏荷重 10 の完全弾塑性: 0 → +2 → -2 → +3（塑性変形 1, 2, 3）
+    disp = np.array([0.0, 0.5, 1.0, 2.0, 1.5, 0.0, -1.0, -2.0, -1.0, 1.0, 3.0])
+    load = np.array([0.0, 5.0, 10.0, 10.0, 5.0, -10.0, -10.0, -10.0, 0.0, 10.0, 10.0])
+    kw = {"range_start": 0.0, "range_end": 0.6}
+
+    def test_both_directions(self):
+        np.testing.assert_allclose(compute_cumulative_plastic(self.disp, self.load, **self.kw),
+                                   [0, 0, 0, 1, 1, 1, 2, 3, 3, 4, 6])
+
+    @pytest.mark.parametrize("direction, expected", [
+        ("positive", [0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 4]),
+        ("negative", [0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2]),
+    ])
+    def test_single_direction(self, direction, expected):
+        np.testing.assert_allclose(
+            compute_cumulative_plastic(self.disp, self.load, direction=direction, **self.kw), expected)
+
+    def test_is_monotonic_with_noise(self):
+        rng = np.random.default_rng(0)
+        noisy = self.load + rng.normal(0, 0.2, len(self.load))
+        values = compute_cumulative_plastic(self.disp, noisy, **self.kw)
+        assert np.all(np.diff(values) >= 0)
+
+    def test_elastic_cycles_give_zero(self):
+        d = np.array([0.0, 1.0, 2.0, 1.0, 0.0, -1.0, -2.0, -1.0, 0.0])
+        np.testing.assert_allclose(compute_cumulative_plastic(d, 10 * d, **self.kw), 0.0, atol=1e-12)
+
+    def test_value_at_offset_yield_is_start_plus_offset(self):
+        # 3 つ目の半サイクル（-2 → +3）を反転点基準で原点に移し、オフセット法で降伏点を求める
+        from tascpy.numeric.curve import compute_yield_point
+        rows = np.arange(7, 11)
+        d, p = self.disp[rows], self.load[rows]
+        cum = compute_cumulative_plastic(self.disp, self.load, **self.kw)
+        pt = compute_yield_point(d - d[0], p - p[0], offset_value=0.5, **self.kw)
+        position = pt.info["row_position"]
+        at_yield = np.interp(position, np.arange(len(rows)), cum[rows])
+        assert at_yield == pytest.approx(cum[rows[0]] + 0.5)
+
+    def test_missing_rows_are_nan(self):
+        # 塑性域の行 (-1, -10) を欠損にしても、剛性を求める範囲の行は残るので合計は変わらない
+        d, p = self.disp.copy(), self.load.copy()
+        d[6] = np.nan
+        values = compute_cumulative_plastic(d, p, **self.kw)
+        assert np.isnan(values[6]) and values[-1] == pytest.approx(6.0)
+
+    def test_stiffness_failure_warns_and_counts_zero(self):
+        # range_end=0.4 だと半サイクル 1, 3 は範囲に 1 点しか入らない
+        with pytest.warns(UserWarning, match="半サイクル \\[1, 3\\]"):
+            values = compute_cumulative_plastic(self.disp, self.load, range_start=0.0, range_end=0.4)
+        assert values[3] == 0.0 and values[7] == pytest.approx(2.0) and values[-1] == pytest.approx(2.0)
+
+    def test_reversal_values(self):
+        # 反転を荷重で見ても、この例では同じ区切りになる
+        np.testing.assert_allclose(
+            compute_cumulative_plastic(self.disp, self.load, reversal_values=self.disp, **self.kw),
+            compute_cumulative_plastic(self.disp, self.load, **self.kw))
+
+    def test_unknown_direction_raises(self):
+        with pytest.raises(ValueError, match="direction"):
+            compute_cumulative_plastic(self.disp, self.load, direction="up")
+
+    def test_empty(self):
+        assert compute_cumulative_plastic(np.array([]), np.array([])).size == 0

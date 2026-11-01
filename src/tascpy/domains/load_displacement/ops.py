@@ -12,8 +12,10 @@ from tascpy.core.ops_list import OpsList
 from tascpy.core.result import PointResult, ScalarResult
 from tascpy.numeric.curve import compute_peaks_and_valleys, compute_stiffness, compute_yield_point
 from tascpy.numeric.hysteresis import (
+    Direction,
     Side,
     compute_cumulative_curve,
+    compute_cumulative_plastic,
     compute_cumulative_positions,
     compute_cycle_markers,
     compute_hysteresis_energy,
@@ -147,6 +149,48 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """
         values = compute_cumulative_positions(*self._all_cycle_arrays(cycle_column), side=side)
         return self._with_column(result_column, values, unit, ch, default_unit=self._c.displacement.unit)
+
+    def mark_cumulative_plastic(self, *, column: Optional[str] = None, ratio: float = 0.05,
+                                min_amplitude: float = 0.0, range_start: float = 0.1, range_end: float = 0.3,
+                                direction: Direction = "both", result_column: str, unit: Optional[str] = None,
+                                ch: Optional[str] = None) -> Self:
+        """反転点で区切った半サイクルごとの塑性変形の累積を列として追加します（反転点基準）
+
+        半サイクルは `split_by_reversals` と同じ区切り方です（column / ratio / min_amplitude も同じ意味）。
+        半サイクルごとに、始点（反転点）を原点とした曲線の剛性を range_start〜range_end の範囲から求め
+        （`shift_origin().yield_point()` の初期剛性と同じ求め方）、載荷の向きへの塑性変形 Δd − ΔP/K を累積します。
+        値は単調に増え、半サイクルの始点の値はそれまでの半サイクルの塑性変形の合計です。
+        単位は省略時に変位列の単位です。剛性を求められない半サイクルは、警告を出して塑性変形を 0 として数えます。
+
+        荷重 0 基準の `mark_cumulative` と違い、すべての行に値があります（正負の両方向を1本の軸で数える履歴の量）。
+        計算の詳細は `tascpy.numeric.hysteresis.compute_cumulative_plastic` を参照してください。
+
+        Args:
+            column: 反転を見る列（省略時は変位列）
+            ratio, min_amplitude: 反転の判定（`split_by_reversals` と同じ）
+            range_start, range_end: 半サイクルごとの剛性を求める範囲（`yield_point` と同じ値にそろえるのが自然です）
+            direction: "both"（両方向の合計）、"positive" / "negative"（その向きに載荷する半サイクルだけを合計）
+
+        Examples:
+            `cyclic` は -2 → +4 mm の半サイクルで 1.35 mm 塑性化し、他の半サイクルは弾性です。
+
+            >>> marked = cyclic.ops.mark_cumulative_plastic(range_start=0.1, range_end=0.5, result_column="累積塑性").end()
+            >>> marked["累積塑性"].values[[12, 22, 24, 32]], marked["累積塑性"].unit
+            (array([0.  , 0.45, 1.35, 1.35]), 'mm')
+
+            半サイクルの先頭の行の値が、その反転に入るまでの累積塑性変形です。
+
+            >>> parts = marked.ops.split_by_reversals()
+            >>> parts.collect(lambda o: float(o.end()["累積塑性"].values[0]))
+            [0.0, 0.0, 0.0, 1.35]
+        """
+        c = self._c
+        reversal_values = None if column is None else to_float_array(self._column_values(column))
+        values = compute_cumulative_plastic(
+            c.displacement_data, c.load_data, ratio=ratio, min_amplitude=min_amplitude, range_start=range_start,
+            range_end=range_end, direction=direction, reversal_values=reversal_values,
+        )
+        return self._with_column(result_column, values, unit, ch, default_unit=c.displacement.unit)
 
     def split_by_cycles(self: LS, *, cycle_column: Optional[str] = None) -> OpsList[LS]:
         """サイクル番号ごとに分割します（cycle_column の省略時は荷重の符号反転から数える）"""
