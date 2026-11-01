@@ -36,11 +36,12 @@ def test_yield_point_offset():
     
     initial_slope = 100.0
     
-    is_valid, x, y, debug = _yield_point_offset(disp, load, initial_slope, 0.5)
+    is_valid, x, y, position, debug = _yield_point_offset(disp, load, initial_slope, 0.5)
     
     assert is_valid
     assert not np.isnan(x)
     assert not np.isnan(y)
+    assert position == pytest.approx(3.0)  # オフセット線 y = 100x - 50 と index 3 (3, 250) で交わる
 
 
 def test_yield_point_general():
@@ -56,9 +57,10 @@ def test_yield_point_general():
     # 3->4: 30  <- yield point found here
     # 4->5: 10
     
-    is_valid, x, y, debug = _yield_point_general(disp, load, initial_slope, 0.33)
+    is_valid, x, y, position, debug = _yield_point_general(disp, load, initial_slope, 0.33)
     assert is_valid
     assert not np.isnan(x)
+    assert x == disp[int(position)]
 
 
 def test_compute_yield_point():
@@ -161,3 +163,44 @@ def test_compute_peaks_and_valleys():
     flags3 = compute_peaks_and_valleys(data3, distance=1)
     # The nan values should be ignored. 2 is peak at index 2
     assert flags3[2] == 1
+
+
+class TestYieldRowPosition:
+    def test_offset_position_is_fractional_index(self):
+        x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        y = np.array([0.0, 100.0, 200.0, 220.0, 240.0])
+        point = compute_yield_point(x, y, offset_value=0.5, range_start=0.0, range_end=0.9)
+        position = point.info["row_position"]
+        lower = int(np.floor(position))
+        t = position - lower
+        assert point.x == pytest.approx(x[lower] + t * (x[lower + 1] - x[lower]))
+        assert point.y == pytest.approx(y[lower] + t * (y[lower + 1] - y[lower]))
+
+    def test_position_counts_missing_rows(self):
+        x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        y = np.array([0.0, 100.0, 200.0, 220.0, 240.0])
+        with_gap_x = np.insert(x, 1, np.nan)
+        with_gap_y = np.insert(y, 1, np.nan)
+        base = compute_yield_point(x, y, offset_value=0.5, range_start=0.0, range_end=0.9)
+        gapped = compute_yield_point(with_gap_x, with_gap_y, offset_value=0.5, range_start=0.0, range_end=0.9)
+        assert gapped.x == pytest.approx(base.x)
+        assert gapped.info["row_position"] == pytest.approx(base.info["row_position"] + 1)
+
+    def test_position_across_missing_row_is_scaled(self):
+        # 交点を挟む2点の間に欠損の行があると、位置は2点の index の間を比率で分けた値になる
+        x = np.array([0.0, 1.0, 2.0, np.nan, 3.0, 4.0])
+        y = np.array([0.0, 100.0, 200.0, np.nan, 220.0, 240.0])
+        point = compute_yield_point(x, y, offset_value=0.5, range_start=0.0, range_end=0.9)
+        t = (point.x - 2.0) / 1.0
+        assert point.info["row_position"] == pytest.approx(2 + 2 * t)
+
+    def test_general_position_is_index(self):
+        x = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+        y = np.array([0.0, 100.0, 200.0, 250.0, 280.0, 290.0])
+        point = compute_yield_point(x, y, method="general", range_start=0.0, range_end=0.7)
+        assert point.x == x[int(point.info["row_position"])]
+
+    def test_failure_has_nan_position(self):
+        point = compute_yield_point(np.array([0.0, 1.0]), np.array([0.0, 1.0]), fail_silently=True,
+                                    range_start=0.5, range_end=0.6)
+        assert not point.is_valid and np.isnan(point.info["row_position"])

@@ -15,7 +15,7 @@ import polars as pl
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.core.column import KEEP, Column
-from tascpy.core.result import PointResult
+from tascpy.core.result import PointResult, ScalarResult
 from tascpy.core.row import Row
 from tascpy.numeric import combine as f_combine
 from tascpy.numeric import math as f_math
@@ -614,6 +614,46 @@ class CoreOps(Generic[C_co]):
         if idx is None:
             raise ValueError(f"列 '{column}' に比較できる数値がありません")
         return self._c[idx]
+
+    def value_at(self, position: Union[PointResult, float], column: str) -> ScalarResult:
+        """行の位置（小数可）での列の値を、前後の行の直線補間で求めます（単位は列の単位）
+
+        position には `yield_point` などの結果（metadata の "row_position" を使う）か、行の位置（0 始まりの
+        index。3.25 なら index 3 と 4 の間の 25% の位置）を渡します。位置は結果を求めたときのコレクションの行を
+        数えたものなので、同じ行のコレクション（そこから列を足しただけのものなど）に使います。
+
+        前後の行のどちらかの値が欠損なら、結果も欠損（NaN）です。位置が欠損（降伏点が求まらなかった場合など）でも NaN です。
+
+        Raises:
+            ValueError: 結果に "row_position" がない場合、位置が行の範囲外の場合、列が数値でない場合
+
+        Examples:
+            >>> pt = ld.ops.yield_point(offset_value=0.5, range_start=0.1, range_end=0.8)
+            >>> round(pt.metadata["row_position"], 2)
+            3.0
+            >>> ch1 = ld.ops.value_at(pt, "CH1")
+            >>> round(ch1.value, 1), ch1.unit
+            (300.0, 'ue')
+            >>> ld.ops.value_at(4.5, "CH1").value
+            450.0
+        """
+        if isinstance(position, PointResult):
+            if "row_position" not in position.metadata:
+                raise ValueError(f"結果 '{position.name}' に row_position がありません")
+            at = float(position.metadata["row_position"])
+        else:
+            at = float(position)
+        values = np.asarray(self._numeric(column), dtype=float)
+        unit = self._c[column].unit
+        if math.isnan(at):
+            return ScalarResult(column, np.nan, unit=unit)
+        if not 0 <= at <= len(values) - 1:
+            raise ValueError(f"位置 {at} は行の範囲外です (0-{len(values) - 1})")
+        lower = int(math.floor(at))
+        upper = min(lower + 1, len(values) - 1)
+        t = at - lower
+        value = values[lower] if t == 0 else values[lower] + t * (values[upper] - values[lower])
+        return ScalarResult(column, float(value), unit=unit)
 
     def filter_by_value(self, column: str, value: Any, tolerance: Optional[float] = None) -> Self:
         """指定列の値が value と一致する（tolerance 指定時は ±tolerance 以内の）行を抽出します
