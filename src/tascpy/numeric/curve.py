@@ -85,8 +85,8 @@ def compute_stiffness(
 
 def _yield_point_offset(
     x: np.ndarray, y: np.ndarray, initial_slope: float, offset_value: float
-) -> Tuple[bool, float, float, Dict[str, Any]]:
-    """オフセット法による降伏点（オフセットの向きは最大値の符号に合わせる）"""
+) -> Tuple[bool, float, float, float, Dict[str, Any]]:
+    """オフセット法による降伏点（オフセットの向きは最大値の符号に合わせる）。位置は x, y の index（小数）"""
     offset_amount = initial_slope * offset_value * np.sign(_peak(y))
     offset_line = initial_slope * x - offset_amount
     diff = y - offset_line
@@ -107,15 +107,15 @@ def _yield_point_offset(
             ratio = abs(diff[i - 1]) / (abs(diff[i - 1]) + abs(diff[i]))
             yield_x = x[i - 1] + ratio * (x[i] - x[i - 1])
             yield_y = y[i - 1] + ratio * (y[i] - y[i - 1])
-            return True, float(yield_x), float(yield_y), debug_info
+            return True, float(yield_x), float(yield_y), i - 1 + float(ratio), debug_info
 
-    return False, np.nan, np.nan, debug_info
+    return False, np.nan, np.nan, np.nan, debug_info
 
 
 def _yield_point_general(
     x: np.ndarray, y: np.ndarray, initial_slope: float, factor: float
-) -> Tuple[bool, float, float, Dict[str, Any]]:
-    """一般降伏法による降伏点"""
+) -> Tuple[bool, float, float, float, Dict[str, Any]]:
+    """一般降伏法による降伏点。位置は x, y の index"""
     # np.gradient は同じ x が連続するとゼロ除算になるため、重複を除く
     unique_mask = np.insert(np.diff(x) != 0, 0, True)
 
@@ -144,16 +144,26 @@ def _yield_point_general(
     yield_idx = np.where(slopes <= threshold)[0]
     if len(yield_idx) > 0:
         idx = yield_idx[0]
-        return True, float(unique_x[idx]), float(unique_y[idx]), debug_info
+        return True, float(unique_x[idx]), float(unique_y[idx]), float(np.flatnonzero(unique_mask)[idx]), debug_info
 
-    return False, np.nan, np.nan, debug_info
+    return False, np.nan, np.nan, np.nan, debug_info
+
+
+def _original_position(rows: np.ndarray, position: float) -> float:
+    """欠損を除いた配列での位置（小数）を、元の配列での位置にする"""
+    if np.isnan(position):
+        return np.nan
+    lower = int(np.floor(position))
+    upper = min(lower + 1, len(rows) - 1)
+    return float(rows[lower] + (position - lower) * (rows[upper] - rows[lower]))
 
 
 class YieldPoint(NamedTuple):
     """降伏点の計算結果（タプルとして (is_valid, x, y, info) に分解できる）
 
-    info には常に method・initial_slope（求められなければ NaN）・parameters が入り、
+    info には常に method・initial_slope（求められなければ NaN）・parameters・row_position が入り、
     失敗時は error、成功時は手法ごとの診断情報（diff_stats / slopes_stats など）も入ります。
+    row_position は降伏点の、入力の配列での位置（小数の index。求められなければ NaN）です。
     """
 
     is_valid: bool
@@ -183,6 +193,10 @@ def compute_yield_point(
     "offset" は初期剛性線を x 方向に offset_value だけ平行移動した直線との交点、
     "general" は接線剛性が初期剛性 × factor を下回る最初の点を降伏点とします。
 
+    info["row_position"] は降伏点の、入力の配列での位置です。オフセット法では交点を挟む2点の間の小数
+    （例: 3.25 は index 3 と 4 の間の 25% の位置）、一般降伏法では降伏点の index です。
+    欠損の行は飛ばして交点を探しますが、位置は欠損の行も数えた元の配列の index で表します。
+
     Args:
         x: x の配列（変位・ひずみなど）
         y: y の配列（荷重・応力など）
@@ -204,16 +218,20 @@ def compute_yield_point(
         >>> point = compute_yield_point(strain, stress, range_start=0.0, range_end=0.9)
         >>> round(point.x, 4), round(point.y, 1)
         (0.0042, 441.0)
+        >>> round(point.info["row_position"], 2)  # index 3 と 4 の間
+        3.1
     """
     if method not in YIELD_METHODS:
         raise ValueError(f"未知の降伏点の計算方法です: {method}（{', '.join(YIELD_METHODS)} のいずれか）")
     parameters = {"range_start": range_start, "range_end": range_end,
                   **({"offset_value": offset_value} if method == "offset" else {"factor": factor})}
-    info: Dict[str, Any] = {"method": method, "initial_slope": np.nan, "parameters": parameters}
+    info: Dict[str, Any] = {"method": method, "initial_slope": np.nan, "parameters": parameters,
+                            "row_position": np.nan}
 
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     valid = ~(np.isnan(x) | np.isnan(y))
+    rows = np.flatnonzero(valid)
     x, y = x[valid], y[valid]
 
     try:
@@ -222,9 +240,10 @@ def compute_yield_point(
             raise ValueError("初期剛性(initial_slope)が NaN または Inf となりました。")
         info["initial_slope"] = initial_slope
         if method == "offset":
-            is_valid, yield_x, yield_y, details = _yield_point_offset(x, y, initial_slope, offset_value)
+            is_valid, yield_x, yield_y, position, details = _yield_point_offset(x, y, initial_slope, offset_value)
         else:
-            is_valid, yield_x, yield_y, details = _yield_point_general(x, y, initial_slope, factor)
+            is_valid, yield_x, yield_y, position, details = _yield_point_general(x, y, initial_slope, factor)
+        info["row_position"] = _original_position(rows, position)
     except ValueError as e:
         if not fail_silently:
             raise

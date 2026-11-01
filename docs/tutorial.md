@@ -208,6 +208,27 @@ array([   nan,    nan,  102.2,  -96.2,   96.2,  -88.2,   88.2])
 
 ±2 mm の区間は弾性範囲で折り返すので降伏点は求まりません（欠損）。移動硬化のばねなので、反転後の降伏荷重は経験した最大荷重が大きいほど低くなります。
 
+### 再降伏点を累積曲線の上に置く
+
+再降伏点を繰り返しの履歴に沿って並べるには、累積曲線（`to_cumulative_curve`。正側・負側それぞれ、荷重 0 の点から荷重 0 の点までの区間を変位方向につないだ曲線）の上の位置を使います。`mark_cumulative` で各行の累積曲線の上での位置を列にしておくと、`split_by_reversals` の区間にも引き継がれます。降伏点の位置での値は `value_at` で求めます（`yield_point` の結果の metadata にある、降伏点の行の位置 `row_position` を使って前後の行を補間します）。
+
+```pycon
+>>> marked = ld.ops.mark_cumulative(result_column="累積+").mark_cumulative(side="negative", result_column="累積-")
+>>> shifted = marked.split_by_reversals().map(lambda o: o.shift_origin())
+>>> def on_cumulative(o, column):
+...     pt = o.yield_point(offset_value=0.5, range_start=0.1, range_end=0.5, fail_silently=True)
+...     return o.value_at(pt, column)
+>>> positive = shifted.collect(lambda o: on_cumulative(o, "累積+")).to_table(name="累積+").end()
+>>> negative = shifted.collect(lambda o: on_cumulative(o, "累積-")).to_table(name="累積-").end()
+>>> positive["累積+"].values.round(2), positive["累積+"].unit
+(array([ nan,  nan, 3.06,  nan, 4.26,  nan, 8.56]), 'mm')
+>>> negative["累積-"].values.round(2)
+array([  nan,   nan,   nan, -2.91,   nan, -5.41,   nan])
+
+```
+
+正側の降伏点は正側の累積曲線、負側の降伏点は負側の累積曲線の上にだけ値があります（反対側の列は欠損です）。たとえば 5 番目の半サイクル（-4 → +6 mm）の降伏点は、それまでの正側の残留変形 1.35 mm から始まる区間の上にあり、位置は 4.26 mm です。`to_cumulative_curve` の曲線と同じ座標なので、重ねて描けます。
+
 ## 7. 描画する
 
 `plot` のメソッドは matplotlib の Axes を返します（表示は呼び出し側で行います。Jupyter では自動で表示されます）。元データとスケルトン曲線は、同じ Axes にそれぞれのコレクションから描画して重ねます。降伏点は `yield_point` の結果を渡して描画します。
