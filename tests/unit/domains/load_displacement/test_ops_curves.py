@@ -84,3 +84,27 @@ def test_cumulative_curve(cyclic):
     source = curve["source_step"].values
     assert np.isnan(source[rows < 0]).all()
     np.testing.assert_array_equal(source[rows >= 0], np.array(STEPS)[rows[rows >= 0]])
+
+
+@pytest.mark.parametrize("method", ["to_skeleton_curve", "to_cumulative_curve"])
+def test_curve_side_negative_matches_numeric(cyclic, method):
+    func = compute_skeleton_curve if method == "to_skeleton_curve" else compute_cumulative_curve
+    curve = getattr(cyclic.ops, method)(side="negative").end()
+    d, p, rows = func(cyclic.displacement_data, cyclic.load_data, side="negative", return_index=True)
+    assert isinstance(curve, LoadDisplacementCollection)
+    np.testing.assert_allclose(curve.displacement_data, d)
+    np.testing.assert_allclose(curve.load_data, p)
+    expected_steps = [cyclic.step[i].item() if i >= 0 else None for i in rows]
+    assert curve["source_step"].to_list() == expected_steps
+
+
+@pytest.mark.parametrize("side", ["positive", "negative"])
+def test_mark_cumulative_matches_curve(cyclic, side):
+    marked = cyclic.ops.mark_cumulative(side=side, result_column="cum").end()
+    assert isinstance(marked, LoadDisplacementCollection)
+    assert marked["cum"].unit == "mm"
+    curve = cyclic.ops.to_cumulative_curve(side=side).end()
+    source = curve["source_step"].values
+    real = ~np.isnan(source)
+    by_step = dict(zip(marked.step.tolist(), marked["cum"].values))
+    np.testing.assert_allclose(curve.displacement_data[real], [by_step[s] for s in source[real]])

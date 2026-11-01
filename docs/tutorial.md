@@ -71,6 +71,15 @@
 
 ```
 
+負側のスケルトン曲線は `side="negative"` で求めます（荷重・変位とも負の値です）。`to_cumulative_curve` も同じく `side=` を受け取ります。
+
+```pycon
+>>> negative = ld.ops.to_skeleton_curve(side="negative").end()
+>>> round(float(negative.displacement_data.min()), 1), round(float(negative.load_data.min()), 1)
+(-7.4, -114.0)
+
+```
+
 サイクル番号を列として見たいときや、数え方を変えたいときは `mark_cycles` で列を作ります。作った列をサイクルを使う操作に使うときは、`cycle_column` で列名を渡します。
 
 ```pycon

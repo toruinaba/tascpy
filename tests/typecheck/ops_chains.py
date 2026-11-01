@@ -28,6 +28,9 @@ def ld_chain(ld: LoadDisplacementCollection) -> None:
     assert_type(ops.split_by_reversals()[0].shift_origin(), LoadDisplacementOps)
     assert_type(ops.to_hysteresis_table().end(), ColumnCollection)
     assert_type(ops.to_skeleton_curve().end(), LoadDisplacementCollection)
+    assert_type(ops.to_skeleton_curve(side="negative").end(), LoadDisplacementCollection)
+    assert_type(ops.to_cumulative_curve(side="negative").end(), LoadDisplacementCollection)
+    assert_type(ops.mark_cumulative(side="negative", result_column="c"), LoadDisplacementOps)
 
 
 def reducers_end_the_chain(ld: LoadDisplacementCollection, sc: StrainCollection, cc: CoordinateCollection) -> None:
