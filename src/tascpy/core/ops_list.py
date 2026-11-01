@@ -16,6 +16,7 @@ from .row import Row
 O = TypeVar("O", bound=CoreOps[Any], covariant=True)
 O2 = TypeVar("O2", bound=CoreOps[Any])
 T = TypeVar("T")
+ST = TypeVar("ST")
 # end() の要素の型（List[Any] だと jedi / pyright がコレクションの型を追えない）
 C = TypeVar("C", bound=ColumnCollection)
 
@@ -182,6 +183,28 @@ class OpsList(Generic[O]):
         """predicate(collection) が True の要素だけを残します"""
         kept = [(item, key) for item, key in zip(self._items, self._keys) if predicate(item.end())]
         return OpsList([item for item, _ in kept], [key for _, key in kept])
+
+    def scan(self, func: Callable[[ST, O], Tuple[O2, ST]], initial: ST) -> OpsList[O2]:
+        """前の要素から順に、状態を受け渡しながら各要素を変換します（区間をまたぐ畳み込み）
+
+        func(状態, 要素) は (新しい要素, 次の状態) を返します。最初の要素には initial を渡します。
+        `clip_load` と組み合わせると、それまでの最大荷重を状態にして、区間ごとに耐力の更新部分（スケルトン部分）や
+        それ以下の部分（バウシンガー部分）を取り出せます。
+
+        Examples:
+            各要素から、それまでの要素の最大値を超える行だけを残します。
+
+            >>> parts = col.ops.split_by_integers([1, 1, 2, 2, 3, 3])
+            >>> def above(top, o):
+            ...     return o.filter_by_condition("CH3", lambda v: v > top), max(top, o.end()["CH3"].max())
+            >>> [c["CH3"].values.tolist() for c in parts.scan(above, -1000.0).end()]
+            [[0.0, -30.0], [], []]
+        """
+        items, state = [], initial
+        for item in self._items:
+            new_item, state = func(state, item)
+            items.append(new_item)
+        return OpsList(items, self._keys)
 
     def chain(self, column: str) -> OpsList[O]:
         """各要素の列を、前の要素の終わりから続くようにずらしてつなぎます（区間をまたぐ累積）

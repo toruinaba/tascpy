@@ -4,10 +4,12 @@ import pytest
 from tascpy.numeric.hysteresis import (
     _extend_edge,
     chain_offsets,
+    compute_bauschinger_curve,
     compute_cumulative_curve,
     compute_excursions,
     compute_cycle_markers,
     compute_hysteresis_energy,
+    compute_load_clip,
     compute_plastic_deformation,
     compute_reversal_indices,
     compute_secant_stiffness,
@@ -147,7 +149,7 @@ def test_compute_skeleton_curve_single_cycle_zero_based():
         np.array([1, 1, 1, 1, 1]), has_decrease=True,
     )
     assert_curves_equal((d_ske, p_ske), expected)
-    np.testing.assert_allclose(p_ske[:2], [10.0, 20.0])
+    np.testing.assert_allclose(p_ske[:3], [0.0, 10.0, 20.0])
 
 
 def test_curves_ignore_rows_without_marker():
@@ -208,8 +210,8 @@ def test_markers_default_to_cycles_counted_from_load(decrease_type):
 def test_curves_return_displacement_then_load():
     d_ske, p_ske = compute_skeleton_curve(np.array([0.0, 1.0, 0.0, -1.0, 0.0, 2.0, 0.0]),
                                           np.array([0.0, 10.0, 0.0, -10.0, 0.0, 15.0, 0.0]))
-    np.testing.assert_allclose(d_ske, [1.0, 2.0])
-    np.testing.assert_allclose(p_ske, [10.0, 15.0])
+    np.testing.assert_allclose(d_ske, [0.0, 1.0, 5.0 / 3.0])
+    np.testing.assert_allclose(p_ske, [0.0, 10.0, 15.0])
 
 
 def test_extend_edge():
@@ -243,28 +245,29 @@ def test_extend_edge():
 
 
 def test_skeleton_of_single_monotonic_cycle_is_the_curve_itself():
-    # 1 サイクル目は前の包絡線がないのでずらさない（曲線が非線形でも）
+    # 区間が1つなら、荷重 0 の点からの曲線そのもの（曲線が非線形でも）
     d_ske, p_ske = compute_skeleton_curve(np.array([0.0, 1.0, 2.0, 3.0, 4.0]), np.array([0.0, 10.0, 15.0, 17.0, 18.0]))
-    np.testing.assert_allclose(d_ske, [1.0, 2.0, 3.0, 4.0])
-    np.testing.assert_allclose(p_ske, [10.0, 15.0, 17.0, 18.0])
+    np.testing.assert_allclose(d_ske, [0.0, 1.0, 2.0, 3.0, 4.0])
+    np.testing.assert_allclose(p_ske, [0.0, 10.0, 15.0, 17.0, 18.0])
 
 
-def test_skeleton_offset_is_fixed_once_per_cycle_even_when_zero():
-    # 2 サイクル目は前の包絡線の延長上 (x=2.5) から始まるのでずらし量は 0。以降の点でも計算し直さない
+def test_skeleton_joins_where_load_equals_previous_max_row():
+    # 2 つ目の区間は荷重 80（前の最大荷重）の行 (2, 80) から更新するので、その行を前の終点 (2, 80) に重ねる（ずらし量 0）
     disp = np.array([0.0, 1.0, 2.0, 1.0, 0.0, -1.0, -2.0, -1.0, 0.0, 1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 3.0, 0.0])
     load = np.array([0.0, 40.0, 80.0, 40.0, 0.0, -40.0, -80.0, -40.0, 0.0, 40.0, 80.0, 100.0, 102.0, 104.0, 106.0, 66.0, -54.0])
     d_ske, p_ske = compute_skeleton_curve(disp, load)
-    np.testing.assert_allclose(d_ske, [1.0, 2.0, 2.5, 3.0, 3.5, 4.0])
-    np.testing.assert_allclose(p_ske, [40.0, 80.0, 100.0, 102.0, 104.0, 106.0])
+    np.testing.assert_allclose(d_ske, [0.0, 1.0, 2.0, 2.5, 3.0, 3.5, 4.0])
+    np.testing.assert_allclose(p_ske, [0.0, 40.0, 80.0, 100.0, 102.0, 104.0, 106.0])
 
 
-def test_skeleton_shifts_later_cycle_to_continue_the_envelope():
-    # 2 サイクル目の載荷は残留変形 1.0 から始まり、前の包絡線 (0,0)-(1,40)-(2,80) の延長 x=2.5 (y=100) につなぐ
+def test_skeleton_joins_at_interpolated_point_of_previous_max():
+    # 2 つ目の区間の (0, 0)-(3.5, 100) 上で荷重 80（前の最大荷重）になる点 x=2.8 を、前の終点 (2, 80) に重ねる
     disp = np.array([0.0, 1.0, 2.0, 1.0, -1.0, 0.0, 3.5, 4.5])
     load = np.array([0.0, 40.0, 80.0, 0.0, -20.0, 0.0, 100.0, 110.0])
-    d_ske, p_ske = compute_skeleton_curve(disp, load)
-    np.testing.assert_allclose(d_ske, [1.0, 2.0, 2.5, 3.5])
-    np.testing.assert_allclose(p_ske, [40.0, 80.0, 100.0, 110.0])
+    d_ske, p_ske, rows = compute_skeleton_curve(disp, load, return_index=True)
+    np.testing.assert_allclose(d_ske, [0.0, 1.0, 2.0, 2.7, 3.7])
+    np.testing.assert_allclose(p_ske, [0.0, 40.0, 80.0, 100.0, 110.0])
+    np.testing.assert_array_equal(rows, [0, 1, 2, 6, 7])  # 補った点 (2.8 → 2.0) は前の終点と重なるので除く
 
 
 @pytest.mark.parametrize("decrease_type", ["envelope", "continuous_only", "both"])
@@ -273,15 +276,16 @@ def test_skeleton_curve_return_index(decrease_type):
     d2, p2, rows = compute_skeleton_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED, has_decrease=True,
                                           decrease_type=decrease_type, return_index=True)
     assert_curves_equal((d2, p2), (d, p))
-    np.testing.assert_allclose(CYCLIC_LOADS[rows], p)
-    assert len(np.unique(rows)) == len(rows)
+    real = rows >= 0
+    np.testing.assert_allclose(CYCLIC_LOADS[rows[real]], p[real])
+    assert len(np.unique(rows[real])) == real.sum()
 
 
 def test_skeleton_curve_envelope_does_not_repeat_peak():
     # 最大荷重の行が変位も最大のとき、減少部分 (envelope) で同じ点を重ねない
     d, p = compute_skeleton_curve(np.array([0.0, 1.0, 0.0, -1.0, 0.0, 2.0, 0.0]),
                                   np.array([0.0, 10.0, 0.0, -10.0, 0.0, 15.0, 0.0]), has_decrease=True)
-    np.testing.assert_allclose(p, [10.0, 15.0])
+    np.testing.assert_allclose(p, [0.0, 10.0, 15.0])
 
 
 def test_cumulative_curve_return_index():
@@ -467,3 +471,88 @@ class TestPlasticDeformation:
     def test_unknown_direction_raises(self):
         with pytest.raises(ValueError, match="direction"):
             compute_plastic_deformation(self.disp, self.load, direction="up")
+
+
+class TestLoadClip:
+    d = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    p = np.array([0.0, 10.0, 20.0, 30.0, 40.0])
+
+    def test_lower_inserts_boundary(self):
+        d, p, rows = compute_load_clip(self.d, self.p, lower=15.0)
+        np.testing.assert_allclose(d, [1.5, 2.0, 3.0, 4.0])
+        np.testing.assert_allclose(p, [15.0, 20.0, 30.0, 40.0])
+        np.testing.assert_array_equal(rows, [-1, 2, 3, 4])
+
+    def test_upper_and_both(self):
+        d, p, rows = compute_load_clip(self.d, self.p, lower=5.0, upper=25.0)
+        np.testing.assert_allclose(p, [5.0, 10.0, 20.0, 25.0])
+        np.testing.assert_array_equal(rows, [-1, 1, 2, -1])
+
+    def test_exact_boundary_row_is_not_duplicated(self):
+        d, p, rows = compute_load_clip(self.d, self.p, lower=20.0)
+        np.testing.assert_array_equal(rows, [2, 3, 4])
+
+    def test_leaving_and_reentering(self):
+        d, p, rows = compute_load_clip(np.arange(5.0), np.array([0.0, 20.0, 0.0, 20.0, 0.0]), lower=10.0)
+        np.testing.assert_allclose(d, [0.5, 1.0, 1.5, 2.5, 3.0, 3.5])
+        np.testing.assert_array_equal(rows, [-1, 1, -1, -1, 3, -1])
+
+    def test_missing_points_are_skipped_and_empty(self):
+        d, p, rows = compute_load_clip(np.array([0.0, np.nan, 2.0]), np.array([0.0, 10.0, 20.0]), lower=5.0)
+        np.testing.assert_allclose(d, [0.5, 2.0])  # 欠損の点を飛ばして (0, 0)-(2, 20) で補間
+        assert compute_load_clip(self.d, self.p, lower=100.0)[0].size == 0
+
+
+class TestSkeletonAndBauschinger:
+    # 0 → +1(10) → 0、0 → +2(20) → 0、0 → +1.5(15、弾性で戻る) → 0 の正側の区間（間に負側）
+    disp = np.array([0.0, 1.0, 0.5, -0.5, 0.0, 1.0, 2.0, 1.5, 0.0, -0.5, 0.5, 1.5, 2.25, 1.75])
+    load = np.array([0.0, 10.0, 0.0, -10.0, -5.0, 5.0, 20.0, 0.0, -10.0, -5.0, 5.0, 10.0, 15.0, 0.0])
+
+    def test_skeleton_uses_only_updating_parts(self):
+        d, p, rows = compute_skeleton_curve(self.disp, self.load, return_index=True)
+        assert p.tolist() == [0.0, 10.0, 20.0]
+        assert rows.tolist()[-1] == 6
+
+    def test_bauschinger_is_the_rest_below_previous_max(self):
+        d, p, rows = compute_bauschinger_curve(self.disp, self.load, return_index=True)
+        assert np.all(p <= 20.0)
+        assert 6 not in rows.tolist()           # 耐力の更新点は含まない
+        assert 12 in rows.tolist()              # 更新しない区間（最大 15 < 20）はすべてバウシンガー部分
+        assert d[0] == 0.0
+
+    def test_first_excursion_has_no_bauschinger_part(self):
+        d, p = compute_bauschinger_curve(np.array([0.0, 1.0, 2.0]), np.array([0.0, 10.0, 20.0]))
+        assert d.size == 0
+
+    @pytest.mark.parametrize("func", [compute_skeleton_curve, compute_bauschinger_curve])
+    def test_negative_mirrors_positive(self, func):
+        neg = func(self.disp, self.load, side="negative", return_index=True)
+        mirrored = func(-self.disp, -self.load, return_index=True)
+        np.testing.assert_allclose(neg[0], -mirrored[0])
+        np.testing.assert_allclose(neg[1], -mirrored[1])
+        np.testing.assert_array_equal(neg[2], mirrored[2])
+
+
+class TestSkeletonDecrease:
+    # 最大荷重 30 の区間のあと、耐力が低下する区間（荷重のピークのあと変位が伸びる）
+    disp = np.array([0.0, 1.0, 2.0, 1.0, -1.0, 0.0, 3.0, 4.0, 5.0, 4.0, 2.0])
+    load = np.array([0.0, 20.0, 30.0, 0.0, -20.0, 0.0, 25.0, 22.0, 18.0, 5.0, 0.0])
+
+    def test_without_decrease_stops_at_max(self):
+        d, p = compute_skeleton_curve(self.disp, self.load)
+        assert p.max() == 30.0 and p[-1] == 30.0
+
+    def test_envelope_adds_displacement_max_point(self):
+        d, p, rows = compute_skeleton_curve(self.disp, self.load, has_decrease=True, decrease_type="envelope",
+                                            return_index=True)
+        assert rows.tolist()[-1] == 8 and p[-1] == 18.0
+
+    def test_continuous_only_adds_branch_from_load_peak_to_displacement_peak(self):
+        d, p, rows = compute_skeleton_curve(self.disp, self.load, has_decrease=True,
+                                            decrease_type="continuous_only", return_index=True)
+        assert rows.tolist()[-3:] == [6, 7, 8]
+
+    def test_decrease_points_share_offset_of_max_excursion(self):
+        # 最大荷重の区間（1 つ目）はずらし量 0 なので、減少部分の変位は元の値のまま
+        d, p, rows = compute_skeleton_curve(self.disp, self.load, has_decrease=True, return_index=True)
+        assert d[-1] == self.disp[8]

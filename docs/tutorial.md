@@ -60,7 +60,7 @@
 
 ## 4. スケルトン曲線を求める
 
-`to_skeleton_curve` はスケルトン曲線を求め、曲線そのものを新しい荷重-変位コレクションとして返します。列は荷重・変位（サイクルごとにずらした値）と、各点の元データのステップ `source_step` だけで、単位は元の列から引き継ぎます。サイクルは荷重の符号の反転から数えます。
+`to_skeleton_curve` はスケルトン曲線を求め、曲線そのものを新しい荷重-変位コレクションとして返します。荷重 0 の点から荷重 0 の点までの区間ごとに、それまでの最大荷重を超えた部分（耐力の更新部分）を取り出し、荷重がそれまでの最大荷重に等しい点で前の部分につなぎます。列は荷重・変位（ずらした値）と、各点の元データのステップ `source_step` だけで、単位は元の列から引き継ぎます。
 
 ```pycon
 >>> skeleton = ld.ops.to_skeleton_curve().end()
@@ -71,7 +71,9 @@
 
 ```
 
-負側のスケルトン曲線は `side="negative"` で求めます（荷重・変位とも負の値です）。`to_cumulative_curve` も同じく `side=` を受け取ります。
+このデータは荷重 4 kN の点から始まるので、曲線の最初の点（荷重 0 の点）は最初の2点を延長して補った点で、`source_step` は欠損です。
+
+負側のスケルトン曲線は `side="negative"` で求めます（荷重・変位とも負の値です）。`to_cumulative_curve` / `to_bauschinger_curve` も同じく `side=` を受け取ります。
 
 ```pycon
 >>> negative = ld.ops.to_skeleton_curve(side="negative").end()
@@ -79,6 +81,17 @@
 (-7.4, -114.0)
 
 ```
+
+各区間のうち、それまでの最大荷重以下の部分（バウシンガー部分）をつないだ曲線は `to_bauschinger_curve` で求めます（秋山の分解）。スケルトン曲線が耐力の更新部分、こちらが残りの部分です。
+
+```pycon
+>>> bauschinger = ld.ops.to_bauschinger_curve().end()
+>>> round(float(bauschinger.displacement_data.max()), 2), float(bauschinger.load_data.max())
+(10.5, 106.0)
+
+```
+
+どちらも、区間ごとに分ける `split_by_excursions`、それまでの最大荷重を状態として受け渡す `OpsList.scan`、荷重の範囲で切り出す `clip_load`、つなぐ `chain` の組み合わせで書けます（`clip_load` の例を参照）。区間ごとの処理を変えたいときは、この組み合わせを直接使います。
 
 サイクル番号を列として見たいときや、数え方を変えたいときは `mark_cycles` で列を作ります。作った列をサイクルを使う操作に使うときは、`cycle_column` で列名を渡します。
 
@@ -94,11 +107,12 @@ True
 
 ```
 
-元データの他の列（サイクル番号など）が必要なときは、`source_step` で元データから行を取り出します。
+元データの他の列（サイクル番号など）が必要なときは、`source_step` で元データから行を取り出します（補った点は除きます）。
 
 ```pycon
->>> rows = cycled.ops.select(steps=skeleton["source_step"].values.tolist()).end()
->>> np.allclose(rows["荷重"].values, skeleton.load_data), sorted(set(rows["荷重_cycle"].values.tolist()))
+>>> source = skeleton["source_step"].values
+>>> rows = cycled.ops.select(steps=source[~np.isnan(source)].tolist()).end()
+>>> np.allclose(rows["荷重"].values, skeleton.load_data[~np.isnan(source)]), sorted(set(rows["荷重_cycle"].values.tolist()))
 (True, [1.0, 2.0, 3.0])
 
 ```

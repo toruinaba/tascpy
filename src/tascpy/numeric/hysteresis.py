@@ -225,20 +225,6 @@ def _markers_or_default(load: np.ndarray, markers: Optional[np.ndarray]) -> np.n
     return compute_cycle_markers(load) if markers is None else np.asarray(markers)
 
 
-def _cycle_groups(displacement: np.ndarray, load: np.ndarray,
-                  markers: np.ndarray) -> Tuple[np.ndarray, List[Tuple[List[float], List[float], List[int]]]]:
-    """サイクル番号（昇順）と、サイクルごとの (荷重, 変位, 元の行 index) リスト。サイクル番号が欠損の行は除く"""
-    load = np.asarray(load, dtype=float)
-    displacement = np.asarray(displacement, dtype=float)
-    markers = np.asarray(markers, dtype=float)
-    keys = np.unique(markers[~np.isnan(markers)])
-    groups = []
-    for k in keys:
-        rows = np.flatnonzero(markers == k)
-        groups.append((load[rows].tolist(), displacement[rows].tolist(), rows.tolist()))
-    return keys, groups
-
-
 def _extend_edge(x: List[float], y: List[float], target: float, target_type: str = "x",
                  position: str = "end") -> Tuple[float, float]:
     """端の2点を結ぶ直線を、x または y が target になる点まで延長した (x, y)（1点しかなければ水平・垂直に延長）"""
@@ -303,11 +289,21 @@ def compute_skeleton_curve(
     以下は正側（side="positive"）の説明です。負側（side="negative"）は荷重・変位の符号を反転して同じ計算をし、
     結果の符号を戻します（荷重の最小を更新した点をつなぎ、変位は負の向きにずらします）。
 
-    最大荷重のサイクルまでは、各サイクルで荷重がそれまでの最大を更新した点をつなぎます。
-    2サイクル目以降は、そのサイクルで最初に最大を更新した点が、前のサイクルまでの包絡線の終端を
-    延長した直線上に来るよう変位をずらします（ずらし量はサイクルごとに1回だけ決め、1サイクル目はずらさない）。
+    `compute_excursions` の区間（荷重 0 の点から荷重 0 の点まで）ごとに、荷重のピークまでの載荷部分のうち
+    荷重がそれまでの区間の最大荷重以上の部分（耐力の更新部分）を取り出し、`chain_offsets` の規則でつなぎます。
+    更新部分は、荷重がそれまでの最大荷重に等しい点（補間で補う）から始まるので、前の部分の終点（同じ荷重）に
+    重なります（重なった点は1つにします）。耐力を更新しない区間は使いません。最初の区間は荷重 0 の点から始まります。
+    `LoadDisplacementOps` では `split_by_excursions` → `until_peak(column=荷重列)` → `scan` で `clip_load(lower=...)`
+    → `chain(変位列)` → `concat()` と組み立てたものから、つなぎ目で重なる点を除いたものと同じです。
 
-    曲線の各点は元データのいずれかの行で、荷重はその行の値、変位はその行の値にずらし量を足したものです。
+    has_decrease=True なら、最大荷重を記録した区間以降の各区間から、decrease_type の規則で点を選んで続けます
+    （耐力低下域の表現。定義上のスケルトン曲線は最大荷重までです）。
+
+    - "envelope": 変位が最大の点
+    - "continuous_only": 荷重が最大の点から変位が最大の点までの行（同じ行なら追加しない）
+    - "both": 2つの点が同じ行なら "envelope"、異なれば "continuous_only"
+
+    選んだ点の変位は、最大荷重の区間と同じ量だけずらし、直前と同じ点は追加しません。
 
     Args:
         displacement: 変位の配列
@@ -316,7 +312,7 @@ def compute_skeleton_curve(
         has_decrease: 最大荷重のサイクル以降の減少部分も含めるか
         decrease_type: 減少部分の取り方 ('envelope', 'continuous_only', 'both')
         side: "positive"（正側）または "negative"（負側）
-        return_index: 各点の元の行 index も返すか
+        return_index: 各点の元の行 index も返すか（補間で補った点は元の行がないため -1）
 
     Returns:
         スケルトン曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行 index)
@@ -329,12 +325,15 @@ def compute_skeleton_curve(
         >>> import numpy as np
         >>> disp = np.array([0.0, 1.0, 0.0, -1.0, 0.0, 2.0, 0.0])
         >>> load = np.array([0.0, 10.0, 0.0, -10.0, 0.0, 15.0, 0.0])
-        >>> compute_skeleton_curve(disp, load)
-        (array([1., 2.]), array([10., 15.]))
-        >>> compute_skeleton_curve(disp, load, return_index=True)[2]
-        array([1, 5])
+
+        2つ目の正側の区間（荷重 0 → 15）は、荷重 10 の点（変位 4/3、補間）が1つ目の区間の終点 (1, 10) に重なるよう
+        1/3 ずらします。
+
+        >>> d, p, rows = compute_skeleton_curve(disp, load, return_index=True)
+        >>> d.round(3), p, rows
+        (array([0.   , 1.   , 1.667]), array([ 0., 10., 15.]), array([0, 1, 5]))
         >>> compute_skeleton_curve(disp, load, side="negative")
-        (array([-1.]), array([-10.]))
+        (array([ 0., -1.]), array([  0., -10.]))
     """
     if decrease_type not in ("envelope", "continuous_only", "both"):
         raise ValueError("decrease_typeは'envelope', 'continuous_only', 'both'のいずれかである必要があります")
@@ -344,72 +343,32 @@ def compute_skeleton_curve(
 
 def _positive_skeleton_curve(displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray],
                              has_decrease: bool, decrease_type: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    rows: List[int] = []
-    p_ske: List[float] = []
-    d_ske: List[float] = []
+    d = np.asarray(displacement, dtype=float)
+    p = np.asarray(load, dtype=float)
+    excursions = [_excursion_entries(d, p, rows, x_s, x_e) for rows, x_s, x_e in _positive_excursions(d, p, markers)]
+    if not excursions:
+        return _entries_to_arrays([])
+    peaks = [max(e[2] for e in entries) for entries in excursions]
+    i_max = int(np.argmax(peaks))
 
-    def append(row: int, p: float, d: float, skip_duplicate: bool = False) -> None:
-        if skip_duplicate and p_ske and p == p_ske[-1] and d == d_ske[-1]:
-            return
-        rows.append(row)
-        p_ske.append(p)
-        d_ske.append(d)
+    # 増加部分（最大荷重の区間まで）: それまでの最大荷重以上の部分をつなぐ
+    parts: List[Tuple[int, List[_Entry]]] = []
+    p_max = 0.0
+    for i in range(i_max + 1):
+        if peaks[i] > p_max:
+            parts.append((i, _clip_entries(_until_peak_entries(excursions[i], by_load=True), lower=p_max)))
+        p_max = max(p_max, peaks[i])
+    offsets = _chain_entries([part for _, part in parts])
+    curve: List[_Entry] = []
+    for (_, part), offset in zip(parts, offsets):
+        _append_distinct(curve, [(row, x + offset, y) for row, x, y in part])
 
-    markers = _markers_or_default(load, markers)
-    keys, groups = _cycle_groups(displacement, load, markers)
-    if len(keys) > 0:
-        marker_arr = np.asarray(markers, dtype=float)
-        has_marker = ~np.isnan(marker_arr)
-        max_marker = marker_arr[has_marker][np.nanargmax(np.asarray(load, dtype=float)[has_marker])]
-        p_max = 0.0
-        d_offset = 0.0
-
-        # 増加部分（最大荷重のサイクルまで）
-        for key, (cycle_load, cycle_disp, cycle_rows) in zip(keys, groups):
-            if key > max_marker:
-                break
-            d_offset = 0.0
-            offset_fixed = False
-
-            for i in range(len(cycle_load)):
-                if not np.isnan(cycle_load[i]) and cycle_load[i] > p_max:
-                    p_max = cycle_load[i]
-                    # ずらし量はサイクルで最初に最大荷重を超えた点で、前のサイクルまでの包絡線から1回だけ決める
-                    if not offset_fixed:
-                        if len(p_ske) >= 2:
-                            x, _ = _extend_edge(d_ske, p_ske, cycle_load[i], "y", "end")
-                            d_offset = x - cycle_disp[i]
-                        offset_fixed = True
-                    append(cycle_rows[i], cycle_load[i], cycle_disp[i] + d_offset)
-
-        # 減少部分（最大荷重のサイクル以降）。最大荷重のサイクルは増加部分と重なるため、直前と同じ点は追加しない
-        if has_decrease:
-            for key, (cycle_load, cycle_disp, cycle_rows) in zip(keys, groups):
-                if key < max_marker:
-                    continue
-
-                valid_indices = [
-                    i for i, (l, d) in enumerate(zip(cycle_load, cycle_disp))
-                    if not np.isnan(l) and not np.isnan(d)
-                ]
-                if not valid_indices:
-                    continue
-
-                valid_load = [cycle_load[i] for i in valid_indices]
-                valid_disp = [cycle_disp[i] for i in valid_indices]
-                load_max_idx = valid_indices[valid_load.index(max(valid_load))]
-                disp_max_idx = valid_indices[valid_disp.index(max(valid_disp))]
-
-                if decrease_type == "envelope" or (decrease_type == "both" and load_max_idx == disp_max_idx):
-                    append(cycle_rows[disp_max_idx], cycle_load[disp_max_idx], cycle_disp[disp_max_idx] + d_offset,
-                           skip_duplicate=True)
-                elif load_max_idx != disp_max_idx:
-                    for i in range(min(load_max_idx, disp_max_idx), max(load_max_idx, disp_max_idx) + 1):
-                        if np.isnan(cycle_load[i]) or np.isnan(cycle_disp[i]):
-                            continue
-                        append(cycle_rows[i], cycle_load[i], cycle_disp[i] + d_offset, skip_duplicate=True)
-
-    return np.asarray(d_ske, dtype=float), np.asarray(p_ske, dtype=float), np.asarray(rows, dtype=np.int64)
+    # 減少部分（最大荷重の区間以降）: 区間ごとに点を選び、最大荷重の区間と同じ量だけずらす
+    if has_decrease and parts:
+        offset = offsets[-1]
+        for entries in excursions[i_max:]:
+            _append_distinct(curve, [(row, x + offset, y) for row, x, y in _decrease_entries(entries, decrease_type)])
+    return _entries_to_arrays(curve)
 
 
 @overload
@@ -591,6 +550,185 @@ def chain_offsets(firsts: List[float], lasts: List[float]) -> List[float]:
         offsets.append(offset)
         end_of_previous = last + offset
     return offsets
+
+
+_Entry = Tuple[int, float, float]  # (元の行 index。補った点は -1, 変位, 荷重)
+
+
+def _excursion_entries(d: np.ndarray, p: np.ndarray, rows: np.ndarray, x_s: Optional[float],
+                       x_e: Optional[float]) -> List[_Entry]:
+    """区間の点の列（前後に補う荷重 0 の点を含む）"""
+    entries: List[_Entry] = [] if x_s is None else [(-1, x_s, 0.0)]
+    entries.extend((int(r), float(d[r]), float(p[r])) for r in rows)
+    if x_e is not None:
+        entries.append((-1, x_e, 0.0))
+    return entries
+
+
+def _until_peak_entries(entries: List[_Entry], by_load: bool) -> List[_Entry]:
+    """先頭から、荷重（by_load）または変位が先頭の値から最も離れる点までの点（`until_peak` と同じ）"""
+    k = 2 if by_load else 1
+    values = np.array([e[k] for e in entries])
+    return entries[: int(np.argmax(np.abs(values - values[0]))) + 1]
+
+
+def _clip_entries(entries: List[_Entry], lower: Optional[float] = None,
+                  upper: Optional[float] = None) -> List[_Entry]:
+    """荷重が lower 以上・upper 以下の点と、範囲の境界をまたぐ位置に補間で補う境界の点"""
+    def inside(y: float) -> bool:
+        return (lower is None or y >= lower) and (upper is None or y <= upper)
+
+    def crossing(a: _Entry, b: _Entry) -> _Entry:
+        bound = lower if lower is not None and min(a[2], b[2]) < lower else upper
+        assert bound is not None
+        t = (bound - a[2]) / (b[2] - a[2])
+        return (-1, a[1] + t * (b[1] - a[1]), float(bound))
+
+    out: List[_Entry] = []
+    for k, entry in enumerate(entries):
+        if k > 0:
+            prev = entries[k - 1]
+            if inside(prev[2]) and not inside(entry[2]) and prev[2] not in (lower, upper):
+                out.append(crossing(prev, entry))
+            elif not inside(prev[2]) and inside(entry[2]) and entry[2] not in (lower, upper):
+                out.append(crossing(prev, entry))
+        if inside(entry[2]):
+            out.append(entry)
+    return out
+
+
+def _chain_entries(parts: List[List[_Entry]]) -> List[float]:
+    """点の列をつなぐずらし量（空の列は 0 で、つなぎには使わない）"""
+    filled = [part for part in parts if part]
+    offsets = iter(chain_offsets([part[0][1] for part in filled], [part[-1][1] for part in filled]))
+    return [next(offsets) if part else 0.0 for part in parts]
+
+
+def _decrease_entries(entries: List[_Entry], decrease_type: str) -> List[_Entry]:
+    """耐力低下域で区間から選ぶ点（補った荷重 0 の点は使わない）"""
+    real = [e for e in entries if e[0] >= 0]
+    if not real:
+        return []
+    load_max = int(np.argmax([e[2] for e in real]))
+    disp_max = int(np.argmax([e[1] for e in real]))
+    if decrease_type == "envelope" or (decrease_type == "both" and load_max == disp_max):
+        return [real[disp_max]]
+    if load_max == disp_max:
+        return []
+    return real[min(load_max, disp_max): max(load_max, disp_max) + 1]
+
+
+def _append_distinct(curve: List[_Entry], points: List[_Entry]) -> None:
+    """直前と同じ点（変位・荷重が同じ）を除いて追加する（つなぎ目で重なる点など）"""
+    for point in points:
+        if not curve or (curve[-1][1], curve[-1][2]) != (point[1], point[2]):
+            curve.append(point)
+
+
+def _entries_to_arrays(entries: List[_Entry]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return (np.asarray([e[1] for e in entries], dtype=float), np.asarray([e[2] for e in entries], dtype=float),
+            np.asarray([e[0] for e in entries], dtype=np.int64))
+
+
+def compute_load_clip(
+    displacement: np.ndarray,
+    load: np.ndarray,
+    lower: Optional[float] = None,
+    upper: Optional[float] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """荷重が lower 以上・upper 以下の部分を取り出し、境界をまたぐ位置に境界の点を補間で補います。
+
+    荷重・変位が欠損の点は飛ばします。境界の点は、範囲の内と外にある隣り合う2点の直線補間で、荷重は境界の値です
+    （内側の点の荷重がちょうど境界の値なら補いません）。範囲の外に出て戻る曲線では、範囲内の部分がそのまま並びます。
+
+    Args:
+        displacement: 変位の配列
+        load: 荷重の配列
+        lower: 荷重の下限（省略時は下限なし）
+        upper: 荷重の上限（省略時は上限なし）
+
+    Returns:
+        (変位, 荷重, 元の index)。補った境界の点の index は -1
+
+    Examples:
+        >>> from tascpy.numeric.hysteresis import compute_load_clip
+        >>> import numpy as np
+        >>> d, p, rows = compute_load_clip(np.array([0.0, 1.0, 2.0, 3.0]), np.array([0.0, 10.0, 20.0, 30.0]), lower=15.0)
+        >>> d, p, rows
+        (array([1.5, 2. , 3. ]), array([15., 20., 30.]), array([-1,  2,  3]))
+    """
+    d = np.asarray(displacement, dtype=float)
+    p = np.asarray(load, dtype=float)
+    entries = [(int(i), float(d[i]), float(p[i])) for i in np.flatnonzero(~(np.isnan(d) | np.isnan(p)))]
+    return _entries_to_arrays(_clip_entries(entries, lower=lower, upper=upper))
+
+
+@overload
+def compute_bauschinger_curve(
+    displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray] = None, *,
+    side: Side = "positive", return_index: Literal[False] = False,
+) -> Tuple[np.ndarray, np.ndarray]: ...
+@overload
+def compute_bauschinger_curve(
+    displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray] = None, *,
+    side: Side = "positive", return_index: Literal[True],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]: ...
+def compute_bauschinger_curve(
+    displacement: np.ndarray,
+    load: np.ndarray,
+    markers: Optional[np.ndarray] = None,
+    *,
+    side: Side = "positive",
+    return_index: bool = False,
+) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """繰り返し載荷の荷重-変位曲線から、バウシンガー部分をつないだ曲線を計算します（秋山の分解）。
+
+    `compute_excursions` の区間ごとに、変位のピークまでの載荷部分のうち荷重がそれまでの区間の最大荷重以下の部分を
+    取り出し（境界の点は補間で補う）、`chain_offsets` の規則でつなぎます。最初の区間（それまでの最大荷重が 0）は
+    使いません。スケルトン曲線（`compute_skeleton_curve`）が耐力の更新部分をつなぐのに対し、こちらは残りの部分です。
+    `LoadDisplacementOps` では `split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=...)`
+    → `chain(変位列)` と組み立てたものと同じです。
+
+    Args:
+        displacement: 変位の配列
+        load: 荷重の配列
+        markers: サイクル番号の配列（省略時は `compute_cycle_markers(load)`）
+        side: "positive"（正側）または "negative"（負側）
+        return_index: 各点の元の行 index も返すか（補間で補った点は -1）
+
+    Returns:
+        曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行 index)
+
+    Raises:
+        ValueError: side が未知の場合
+
+    Examples:
+        2つ目の区間（荷重 0 の点は変位 2/3）のうち、1つ目の区間の最大荷重 10 以下の部分を、始点が 0 になるようずらします。
+
+        >>> from tascpy.numeric.hysteresis import compute_bauschinger_curve
+        >>> import numpy as np
+        >>> disp = np.array([0.0, 1.0, 1.5, 0.5, 0.0, 1.0, 2.0, 3.0, 2.0])
+        >>> load = np.array([0.0, 10.0, 5.0, -5.0, -10.0, 5.0, 15.0, 20.0, 0.0])
+        >>> d, p = compute_bauschinger_curve(disp, load)
+        >>> d.round(3), p
+        (array([0.   , 0.333, 0.833]), array([ 0.,  5., 10.]))
+    """
+    return _on_side(_positive_bauschinger_curve, displacement, load, side, return_index, markers=markers)
+
+
+def _positive_bauschinger_curve(displacement: np.ndarray, load: np.ndarray,
+                                markers: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    d = np.asarray(displacement, dtype=float)
+    p = np.asarray(load, dtype=float)
+    parts: List[List[_Entry]] = []
+    p_max = 0.0
+    for rows, x_s, x_e in _positive_excursions(d, p, markers):
+        entries = _excursion_entries(d, p, rows, x_s, x_e)
+        if p_max > 0:
+            parts.append(_clip_entries(_until_peak_entries(entries, by_load=False), upper=p_max))
+        p_max = max(p_max, max(e[2] for e in entries))
+    offsets = _chain_entries(parts)
+    return _entries_to_arrays([(row, x + offset, y) for part, offset in zip(parts, offsets) for row, x, y in part])
 
 
 def _positive_cumulative_curve(displacement: np.ndarray, load: np.ndarray,
