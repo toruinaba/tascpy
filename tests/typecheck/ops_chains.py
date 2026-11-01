@@ -34,6 +34,7 @@ def ld_chain(ld: LoadDisplacementCollection) -> None:
     assert_type(ops.split_by_excursions().scan(lambda top, o: (o.clip_load(lower=top), top), 0.0)[0],
                 LoadDisplacementOps)
     assert_type(ops.to_bauschinger_curve(side="negative").end(), LoadDisplacementCollection)
+    assert_type(ops.until_peak().append_unloading(ops.unloading_stiffness()), LoadDisplacementOps)
     assert_type(ops.until_peak().mark_plastic(direction="positive", result_column="c"), LoadDisplacementOps)
 
 

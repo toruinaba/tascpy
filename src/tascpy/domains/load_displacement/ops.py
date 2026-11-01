@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Self, Tuple, TypeVar
+from typing import Optional, Self, Tuple, TypeVar, Union
 
 import numpy as np
 import polars as pl
@@ -26,6 +26,7 @@ from tascpy.numeric.hysteresis import (
     compute_reversal_indices,
     compute_secant_stiffness,
     compute_skeleton_curve,
+    compute_unloading_stiffness,
 )
 
 from .collection import LoadDisplacementCollection
@@ -276,6 +277,46 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
                                        close_gaps=close_gaps)
         return self._next(self._assemble(list(zip(rows.tolist(), d.tolist(), p.tolist()))))
 
+    def unloading_stiffness(self) -> ScalarResult:
+        """区間（`split_by_excursions` の要素など）の除荷剛性を求めます（単位は "荷重/変位"）
+
+        変位のピーク（始点から最も離れる点。除荷の始まり）から、最後の点までの割線剛性です。最後の点の荷重が 0 でない
+        （除荷して荷重 0 に戻っていない）場合は NaN です。計算の詳細は
+        `tascpy.numeric.hysteresis.compute_unloading_stiffness` を参照してください。
+
+        Examples:
+            >>> k = cyclic.ops.split_by_excursions()[1].unloading_stiffness()
+            >>> round(k.value, 1), k.unit
+            (40.0, 'kN/mm')
+        """
+        value = compute_unloading_stiffness(self._c.displacement_data, self._c.load_data)
+        return ScalarResult("unloading_stiffness", value, unit=self._ld_unit("/"))
+
+    def append_unloading(self, stiffness: Union[float, ScalarResult]) -> Self:
+        """最後の有効な点から、剛性 stiffness で荷重 0 まで戻した点の行を末尾に加えます
+
+        加えた行は、荷重が 0・変位が「最後の点の変位 − 荷重 / 剛性」で、ステップと他の列は欠損です。最後の点の荷重が
+        0 の場合と、剛性が NaN・0 の場合は何もしません。区間から一部を切り出した部分（`clip_load` の結果など）を、
+        除荷剛性で戻してから `chain` でつなぐときに使います（`to_bauschinger_curve` はこの形です）。
+
+        Args:
+            stiffness: 剛性（荷重/変位）。`unloading_stiffness()` の結果も渡せます
+
+        Examples:
+            >>> part = ld.ops.until_peak().clip_load(upper=100.0).append_unloading(40.0).end()
+            >>> part["変位"].values[-2:], part["荷重"].values[-2:]
+            (array([3. , 0.5]), array([100.,   0.]))
+        """
+        value = float(stiffness.value if isinstance(stiffness, ScalarResult) else stiffness)
+        c = self._c
+        d, p = c.displacement_data, c.load_data
+        valid = np.flatnonzero(~(np.isnan(d) | np.isnan(p)))
+        if len(valid) == 0 or p[valid[-1]] == 0 or not np.isfinite(value) or value == 0:
+            return self
+        x, y = float(d[valid[-1]]), float(p[valid[-1]])
+        entries = [(i, np.nan, np.nan) for i in range(len(c))] + [(-1, x - y / value, 0.0)]
+        return self._next(self._assemble(entries))
+
     def mark_plastic(self, *, range_start: float = 0.1, range_end: float = 0.3, direction: Direction = "both",
                      result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
         """載荷区間の始点からの塑性変形を列として追加します（`split_by_reversals` の区間に使います）
@@ -452,18 +493,21 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """バウシンガー部分をつないだ曲線を、`to_skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
 
         荷重 0 の点から荷重 0 の点までの区間ごとに、変位のピークまでのうちそれまでの最大荷重以下の部分を取り出し、
-        `chain` の規則でつなぎます（秋山の分解。スケルトン曲線が耐力の更新部分をつなぐのに対し、こちらは残りの部分です）。
+        その終点からその区間の除荷剛性（`unloading_stiffness`）で荷重 0 まで戻した点を加えて、`chain` の規則でつなぎます
+        （秋山の分解。スケルトン曲線が耐力の更新部分をつなぐのに対し、こちらは残りの部分です）。
         区間の中で最大荷重を超えて戻る場合は、超えていた間の変位を詰めます（スケルトン曲線に入る部分の変位を含まない）。
-        最初の区間は使いません。`split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=..., close_gaps=True)`
-        → `chain(変位列)` と組み立てたものと同じです。計算の詳細は `tascpy.numeric.hysteresis.compute_bauschinger_curve`
+        最初の区間は使いません。`split_by_excursions` → `scan` で
+        `until_peak().clip_load(upper=..., close_gaps=True).append_unloading(区間の unloading_stiffness())`
+        → `chain(変位列)` → `concat()` と組み立てたものから、つなぎ目で重なる点を除いたものと同じです。計算の詳細は `tascpy.numeric.hysteresis.compute_bauschinger_curve`
         を参照してください。
 
         Examples:
-            `cyclic` の 2 つ目の正側の区間（0 → +4 mm）のうち、1 つ目の区間の最大荷重 80 kN までの部分です。
+            `cyclic` の 2 つ目の正側の区間（0 → +4 mm）のうち、1 つ目の区間の最大荷重 80 kN までの部分を、
+            その区間の除荷剛性 40 kN/mm で荷重 0 まで戻します（最後の点 (0, 0)）。
 
             >>> b = cyclic.ops.to_bauschinger_curve().end()
             >>> b["変位"].values, b["荷重"].values
-            (array([0. , 0.5, 1. , 1.5, 2. ]), array([ 0., 20., 40., 60., 80.]))
+            (array([0. , 0.5, 1. , 1.5, 2. , 0. ]), array([ 0., 20., 40., 60., 80.,  0.]))
         """
         return self._curve(*compute_bauschinger_curve(*self._all_cycle_arrays(cycle_column), side=side,
                                                       return_index=True))

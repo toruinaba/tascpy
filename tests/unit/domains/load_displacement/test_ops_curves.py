@@ -156,18 +156,21 @@ def test_bauschinger_equals_scan_composition(cyclic, side):
 
     def below(p_max, o):
         if p_max == 0:
-            clipped = o.clip_load(lower=np.inf)  # 最初の区間は使わない
+            part = o.clip_load(lower=np.inf)  # 最初の区間は使わない
         else:
-            clipped = (o.clip_load(upper=p_max, close_gaps=True) if side == "positive"
-                       else o.clip_load(lower=p_max, close_gaps=True))
-        return clipped, sign * max(sign * p_max, sign * _peak(o, side))
+            loading = o.until_peak()
+            clipped = (loading.clip_load(upper=p_max, close_gaps=True) if side == "positive"
+                       else loading.clip_load(lower=p_max, close_gaps=True))
+            part = clipped.append_unloading(o.unloading_stiffness())  # 除荷剛性は区間全体から求める
+        return part, sign * max(sign * p_max, sign * _peak(o, side))
 
-    loading = cyclic.ops.split_by_excursions(side=side).map(lambda o: o.until_peak())
-    joined = loading.scan(below, 0.0).chain("disp").concat().end()
+    joined = cyclic.ops.split_by_excursions(side=side).scan(below, 0.0).chain("disp").concat().end()
     curve = cyclic.ops.to_bauschinger_curve(side=side).end()
-    np.testing.assert_allclose(joined.displacement_data, curve.displacement_data)
-    np.testing.assert_allclose(joined.load_data, curve.load_data)
-    np.testing.assert_array_equal(joined.step.astype(float), curve["source_step"].values)
+    d, p = joined.displacement_data, joined.load_data
+    keep = np.r_[True, (np.diff(d) != 0) | (np.diff(p) != 0)]  # つなぎ目で重なる点は除く（先の点を残す）
+    np.testing.assert_allclose(d[keep], curve.displacement_data)
+    np.testing.assert_allclose(p[keep], curve.load_data)
+    np.testing.assert_array_equal(joined.step.astype(float)[keep], curve["source_step"].values)
 
 
 def test_bauschinger_matches_numeric(cyclic):
@@ -187,3 +190,19 @@ def test_clip_load_inserted_rows():
     assert np.isnan(clipped["other"].values[[0, 2]]).all() and clipped["other"].values[1] == 3.0
     assert clipped["load"].unit == "kN" and clipped.metadata["specimen"] == "A"
     assert len(as_load_displacement(col, "load", "disp").ops.clip_load(lower=100.0).end()) == 0
+
+
+
+def test_unloading_stiffness_and_append_unloading():
+    col = ColumnCollection({"load": [0.0, 40.0, 80.0, 40.0, 0.0], "disp": [0.0, 1.0, 3.0, 2.0, 1.0],
+                            "other": [1.0, 2.0, 3.0, 4.0, 5.0]}, units={"load": "kN", "disp": "mm"})
+    ld = as_load_displacement(col, "load", "disp")
+    k = ld.ops.unloading_stiffness()
+    assert k.value == pytest.approx(40.0) and k.unit == "kN/mm"
+    assert np.isnan(ld.ops.until_peak().unloading_stiffness().value)  # 荷重 0 まで戻っていない
+    part = ld.ops.until_peak().append_unloading(k).end()
+    np.testing.assert_allclose(part.displacement_data, [0.0, 1.0, 3.0, 1.0])
+    np.testing.assert_allclose(part.load_data, [0.0, 40.0, 80.0, 0.0])
+    assert np.isnan(part.step.astype(float)[-1]) and np.isnan(part["other"].values[-1])
+    assert len(ld.ops.append_unloading(40.0).end()) == len(ld)        # 最後の点の荷重が 0 なら何もしない
+    assert len(ld.ops.until_peak().append_unloading(np.nan).end()) == 3  # 剛性が NaN なら何もしない

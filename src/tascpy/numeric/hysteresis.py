@@ -649,6 +649,53 @@ def _entries_to_arrays(entries: List[_Entry]) -> Tuple[np.ndarray, np.ndarray, n
             np.asarray([e[0] for e in entries], dtype=np.int64))
 
 
+def _unloading_stiffness_entries(entries: List[_Entry]) -> float:
+    """変位のピーク（除荷の始まり）から区間の最後の荷重 0 の点までの割線剛性（求められなければ NaN）"""
+    if not entries or entries[-1][2] != 0:
+        return np.nan
+    peak = _until_peak_entries(entries, by_load=False)[-1]
+    end = entries[-1]
+    if peak[1] == end[1]:
+        return np.nan
+    return float(peak[2] / (peak[1] - end[1]))
+
+
+def _append_unloading(part: List[_Entry], stiffness: float) -> List[_Entry]:
+    """終点から剛性 stiffness で荷重 0 まで戻した点を加える（終点の荷重が 0、または剛性が求められなければそのまま）"""
+    if not part or part[-1][2] == 0 or not np.isfinite(stiffness) or stiffness == 0:
+        return part
+    _, x, y = part[-1]
+    return part + [(-1, x - y / stiffness, 0.0)]
+
+
+def compute_unloading_stiffness(displacement: np.ndarray, load: np.ndarray) -> float:
+    """1つの区間（荷重 0 の点から荷重 0 の点まで）の除荷剛性を求めます。
+
+    変位のピーク（始点から最も離れる点。除荷の始まり）から、区間の最後の点までの割線剛性です。
+    区間の最後の点の荷重が 0 でない（除荷して荷重 0 に戻っていない）場合と、2点の変位が同じ場合は NaN です。
+    荷重・変位が欠損の点は飛ばします。
+
+    Args:
+        displacement: 区間の変位の配列
+        load: 区間の荷重の配列
+
+    Returns:
+        float: 除荷剛性（荷重/変位。負側の区間でも正の値）
+
+    Examples:
+        >>> from tascpy.numeric.hysteresis import compute_unloading_stiffness
+        >>> import numpy as np
+        >>> compute_unloading_stiffness(np.array([0.0, 1.0, 3.0, 2.0, 1.0]), np.array([0.0, 40.0, 80.0, 40.0, 0.0]))
+        40.0
+        >>> compute_unloading_stiffness(np.array([0.0, 1.0, 2.0]), np.array([0.0, 40.0, 80.0]))  # 除荷していない
+        nan
+    """
+    d = np.asarray(displacement, dtype=float)
+    p = np.asarray(load, dtype=float)
+    valid = np.flatnonzero(~(np.isnan(d) | np.isnan(p)))
+    return _unloading_stiffness_entries([(int(i), float(d[i]), float(p[i])) for i in valid])
+
+
 def compute_load_clip(
     displacement: np.ndarray,
     load: np.ndarray,
@@ -719,12 +766,15 @@ def compute_bauschinger_curve(
     """繰り返し載荷の荷重-変位曲線から、バウシンガー部分をつないだ曲線を計算します（秋山の分解）。
 
     `compute_excursions` の区間ごとに、変位のピークまでの載荷部分のうち荷重がそれまでの区間の最大荷重以下の部分を
-    取り出し（境界の点は補間で補う）、`chain_offsets` の規則でつなぎます。区間の中で最大荷重を超えて戻る場合
+    取り出し（境界の点は補間で補う）、その終点からその区間の除荷剛性（`compute_unloading_stiffness`）で荷重 0 まで
+    戻した点を加えて、`chain_offsets` の規則でつなぎます。次の部分は、前の部分を除荷剛性で戻した点から始まります
+    （除荷して荷重 0 に戻っていない区間は戻した点を加えません。つなぎ目で重なる点は1つにします）。区間の中で最大荷重を超えて戻る場合
     （耐力を更新したあと最大荷重を下回るまで低下する区間）は、超えていた間の変位を詰めます（`compute_load_clip` の
     close_gaps=True）。そのため、スケルトン曲線に入る耐力の更新部分の変位は含みません。最初の区間（それまでの最大荷重が 0）は
     使いません。スケルトン曲線（`compute_skeleton_curve`）が耐力の更新部分をつなぐのに対し、こちらは残りの部分です。
-    `LoadDisplacementOps` では `split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=..., close_gaps=True)`
-    → `chain(変位列)` と組み立てたものと同じです。
+    `LoadDisplacementOps` では `split_by_excursions` → `scan` で
+    `until_peak().clip_load(upper=..., close_gaps=True).append_unloading(区間の unloading_stiffness())`
+    → `chain(変位列)` → `concat()` と組み立てたものから、つなぎ目で重なる点を除いたものと同じです。
 
     Args:
         displacement: 変位の配列
@@ -740,7 +790,8 @@ def compute_bauschinger_curve(
         ValueError: side が未知の場合
 
     Examples:
-        2つ目の区間（荷重 0 の点は変位 2/3）のうち、1つ目の区間の最大荷重 10 以下の部分を、始点が 0 になるようずらします。
+        2つ目の区間（荷重 0 の点は変位 2/3）のうち、1つ目の区間の最大荷重 10 以下の部分を、始点が 0 になるようずらし、
+        終点 (0.833, 10) からその区間の除荷剛性 20（変位のピーク (3, 20) から荷重 0 の点 (2, 0) まで）で荷重 0 まで戻します。
 
         >>> from tascpy.numeric.hysteresis import compute_bauschinger_curve
         >>> import numpy as np
@@ -748,7 +799,7 @@ def compute_bauschinger_curve(
         >>> load = np.array([0.0, 10.0, 5.0, -5.0, -10.0, 5.0, 15.0, 20.0, 0.0])
         >>> d, p = compute_bauschinger_curve(disp, load)
         >>> d.round(3), p
-        (array([0.   , 0.333, 0.833]), array([ 0.,  5., 10.]))
+        (array([0.   , 0.333, 0.833, 0.333]), array([ 0.,  5., 10.,  0.]))
     """
     return _on_side(_positive_bauschinger_curve, displacement, load, side, return_index, markers=markers)
 
@@ -762,10 +813,14 @@ def _positive_bauschinger_curve(displacement: np.ndarray, load: np.ndarray,
     for rows, x_s, x_e in _positive_excursions(d, p, markers):
         entries = _excursion_entries(d, p, rows, x_s, x_e)
         if p_max > 0:
-            parts.append(_clip_entries(_until_peak_entries(entries, by_load=False), upper=p_max, close_gaps=True))
+            part = _clip_entries(_until_peak_entries(entries, by_load=False), upper=p_max, close_gaps=True)
+            parts.append(_append_unloading(part, _unloading_stiffness_entries(entries)))
         p_max = max(p_max, max(e[2] for e in entries))
     offsets = _chain_entries(parts)
-    return _entries_to_arrays([(row, x + offset, y) for part, offset in zip(parts, offsets) for row, x, y in part])
+    curve: List[_Entry] = []
+    for part, offset in zip(parts, offsets):
+        _append_distinct(curve, [(row, x + offset, y) for row, x, y in part])
+    return _entries_to_arrays(curve)
 
 
 def _positive_cumulative_curve(displacement: np.ndarray, load: np.ndarray,

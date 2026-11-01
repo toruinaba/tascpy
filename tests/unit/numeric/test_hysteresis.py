@@ -14,6 +14,7 @@ from tascpy.numeric.hysteresis import (
     compute_reversal_indices,
     compute_secant_stiffness,
     compute_skeleton_curve,
+    compute_unloading_stiffness,
 )
 
 
@@ -565,9 +566,10 @@ class TestBauschingerGap:
 
     def test_part_above_previous_max_is_removed_without_gap(self):
         d, p, rows = compute_bauschinger_curve(self.disp, self.load, return_index=True)
-        np.testing.assert_allclose(d, [0.0, 2.0, 3.0, 3.0 + 2 / 7, 3.0 + 2 / 7 + 1.0])
-        np.testing.assert_allclose(p, [0.0, 20.0, 30.0, 28.0, 20.0])
-        np.testing.assert_array_equal(rows, [5, 6, 7, 9, 10])  # 戻った境界の点は、出た点 (3.0, 30) と重なるので除く
+        # 最後は (4.286, 20) から、この区間の除荷剛性 20/(6-5) = 20 で荷重 0 まで戻す
+        np.testing.assert_allclose(d, [0.0, 2.0, 3.0, 3.0 + 2 / 7, 3.0 + 2 / 7 + 1.0, 3.0 + 2 / 7])
+        np.testing.assert_allclose(p, [0.0, 20.0, 30.0, 28.0, 20.0, 0.0])
+        np.testing.assert_array_equal(rows, [5, 6, 7, 9, 10, -1])  # 戻った境界の点は、出た点 (3.0, 30) と重なるので除く
 
     def test_clip_without_close_gaps_keeps_original_displacement(self):
         d, p, rows = compute_load_clip(self.disp[5:11], self.load[5:11], upper=30.0)
@@ -579,3 +581,21 @@ class TestBauschingerGap:
                                        upper=30.0, close_gaps=True)
         np.testing.assert_allclose(d, [0.0, 3.0, 4.0])
         np.testing.assert_array_equal(rows, [0, 1, 4])
+
+
+class TestBauschingerUnloading:
+    # 3 つの正側の区間（最大荷重 10, 20, 15）。除荷剛性はどれも 10
+    disp = np.array([0.0, 1.0, 0.0, -0.5, 0.0, 1.0, 2.0, 0.0, -0.5, 0.0, 1.0, 1.5, 0.0])
+    load = np.array([0.0, 10.0, 0.0, -5.0, -0.0, 10.0, 20.0, 0.0, -5.0, 0.0, 10.0, 15.0, 0.0])
+
+    def test_next_part_starts_from_point_unloaded_with_unloading_stiffness(self):
+        d, p, rows = compute_bauschinger_curve(self.disp, self.load, return_index=True)
+        # 2 つ目の区間: (0,0)-(1,10) を 10 で戻して (0,0)。3 つ目の区間: 15 ≤ 20 なので全体、(1.5,15) を 10 で戻す
+        np.testing.assert_allclose(d, [0.0, 1.0, 0.0, 1.0, 1.5, 0.0])  # 戻した点と次の始点 (0, 0) は1つにする
+        np.testing.assert_allclose(p, [0.0, 10.0, 0.0, 10.0, 15.0, 0.0])
+        assert not any((d[k] == d[k + 1]) and p[k] > 0 and p[k + 1] == 0 for k in range(len(d) - 1))  # 縦に落ちない
+
+    def test_unloading_stiffness(self):
+        assert compute_unloading_stiffness(self.disp[4:8], self.load[4:8]) == pytest.approx(10.0)
+        assert compute_unloading_stiffness(-self.disp[4:8], -self.load[4:8]) == pytest.approx(10.0)  # 負側も正の値
+        assert np.isnan(compute_unloading_stiffness(self.disp[4:7], self.load[4:7]))
