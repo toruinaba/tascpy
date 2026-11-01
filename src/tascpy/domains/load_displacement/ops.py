@@ -12,6 +12,7 @@ from tascpy.core.ops_list import OpsList
 from tascpy.core.result import PointResult, ScalarResult
 from tascpy.numeric.curve import compute_peaks_and_valleys, compute_stiffness, compute_yield_point
 from tascpy.numeric.hysteresis import (
+    Side,
     compute_cumulative_curve,
     compute_cycle_markers,
     compute_hysteresis_energy,
@@ -160,12 +161,13 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     # ── 特殊曲線 ──────────────────────────────
 
     def to_skeleton_curve(self, *, cycle_column: Optional[str] = None, has_decrease: bool = False,
-                          decrease_type: str = "envelope") -> Self:
+                          decrease_type: str = "envelope", side: Side = "positive") -> Self:
         """スケルトン曲線を、荷重・変位の2列と "source_step" 列を持つ新しい荷重-変位コレクションとして返します
 
         変位列はサイクルごとにずらした値です。"source_step" は各点の元データのステップで、
         他の列は `select(steps=...)` で元データから取り出せます。
         cycle_column の省略時は、荷重の符号反転からサイクルを数えます（`mark_cycles` の既定と同じ）。
+        side="negative" なら負側のスケルトン曲線（荷重・変位とも負の値）を返します。
 
         Examples:
             >>> skel = cyclic.ops.to_skeleton_curve().end()
@@ -175,16 +177,21 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             array([ 1.,  2.,  3.,  4., 21., 22., 23., 24.])
             >>> len(cyclic.ops.select(steps=skel["source_step"].values.tolist()).end())
             8
+            >>> neg = cyclic.ops.to_skeleton_curve(side="negative").end()
+            >>> neg["変位"].values, neg["荷重"].values
+            (array([-0.5, -1. , -1.5, -2. ]), array([-20., -40., -60., -80.]))
         """
         return self._curve(*compute_skeleton_curve(*self._all_cycle_arrays(cycle_column), has_decrease=has_decrease,
-                                                   decrease_type=decrease_type, return_index=True))
+                                                   decrease_type=decrease_type, side=side, return_index=True))
 
-    def to_cumulative_curve(self, *, cycle_column: Optional[str] = None) -> Self:
+    def to_cumulative_curve(self, *, cycle_column: Optional[str] = None, side: Side = "positive") -> Self:
         """累積塑性変形-荷重曲線を、`to_skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
 
         荷重 0 まで延長した点は元データの行がないため、"source_step" は欠損になります。
+        side="negative" なら負側の部分を負の向きにつないだ曲線を返します。
         """
-        return self._curve(*compute_cumulative_curve(*self._all_cycle_arrays(cycle_column), return_index=True))
+        return self._curve(*compute_cumulative_curve(*self._all_cycle_arrays(cycle_column), side=side,
+                                                     return_index=True))
 
     def _curve(self, displacement: np.ndarray, load: np.ndarray, rows: np.ndarray) -> Self:
         c = self._c

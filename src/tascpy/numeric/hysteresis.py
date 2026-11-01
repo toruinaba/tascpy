@@ -131,15 +131,33 @@ def _extend_edge(x: List[float], y: List[float], target: float, target_type: str
     return x1 + (x2 - x1) * (target - y1) / (y2 - y1), target
 
 
+Side = Literal["positive", "negative"]
+SIDES = ("positive", "negative")
+
+
+def _side_sign(side: str) -> float:
+    if side not in SIDES:
+        raise ValueError(f"side は {' / '.join(SIDES)} のいずれかにしてください: {side}")
+    return 1.0 if side == "positive" else -1.0
+
+
+def _on_side(func, displacement: np.ndarray, load: np.ndarray, side: str, return_index: bool, **kwargs):
+    """正側の計算 func を side の側に適用する（負側は符号を反転して計算し、結果の符号を戻す）"""
+    sign = _side_sign(side)
+    d, p, rows = func(sign * np.asarray(displacement, dtype=float), sign * np.asarray(load, dtype=float), **kwargs)
+    curve = (sign * d + 0.0, sign * p + 0.0)  # + 0.0 で -0.0 を 0.0 にする
+    return (*curve, rows) if return_index else curve
+
+
 @overload
 def compute_skeleton_curve(
     displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray] = None, has_decrease: bool = False,
-    decrease_type: str = "envelope", *, return_index: Literal[False] = False,
+    decrease_type: str = "envelope", *, side: Side = "positive", return_index: Literal[False] = False,
 ) -> Tuple[np.ndarray, np.ndarray]: ...
 @overload
 def compute_skeleton_curve(
     displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray] = None, has_decrease: bool = False,
-    decrease_type: str = "envelope", *, return_index: Literal[True],
+    decrease_type: str = "envelope", *, side: Side = "positive", return_index: Literal[True],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]: ...
 def compute_skeleton_curve(
     displacement: np.ndarray,
@@ -148,9 +166,13 @@ def compute_skeleton_curve(
     has_decrease: bool = False,
     decrease_type: str = "envelope",
     *,
+    side: Side = "positive",
     return_index: bool = False,
 ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """繰り返し載荷の荷重-変位曲線からスケルトン曲線を計算します。
+
+    以下は正側（side="positive"）の説明です。負側（side="negative"）は荷重・変位の符号を反転して同じ計算をし、
+    結果の符号を戻します（荷重の最小を更新した点をつなぎ、変位は負の向きにずらします）。
 
     最大荷重のサイクルまでは、各サイクルで荷重がそれまでの最大を更新した点をつなぎます。
     2サイクル目以降は、そのサイクルで最初に最大を更新した点が、前のサイクルまでの包絡線の終端を
@@ -164,10 +186,14 @@ def compute_skeleton_curve(
         markers: サイクル番号の配列（省略時は `compute_cycle_markers(load)`）
         has_decrease: 最大荷重のサイクル以降の減少部分も含めるか
         decrease_type: 減少部分の取り方 ('envelope', 'continuous_only', 'both')
+        side: "positive"（正側）または "negative"（負側）
         return_index: 各点の元の行 index も返すか
 
     Returns:
         スケルトン曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行 index)
+
+    Raises:
+        ValueError: decrease_type または side が未知の場合
 
     Examples:
         >>> from tascpy.numeric.hysteresis import compute_skeleton_curve
@@ -178,10 +204,17 @@ def compute_skeleton_curve(
         (array([1., 2.]), array([10., 15.]))
         >>> compute_skeleton_curve(disp, load, return_index=True)[2]
         array([1, 5])
+        >>> compute_skeleton_curve(disp, load, side="negative")
+        (array([-1.]), array([-10.]))
     """
     if decrease_type not in ("envelope", "continuous_only", "both"):
         raise ValueError("decrease_typeは'envelope', 'continuous_only', 'both'のいずれかである必要があります")
+    return _on_side(_positive_skeleton_curve, displacement, load, side, return_index, markers=markers,
+                    has_decrease=has_decrease, decrease_type=decrease_type)
 
+
+def _positive_skeleton_curve(displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray],
+                             has_decrease: bool, decrease_type: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     rows: List[int] = []
     p_ske: List[float] = []
     d_ske: List[float] = []
@@ -247,39 +280,44 @@ def compute_skeleton_curve(
                             continue
                         append(cycle_rows[i], cycle_load[i], cycle_disp[i] + d_offset, skip_duplicate=True)
 
-    curve = (np.asarray(d_ske, dtype=float), np.asarray(p_ske, dtype=float))
-    return (*curve, np.asarray(rows, dtype=np.int64)) if return_index else curve
+    return np.asarray(d_ske, dtype=float), np.asarray(p_ske, dtype=float), np.asarray(rows, dtype=np.int64)
 
 
 @overload
 def compute_cumulative_curve(
     displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray] = None, *,
-    return_index: Literal[False] = False,
+    side: Side = "positive", return_index: Literal[False] = False,
 ) -> Tuple[np.ndarray, np.ndarray]: ...
 @overload
 def compute_cumulative_curve(
     displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray] = None, *,
-    return_index: Literal[True],
+    side: Side = "positive", return_index: Literal[True],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]: ...
 def compute_cumulative_curve(
     displacement: np.ndarray,
     load: np.ndarray,
     markers: Optional[np.ndarray] = None,
     *,
+    side: Side = "positive",
     return_index: bool = False,
 ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """繰り返し載荷の荷重-変位曲線から累積曲線を計算します。
 
     各サイクルの正側（荷重 >= 0）の部分を、荷重 0 まで延長したうえで変位方向につなげます。
+    side="negative" なら負側（荷重 <= 0）の部分を、負の向きにつなげます。
 
     Args:
         displacement: 変位の配列
         load: 荷重の配列
         markers: サイクル番号の配列（省略時は `compute_cycle_markers(load)`）
+        side: "positive"（正側）または "negative"（負側）
         return_index: 各点の元の行 index も返すか（荷重 0 まで延長した点は元の行がないため -1）
 
     Returns:
         累積曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行 index)
+
+    Raises:
+        ValueError: side が未知の場合
 
     Examples:
         >>> from tascpy.numeric.hysteresis import compute_cumulative_curve
@@ -287,7 +325,17 @@ def compute_cumulative_curve(
         >>> disp = np.array([0.0, 1.0, 0.0, -1.0, 0.0, 2.0, 0.0])
         >>> load = np.array([0.0, 10.0, 0.0, -10.0, 0.0, 15.0, 0.0])
         >>> d_cum, p_cum = compute_cumulative_curve(disp, load)
+        >>> float(p_cum.max()), float(d_cum.max())
+        (15.0, 2.0)
+        >>> d_neg, p_neg = compute_cumulative_curve(disp, load, side="negative")
+        >>> float(p_neg.min()), float(d_neg.min())
+        (-10.0, -1.0)
     """
+    return _on_side(_positive_cumulative_curve, displacement, load, side, return_index, markers=markers)
+
+
+def _positive_cumulative_curve(displacement: np.ndarray, load: np.ndarray,
+                               markers: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     _, groups = _cycle_groups(displacement, load, _markers_or_default(load, markers))
 
     p_cum: List[float] = []
@@ -313,5 +361,4 @@ def compute_cumulative_curve(
         d_cum.extend(x + d_offset for x in [x_s] + pos_displacements + [x_e])
         rows.extend([-1] + [cycle_rows[j] for j in pos_idx] + [-1])
 
-    curve = (np.asarray(d_cum, dtype=float), np.asarray(p_cum, dtype=float))
-    return (*curve, np.asarray(rows, dtype=np.int64)) if return_index else curve
+    return np.asarray(d_cum, dtype=float), np.asarray(p_cum, dtype=float), np.asarray(rows, dtype=np.int64)

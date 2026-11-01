@@ -286,3 +286,38 @@ def test_cumulative_curve_return_index():
     real = rows >= 0
     np.testing.assert_allclose(CYCLIC_LOADS[rows[real]], p[real])
     np.testing.assert_allclose(p[~real], 0.0)
+
+
+class TestCurveSide:
+    """side="negative" は符号を反転したデータの正側と鏡像になる"""
+
+    disp = np.array([0.0, 1.0, 2.0, 1.5, -1.0, -3.0, -2.5, 1.0, 3.0, 2.0, -2.0, -4.0, -3.0])
+    load = np.array([0.0, 40.0, 50.0, 30.0, -40.0, -55.0, -35.0, 40.0, 55.0, 15.0, -45.0, -60.0, -20.0])
+
+    @pytest.mark.parametrize("kwargs", [{}, {"has_decrease": True}, {"has_decrease": True, "decrease_type": "both"}])
+    def test_skeleton_negative_mirrors_positive(self, kwargs):
+        neg = compute_skeleton_curve(self.disp, self.load, side="negative", return_index=True, **kwargs)
+        mirrored = compute_skeleton_curve(-self.disp, -self.load, return_index=True, **kwargs)
+        np.testing.assert_allclose(neg[0], -mirrored[0])
+        np.testing.assert_allclose(neg[1], -mirrored[1])
+        np.testing.assert_array_equal(neg[2], mirrored[2])
+        assert np.all(neg[1] <= 0)
+
+    def test_cumulative_negative_mirrors_positive(self):
+        neg = compute_cumulative_curve(self.disp, self.load, side="negative", return_index=True)
+        mirrored = compute_cumulative_curve(-self.disp, -self.load, return_index=True)
+        np.testing.assert_allclose(neg[0], -mirrored[0])
+        np.testing.assert_allclose(neg[1], -mirrored[1])
+        np.testing.assert_array_equal(neg[2], mirrored[2])
+        assert not np.signbit(neg[1][neg[1] == 0]).any()  # -0.0 にならない
+
+    def test_positive_is_default(self):
+        for func in (compute_skeleton_curve, compute_cumulative_curve):
+            default, positive = func(self.disp, self.load), func(self.disp, self.load, side="positive")
+            np.testing.assert_array_equal(default[0], positive[0])
+            np.testing.assert_array_equal(default[1], positive[1])
+
+    @pytest.mark.parametrize("func", [compute_skeleton_curve, compute_cumulative_curve])
+    def test_unknown_side_raises(self, func):
+        with pytest.raises(ValueError, match="side"):
+            func(self.disp, self.load, side="both")
