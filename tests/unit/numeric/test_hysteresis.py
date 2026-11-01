@@ -7,6 +7,7 @@ from tascpy.numeric.hysteresis import (
     compute_cumulative_positions,
     compute_cycle_markers,
     compute_hysteresis_energy,
+    compute_reversal_indices,
     compute_secant_stiffness,
     compute_skeleton_curve,
 )
@@ -374,3 +375,41 @@ class TestCumulativePositions:
     def test_unknown_side_raises(self):
         with pytest.raises(ValueError, match="side"):
             compute_cumulative_positions(CYCLIC_DISPS, CYCLIC_LOADS, side="both")
+
+
+class TestComputeReversalIndices:
+    def test_incremental_amplitude(self):
+        d = np.array([0, 1, 0, -1, 0, 2, 0, -2, 0, 3])
+        np.testing.assert_array_equal(compute_reversal_indices(d), [1, 3, 5, 7])
+
+    def test_small_retreat_below_ratio_is_ignored(self):
+        d = np.array([0, 1, 2, 1.95, 2.5, 0, -2])
+        np.testing.assert_array_equal(compute_reversal_indices(d, ratio=0.05), [4])
+        np.testing.assert_array_equal(compute_reversal_indices(d, ratio=0.0), [2, 3, 4])
+
+    def test_ratio_scales_with_amplitude(self):
+        # 振幅 10 で 0.4 戻っても 5% 未満、振幅 1 で 0.4 戻れば反転
+        assert compute_reversal_indices(np.array([0, 10, 9.6, 12]), ratio=0.05).tolist() == []
+        assert compute_reversal_indices(np.array([0, 1, 0.6]), ratio=0.05).tolist() == [1]
+
+    def test_min_amplitude_suppresses_start_noise(self):
+        d = np.array([0, 0.01, -0.01, 0.0, -1, 0, 1])
+        assert compute_reversal_indices(d).tolist() == [1, 2, 3, 4]
+        assert compute_reversal_indices(d, min_amplitude=0.1).tolist() == [4]
+
+    def test_plateau_at_peak_uses_first_point(self):
+        assert compute_reversal_indices(np.array([0, 2, 2, 2, 0])).tolist() == [1]
+
+    def test_nan_is_skipped(self):
+        d = np.array([np.nan, 0, 2, np.nan, 1, -1])
+        assert compute_reversal_indices(d).tolist() == [2]
+
+    def test_monotonic_and_empty(self):
+        assert compute_reversal_indices(np.array([0, 1, 2, 3])).tolist() == []
+        assert compute_reversal_indices(np.array([])).tolist() == []
+        assert compute_reversal_indices(np.array([np.nan, np.nan])).tolist() == []
+
+    @pytest.mark.parametrize("kwargs", [{"ratio": -0.1}, {"min_amplitude": -1.0}])
+    def test_negative_parameters_raise(self, kwargs):
+        with pytest.raises(ValueError):
+            compute_reversal_indices(np.array([0, 1, 0]), **kwargs)

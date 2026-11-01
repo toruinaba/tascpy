@@ -17,6 +17,7 @@ from tascpy.numeric.hysteresis import (
     compute_cumulative_positions,
     compute_cycle_markers,
     compute_hysteresis_energy,
+    compute_reversal_indices,
     compute_secant_stiffness,
     compute_skeleton_curve,
 )
@@ -150,6 +151,78 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def split_by_cycles(self: LS, *, cycle_column: Optional[str] = None) -> OpsList[LS]:
         """サイクル番号ごとに分割します（cycle_column の省略時は荷重の符号反転から数える）"""
         return self.split_by_integers(self._cycle_markers(cycle_column))
+
+    def split_by_reversals(self: LS, *, column: Optional[str] = None, ratio: float = 0.05,
+                           min_amplitude: float = 0.0) -> OpsList[LS]:
+        """反転点（正側・負側の極値）から次の反転点までの半サイクルごとに分割します
+
+        `split_by_cycles` が荷重の符号反転（0 をまたぐ位置）で切るのに対し、こちらはピークで切ります。
+        除荷から逆方向の再載荷までが1つの区間に入るので、`shift_origin()` で区間の始点を原点にすれば、
+        `yield_point` / `stiffness` で再降伏点や除荷剛性を半サイクルごとに求められます。
+
+        隣り合う区間は境界の反転点を共有します（その点は両方の区間に入ります）。
+        各要素のキー（`OpsList.keys`）は半サイクルの番号 1, 2, ... です。
+
+        Args:
+            column: 反転を見る列（省略時は変位列）
+            ratio: 反転を確定する戻り量の、直前の反転点からの片振幅に対する比率
+            min_amplitude: 反転とみなす最小の片振幅（column の単位。立ち上がりのノイズ除け）
+
+        Examples:
+            `cyclic` は 0 → +2 → -2 → +4 → 0 mm の載荷です。
+
+            >>> parts = cyclic.ops.split_by_reversals()
+            >>> parts.keys, [c["変位"].values[[0, -1]].tolist() for c in parts.end()]
+            ([1, 2, 3, 4], [[0.0, 2.0], [2.0, -2.0], [-2.0, 4.0], [4.0, 0.0]])
+
+            区間ごとに始点を原点へ移して降伏点を求めます。降伏点は移動後の座標なので、
+            移動量（metadata の "origin_load"）を足すと元の荷重になります。
+            弾性範囲で折り返した区間は降伏点が求まらず、欠損になります。
+
+            >>> shifted = parts.map(lambda o: o.shift_origin())
+            >>> points = shifted.collect(lambda o: o.yield_point(offset_value=0.5, range_start=0.1, range_end=0.5,
+            ...                                                  fail_silently=True))
+            >>> origin = shifted.collect(lambda o: o.end().metadata["origin_load"])
+            >>> table = points.to_table(name="yield").join(origin.to_table(name="origin_load")).end()
+            >>> (table["yield_y"].values + table["origin_load"].values).round(1)
+            array([  nan,   nan, 102.2,   nan])
+        """
+        source = self._c.displacement_column if column is None else column
+        values = to_float_array(self._column_values(source))
+        reversals = compute_reversal_indices(values, ratio=ratio, min_amplitude=min_amplitude).tolist()
+        bounds = [0, *reversals, len(self._c) - 1] if len(self._c) else []
+        groups = [np.arange(a, b + 1) for a, b in zip(bounds[:-1], bounds[1:])]
+        return self._split(groups, list(range(1, len(groups) + 1)))
+
+    def shift_origin(self) -> Self:
+        """最初の有効な点（荷重・変位とも欠損でない点）が原点になるよう、荷重と変位を平行移動します
+
+        移動量は metadata の "origin_displacement" / "origin_load" に記録します（元の座標の値は
+        移動後の値 + 移動量）。繰り返し呼ぶと移動量は累積します。
+        `split_by_reversals` の区間に使うと、反転点を原点とした除荷・再載荷の曲線になります。
+
+        Raises:
+            ValueError: 荷重・変位とも欠損でない点がない場合
+
+        Examples:
+            >>> part = cyclic.ops.split_by_reversals()[2].shift_origin().end()
+            >>> part["変位"].values[[0, -1]], part["荷重"].values[[0, -1]]
+            (array([0., 6.]), array([  0., 186.]))
+            >>> part["荷重"].unit
+            'kN'
+            >>> part.metadata["origin_displacement"], part.metadata["origin_load"]
+            (-2.0, -80.0)
+        """
+        c = self._c
+        d, p = c.displacement_data, c.load_data
+        valid = np.flatnonzero(~(np.isnan(d) | np.isnan(p)))
+        if len(valid) == 0:
+            raise ValueError("荷重・変位とも欠損でない点がないため、原点を決められません")
+        d0, p0 = float(d[valid[0]]), float(p[valid[0]])
+        shifted = (c.with_column(c.displacement_column, d - d0).with_column(c.load_column, p - p0)
+                   .with_metadata(origin_displacement=c.metadata.get("origin_displacement", 0.0) + d0,
+                                  origin_load=c.metadata.get("origin_load", 0.0) + p0))
+        return self._next(shifted)
 
     def mark_peaks_and_valleys(self, column: Optional[str] = None, distance: int = 1,
                                threshold: Optional[float] = None, *, result_column: str,
