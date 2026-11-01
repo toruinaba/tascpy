@@ -208,26 +208,62 @@ array([   nan,    nan,  102.2,  -96.2,   96.2,  -88.2,   88.2])
 
 ±2 mm の区間は弾性範囲で折り返すので降伏点は求まりません（欠損）。移動硬化のばねなので、反転後の降伏荷重は経験した最大荷重が大きいほど低くなります。
 
-### 再降伏点を累積曲線の上に置く
+### 再降伏点を累積曲線の上に置く（荷重 0 基準）
 
-再降伏点を繰り返しの履歴に沿って並べるには、累積曲線（`to_cumulative_curve`。正側・負側それぞれ、荷重 0 の点から荷重 0 の点までの区間を変位方向につないだ曲線）の上の位置を使います。`mark_cumulative` で各行の累積曲線の上での位置を列にしておくと、`split_by_reversals` の区間にも引き継がれます。降伏点の位置での値は `value_at` で求めます（`yield_point` の結果の metadata にある、降伏点の行の位置 `row_position` を使って前後の行を補間します）。
+再降伏点の推移を繰り返しの履歴に沿って見るには、累積曲線（`to_cumulative_curve`）の上に置きます。累積曲線は、正側・負側それぞれについて、荷重 0 の点から荷重 0 の点までの区間を変位方向につないだ曲線です。
+
+`split_by_excursions` でその区間ごとに分け、`chain` で変位列を前の区間の終わりから続くようにずらすと、各区間が累積曲線の一部になります（`concat()` すると `to_cumulative_curve` と同じ曲線です）。区間は除荷も含むので、降伏点は `until_peak` で載荷部分（ピークまで）に絞ってから求めます。累積曲線の上の位置は、降伏点の行の位置（`yield_point` の結果の metadata の `row_position`）で変位列を読む `value_at` で求めます。
 
 ```pycon
->>> marked = ld.ops.mark_cumulative(result_column="累積+").mark_cumulative(side="negative", result_column="累積-")
->>> shifted = marked.split_by_reversals().map(lambda o: o.shift_origin())
->>> def on_cumulative(o, column):
-...     pt = o.yield_point(offset_value=0.5, range_start=0.1, range_end=0.5, fail_silently=True)
-...     return o.value_at(pt, column)
->>> positive = shifted.collect(lambda o: on_cumulative(o, "累積+")).to_table(name="累積+").end()
->>> negative = shifted.collect(lambda o: on_cumulative(o, "累積-")).to_table(name="累積-").end()
->>> positive["累積+"].values.round(2), positive["累積+"].unit
-(array([ nan,  nan, 3.06,  nan, 4.26,  nan, 8.56]), 'mm')
->>> negative["累積-"].values.round(2)
-array([  nan,   nan,   nan, -2.91,   nan, -5.41,   nan])
+>>> kw = {"offset_value": 0.5, "range_start": 0.1, "range_end": 0.5, "fail_silently": True}
+>>> def reyield(o):
+...     return o.until_peak().shift_origin().yield_point(**kw)
+>>> positive = ld.ops.split_by_excursions().chain("変位")
+>>> np.allclose(positive.concat().end().displacement_data, ld.ops.to_cumulative_curve().end().displacement_data)
+True
+>>> [round(pt.y, 1) for pt in positive.collect(reyield)]
+[nan, 102.2, 96.2, 88.2]
+>>> positive.collect(lambda o: o.value_at(reyield(o), "変位")).to_table(name="位置").end()["位置"].values.round(2)
+array([ nan, 3.06, 4.26, 8.56])
 
 ```
 
-正側の降伏点は正側の累積曲線、負側の降伏点は負側の累積曲線の上にだけ値があります（反対側の列は欠損です）。たとえば 5 番目の半サイクル（-4 → +6 mm）の降伏点は、それまでの正側の残留変形 1.35 mm から始まる区間の上にあり、位置は 4.26 mm です。`to_cumulative_curve` の曲線と同じ座標なので、重ねて描けます。
+区間は荷重 0 の点から始まるので、`shift_origin` で移した後の降伏荷重がそのまま元の荷重です。負側も `side="negative"` で同じように求めます。
+
+```pycon
+>>> negative = ld.ops.split_by_excursions(side="negative").chain("変位")
+>>> [round(pt.y, 1) for pt in negative.collect(reyield)]
+[nan, -96.2, -88.2]
+>>> negative.collect(lambda o: o.value_at(reyield(o), "変位")).to_table(name="位置").end()["位置"].values.round(2)
+array([  nan, -2.91, -5.41])
+
+```
+
+たとえば正側の 3 番目の区間（-4 → +6 mm の再載荷）は、それまでの正側の残留変形 1.35 mm から始まり、降伏点は累積曲線の 4.26 mm の位置にあります。曲線と降伏点が同じ OpsList から求まるので、重ねて描けます。
+
+### 再降伏点を累積塑性変形に対して並べる（反転点基準）
+
+正負の両方向の塑性履歴を1本の軸で数えたいときは、`split_by_reversals` の半サイクルごとに `mark_plastic` で塑性変形を求め、`chain` でつなぎます。`mark_plastic` は半サイクルの始点（反転点）を原点とした曲線の剛性 K を求め（`yield_point` の初期剛性と同じ求め方なので、`range_start` / `range_end` は `yield_point` とそろえます）、載荷の向きへの塑性変形 Δd − ΔP/K を求めます。つないだ値は単調に増え、半サイクルの先頭の値が「その反転に入るまでの累積塑性変形」です。
+
+```pycon
+>>> halves = ld.ops.split_by_reversals().map(
+...     lambda o: o.mark_plastic(range_start=0.1, range_end=0.5, result_column="累積塑性")).chain("累積塑性")
+>>> [round(float(c["累積塑性"].values[0]), 2) for c in halves.end()]
+[0.0, 0.0, 0.0, 1.35, 4.05, 8.55, 14.85]
+
+```
+
+降伏点の位置での値を `value_at` で読むと、オフセット法の定義上、先頭の値にオフセット量（0.5 mm）を足したものになります。
+
+```pycon
+>>> def at_yield(o):
+...     return o.value_at(o.shift_origin().yield_point(**kw), "累積塑性")
+>>> halves.collect(at_yield).to_table(name="累積塑性").end()["累積塑性"].values.round(2)
+array([  nan,   nan,  0.5 ,  1.85,  4.55,  9.05, 15.35])
+
+```
+
+上で求めた再降伏荷重（102.2, −96.2, 96.2, −88.2, 88.2 kN）を、この値に対して正側・負側の系列に分けて描くと、累積塑性変形に伴う降伏点の推移になります。
 
 ## 7. 描画する
 

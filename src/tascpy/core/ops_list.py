@@ -183,6 +183,51 @@ class OpsList(Generic[O]):
         kept = [(item, key) for item, key in zip(self._items, self._keys) if predicate(item.end())]
         return OpsList([item for item, _ in kept], [key for _, key in kept])
 
+    def chain(self, column: str) -> OpsList[O]:
+        """各要素の列を、前の要素の終わりから続くようにずらしてつなぎます（区間をまたぐ累積）
+
+        最初の要素は列の最初の有効な値が 0 に、2つ目以降の要素は最初の有効な値が前の要素の最後の有効な値に
+        重なるよう、列全体に一定の値を足します。足した値は各要素の metadata の "chain_offsets"（列名ごとの辞書）に
+        記録します。列に有効な値がない要素はずらさず、次の要素は前の有効な要素の終わりから続けます。
+
+        `split_by_excursions` の区間の変位列をつなぐと累積曲線、`mark_plastic` の列をつなぐと累積塑性変形になります。
+        結果は OpsList のままなので、`collect` で要素ごとの値（降伏点など）を求めたり、`concat` で連結したりできます。
+
+        Raises:
+            KeyError: 列がない要素がある場合
+            TypeError: 列が数値でない要素がある場合
+
+        Examples:
+            >>> parts = col.ops.split_by_integers([1, 1, 2, 2, 3, 3])
+            >>> chained = parts.chain("CH1")
+            >>> [c["CH1"].values.tolist() for c in chained.end()]
+            [[0.0, 100.0], [100.0, 200.0], [200.0, 300.0]]
+            >>> [c.metadata["chain_offsets"]["CH1"] for c in chained.end()]
+            [0.0, -100.0, -200.0]
+        """
+        from tascpy.numeric.hysteresis import chain_offsets
+
+        values = []
+        for item in self._items:
+            collection = item.end()
+            if column not in collection:
+                raise KeyError(f"列 '{column}' が存在しません")
+            if not collection[column].is_numeric:
+                raise TypeError(f"列 '{column}' は数値列ではありません")
+            values.append(np.asarray(collection[column].values, dtype=float))
+        has_value = [bool(np.any(~np.isnan(v))) for v in values]
+        valid = [v[~np.isnan(v)] for v, ok in zip(values, has_value) if ok]
+        offsets = iter(chain_offsets([float(v[0]) for v in valid], [float(v[-1]) for v in valid]))
+
+        items = []
+        for item, v, ok in zip(self._items, values, has_value):
+            offset = next(offsets) if ok else 0.0
+            collection = item.end()
+            shifted = collection.with_column(column, v + offset).with_metadata(
+                chain_offsets={**collection.metadata.get("chain_offsets", {}), column: offset})
+            items.append(item._next(shifted))
+        return OpsList(items, self._keys)
+
     def end(self: OpsList[CoreOps[C]]) -> List[C]:
         """コレクションのリストを返します"""
         return [item.end() for item in self._items]

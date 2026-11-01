@@ -30,7 +30,8 @@ def ld_chain(ld: LoadDisplacementCollection) -> None:
     assert_type(ops.to_skeleton_curve().end(), LoadDisplacementCollection)
     assert_type(ops.to_skeleton_curve(side="negative").end(), LoadDisplacementCollection)
     assert_type(ops.to_cumulative_curve(side="negative").end(), LoadDisplacementCollection)
-    assert_type(ops.mark_cumulative(side="negative", result_column="c"), LoadDisplacementOps)
+    assert_type(ops.split_by_excursions(side="negative").chain("d")[0], LoadDisplacementOps)
+    assert_type(ops.until_peak().mark_plastic(direction="positive", result_column="c"), LoadDisplacementOps)
 
 
 def reducers_end_the_chain(ld: LoadDisplacementCollection, sc: StrainCollection, cc: CoordinateCollection) -> None:

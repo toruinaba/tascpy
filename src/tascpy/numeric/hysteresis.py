@@ -3,11 +3,11 @@
 引数はすべて (displacement, load) の順で、曲線を返す関数は (変位, 荷重) の順の配列を返します。
 """
 
-from typing import List, Literal, Optional, Tuple, Union, overload
+from typing import List, Literal, NamedTuple, Optional, Tuple, Union, overload
 
 import numpy as np
 
-from .curve import compute_polygon_area
+from .curve import compute_polygon_area, compute_stiffness
 
 
 def compute_cycle_markers(values: np.ndarray, step: float = 0.5) -> np.ndarray:
@@ -101,6 +101,70 @@ def compute_reversal_indices(values: np.ndarray, ratio: float = 0.05, min_amplit
         elif amplitude < min_amplitude and (value - anchor) * direction < 0:
             direction, extreme, extreme_index = -direction, value, int(i)
     return np.array(reversals, dtype=int)
+
+
+Direction = Literal["both", "positive", "negative"]
+DIRECTIONS = ("both", "positive", "negative")
+
+
+def compute_plastic_deformation(
+    displacement: np.ndarray,
+    load: np.ndarray,
+    *,
+    range_start: float = 0.1,
+    range_end: float = 0.3,
+    direction: Direction = "both",
+) -> np.ndarray:
+    """1つの載荷区間（反転点から次の反転点までなど）の、始点からの塑性変形を各点について求めます。
+
+    始点（最初の有効な点）を原点とした Δd, ΔP と、その範囲の剛性 K
+    （`compute_stiffness(Δd, ΔP, range_start, range_end)`。原点を移した曲線の `compute_yield_point` の初期剛性と同じ）から、
+    載荷の向き s（Δd の絶対値が最大の点の符号）への塑性変形 s·(Δd − ΔP/K) を求め、それまでの最大値（負なら 0）を返します。
+    値は始点で 0 で、単調に増えます。オフセット法の降伏点では、オフセット量に等しくなります。
+
+    Args:
+        displacement: 変位の配列（区間の分）
+        load: 荷重の配列（区間の分）
+        range_start: 剛性を求める範囲の開始（ΔP の最大値に対する割合）
+        range_end: 剛性を求める範囲の終了（ΔP の最大値に対する割合）
+        direction: "both"、または "positive" / "negative"（載荷の向きが異なる区間は 0）
+
+    Returns:
+        np.ndarray: 各点の塑性変形（変位の単位。荷重・変位が欠損の点は NaN）
+
+    Raises:
+        ValueError: direction が未知の場合、または剛性を求められない場合
+
+    Examples:
+        剛性 10・降伏荷重 10 の完全弾塑性のばねを、荷重 -10 の状態から +3 まで載荷します。
+
+        >>> from tascpy.numeric.hysteresis import compute_plastic_deformation
+        >>> import numpy as np
+        >>> disp = np.array([-2.0, -1.0, 0.0, 1.0, 3.0])
+        >>> load = np.array([-10.0, 0.0, 10.0, 10.0, 10.0])
+        >>> compute_plastic_deformation(disp, load, range_start=0.0, range_end=0.6)
+        array([0., 0., 0., 1., 3.])
+        >>> compute_plastic_deformation(disp, load, range_start=0.0, range_end=0.6, direction="negative")
+        array([0., 0., 0., 0., 0.])
+    """
+    if direction not in DIRECTIONS:
+        raise ValueError(f"direction は {' / '.join(DIRECTIONS)} のいずれかにしてください: {direction}")
+    d = np.asarray(displacement, dtype=float)
+    p = np.asarray(load, dtype=float)
+    valid = ~(np.isnan(d) | np.isnan(p))
+    result = np.where(valid, 0.0, np.nan)
+    if not valid.any():
+        return result
+    first = int(np.flatnonzero(valid)[0])
+    delta_d, delta_p = d - d[first], p - p[first]
+    sign = float(np.sign(delta_d[valid][np.argmax(np.abs(delta_d[valid]))]))
+    if sign == 0 or (direction != "both" and (sign > 0) != (direction == "positive")):
+        return result
+    stiffness = compute_stiffness(delta_d[valid], delta_p[valid], range_start=range_start, range_end=range_end)
+    if not np.isfinite(stiffness) or stiffness == 0:
+        raise ValueError("剛性が NaN・Inf・0 のため、塑性変形を求められません")
+    plastic = np.fmax.accumulate(np.where(valid, sign * (delta_d - delta_p / stiffness), -np.inf))
+    return np.where(valid, np.maximum(plastic, 0.0), np.nan)
 
 
 def _valid_pairs(displacement: np.ndarray, load: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -370,9 +434,10 @@ def compute_cumulative_curve(
 
     正側（荷重 >= 0）の各区間を荷重 0 の点から荷重 0 の点まで取り出し、変位方向につなげます。
     side="negative" なら負側（荷重 <= 0）の各区間を、負の向きにつなげます。
-    区間の取り方と各点の位置は `compute_cumulative_positions` と同じで、曲線は区間ごとに
-    「始点の荷重 0 の点、区間の行、終点の荷重 0 の点」を並べたものです（端の行の荷重がちょうど 0 なら
-    その行を荷重 0 の点として使い、点は追加しません。データの先頭・末尾で荷重 0 に届いていない端にも追加しません）。
+    区間は `compute_excursions` の区間で、曲線は区間ごとに「前に補う荷重 0 の点、区間の行、後ろに補う荷重 0 の点」を
+    並べ、`chain_offsets` の規則（最初の区間は始点を 0 に、2つ目以降は始点を前の区間の終点に重ねる）で変位をずらして
+    つないだものです。区間の始点の位置は、それまでのその側の区間の残留変形の合計になります。
+    `LoadDisplacementOps.split_by_excursions(side=...).chain(変位列).concat()` と同じ曲線です。
 
     Args:
         displacement: 変位の配列
@@ -399,26 +464,36 @@ def compute_cumulative_curve(
     return _on_side(_positive_cumulative_curve, displacement, load, side, return_index, markers=markers)
 
 
-def compute_cumulative_positions(
+class Excursion(NamedTuple):
+    """荷重 0 の点から荷重 0 の点までの区間（`compute_excursions` の要素）
+
+    rows は区間に入る元の行の index、start / end は区間の前後に補う荷重 0 の点の変位です
+    （補わない端は None。端の行の荷重がちょうど 0 の場合と、データの末尾で荷重 0 に届いていない場合）。
+    """
+
+    rows: np.ndarray
+    start: Optional[float]
+    end: Optional[float]
+
+
+def compute_excursions(
     displacement: np.ndarray,
     load: np.ndarray,
     markers: Optional[np.ndarray] = None,
     *,
     side: Side = "positive",
-) -> np.ndarray:
-    """各行の、累積曲線（`compute_cumulative_curve`）上での変位の位置を求めます。
+) -> List[Excursion]:
+    """荷重の片側の区間（荷重 0 の点から荷重 0 の点まで）を求めます。
 
-    正側の区間は、荷重 >= 0 の行が続く範囲（荷重 > 0 の行を含むもの）です。区間の両端の荷重 0 の点は、
-    荷重の符号をまたぐ前後の2行を直線補間して求めます（端の行の荷重がちょうど 0 ならその行。
-    markers の番号が区間の途中で変わる位置では、区間の端の2行を延長します。
-    データの先頭・末尾で荷重 0 に届いていない端には、荷重 0 の点はありません）。
+    正側の区間は、荷重 >= 0 の行が続く範囲のうち荷重 > 0 の行を含むものです（荷重・変位・サイクル番号が
+    欠損の行は飛ばします）。荷重 > 0 の行どうしの間で markers の番号が変わる位置でも区切ります。
+    区間の両端の荷重 0 の点は、荷重の符号をまたぐ前後の2行の直線補間で求めます。markers の番号で区切った端と、
+    データの先頭（載荷の始まりで弾性とみなせる）で荷重 0 から始まっていない端では、区間の端の2行を延長します。
+    端の行の荷重がちょうど 0 ならその行が荷重 0 の点で、データの末尾で荷重 0 に届いていない端（載荷の途中で
+    終わっている）には荷重 0 の点はありません（どちらも start / end は None）。
 
-    最初の区間は始点の荷重 0 の点が 0 に、2つ目以降の区間は始点の荷重 0 の点が前の区間の終点の荷重 0 の点に
-    重なるよう変位をずらします。そのため、区間の始点の荷重 0 の点の位置は、それまでのその側の区間の残留変形の合計です
-    （データの先頭で荷重 0 に届いていない最初の区間は、元の変位のままです）。
-
-    side="negative" なら負側（荷重 <= 0）について同じ計算をし、位置を負の向きに数えます。
-    その側の区間に入らない行と、荷重・変位・サイクル番号のいずれかが欠損の行は NaN です。
+    side="negative" なら負側（荷重 <= 0）の区間です。`compute_cumulative_curve` と
+    `LoadDisplacementOps.split_by_excursions` はこの区間を使います。
 
     Args:
         displacement: 変位の配列
@@ -427,37 +502,31 @@ def compute_cumulative_positions(
         side: "positive"（正側）または "negative"（負側）
 
     Returns:
-        np.ndarray: 各行の位置（元の配列と同じ長さ）
+        List[Excursion]: 区間のリスト（時系列順）
 
     Raises:
         ValueError: side が未知の場合
 
     Examples:
-        1つ目の正側の区間（行 0〜3）は変位 1.0 で荷重 0 に戻ります（残留変形 1.0）。
-        2つ目の区間（行 6〜7）は、荷重 0 の点（変位 0.25）が 1.0 に来るよう 0.75 ずらされます。
-        負側の区間（行 4〜5）は、荷重 0 の点（変位 1.0）を 0 として負の向きに数えます。
-
-        >>> from tascpy.numeric.hysteresis import compute_cumulative_positions
+        >>> from tascpy.numeric.hysteresis import compute_excursions
         >>> import numpy as np
         >>> disp = np.array([0.0, 1.0, 2.0, 1.5, 0.5, 0.0, 1.0, 2.5])
         >>> load = np.array([0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0])
-        >>> compute_cumulative_positions(disp, load)
-        array([0.  , 1.  , 2.  , 1.5 ,  nan,  nan, 1.75, 3.25])
-        >>> compute_cumulative_positions(disp, load, side="negative")
-        array([ nan,  nan,  nan,  nan, -0.5, -1. ,  nan,  nan])
+        >>> [(e.rows.tolist(), e.start, e.end) for e in compute_excursions(disp, load)]
+        [([0, 1, 2, 3], None, 1.0), ([6, 7], 0.25, None)]
+        >>> [(e.rows.tolist(), e.start, e.end) for e in compute_excursions(disp, load, side="negative")]
+        [([4, 5], 1.0, 0.25)]
     """
     sign = _side_sign(side)
-    positions = np.full(len(np.asarray(load)), np.nan)
     d, p = sign * np.asarray(displacement, dtype=float), sign * np.asarray(load, dtype=float)
-    for rows, _, _, offset in _positive_excursions(d, p, markers):
-        positions[rows] = sign * (d[rows] + offset) + 0.0
-    return positions
+    return [Excursion(rows, None if x_s is None else sign * x_s + 0.0, None if x_e is None else sign * x_e + 0.0)
+            for rows, x_s, x_e in _positive_excursions(d, p, markers)]
 
 
 def _positive_excursions(
     displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray],
-) -> List[Tuple[np.ndarray, Optional[float], Optional[float], float]]:
-    """正側の区間ごとの (行 index, 始点の荷重 0 の点の変位, 終点の荷重 0 の点の変位, ずらし量)"""
+) -> List[Tuple[np.ndarray, Optional[float], Optional[float]]]:
+    """正側の区間ごとの (行 index, 前に補う荷重 0 の点の変位, 後ろに補う荷重 0 の点の変位)"""
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
     m = np.asarray(_markers_or_default(p, markers), dtype=float)
@@ -483,13 +552,17 @@ def _positive_excursions(
     position = {int(i): k for k, i in enumerate(valid)}
 
     def zero_point(rows: List[int], at_start: bool) -> Optional[float]:
-        """区間の端の荷重 0 の点の変位（データの先頭・末尾で荷重 0 に届いていなければ None）"""
+        """区間の端に補う荷重 0 の点の変位（端の行の荷重が 0 か、データの末尾で荷重 0 に届いていなければ None）"""
         edge = rows[0] if at_start else rows[-1]
         if p[edge] == 0:
-            return float(d[edge])
+            return None
         k = position[edge] + (-1 if at_start else 1)
         if not 0 <= k < len(valid):
-            return None
+            if not at_start:
+                return None
+            # データの先頭（載荷の始まり）は弾性とみなし、区間の最初の2行を延長する
+            x, _ = _extend_edge(d[rows].tolist(), p[rows].tolist(), 0.0, "y", "start")
+            return float(x)
         other = valid[k]
         if p[other] < 0:
             t = p[edge] / (p[edge] - p[other])
@@ -497,31 +570,41 @@ def _positive_excursions(
         x, _ = _extend_edge(d[rows].tolist(), p[rows].tolist(), 0.0, "y", "start" if at_start else "end")
         return float(x)
 
-    excursions = []
-    end_of_previous: Optional[float] = None
-    for rows in runs:
-        if not np.any(p[rows] > 0):
-            continue
-        x_s, x_e = zero_point(rows, True), zero_point(rows, False)
-        # 始点の荷重 0 の点を、前の区間の終点（最初の区間は 0）に重ねる。
-        # x_s が None になるのはデータの先頭で荷重 0 に届いていない最初の区間だけで、その場合はずらさない
-        offset = 0.0 if x_s is None else (0.0 if end_of_previous is None else end_of_previous) - x_s
-        end_of_previous = None if x_e is None else x_e + offset
-        excursions.append((np.asarray(rows, dtype=np.int64), x_s, x_e, offset))
-    return excursions
+    return [(np.asarray(rows, dtype=np.int64), zero_point(rows, True), zero_point(rows, False))
+            for rows in runs if np.any(p[rows] > 0)]
+
+
+def chain_offsets(firsts: List[float], lasts: List[float]) -> List[float]:
+    """区間をつなぐずらし量（最初の区間は始点を 0 に、2つ目以降は始点を前の区間の終点に重ねる）
+
+    firsts / lasts は各区間の始点・終点の値です。`OpsList.chain` と累積曲線が使います。
+
+    Examples:
+        >>> from tascpy.numeric.hysteresis import chain_offsets
+        >>> chain_offsets([0.0, 0.25], [1.0, 2.5])
+        [0.0, 0.75]
+    """
+    offsets: List[float] = []
+    end_of_previous = 0.0
+    for first, last in zip(firsts, lasts):
+        offset = end_of_previous - first
+        offsets.append(offset)
+        end_of_previous = last + offset
+    return offsets
 
 
 def _positive_cumulative_curve(displacement: np.ndarray, load: np.ndarray,
                                markers: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
-    d_cum: List[float] = []
-    p_cum: List[float] = []
-    rows_out: List[int] = []
-    for rows, x_s, x_e, offset in _positive_excursions(d, p, markers):
-        if x_s is not None and p[rows[0]] != 0:
-            d_cum.append(x_s + offset); p_cum.append(0.0); rows_out.append(-1)
-        d_cum.extend((d[rows] + offset).tolist()); p_cum.extend(p[rows].tolist()); rows_out.extend(rows.tolist())
-        if x_e is not None and p[rows[-1]] != 0:
-            d_cum.append(x_e + offset); p_cum.append(0.0); rows_out.append(-1)
+    pieces = []
+    for rows, x_s, x_e in _positive_excursions(d, p, markers):
+        seg_d = ([] if x_s is None else [x_s]) + d[rows].tolist() + ([] if x_e is None else [x_e])
+        seg_p = ([] if x_s is None else [0.0]) + p[rows].tolist() + ([] if x_e is None else [0.0])
+        seg_rows = ([] if x_s is None else [-1]) + rows.tolist() + ([] if x_e is None else [-1])
+        pieces.append((seg_d, seg_p, seg_rows))
+    offsets = chain_offsets([seg_d[0] for seg_d, _, _ in pieces], [seg_d[-1] for seg_d, _, _ in pieces])
+    d_cum = [x + offset for (seg_d, _, _), offset in zip(pieces, offsets) for x in seg_d]
+    p_cum = [y for _, seg_p, _ in pieces for y in seg_p]
+    rows_out = [r for _, _, seg_rows in pieces for r in seg_rows]
     return np.asarray(d_cum, dtype=float), np.asarray(p_cum, dtype=float), np.asarray(rows_out, dtype=np.int64)
