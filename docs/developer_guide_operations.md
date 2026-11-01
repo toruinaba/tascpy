@@ -64,7 +64,7 @@ col.ops.end_as(as_strain, rosettes={...})              # -> StrainCollection
 ld.ops.as_core()                               # ドメインの設定を外す -> CoreOps
 ```
 
-`split_by_integers` / `split_at_indices` / `split_by_cycles` は `OpsList` を返します。
+`split_by_integers` / `split_at_indices` / `split_by_cycles` / `split_by_reversals` は `OpsList` を返します。
 
 ```python
 parts = ld.ops.split_by_cycles()

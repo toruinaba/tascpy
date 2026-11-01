@@ -34,6 +34,8 @@ def _names(setup: str, expr: str) -> set:
     ("ld = tp.as_load_displacement(col, load_column='P', displacement_column='d')\n"
      "cols = ld.ops.split_by_cycles().end()", "cols[0].ops.", "mark_cycles"),
     ("cols = col.ops.split_by_integers([1, 2]).end()", "cols[0].ops.", "abs"),
+    ("ld = tp.as_load_displacement(col, load_column='P', displacement_column='d')\n"
+     "parts = ld.ops.split_by_reversals()", "parts[0].shift_origin().", "yield_point"),
 ])
 def test_static_completion(setup: str, expr: str, expected: str) -> None:
     assert expected in _names(setup, expr)

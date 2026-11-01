@@ -171,6 +171,34 @@ array([ 80., 106., 114.,  90.])
 
 ```
 
+### 反転点ごとに分けて再降伏点を見る
+
+`split_by_cycles` は荷重が 0 をまたぐ位置で切るため、ピークからの除荷と逆方向の再降伏が別のサイクルに分かれます。除荷からの再降伏点（バウシンガー効果による降伏点の推移）を見るときは、`split_by_reversals` で正側・負側のピーク（反転点）から次のピークまでの半サイクルに分けます。反転は、直前の反転点からの片振幅に対して `ratio`（既定 5%）以上戻った時点で確定します。隣り合う区間は境界のピークを共有します。
+
+```pycon
+>>> halves = ld.ops.split_by_reversals()
+>>> halves.keys, [c["変位"].values[[0, -1]].tolist() for c in halves.end()]
+([1, 2, 3, 4, 5, 6, 7], [[0.1, 2.0], [2.0, -2.0], [-2.0, 4.0], [4.0, -4.0], [-4.0, 6.0], [6.0, -6.0], [-6.0, 0.0]])
+
+```
+
+各区間を `shift_origin` で始点（ピーク）が原点になるよう平行移動すると、`yield_point` と `stiffness` がそのまま使え、剛性も区間ごとの除荷剛性から求まります。移動量は metadata の `origin_load` / `origin_displacement` に記録されるので、足し戻すと元の座標の降伏荷重になります。
+
+```pycon
+>>> shifted = halves.map(lambda o: o.shift_origin())
+>>> points = shifted.collect(lambda o: o.yield_point(offset_value=0.5, range_start=0.1, range_end=0.5,
+...                                                  fail_silently=True))
+>>> origin = shifted.collect(lambda o: o.end().metadata["origin_load"])
+>>> reyield = points.to_table(name="yield").join(origin.to_table(name="origin_load")).end()
+>>> reyield["yield_y"].values.round(1)
+array([   nan,    nan,  182.2, -202.2,  202.2, -202.2,  202.2])
+>>> (reyield["yield_y"].values + reyield["origin_load"].values).round(1)
+array([   nan,    nan,  102.2,  -96.2,   96.2,  -88.2,   88.2])
+
+```
+
+±2 mm の区間は弾性範囲で折り返すので降伏点は求まりません（欠損）。移動硬化のばねなので、反転後の降伏荷重は経験した最大荷重が大きいほど低くなります。
+
 ## 7. 描画する
 
 `plot` のメソッドは matplotlib の Axes を返します（表示は呼び出し側で行います。Jupyter では自動で表示されます）。元データとスケルトン曲線は、同じ Axes にそれぞれのコレクションから描画して重ねます。降伏点は `yield_point` の結果を渡して描画します。
