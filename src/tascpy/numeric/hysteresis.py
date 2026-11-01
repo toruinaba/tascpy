@@ -38,6 +38,71 @@ def compute_cycle_markers(values: np.ndarray, step: float = 0.5) -> np.ndarray:
     return np.floor(1 + step * np.cumsum(flips)).astype(int)
 
 
+def compute_reversal_indices(values: np.ndarray, ratio: float = 0.05, min_amplitude: float = 0.0) -> np.ndarray:
+    """値の向きが反転する点（正側・負側の極値）の位置を求めます。
+
+    直前の反転点（最初は先頭の点）からの片振幅を amplitude としたとき、それまでの極値から
+    amplitude × ratio 以上戻った時点で反転を確定し、その極値の位置を反転点とします。
+    戻り量を振幅に対する比率で見るため、振幅が漸増する載荷でも小振幅の反転を拾えます。
+
+    片振幅が min_amplitude に届かない間は反転とみなしません（載荷の立ち上がりのノイズ除け）。
+    その間に反対向きへ進んだ場合は、反転点を作らずに向きだけを切り替えます。
+    欠損（NaN）は飛ばします。先頭と末尾の点は反転点に含みません。
+
+    Args:
+        values: 反転を見る配列（通常は変位。欠損は NaN または None）
+        ratio: 反転を確定する戻り量の、片振幅に対する比率（0 以上）
+        min_amplitude: 反転とみなす最小の片振幅（values の単位。0 以上）
+
+    Returns:
+        np.ndarray: 反転点の位置（昇順の整数配列）
+
+    Raises:
+        ValueError: ratio または min_amplitude が負の場合
+
+    Examples:
+        >>> from tascpy.numeric.hysteresis import compute_reversal_indices
+        >>> import numpy as np
+        >>> compute_reversal_indices(np.array([0, 1, 2, 1, 0, -1, -2, -1, 0, 2, 4]))
+        array([2, 6])
+
+        小さな戻り（2 → 1.95）は振幅 2 の 5% 未満なので反転とみなしません。
+
+        >>> compute_reversal_indices(np.array([0, 1, 2, 1.95, 2.5, 0, -2]), ratio=0.05)
+        array([4])
+    """
+    if ratio < 0:
+        raise ValueError(f"ratio は 0 以上にしてください: {ratio}")
+    if min_amplitude < 0:
+        raise ValueError(f"min_amplitude は 0 以上にしてください: {min_amplitude}")
+    v = np.asarray(values, dtype=float)
+    valid = np.flatnonzero(~np.isnan(v))
+    reversals: List[int] = []
+    if len(valid) == 0:
+        return np.array(reversals, dtype=int)
+
+    anchor = v[valid[0]]
+    extreme, extreme_index, direction = anchor, int(valid[0]), 0.0
+    for i in valid[1:]:
+        value = v[i]
+        if direction == 0:
+            if value != anchor:
+                direction, extreme, extreme_index = np.sign(value - anchor), value, int(i)
+            continue
+        if (value - extreme) * direction > 0:
+            extreme, extreme_index = value, int(i)
+            continue
+        amplitude = abs(extreme - anchor)
+        retreat = abs(extreme - value)
+        if amplitude >= min_amplitude and retreat > 0 and retreat >= ratio * amplitude:
+            reversals.append(extreme_index)
+            anchor, direction = extreme, -direction
+            extreme, extreme_index = value, int(i)
+        elif amplitude < min_amplitude and (value - anchor) * direction < 0:
+            direction, extreme, extreme_index = -direction, value, int(i)
+    return np.array(reversals, dtype=int)
+
+
 def _valid_pairs(displacement: np.ndarray, load: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)

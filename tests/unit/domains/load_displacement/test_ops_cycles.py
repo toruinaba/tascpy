@@ -187,3 +187,53 @@ def test_hysteresis_table_matches_split_by_cycles_to_table():
     manual = ld.split_by_cycles().collect(lambda o: o.end()["P"].max()).to_table(name="max_load").end()
     assert table.step.tolist() == manual.step.tolist()
     np.testing.assert_allclose(table["max_load"].values, manual["max_load"].values)
+
+
+class TestReversals:
+    def setup_method(self):
+        d = [0.0, 1.0, 2.0, 1.0, 0.0, -1.0, -2.0, -1.0, 0.0, 2.0, 4.0]
+        p = [0.0, 10.0, 20.0, 10.0, 0.0, -10.0, -20.0, -10.0, 0.0, 20.0, 30.0]
+        self.ld = ColumnCollection({"P": p, "d": d, "extra": list(range(11))}, step=list(range(1, 12)),
+                                   units={"P": "kN", "d": "mm"}).ops.end_as(
+            as_load_displacement, load_column="P", displacement_column="d")
+
+    def test_split_by_reversals_shares_boundary_points(self):
+        parts = self.ld.ops.split_by_reversals()
+        assert parts.keys == [1, 2, 3]
+        assert [c.step.tolist() for c in parts.end()] == [[1, 2, 3], [3, 4, 5, 6, 7], [7, 8, 9, 10, 11]]
+        assert all(isinstance(c, LoadDisplacementCollection) for c in parts.end())
+
+    def test_split_by_reversals_with_column(self):
+        # 荷重列で判定しても同じ反転点になる
+        by_load = self.ld.ops.split_by_reversals(column="P").end()
+        assert [c.step.tolist() for c in by_load] == [c.step.tolist() for c in self.ld.ops.split_by_reversals().end()]
+
+    def test_split_by_reversals_without_reversal(self):
+        mono = ColumnCollection({"P": [0.0, 1.0, 2.0], "d": [0.0, 1.0, 2.0]}).ops.end_as(
+            as_load_displacement, load_column="P", displacement_column="d")
+        parts = mono.ops.split_by_reversals()
+        assert parts.keys == [1] and len(parts.end()[0]) == 3
+
+    def test_shift_origin(self):
+        part = self.ld.ops.split_by_reversals()[1].shift_origin().end()
+        np.testing.assert_array_equal(part["d"].values, [0.0, -1.0, -2.0, -3.0, -4.0])
+        np.testing.assert_array_equal(part["P"].values, [0.0, -10.0, -20.0, -30.0, -40.0])
+        np.testing.assert_array_equal(part["extra"].values, [2, 3, 4, 5, 6])
+        assert part.metadata["origin_displacement"] == 2.0 and part.metadata["origin_load"] == 20.0
+        assert part["P"].unit == "kN" and part["d"].unit == "mm"
+        assert isinstance(part, LoadDisplacementCollection)
+
+    def test_shift_origin_skips_missing_and_accumulates(self):
+        ld = ColumnCollection({"P": [None, 5.0, 7.0], "d": [1.0, 2.0, 3.0]}).ops.end_as(
+            as_load_displacement, load_column="P", displacement_column="d")
+        once = ld.ops.shift_origin().end()
+        np.testing.assert_array_equal(once["d"].values, [-1.0, 0.0, 1.0])
+        assert once.metadata["origin_displacement"] == 2.0 and once.metadata["origin_load"] == 5.0
+        twice = once.ops.pipe(lambda c: c.tail(1)).shift_origin().end()
+        assert twice.metadata["origin_displacement"] == 3.0 and twice.metadata["origin_load"] == 7.0
+
+    def test_shift_origin_without_valid_point_raises(self):
+        ld = ColumnCollection({"P": [None, None], "d": [1.0, None]}).ops.end_as(
+            as_load_displacement, load_column="P", displacement_column="d")
+        with pytest.raises(ValueError):
+            ld.ops.shift_origin()
