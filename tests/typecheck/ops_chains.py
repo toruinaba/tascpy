@@ -1,6 +1,6 @@
 """pyright で検査する型付けの回帰テスト（実行はしない）"""
 
-from typing import Dict, assert_type
+from typing import Dict, List, assert_type
 
 from tascpy.domains import CoordinateOps, LoadDisplacementOps, StrainOps
 from tascpy.core import CoreOps, OpsList
@@ -76,3 +76,9 @@ def collect_to_table(ld: LoadDisplacementCollection) -> None:
     assert_type(parts.collect(lambda o: o.nearest_row("P", 1.0)).to_table(), LoadDisplacementOps)
     assert_type(parts.collect(lambda o: o.yield_point()).to_table(name="yp"), CoreOps[ColumnCollection])
     assert_type(ld.ops.nearest_row("P", 1.0), Row)
+
+
+def ops_list_end_keeps_collection_type(col: ColumnCollection, ld: LoadDisplacementCollection) -> None:
+    assert_type(col.ops.split_by_integers([1, 2]).end(), List[ColumnCollection])
+    assert_type(ld.ops.split_by_cycles().end()[0], LoadDisplacementCollection)
+    assert_type(ld.ops.split_by_cycles().end()[0].ops, LoadDisplacementOps)

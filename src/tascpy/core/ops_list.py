@@ -13,9 +13,11 @@ from .ops import CoreOps
 from .result import PointResult, ScalarResult
 from .row import Row
 
-O = TypeVar("O", bound=CoreOps[Any])
+O = TypeVar("O", bound=CoreOps[Any], covariant=True)
 O2 = TypeVar("O2", bound=CoreOps[Any])
 T = TypeVar("T")
+# end() の要素の型（List[Any] だと jedi / pyright がコレクションの型を追えない）
+C = TypeVar("C", bound=ColumnCollection)
 
 
 def _cells(name: str, value: Any) -> List[Tuple[str, Any, Optional[str]]]:
@@ -181,7 +183,7 @@ class OpsList(Generic[O]):
         kept = [(item, key) for item, key in zip(self._items, self._keys) if predicate(item.end())]
         return OpsList([item for item, _ in kept], [key for _, key in kept])
 
-    def end(self) -> List[Any]:
+    def end(self: OpsList[CoreOps[C]]) -> List[C]:
         """コレクションのリストを返します"""
         return [item.end() for item in self._items]
 
