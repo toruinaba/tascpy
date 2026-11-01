@@ -14,6 +14,7 @@ from tascpy.numeric.curve import compute_peaks_and_valleys, compute_stiffness, c
 from tascpy.numeric.hysteresis import (
     Side,
     compute_cumulative_curve,
+    compute_cumulative_positions,
     compute_cycle_markers,
     compute_hysteresis_energy,
     compute_secant_stiffness,
@@ -120,6 +121,32 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         markers = compute_cycle_markers(to_float_array(self._column_values(source)), step=step)
         return self._with_column(result_column, markers.tolist(), unit, ch, default_unit="")
 
+    def mark_cumulative(self, *, side: Side = "positive", cycle_column: Optional[str] = None, result_column: str,
+                        unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
+        """各行の、累積曲線（`to_cumulative_curve`）上での変位の位置を列として追加します（荷重 0 基準）
+
+        区間（荷重 0 の点から荷重 0 の点まで）の始点の値は、それまでのその側の区間の残留変形の合計です。
+        その側の区間に入らない行は欠損です。単位は省略時に変位列の単位です。
+        計算の詳細は `tascpy.numeric.hysteresis.compute_cumulative_positions` を参照してください。
+
+        Args:
+            side: "positive"（正側）または "negative"（負側。位置は負の向きに数える）
+            cycle_column: サイクル番号の列（省略時は荷重の符号反転から数える）
+
+        Examples:
+            `cyclic` の +4 mm までの正側の区間は、変位 1.35 mm で荷重 0 に戻ります（残留変形 1.35 mm）。
+            次の負側の区間は、その荷重 0 の点を 0 として負の向きに数えます。
+
+            >>> marked = cyclic.ops.mark_cumulative(result_column="累積+").mark_cumulative(
+            ...     side="negative", result_column="累積-").end()
+            >>> marked["累積+"].values[[24, 29]], marked["累積+"].unit
+            (array([4. , 1.5]), 'mm')
+            >>> marked["累積-"].values[[30, 32]].round(2)
+            array([-0.35, -1.35])
+        """
+        values = compute_cumulative_positions(*self._all_cycle_arrays(cycle_column), side=side)
+        return self._with_column(result_column, values, unit, ch, default_unit=self._c.displacement.unit)
+
     def split_by_cycles(self: LS, *, cycle_column: Optional[str] = None) -> OpsList[LS]:
         """サイクル番号ごとに分割します（cycle_column の省略時は荷重の符号反転から数える）"""
         return self.split_by_integers(self._cycle_markers(cycle_column))
@@ -187,7 +214,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def to_cumulative_curve(self, *, cycle_column: Optional[str] = None, side: Side = "positive") -> Self:
         """累積塑性変形-荷重曲線を、`to_skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
 
-        荷重 0 まで延長した点は元データの行がないため、"source_step" は欠損になります。
+        荷重 0 の点を補間で追加した点は元データの行がないため、"source_step" は欠損になります。
+        元データの行の変位は `mark_cumulative` の値と同じです。
         side="negative" なら負側の部分を負の向きにつないだ曲線を返します。
         """
         return self._curve(*compute_cumulative_curve(*self._all_cycle_arrays(cycle_column), side=side,

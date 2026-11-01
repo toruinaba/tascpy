@@ -4,6 +4,7 @@ import pytest
 from tascpy.numeric.hysteresis import (
     _extend_edge,
     compute_cumulative_curve,
+    compute_cumulative_positions,
     compute_cycle_markers,
     compute_hysteresis_energy,
     compute_secant_stiffness,
@@ -321,3 +322,55 @@ class TestCurveSide:
     def test_unknown_side_raises(self, func):
         with pytest.raises(ValueError, match="side"):
             func(self.disp, self.load, side="both")
+
+
+class TestCumulativePositions:
+    def test_zero_crossing_is_interpolated_between_rows(self):
+        # 正側の区間の終点は (1.5, 10) と (0.5, -10) の間、次の区間の始点は (0.0, -5) と (1.0, 15) の間
+        disp = np.array([0.0, 1.0, 2.0, 1.5, 0.5, 0.0, 1.0, 2.5])
+        load = np.array([0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0])
+        d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
+        np.testing.assert_allclose(d, [0.0, 1.0, 2.0, 1.5, 1.0, 1.0, 1.75, 3.25])
+        np.testing.assert_array_equal(rows, [0, 1, 2, 3, -1, -1, 6, 7])
+        np.testing.assert_allclose(compute_cumulative_positions(disp, load),
+                                   [0.0, 1.0, 2.0, 1.5, np.nan, np.nan, 1.75, 3.25])
+
+    def test_curve_rows_match_positions(self):
+        for side in ("positive", "negative"):
+            d, _, rows = compute_cumulative_curve(CYCLIC_DISPS, CYCLIC_LOADS, side=side, return_index=True)
+            positions = compute_cumulative_positions(CYCLIC_DISPS, CYCLIC_LOADS, side=side)
+            np.testing.assert_allclose(d[rows >= 0], positions[rows[rows >= 0]])
+            on_side = np.flatnonzero(~np.isnan(positions))
+            np.testing.assert_array_equal(np.unique(rows[rows >= 0]), on_side)
+
+    def test_start_of_each_excursion_is_sum_of_previous_residuals(self):
+        # 残留変形 1.0（0 → 1.0）と 1.0（2.0 → 3.0）の正側の区間が続く
+        disp = np.array([0.0, 2.0, 1.0, 0.5, 2.0, 4.0, 3.0, 2.5, 3.0])
+        load = np.array([0.0, 20.0, 0.0, -5.0, 0.0, 20.0, 0.0, -5.0, 0.0])
+        positions = compute_cumulative_positions(disp, load)
+        np.testing.assert_allclose(positions[[0, 2, 4, 6]], [0.0, 1.0, 1.0, 2.0])
+        assert np.isnan(positions[8])  # 荷重 0 の行だけの範囲は区間にしない
+
+    def test_no_zero_point_at_data_boundaries(self):
+        # 先頭は荷重 0 から始まらず、末尾は載荷途中で終わる
+        disp = np.array([0.1, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0])
+        load = np.array([4.0, 40.0, 80.0, 40.0, -10.0, 30.0, 60.0])
+        d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
+        assert rows[0] == 0 and rows[-1] == 6  # 端に荷重 0 の点を追加しない
+        np.testing.assert_allclose(d[0], 0.1)  # 先頭の区間は元の変位のまま
+
+    def test_exact_zero_rows_are_not_duplicated(self):
+        disp = np.array([0.0, 1.0, 0.5, -0.5, -1.0, 0.0, 1.5])
+        load = np.array([0.0, 10.0, 0.0, -10.0, -20.0, 0.0, 15.0])
+        d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
+        assert -1 not in rows[:-1].tolist()
+        np.testing.assert_allclose(d[:4], [0.0, 1.0, 0.5, 0.5])  # 2つ目の区間は荷重 0 の行 (0.0) を 0.5 に重ねる
+
+    def test_missing_rows_are_nan(self):
+        disp = np.array([0.0, 1.0, np.nan, 0.0])
+        load = np.array([0.0, 10.0, 5.0, 0.0])
+        assert np.isnan(compute_cumulative_positions(disp, load)[2])
+
+    def test_unknown_side_raises(self):
+        with pytest.raises(ValueError, match="side"):
+            compute_cumulative_positions(CYCLIC_DISPS, CYCLIC_LOADS, side="both")
