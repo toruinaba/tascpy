@@ -235,7 +235,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         計算の詳細は `tascpy.numeric.hysteresis.compute_plastic_deformation` を参照してください。
 
         Args:
-            range_start, range_end: 剛性を求める範囲（ΔP の最大値に対する割合）
+            range_start: 剛性を求める範囲の開始（ΔP の最大値に対する割合）
+            range_end: 剛性を求める範囲の終了（ΔP の最大値に対する割合）
             direction: "both"、または "positive" / "negative"（載荷の向きが異なる区間は 0）
 
         Examples:
