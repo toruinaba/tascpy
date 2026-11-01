@@ -237,3 +237,57 @@ class TestReversals:
             as_load_displacement, load_column="P", displacement_column="d")
         with pytest.raises(ValueError):
             ld.ops.shift_origin()
+
+
+class TestMarkPlastic:
+    def setup_method(self):
+        d = [0.0, 0.5, 1.0, 2.0, 1.5, 0.0, -1.0, -2.0, -1.0, 1.0, 3.0]
+        p = [0.0, 5.0, 10.0, 10.0, 5.0, -10.0, -10.0, -10.0, 0.0, 10.0, 10.0]
+        self.ld = ColumnCollection({"P": p, "d": d}, units={"P": "kN", "d": "mm"}).ops.end_as(
+            as_load_displacement, load_column="P", displacement_column="d")
+        self.kw = {"range_start": 0.0, "range_end": 0.6}
+
+    def test_cumulative_over_reversals(self):
+        halves = self.ld.ops.split_by_reversals().map(lambda o: o.mark_plastic(result_column="cp", **self.kw))
+        assert [float(c["cp"].values[-1]) for c in halves.end()] == pytest.approx([1.0, 2.0, 3.0])
+        cum = halves.chain("cp").end()
+        assert [float(c["cp"].values[0]) for c in cum] == pytest.approx([0.0, 1.0, 3.0])
+        assert cum[-1]["cp"].values[-1] == pytest.approx(6.0) and cum[0]["cp"].unit == "mm"
+
+    def test_direction(self):
+        halves = self.ld.ops.split_by_reversals().map(
+            lambda o: o.mark_plastic(direction="negative", result_column="cp", **self.kw)).chain("cp")
+        assert halves.end()[-1]["cp"].values[-1] == pytest.approx(2.0)
+
+    def test_stiffness_failure_warns_and_gives_zero(self):
+        first = self.ld.ops.split_by_reversals()[0]
+        with pytest.warns(UserWarning, match="塑性変形を 0"):
+            marked = first.mark_plastic(range_start=0.0, range_end=0.4, result_column="cp").end()
+        np.testing.assert_array_equal(marked["cp"].values, 0.0)
+
+    def test_unknown_direction_raises(self):
+        with pytest.raises(ValueError, match="direction"):
+            self.ld.ops.mark_plastic(direction="up", result_column="cp")
+
+
+class TestUntilPeak:
+    def _ld(self, d, p):
+        return ColumnCollection({"P": p, "d": d}).ops.end_as(
+            as_load_displacement, load_column="P", displacement_column="d")
+
+    def test_keeps_rows_to_farthest_point(self):
+        ld = self._ld([1.0, 2.0, 3.0, 2.5, 1.0], [0.0, 10.0, 20.0, 10.0, 0.0])
+        assert ld.ops.until_peak().end()["d"].values.tolist() == [1.0, 2.0, 3.0]
+
+    def test_negative_direction_and_first_of_ties(self):
+        ld = self._ld([0.0, -1.0, -2.0, -2.0, -1.0], [0.0, -10.0, -20.0, -20.0, -10.0])
+        assert len(ld.ops.until_peak().end()) == 3
+
+    def test_column_and_missing(self):
+        ld = self._ld([np.nan, 0.0, 1.0, 2.0, 1.5], [0.0, 5.0, 30.0, 20.0, 0.0])
+        assert len(ld.ops.until_peak(column="P").end()) == 3
+        assert len(ld.ops.until_peak().end()) == 4
+
+    def test_no_valid_value_raises(self):
+        with pytest.raises(ValueError):
+            self._ld([np.nan, np.nan], [0.0, 1.0]).ops.until_peak()

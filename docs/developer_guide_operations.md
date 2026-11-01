@@ -64,7 +64,7 @@ col.ops.end_as(as_strain, rosettes={...})              # -> StrainCollection
 ld.ops.as_core()                               # ドメインの設定を外す -> CoreOps
 ```
 
-`split_by_integers` / `split_at_indices` / `split_by_cycles` / `split_by_reversals` は `OpsList` を返します。
+`split_by_integers` / `split_at_indices` / `split_by_cycles` / `split_by_reversals` / `split_by_excursions` は `OpsList` を返します。
 
 ```python
 parts = ld.ops.split_by_cycles()
@@ -76,6 +76,7 @@ parts.collect(lambda o: o.nearest_row("荷重", 100.0)).to_table()   # 行の表
 table_a.join(table_b)                            # ステップが同じ表を横に並べる
 parts.keys                                       # 分割のキー（サイクル番号など）
 parts.filter(lambda c: len(c) > 10)              # コレクションで絞り込み
+parts.chain("変位")                               # 列を前の要素の終わりから続くようにずらす（区間をまたぐ累積）-> OpsList
 parts.concat()                                   # 連結 -> 操作オブジェクト
 parts.end()                                      # コレクションのリスト
 ```

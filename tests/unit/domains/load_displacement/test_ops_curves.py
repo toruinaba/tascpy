@@ -99,12 +99,25 @@ def test_curve_side_negative_matches_numeric(cyclic, method):
 
 
 @pytest.mark.parametrize("side", ["positive", "negative"])
-def test_mark_cumulative_matches_curve(cyclic, side):
-    marked = cyclic.ops.mark_cumulative(side=side, result_column="cum").end()
-    assert isinstance(marked, LoadDisplacementCollection)
-    assert marked["cum"].unit == "mm"
+def test_excursions_chained_equal_cumulative_curve(cyclic, side):
+    parts = cyclic.ops.split_by_excursions(side=side)
+    assert all(isinstance(c, LoadDisplacementCollection) for c in parts.end())
+    joined = parts.chain("disp").concat().end()
     curve = cyclic.ops.to_cumulative_curve(side=side).end()
-    source = curve["source_step"].values
-    real = ~np.isnan(source)
-    by_step = dict(zip(marked.step.tolist(), marked["cum"].values))
-    np.testing.assert_allclose(curve.displacement_data[real], [by_step[s] for s in source[real]])
+    np.testing.assert_allclose(joined.displacement_data, curve.displacement_data)
+    np.testing.assert_allclose(joined.load_data, curve.load_data)
+    np.testing.assert_array_equal(joined.step.astype(float), curve["source_step"].values)
+
+
+def test_excursion_zero_rows_keep_other_columns_missing():
+    col = ColumnCollection({"load": [0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0],
+                            "disp": [0.0, 1.0, 2.0, 1.5, 0.5, 0.0, 1.0, 2.5], "other": np.arange(8.0)},
+                           step=list(range(1, 9)), units={"load": "kN", "disp": "mm"}, metadata={"specimen": "A"})
+    ld = as_load_displacement(col, "load", "disp")
+    first, second = ld.ops.split_by_excursions().end()
+    np.testing.assert_array_equal(first.step.astype(float), [1, 2, 3, 4, np.nan])  # 終点の荷重 0 の点を補う
+    np.testing.assert_array_equal(second.step.astype(float), [np.nan, 7, 8])       # 始点の荷重 0 の点を補う
+    np.testing.assert_allclose(first.displacement_data[-1], 1.0)
+    np.testing.assert_allclose(second.displacement_data[0], 0.25)
+    assert first.load_data[-1] == 0.0 and np.isnan(first["other"].values[-1])
+    assert first.columns == ld.columns and first["load"].unit == "kN" and first.metadata == ld.metadata
