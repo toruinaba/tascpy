@@ -3,10 +3,12 @@ import pytest
 
 from tascpy.numeric.hysteresis import (
     _extend_edge,
+    chain_offsets,
     compute_cumulative_curve,
-    compute_cumulative_positions,
+    compute_excursions,
     compute_cycle_markers,
     compute_hysteresis_energy,
+    compute_plastic_deformation,
     compute_reversal_indices,
     compute_secant_stiffness,
     compute_skeleton_curve,
@@ -325,40 +327,41 @@ class TestCurveSide:
             func(self.disp, self.load, side="both")
 
 
-class TestCumulativePositions:
+class TestExcursions:
     def test_zero_crossing_is_interpolated_between_rows(self):
         # 正側の区間の終点は (1.5, 10) と (0.5, -10) の間、次の区間の始点は (0.0, -5) と (1.0, 15) の間
         disp = np.array([0.0, 1.0, 2.0, 1.5, 0.5, 0.0, 1.0, 2.5])
         load = np.array([0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0])
+        excursions = compute_excursions(disp, load)
+        assert [e.rows.tolist() for e in excursions] == [[0, 1, 2, 3], [6, 7]]
+        assert [(e.start, e.end) for e in excursions] == [(None, 1.0), (0.25, None)]
         d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
         np.testing.assert_allclose(d, [0.0, 1.0, 2.0, 1.5, 1.0, 1.0, 1.75, 3.25])
         np.testing.assert_array_equal(rows, [0, 1, 2, 3, -1, -1, 6, 7])
-        np.testing.assert_allclose(compute_cumulative_positions(disp, load),
-                                   [0.0, 1.0, 2.0, 1.5, np.nan, np.nan, 1.75, 3.25])
 
-    def test_curve_rows_match_positions(self):
-        for side in ("positive", "negative"):
-            d, _, rows = compute_cumulative_curve(CYCLIC_DISPS, CYCLIC_LOADS, side=side, return_index=True)
-            positions = compute_cumulative_positions(CYCLIC_DISPS, CYCLIC_LOADS, side=side)
-            np.testing.assert_allclose(d[rows >= 0], positions[rows[rows >= 0]])
-            on_side = np.flatnonzero(~np.isnan(positions))
-            np.testing.assert_array_equal(np.unique(rows[rows >= 0]), on_side)
+    def test_negative_side_keeps_original_sign(self):
+        disp = np.array([0.0, 1.0, 2.0, 1.5, 0.5, 0.0, 1.0, 2.5])
+        load = np.array([0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0])
+        (e,) = compute_excursions(disp, load, side="negative")
+        assert e.rows.tolist() == [4, 5] and (e.start, e.end) == (1.0, 0.25)
 
     def test_start_of_each_excursion_is_sum_of_previous_residuals(self):
         # 残留変形 1.0（0 → 1.0）と 1.0（2.0 → 3.0）の正側の区間が続く
         disp = np.array([0.0, 2.0, 1.0, 0.5, 2.0, 4.0, 3.0, 2.5, 3.0])
         load = np.array([0.0, 20.0, 0.0, -5.0, 0.0, 20.0, 0.0, -5.0, 0.0])
-        positions = compute_cumulative_positions(disp, load)
-        np.testing.assert_allclose(positions[[0, 2, 4, 6]], [0.0, 1.0, 1.0, 2.0])
-        assert np.isnan(positions[8])  # 荷重 0 の行だけの範囲は区間にしない
-
-    def test_no_zero_point_at_data_boundaries(self):
-        # 先頭は荷重 0 から始まらず、末尾は載荷途中で終わる
-        disp = np.array([0.1, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0])
-        load = np.array([4.0, 40.0, 80.0, 40.0, -10.0, 30.0, 60.0])
+        assert [e.rows.tolist() for e in compute_excursions(disp, load)] == [[0, 1, 2], [4, 5, 6]]  # 荷重 0 だけの行 8 は区間にしない
         d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
-        assert rows[0] == 0 and rows[-1] == 6  # 端に荷重 0 の点を追加しない
-        np.testing.assert_allclose(d[0], 0.1)  # 先頭の区間は元の変位のまま
+        np.testing.assert_allclose(d[np.isin(rows, [0, 2, 4, 6])], [0.0, 1.0, 1.0, 2.0])
+
+    def test_zero_points_at_data_boundaries(self):
+        # 先頭は荷重 0 から始まらず（最初の2行を延長して補う）、末尾は載荷途中で終わる（補わない）
+        disp = np.array([0.2, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0])
+        load = np.array([8.0, 40.0, 80.0, 40.0, -10.0, 30.0, 60.0])
+        excursions = compute_excursions(disp, load)
+        assert excursions[0].start == pytest.approx(0.0) and excursions[-1].end is None
+        d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
+        assert rows[0] == -1 and rows[-1] == 6
+        np.testing.assert_allclose(d[:2], [0.0, 0.2])  # 延長した荷重 0 の点が 0 で、元の行の変位はずれない
 
     def test_exact_zero_rows_are_not_duplicated(self):
         disp = np.array([0.0, 1.0, 0.5, -0.5, -1.0, 0.0, 1.5])
@@ -367,14 +370,18 @@ class TestCumulativePositions:
         assert -1 not in rows[:-1].tolist()
         np.testing.assert_allclose(d[:4], [0.0, 1.0, 0.5, 0.5])  # 2つ目の区間は荷重 0 の行 (0.0) を 0.5 に重ねる
 
-    def test_missing_rows_are_nan(self):
+    def test_missing_rows_are_skipped(self):
         disp = np.array([0.0, 1.0, np.nan, 0.0])
         load = np.array([0.0, 10.0, 5.0, 0.0])
-        assert np.isnan(compute_cumulative_positions(disp, load)[2])
+        assert compute_excursions(disp, load)[0].rows.tolist() == [0, 1, 3]
+
+    def test_chain_offsets(self):
+        assert chain_offsets([0.5, 0.25, -1.0], [1.0, 2.5, 0.0]) == [-0.5, 0.25, 3.75]
+        assert chain_offsets([], []) == []
 
     def test_unknown_side_raises(self):
         with pytest.raises(ValueError, match="side"):
-            compute_cumulative_positions(CYCLIC_DISPS, CYCLIC_LOADS, side="both")
+            compute_excursions(CYCLIC_DISPS, CYCLIC_LOADS, side="both")
 
 
 class TestComputeReversalIndices:
@@ -413,3 +420,50 @@ class TestComputeReversalIndices:
     def test_negative_parameters_raise(self, kwargs):
         with pytest.raises(ValueError):
             compute_reversal_indices(np.array([0, 1, 0]), **kwargs)
+
+
+class TestPlasticDeformation:
+    # 剛性 10・降伏荷重 10 の完全弾塑性: 荷重 -10 から +3 まで載荷（塑性変形 3）
+    disp = np.array([-2.0, -1.0, 0.0, 1.0, 3.0])
+    load = np.array([-10.0, 0.0, 10.0, 10.0, 10.0])
+    kw = {"range_start": 0.0, "range_end": 0.6}
+
+    def test_values(self):
+        np.testing.assert_allclose(compute_plastic_deformation(self.disp, self.load, **self.kw), [0, 0, 0, 1, 3])
+
+    def test_negative_loading(self):
+        np.testing.assert_allclose(compute_plastic_deformation(-self.disp, -self.load, **self.kw), [0, 0, 0, 1, 3])
+
+    @pytest.mark.parametrize("direction, last", [("positive", 3.0), ("negative", 0.0), ("both", 3.0)])
+    def test_direction(self, direction, last):
+        assert compute_plastic_deformation(self.disp, self.load, direction=direction, **self.kw)[-1] == pytest.approx(last)
+
+    def test_monotonic_and_non_negative_with_noise(self):
+        rng = np.random.default_rng(0)
+        values = compute_plastic_deformation(self.disp, self.load + rng.normal(0, 0.3, 5), **self.kw)
+        assert np.all(np.diff(values) >= 0) and values[0] == 0.0
+
+    def test_elastic_is_zero(self):
+        d = np.linspace(0.0, 2.0, 5)
+        np.testing.assert_allclose(compute_plastic_deformation(d, 10 * d, **self.kw), 0.0, atol=1e-12)
+
+    def test_missing_is_nan(self):
+        d = self.disp.copy()
+        d[3] = np.nan
+        values = compute_plastic_deformation(d, self.load, **self.kw)
+        assert np.isnan(values[3]) and values[-1] == pytest.approx(3.0)
+
+    def test_offset_yield_point_has_offset_value(self):
+        from tascpy.numeric.curve import compute_yield_point
+        d, p = self.disp - self.disp[0], self.load - self.load[0]
+        pt = compute_yield_point(d, p, offset_value=0.5, **self.kw)
+        at = np.interp(pt.info["row_position"], np.arange(5), compute_plastic_deformation(d, p, **self.kw))
+        assert at == pytest.approx(0.5)
+
+    def test_stiffness_failure_raises(self):
+        with pytest.raises(ValueError):
+            compute_plastic_deformation(self.disp, self.load, range_start=0.0, range_end=0.2)
+
+    def test_unknown_direction_raises(self):
+        with pytest.raises(ValueError, match="direction"):
+            compute_plastic_deformation(self.disp, self.load, direction="up")

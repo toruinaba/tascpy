@@ -262,3 +262,31 @@ def test_value_table_requires_consistent_kind_and_unit(collection_list):
         collection_list.collect(lambda o: ScalarResult("k", 1.0, unit="kN" if first(o) else "N")).to_table(name="k")
     with pytest.raises(TypeError, match="種類が要素によって異なります"):
         collection_list.collect(lambda o: PointResult("p", 1.0, 2.0) if first(o) else 1.0).to_table(name="p")
+
+
+class TestChain:
+    def _parts(self):
+        from tascpy.core.collection import ColumnCollection
+        col = ColumnCollection({"x": [0.5, 1.0, 0.25, 2.5, np.nan, np.nan, -1.0, 0.0], "s": list("abcdefgh")},
+                               units={"x": "mm"}, metadata={"specimen": "A"})
+        return col.ops.split_by_integers([1, 1, 2, 2, 3, 3, 4, 4])
+
+    def test_offsets_follow_previous_end(self):
+        chained = self._parts().chain("x").end()
+        np.testing.assert_allclose(chained[0]["x"].values, [0.0, 0.5])
+        np.testing.assert_allclose(chained[1]["x"].values, [0.5, 2.75])
+        assert np.isnan(chained[2]["x"].values).all()  # 値のない要素はずらさない
+        np.testing.assert_allclose(chained[3]["x"].values, [2.75, 3.75])
+        assert [c.metadata["chain_offsets"]["x"] for c in chained] == [-0.5, 0.25, 0.0, 3.75]
+
+    def test_keeps_keys_units_and_metadata(self):
+        chained = self._parts().chain("x")
+        assert chained.keys == [1, 2, 3, 4]
+        c = chained.end()[0]
+        assert c["x"].unit == "mm" and c.metadata["specimen"] == "A"
+
+    def test_errors(self):
+        with pytest.raises(KeyError):
+            self._parts().chain("y")
+        with pytest.raises(TypeError):
+            self._parts().chain("s")
