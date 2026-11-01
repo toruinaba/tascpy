@@ -290,3 +290,20 @@ class TestChain:
             self._parts().chain("y")
         with pytest.raises(TypeError):
             self._parts().chain("s")
+
+
+
+class TestScan:
+    def test_passes_state_in_order(self):
+        from tascpy.core.collection import ColumnCollection
+        parts = ColumnCollection({"x": [3.0, 1.0, 5.0, 2.0, 4.0, 6.0]}).ops.split_by_integers([1, 1, 2, 2, 3, 3])
+        seen = []
+
+        def func(state, o):
+            seen.append(state)
+            return o.add("x", state, result_column="y"), state + o.end()["x"].max()
+
+        scanned = parts.scan(func, 0.0)
+        assert seen == [0.0, 3.0, 8.0]
+        assert scanned.keys == [1, 2, 3]
+        assert [c["y"].values.tolist() for c in scanned.end()] == [[3.0, 1.0], [8.0, 5.0], [12.0, 14.0]]

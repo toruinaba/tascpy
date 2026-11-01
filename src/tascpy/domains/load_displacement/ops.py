@@ -16,10 +16,12 @@ from tascpy.numeric.curve import compute_peaks_and_valleys, compute_stiffness, c
 from tascpy.numeric.hysteresis import (
     Direction,
     Side,
+    compute_bauschinger_curve,
     compute_cumulative_curve,
     compute_cycle_markers,
     compute_excursions,
     compute_hysteresis_energy,
+    compute_load_clip,
     compute_plastic_deformation,
     compute_reversal_indices,
     compute_secant_stiffness,
@@ -210,17 +212,69 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def _with_zero_points(self, rows: np.ndarray, start: Optional[float],
                           end: Optional[float]) -> LoadDisplacementCollection:
         """rows の行に、荷重 0 の点の行（ステップと他の列は欠損）を前後に加えたコレクション"""
+        entries = ([] if start is None else [(-1, start, 0.0)]) + [(int(r), np.nan, np.nan) for r in rows] \
+            + ([] if end is None else [(-1, end, 0.0)])
+        return self._assemble(entries)
+
+    def _assemble(self, entries: list) -> LoadDisplacementCollection:
+        """(行 index, 変位, 荷重) の並びのコレクション。index が -1 の点は、変位・荷重だけを持つ行（他は欠損）にする"""
         c = self._c
-        part = c.take(rows)
-        if start is None and end is None:
-            return part
+        dtype = c.df["step"].dtype
+        frames, pending = [], []
 
-        def zero_row(x: float) -> pl.DataFrame:
-            return pl.DataFrame({"step": pl.Series([None], dtype=part.df["step"].dtype),
-                                 c.load_column: [0.0], c.displacement_column: [float(x)]})
+        def flush() -> None:
+            if pending:
+                frames.append(c.take(list(pending)).df)
+                pending.clear()
 
-        frames = ([] if start is None else [zero_row(start)]) + [part.df] + ([] if end is None else [zero_row(end)])
-        return part._replace(df=pl.concat(frames, how="diagonal_relaxed").select(part.df.columns))
+        for row, x, y in entries:
+            if row >= 0:
+                pending.append(row)
+                continue
+            flush()
+            frames.append(pl.DataFrame({"step": pl.Series([None], dtype=dtype), c.load_column: [float(y)],
+                                        c.displacement_column: [float(x)]}))
+        flush()
+        if not frames:
+            return c.take([])
+        return c._replace(df=pl.concat(frames, how="diagonal_relaxed").select(c.df.columns))
+
+    def clip_load(self, *, lower: Optional[float] = None, upper: Optional[float] = None,
+                  close_gaps: bool = False) -> Self:
+        """荷重が lower 以上・upper 以下の行を残し、範囲の境界をまたぐ位置に境界の点の行を補間で加えます
+
+        加えた行は、荷重が境界の値・変位が補間値で、ステップと他の列は欠損です（`split_by_excursions` の荷重 0 の点と
+        同じ扱い）。荷重・変位が欠損の行は除きます。`scan` と組み合わせると、区間ごとに「それまでの最大荷重を超える部分」
+        （スケルトン部分）や「それ以下の部分」（バウシンガー部分）を取り出せます。
+
+        範囲の外に出て戻る曲線では、既定では範囲内の部分を元の変位のまま並べます（外に出ていた間の変位が残ります）。
+        close_gaps=True なら、戻った部分の変位を、出た点に続くようにずらして詰めます（バウシンガー部分の取り出しなど）。
+
+        Args:
+            lower: 荷重の下限（省略時は下限なし）
+            upper: 荷重の上限（省略時は上限なし）
+            close_gaps: 範囲の外に出ていた間の変位を詰めるか
+
+        Examples:
+            >>> part = ld.ops.clip_load(lower=60.0).end()
+            >>> part["荷重"].values, part["変位"].values
+            (array([ 60.,  80., 100., 110., 115.]), array([1.5, 2. , 3. , 5. , 8. ]))
+            >>> bool(np.isnan(part.step[0]))  # 補った境界の点にはステップがない
+            True
+
+            区間ごとに、それまでの最大荷重以上の部分を取り出してつなぐとスケルトン曲線になります
+            （`to_skeleton_curve` は、これからつなぎ目で重なる点を除いたものです）。耐力を更新しない区間は空になります。
+
+            >>> def above(p_max, o):
+            ...     return o.clip_load(lower=p_max), max(p_max, float(np.nanmax(o.end().load_data)))
+            >>> loading = cyclic.ops.split_by_excursions().map(lambda o: o.until_peak(column="荷重"))
+            >>> curve = loading.scan(above, 0.0).chain("変位").concat().end()
+            >>> curve["変位"].values, curve["荷重"].values
+            (array([0. , 0.5, 1. , 1.5, 2. , 2. , 2.5, 3. , 3.5, 4. ]), array([  0.,  20.,  40.,  60.,  80.,  80., 100., 102., 104., 106.]))
+        """
+        d, p, rows = compute_load_clip(self._c.displacement_data, self._c.load_data, lower=lower, upper=upper,
+                                       close_gaps=close_gaps)
+        return self._next(self._assemble(list(zip(rows.tolist(), d.tolist(), p.tolist()))))
 
     def mark_plastic(self, *, range_start: float = 0.1, range_end: float = 0.3, direction: Direction = "both",
                      result_column: str, unit: Optional[str] = None, ch: Optional[str] = None) -> Self:
@@ -367,9 +421,14 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
                           decrease_type: str = "envelope", side: Side = "positive") -> Self:
         """スケルトン曲線を、荷重・変位の2列と "source_step" 列を持つ新しい荷重-変位コレクションとして返します
 
-        変位列はサイクルごとにずらした値です。"source_step" は各点の元データのステップで、
+        荷重 0 の点から荷重 0 の点までの区間（`split_by_excursions`）ごとに、荷重のピークまでのうちそれまでの最大荷重以上の
+        部分（耐力の更新部分）を取り出し、荷重がそれまでの最大荷重に等しい点で前の部分につなぎます。
+        has_decrease=True なら、最大荷重の区間以降の耐力低下域の点（decrease_type の規則）を続けます。
+        計算の詳細は `tascpy.numeric.hysteresis.compute_skeleton_curve` を参照してください。
+
+        変位列はずらした値です。"source_step" は各点の元データのステップで（補間で補った点は欠損）、
         他の列は `select(steps=...)` で元データから取り出せます。
-        cycle_column の省略時は、荷重の符号反転からサイクルを数えます（`mark_cycles` の既定と同じ）。
+        cycle_column を指定すると、その番号が変わる位置でも区間を区切ります。
         side="negative" なら負側のスケルトン曲線（荷重・変位とも負の値）を返します。
 
         Examples:
@@ -377,15 +436,37 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             >>> skel.columns
             ['荷重', '変位', 'source_step']
             >>> skel["source_step"].values
-            array([ 1.,  2.,  3.,  4., 21., 22., 23., 24.])
+            array([ 0.,  1.,  2.,  3.,  4., 21., 22., 23., 24.])
             >>> len(cyclic.ops.select(steps=skel["source_step"].values.tolist()).end())
-            8
+            9
+            >>> skel["変位"].values, skel["荷重"].values
+            (array([0. , 0.5, 1. , 1.5, 2. , 2.5, 3. , 3.5, 4. ]), array([  0.,  20.,  40.,  60.,  80., 100., 102., 104., 106.]))
             >>> neg = cyclic.ops.to_skeleton_curve(side="negative").end()
             >>> neg["変位"].values, neg["荷重"].values
-            (array([-0.5, -1. , -1.5, -2. ]), array([-20., -40., -60., -80.]))
+            (array([ 0. , -0.5, -1. , -1.5, -2. ]), array([  0., -20., -40., -60., -80.]))
         """
         return self._curve(*compute_skeleton_curve(*self._all_cycle_arrays(cycle_column), has_decrease=has_decrease,
                                                    decrease_type=decrease_type, side=side, return_index=True))
+
+    def to_bauschinger_curve(self, *, cycle_column: Optional[str] = None, side: Side = "positive") -> Self:
+        """バウシンガー部分をつないだ曲線を、`to_skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
+
+        荷重 0 の点から荷重 0 の点までの区間ごとに、変位のピークまでのうちそれまでの最大荷重以下の部分を取り出し、
+        `chain` の規則でつなぎます（秋山の分解。スケルトン曲線が耐力の更新部分をつなぐのに対し、こちらは残りの部分です）。
+        区間の中で最大荷重を超えて戻る場合は、超えていた間の変位を詰めます（スケルトン曲線に入る部分の変位を含まない）。
+        最初の区間は使いません。`split_by_excursions` → `until_peak()` → `scan` で `clip_load(upper=..., close_gaps=True)`
+        → `chain(変位列)` と組み立てたものと同じです。計算の詳細は `tascpy.numeric.hysteresis.compute_bauschinger_curve`
+        を参照してください。
+
+        Examples:
+            `cyclic` の 2 つ目の正側の区間（0 → +4 mm）のうち、1 つ目の区間の最大荷重 80 kN までの部分です。
+
+            >>> b = cyclic.ops.to_bauschinger_curve().end()
+            >>> b["変位"].values, b["荷重"].values
+            (array([0. , 0.5, 1. , 1.5, 2. ]), array([ 0., 20., 40., 60., 80.]))
+        """
+        return self._curve(*compute_bauschinger_curve(*self._all_cycle_arrays(cycle_column), side=side,
+                                                      return_index=True))
 
     def to_cumulative_curve(self, *, cycle_column: Optional[str] = None, side: Side = "positive") -> Self:
         """累積塑性変形-荷重曲線を、`to_skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します

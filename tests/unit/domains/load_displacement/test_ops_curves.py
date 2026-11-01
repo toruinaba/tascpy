@@ -6,7 +6,7 @@ import pytest
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains import as_load_displacement
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.numeric.hysteresis import compute_cumulative_curve, compute_skeleton_curve
+from tascpy.numeric.hysteresis import compute_bauschinger_curve, compute_cumulative_curve, compute_skeleton_curve
 
 LOADS = [0, 10, 20, 10, 0, -10, -20, -10, 0, 15, 30, 15, 0, -15, -30]
 DISPS = [0, 1, 2, 1, 0, -1, -2, -1, 0, 1.5, 3, 1.5, 0, -1.5, -3]
@@ -121,3 +121,69 @@ def test_excursion_zero_rows_keep_other_columns_missing():
     np.testing.assert_allclose(second.displacement_data[0], 0.25)
     assert first.load_data[-1] == 0.0 and np.isnan(first["other"].values[-1])
     assert first.columns == ld.columns and first["load"].unit == "kN" and first.metadata == ld.metadata
+
+
+
+def _peak(o, side):
+    loads = o.end().load_data
+    return float(np.nanmax(loads)) if side == "positive" else float(np.nanmin(loads))
+
+
+def _dedupe(d, p):
+    keep = np.r_[True, (np.diff(d) != 0) | (np.diff(p) != 0)]
+    return d[keep], p[keep]
+
+
+@pytest.mark.parametrize("side", ["positive", "negative"])
+def test_skeleton_equals_scan_composition(cyclic, side):
+    sign = 1.0 if side == "positive" else -1.0
+
+    def above(p_max, o):
+        clipped = o.clip_load(lower=p_max) if side == "positive" else o.clip_load(upper=p_max)
+        return clipped, sign * max(sign * p_max, sign * _peak(o, side))
+
+    loading = cyclic.ops.split_by_excursions(side=side).map(lambda o: o.until_peak(column="load"))
+    joined = loading.scan(above, 0.0).chain("disp").concat().end()
+    curve = cyclic.ops.to_skeleton_curve(side=side).end()
+    d, p = _dedupe(joined.displacement_data, joined.load_data)
+    np.testing.assert_allclose(d, curve.displacement_data)
+    np.testing.assert_allclose(p, curve.load_data)
+
+
+@pytest.mark.parametrize("side", ["positive", "negative"])
+def test_bauschinger_equals_scan_composition(cyclic, side):
+    sign = 1.0 if side == "positive" else -1.0
+
+    def below(p_max, o):
+        if p_max == 0:
+            clipped = o.clip_load(lower=np.inf)  # 最初の区間は使わない
+        else:
+            clipped = (o.clip_load(upper=p_max, close_gaps=True) if side == "positive"
+                       else o.clip_load(lower=p_max, close_gaps=True))
+        return clipped, sign * max(sign * p_max, sign * _peak(o, side))
+
+    loading = cyclic.ops.split_by_excursions(side=side).map(lambda o: o.until_peak())
+    joined = loading.scan(below, 0.0).chain("disp").concat().end()
+    curve = cyclic.ops.to_bauschinger_curve(side=side).end()
+    np.testing.assert_allclose(joined.displacement_data, curve.displacement_data)
+    np.testing.assert_allclose(joined.load_data, curve.load_data)
+    np.testing.assert_array_equal(joined.step.astype(float), curve["source_step"].values)
+
+
+def test_bauschinger_matches_numeric(cyclic):
+    curve = cyclic.ops.to_bauschinger_curve().end()
+    d, p, rows = compute_bauschinger_curve(cyclic.displacement_data, cyclic.load_data, return_index=True)
+    assert isinstance(curve, LoadDisplacementCollection) and curve.columns == ["load", "disp", "source_step"]
+    np.testing.assert_allclose(curve.displacement_data, d)
+
+
+def test_clip_load_inserted_rows():
+    col = ColumnCollection({"load": [0.0, 10.0, 20.0, 30.0], "disp": [0.0, 1.0, 2.0, 3.0], "other": [1.0, 2.0, 3.0, 4.0]},
+                           step=[1, 2, 3, 4], units={"load": "kN", "disp": "mm"}, metadata={"specimen": "A"})
+    clipped = as_load_displacement(col, "load", "disp").ops.clip_load(lower=15.0, upper=25.0).end()
+    np.testing.assert_allclose(clipped.load_data, [15.0, 20.0, 25.0])
+    np.testing.assert_allclose(clipped.displacement_data, [1.5, 2.0, 2.5])
+    np.testing.assert_array_equal(clipped.step.astype(float), [np.nan, 3, np.nan])
+    assert np.isnan(clipped["other"].values[[0, 2]]).all() and clipped["other"].values[1] == 3.0
+    assert clipped["load"].unit == "kN" and clipped.metadata["specimen"] == "A"
+    assert len(as_load_displacement(col, "load", "disp").ops.clip_load(lower=100.0).end()) == 0

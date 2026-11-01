@@ -77,6 +77,7 @@ table_a.join(table_b)                            # ステップが同じ表を�
 parts.keys                                       # 分割のキー（サイクル番号など）
 parts.filter(lambda c: len(c) > 10)              # コレクションで絞り込み
 parts.chain("変位")                               # 列を前の要素の終わりから続くようにずらす（区間をまたぐ累積）-> OpsList
+parts.scan(func, 初期状態)                         # func(状態, 要素) -> (新しい要素, 次の状態) で前から順に変換 -> OpsList
 parts.concat()                                   # 連結 -> 操作オブジェクト
 parts.end()                                      # コレクションのリスト
 ```
