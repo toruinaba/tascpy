@@ -85,6 +85,8 @@ def collect_to_table(ld: LoadDisplacementCollection) -> None:
     assert_type(parts.collect(lambda o: o.nearest_row("P", 1.0)).to_table(), LoadDisplacementOps)
     assert_type(parts.collect(lambda o: o.yield_point()).to_table(name="yp"), CoreOps[ColumnCollection])
     assert_type(ld.ops.nearest_row("P", 1.0), Row)
+    assert_type(ld.ops.row_where("P", 1.0), Row)
+    assert_type(parts.collect(lambda o: o.row_where("P", 1.0)).to_table(), LoadDisplacementOps)
     assert_type(ld.ops.value_at(ld.ops.yield_point(), "P"), ScalarResult)
 
 

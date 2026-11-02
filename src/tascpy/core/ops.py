@@ -20,6 +20,7 @@ from tascpy.core.row import Row
 from tascpy.numeric import combine as f_combine
 from tascpy.numeric import math as f_math
 from tascpy.numeric import stats as f_stats
+from tascpy.numeric.position import find_crossings, interpolate_at
 
 if TYPE_CHECKING:
     from .ops_list import OpsList
@@ -615,6 +616,53 @@ class CoreOps(Generic[C_co]):
             raise ValueError(f"列 '{column}' に比較できる数値がありません")
         return self._c[idx]
 
+    def row_where(self, column: str, value: float, *, occurrence: int = 0, fail_silently: bool = False) -> Row:
+        """指定列の値が value に等しくなる位置の 1 行を、前後の行の直線補間で求めます（`nearest_row` の補間版）
+
+        列の値が value をまたぐ位置（隣り合う有効な値の間。欠損の行は飛ばします）と、値がちょうど value の行が
+        候補で、時系列順の occurrence 番目（0 始まり。-1 なら最後）を選びます。その位置で、数値の列は前後の行の
+        直線補間（前後のどちらかが欠損なら NaN）、数値でない列は None、ステップは前後の行のステップの直線補間
+        （小数）です。`collect` で集めて `to_table()` にすると、元の列名・単位の表になります。
+
+        Args:
+            column: 値を探す数値列
+            value: 探す値
+            occurrence: 候補のうち何番目を選ぶか（0 始まり。負なら後ろから）
+            fail_silently: 候補がない場合に、例外の代わりに数値の列が NaN・他が None の行を返す
+
+        Raises:
+            TypeError: 列が数値でない場合
+            ValueError: 候補がない（occurrence 番目がない）場合（fail_silently=False のとき）
+
+        Examples:
+            >>> row = ld.ops.row_where("荷重", 90.0)
+            >>> row["変位"], row.unit("変位"), row.step
+            (2.5, 'mm', 3.5)
+
+            最後に荷重 0 になる点（除荷し終えた点）の変位は、残留変形です。
+
+            >>> round(cyclic.ops.row_where("荷重", 0.0, occurrence=-1)["変位"], 2)
+            1.35
+        """
+        positions = find_crossings(self._numeric(column), value)
+        if -len(positions) <= occurrence < len(positions):
+            at = float(positions[occurrence])
+        elif fail_silently:
+            at = np.nan
+        else:
+            raise ValueError(f"列 '{column}' の値が {value} になる位置がありません"
+                             f"（{len(positions)} 個の候補の {occurrence} 番目）")
+        return self._row_at(at)
+
+    def _row_at(self, at: float) -> Row:
+        """行の位置 at（小数の index。NaN なら値のない行）で補間した行"""
+        c = self._c
+        values: Dict[str, Any] = {}
+        for name in c.df.columns:
+            series = c.df[name]
+            values[name] = interpolate_at(to_float_array(series.to_numpy()), at) if series.dtype.is_numeric() else None
+        return Row(values, c.meta)
+
     def value_at(self, position: Union[PointResult, float], column: str) -> ScalarResult:
         """行の位置（小数可）での列の値を、前後の行の直線補間で求めます（単位は列の単位）
 
@@ -643,17 +691,8 @@ class CoreOps(Generic[C_co]):
             at = float(position.metadata["row_position"])
         else:
             at = float(position)
-        values = np.asarray(self._numeric(column), dtype=float)
-        unit = self._c[column].unit
-        if math.isnan(at):
-            return ScalarResult(column, np.nan, unit=unit)
-        if not 0 <= at <= len(values) - 1:
-            raise ValueError(f"位置 {at} は行の範囲外です (0-{len(values) - 1})")
-        lower = int(math.floor(at))
-        upper = min(lower + 1, len(values) - 1)
-        t = at - lower
-        value = values[lower] if t == 0 else values[lower] + t * (values[upper] - values[lower])
-        return ScalarResult(column, float(value), unit=unit)
+        value = interpolate_at(np.asarray(self._numeric(column), dtype=float), at)
+        return ScalarResult(column, value, unit=self._c[column].unit)
 
     def filter_by_value(self, column: str, value: Any, tolerance: Optional[float] = None) -> Self:
         """指定列の値が value と一致する（tolerance 指定時は ±tolerance 以内の）行を抽出します
