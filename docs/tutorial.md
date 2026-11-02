@@ -82,12 +82,15 @@
 
 ```
 
-各区間のうち、それまでの最大荷重以下の部分（バウシンガー部分）をつないだ曲線は `to_bauschinger_curve` で求めます（秋山の分解）。スケルトン曲線が耐力の更新部分、こちらが残りの部分です。
+各区間のうち、それまでの最大荷重以下の部分（バウシンガー部分）をつないだ曲線は `to_bauschinger_curve` で求めます（秋山の分解）。スケルトン曲線が耐力の更新部分、こちらが残りの部分です。各部分は区間の途中で終わるので、終点からその区間の除荷剛性（`unloading_stiffness`）で荷重 0 まで戻してから、次の部分につなぎます。
 
 ```pycon
 >>> bauschinger = ld.ops.to_bauschinger_curve().end()
 >>> round(float(bauschinger.displacement_data.max()), 2), float(bauschinger.load_data.max())
-(10.5, 106.0)
+(5.85, 106.0)
+>>> k = ld.ops.split_by_excursions()[1].unloading_stiffness()
+>>> round(k.value, 1), k.unit
+(40.0, 'kN/mm')
 
 ```
 
