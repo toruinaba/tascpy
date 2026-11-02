@@ -28,6 +28,7 @@ from tascpy.numeric.hysteresis import (
     compute_skeleton_curve,
     compute_unloading_stiffness,
 )
+from tascpy.numeric.position import interpolate_positions
 
 from .collection import LoadDisplacementCollection
 
@@ -180,7 +181,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         """荷重の片側の区間（荷重 0 の点から荷重 0 の点まで）ごとに分割します（荷重 0 基準）
 
         各区間は元データの行（全列・元のステップ）に、補間で求めた荷重 0 の点の行を前後に加えたものです。
-        加えた行は、荷重が 0・変位が補間値（データの先頭では最初の2行の延長）で、ステップと他の列は欠損です
+        加えた行は、荷重が 0・変位が補間値（データの先頭では最初の2行の延長）で、ステップは前後の行のステップの
+        直線補間（小数。延長した点は行の間にないので欠損）、他の列は欠損です
         （端の行の荷重がちょうど 0 の場合と、データの末尾で荷重 0 に届いていない端には加えません）。
         区間の取り方は `to_cumulative_curve` と同じです（`tascpy.numeric.hysteresis.compute_excursions`）。
         各要素のキーは区間の番号 1, 2, ... です。
@@ -197,8 +199,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             >>> parts = cyclic.ops.split_by_excursions()
             >>> parts.keys, [c["変位"].values[[0, -1]].round(2).tolist() for c in parts.end()]
             ([1, 2], [[0.0, 0.0], [0.0, 1.35]])
-            >>> bool(np.isnan(parts[1].end().step[-1]))  # 補った荷重 0 の点にはステップがない
-            True
+            >>> float(parts[1].end().step[-1])  # 補った荷重 0 の点のステップは、前後の行の間の小数
+            29.3
 
             区間をつなぐと累積曲線になります。
 
@@ -207,45 +209,67 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             True
         """
         excursions = compute_excursions(*self._all_cycle_arrays(cycle_column), side=side)
-        parts = [self._next(self._with_zero_points(e.rows, e.start, e.end)) for e in excursions]
+        parts = [self._next(self._assemble(
+            ([] if e.start is None else [(-1, e.start, 0.0, e.start_position)])
+            + [(int(r), np.nan, np.nan, float(r)) for r in e.rows]
+            + ([] if e.end is None else [(-1, e.end, 0.0, e.end_position)])
+        )) for e in excursions]
         return OpsList(parts, list(range(1, len(parts) + 1)))
 
-    def _with_zero_points(self, rows: np.ndarray, start: Optional[float],
-                          end: Optional[float]) -> LoadDisplacementCollection:
-        """rows の行に、荷重 0 の点の行（ステップと他の列は欠損）を前後に加えたコレクション"""
-        entries = ([] if start is None else [(-1, start, 0.0)]) + [(int(r), np.nan, np.nan) for r in rows] \
-            + ([] if end is None else [(-1, end, 0.0)])
-        return self._assemble(entries)
-
     def _assemble(self, entries: list) -> LoadDisplacementCollection:
-        """(行 index, 変位, 荷重) の並びのコレクション。index が -1 の点は、変位・荷重だけを持つ行（他は欠損）にする"""
+        """(行 index, 変位, 荷重, 行の位置) の並びのコレクション
+
+        index が -1 の点は、変位・荷重と、行の位置で補間したステップ（小数。位置が NaN なら欠損）だけを持つ行
+        （他の列は欠損）にする。点の行を加えるとステップの列は Float64 になる（ステップが数値でなければ欠損のまま）。
+        """
         c = self._c
-        dtype = c.df["step"].dtype
+        added = [(x, y, pos) for row, x, y, pos in entries if row < 0]
+        if not added:
+            return c.take([row for row, *_ in entries])
+        numeric_step = c.df["step"].dtype.is_numeric()
+        dtype = pl.Float64 if numeric_step else c.df["step"].dtype
+        steps = (interpolate_positions(c.step.astype(float), [pos for _, _, pos in added]) if numeric_step
+                 else [None] * len(added))
         frames, pending = [], []
 
         def flush() -> None:
             if pending:
-                frames.append(c.take(list(pending)).df)
+                frames.append(c.take(list(pending)).df.with_columns(pl.col("step").cast(dtype)))
                 pending.clear()
 
-        for row, x, y in entries:
+        k = 0
+        for row, x, y, _ in entries:
             if row >= 0:
                 pending.append(row)
                 continue
             flush()
-            frames.append(pl.DataFrame({"step": pl.Series([None], dtype=dtype), c.load_column: [float(y)],
-                                        c.displacement_column: [float(x)]}))
+            step = steps[k]
+            k += 1
+            frames.append(pl.DataFrame({
+                "step": pl.Series([None if step is None or np.isnan(step) else float(step)], dtype=dtype),
+                c.load_column: [float(y)], c.displacement_column: [float(x)],
+            }))
         flush()
-        if not frames:
-            return c.take([])
         return c._replace(df=pl.concat(frames, how="diagonal_relaxed").select(c.df.columns))
+
+    def _entries(self, d: np.ndarray, p: np.ndarray, positions: np.ndarray) -> list:
+        """numeric の (変位, 荷重, 行の位置) を `_assemble` の点の並びにする
+
+        整数の位置で荷重・変位が欠損でない行は元の行の点、それ以外（小数・NaN の位置、欠損の行に重なる位置）は補った点。
+        """
+        valid = self._c.valid_data_mask
+        entries = []
+        for x, y, pos in zip(d.tolist(), p.tolist(), positions.tolist()):
+            row = int(pos) if not np.isnan(pos) and pos == int(pos) and valid[int(pos)] else -1
+            entries.append((row, x, y, pos))
+        return entries
 
     def clip_load(self, *, lower: Optional[float] = None, upper: Optional[float] = None,
                   close_gaps: bool = False) -> Self:
         """荷重が lower 以上・upper 以下の行を残し、範囲の境界をまたぐ位置に境界の点の行を補間で加えます
 
-        加えた行は、荷重が境界の値・変位が補間値で、ステップと他の列は欠損です（`split_by_excursions` の荷重 0 の点と
-        同じ扱い）。荷重・変位が欠損の行は除きます。`scan` と組み合わせると、区間ごとに「それまでの最大荷重を超える部分」
+        加えた行は、荷重が境界の値・変位が補間値で、ステップは前後の行のステップの直線補間（小数）、他の列は欠損です
+        （`split_by_excursions` の荷重 0 の点と同じ扱い）。荷重・変位が欠損の行は除きます。`scan` と組み合わせると、区間ごとに「それまでの最大荷重を超える部分」
         （スケルトン部分）や「それ以下の部分」（バウシンガー部分）を取り出せます。
 
         範囲の外に出て戻る曲線では、既定では範囲内の部分を元の変位のまま並べます（外に出ていた間の変位が残ります）。
@@ -260,8 +284,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             >>> part = ld.ops.clip_load(lower=60.0).end()
             >>> part["荷重"].values, part["変位"].values
             (array([ 60.,  80., 100., 110., 115.]), array([1.5, 2. , 3. , 5. , 8. ]))
-            >>> bool(np.isnan(part.step[0]))  # 補った境界の点にはステップがない
-            True
+            >>> float(part.step[0])  # 補った境界の点のステップは、前後の行の間の小数
+            2.5
 
             区間ごとに、それまでの最大荷重以上の部分を取り出してつなぐとスケルトン曲線になります
             （`to_skeleton_curve` は、これからつなぎ目で重なる点を除いたものです）。耐力を更新しない区間は空になります。
@@ -273,9 +297,9 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
             >>> curve["変位"].values, curve["荷重"].values
             (array([0. , 0.5, 1. , 1.5, 2. , 2. , 2.5, 3. , 3.5, 4. ]), array([  0.,  20.,  40.,  60.,  80.,  80., 100., 102., 104., 106.]))
         """
-        d, p, rows = compute_load_clip(self._c.displacement_data, self._c.load_data, lower=lower, upper=upper,
-                                       close_gaps=close_gaps)
-        return self._next(self._assemble(list(zip(rows.tolist(), d.tolist(), p.tolist()))))
+        d, p, positions = compute_load_clip(self._c.displacement_data, self._c.load_data, lower=lower, upper=upper,
+                                            close_gaps=close_gaps)
+        return self._next(self._assemble(self._entries(d, p, positions)))
 
     def unloading_stiffness(self) -> ScalarResult:
         """区間（`split_by_excursions` の要素など）の除荷剛性を求めます（単位は "荷重/変位"）
@@ -295,7 +319,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def append_unloading(self, stiffness: Union[float, ScalarResult]) -> Self:
         """最後の有効な点から、剛性 stiffness で荷重 0 まで戻した点の行を末尾に加えます
 
-        加えた行は、荷重が 0・変位が「最後の点の変位 − 荷重 / 剛性」で、ステップと他の列は欠損です。最後の点の荷重が
+        加えた行は、荷重が 0・変位が「最後の点の変位 − 荷重 / 剛性」で、ステップと他の列は欠損です
+        （データの行の間にある点ではないため）。最後の点の荷重が
         0 の場合と、剛性が NaN・0 の場合は何もしません。区間から一部を切り出した部分（`clip_load` の結果など）を、
         除荷剛性で戻してから `chain` でつなぐときに使います（`to_bauschinger_curve` はこの形です）。
 
@@ -314,7 +339,7 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         if len(valid) == 0 or p[valid[-1]] == 0 or not np.isfinite(value) or value == 0:
             return self
         x, y = float(d[valid[-1]]), float(p[valid[-1]])
-        entries = [(i, np.nan, np.nan) for i in range(len(c))] + [(-1, x - y / value, 0.0)]
+        entries = [(i, np.nan, np.nan, float(i)) for i in range(len(c))] + [(-1, x - y / value, 0.0, np.nan)]
         return self._next(self._assemble(entries))
 
     def mark_plastic(self, *, range_start: float = 0.1, range_end: float = 0.3, direction: Direction = "both",
@@ -467,7 +492,8 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
         has_decrease=True なら、最大荷重の区間以降の耐力低下域の点（decrease_type の規則）を続けます。
         計算の詳細は `tascpy.numeric.hysteresis.compute_skeleton_curve` を参照してください。
 
-        変位列はずらした値です。"source_step" は各点の元データのステップで（補間で補った点は欠損）、
+        変位列はずらした値です。"source_step" は各点の元データのステップで、補間で補った点は前後の行のステップの
+        直線補間（小数）、行の間にない点（データの先頭で延長した点など）は欠損です。元データの行の点の
         他の列は `select(steps=...)` で元データから取り出せます。
         cycle_column を指定すると、その番号が変わる位置でも区間を区切ります。
         side="negative" なら負側のスケルトン曲線（荷重・変位とも負の値）を返します。
@@ -515,20 +541,22 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
     def to_cumulative_curve(self, *, cycle_column: Optional[str] = None, side: Side = "positive") -> Self:
         """累積塑性変形-荷重曲線を、`to_skeleton_curve` と同じ形の新しい荷重-変位コレクションとして返します
 
-        荷重 0 の点を補間で追加した点は元データの行がないため、"source_step" は欠損になります。
+        荷重 0 の点を補間で追加した点の "source_step" は、前後の行のステップの直線補間（小数）です
+        （データの先頭で延長した点は欠損）。
         区間ごとに扱いたいとき（区間ごとに降伏点を求めるなど）は `split_by_excursions(side=...).chain(変位列)` を使います。
         side="negative" なら負側の部分を負の向きにつないだ曲線を返します。
         """
         return self._curve(*compute_cumulative_curve(*self._all_cycle_arrays(cycle_column), side=side,
                                                      return_index=True))
 
-    def _curve(self, displacement: np.ndarray, load: np.ndarray, rows: np.ndarray) -> Self:
+    def _curve(self, displacement: np.ndarray, load: np.ndarray, positions: np.ndarray) -> Self:
         c = self._c
-        steps = c.step
         values = {c.load_column: load, c.displacement_column: displacement}
+        source_step = (interpolate_positions(c.step.astype(float), positions) if c.df["step"].dtype.is_numeric()
+                       else np.full(len(positions), np.nan))
         curve = LoadDisplacementCollection(
             {**{name: values[name] for name in c.columns if name in values},
-             "source_step": [steps[i].item() if i >= 0 else None for i in rows]},
+             "source_step": [None if np.isnan(s) else float(s) for s in source_step]},
             load_column=c.load_column, displacement_column=c.displacement_column,
             meta={name: c[name].meta for name in values}, units={"source_step": ""}, metadata=c.metadata,
         )

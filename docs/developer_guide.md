@@ -23,6 +23,7 @@ src/tascpy/
 │   ├── math.py, stats.py, combine.py  # 汎用
 │   ├── curve.py            # x-y 曲線（傾き・剛性・降伏点・ピーク・面積）
 │   ├── hysteresis.py       # 繰り返し載荷（サイクル・エネルギー・スケルトン曲線・累積曲線）
+│   ├── position.py         # 行の位置（小数の index）での補間・値の横切り
 │   ├── rosette.py          # ロゼット解析
 │   └── spatial.py          # 距離・近傍・クラスタリング・空間補間
 ```

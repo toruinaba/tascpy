@@ -3,7 +3,7 @@
 引数はすべて (displacement, load) の順で、曲線を返す関数は (変位, 荷重) の順の配列を返します。
 """
 
-from typing import List, Literal, NamedTuple, Optional, Tuple, Union, overload
+from typing import Any, List, Literal, NamedTuple, Optional, Tuple, Union, overload
 
 import numpy as np
 
@@ -247,6 +247,7 @@ def _extend_edge(x: List[float], y: List[float], target: float, target_type: str
 
 
 Side = Literal["positive", "negative"]
+_ZeroPoint = Tuple[float, float]  # 区間の端に補う荷重 0 の点の (変位, 行の位置)
 SIDES = ("positive", "negative")
 
 
@@ -312,10 +313,11 @@ def compute_skeleton_curve(
         has_decrease: 最大荷重のサイクル以降の減少部分も含めるか
         decrease_type: 減少部分の取り方 ('envelope', 'continuous_only', 'both')
         side: "positive"（正側）または "negative"（負側）
-        return_index: 各点の元の行 index も返すか（補間で補った点は元の行がないため -1）
+        return_index: 各点の元の行の位置も返すか（小数の index。補間で補った点は前後の行の間の小数の位置で、
+            行の間にない外挿の点は NaN）
 
     Returns:
-        スケルトン曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行 index)
+        スケルトン曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行の位置)
 
     Raises:
         ValueError: decrease_type または side が未知の場合
@@ -331,7 +333,7 @@ def compute_skeleton_curve(
 
         >>> d, p, rows = compute_skeleton_curve(disp, load, return_index=True)
         >>> d.round(3), p, rows
-        (array([0.   , 1.   , 1.667]), array([ 0., 10., 15.]), array([0, 1, 5]))
+        (array([0.   , 1.   , 1.667]), array([ 0., 10., 15.]), array([0., 1., 5.]))
         >>> compute_skeleton_curve(disp, load, side="negative")
         (array([ 0., -1.]), array([  0., -10.]))
     """
@@ -345,7 +347,7 @@ def _positive_skeleton_curve(displacement: np.ndarray, load: np.ndarray, markers
                              has_decrease: bool, decrease_type: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
-    excursions = [_excursion_entries(d, p, rows, x_s, x_e) for rows, x_s, x_e in _positive_excursions(d, p, markers)]
+    excursions = [_excursion_entries(d, p, rows, start, end) for rows, start, end in _positive_excursions(d, p, markers)]
     if not excursions:
         return _entries_to_arrays([])
     peaks = [max(e[2] for e in entries) for entries in excursions]
@@ -361,13 +363,13 @@ def _positive_skeleton_curve(displacement: np.ndarray, load: np.ndarray, markers
     offsets = _chain_entries([part for _, part in parts])
     curve: List[_Entry] = []
     for (_, part), offset in zip(parts, offsets):
-        _append_distinct(curve, [(row, x + offset, y) for row, x, y in part])
+        _append_distinct(curve, _shifted(part, offset))
 
     # 減少部分（最大荷重の区間以降）: 区間ごとに点を選び、最大荷重の区間と同じ量だけずらす
     if has_decrease and parts:
         offset = offsets[-1]
         for entries in excursions[i_max:]:
-            _append_distinct(curve, [(row, x + offset, y) for row, x, y in _decrease_entries(entries, decrease_type)])
+            _append_distinct(curve, _shifted(_decrease_entries(entries, decrease_type), offset))
     return _entries_to_arrays(curve)
 
 
@@ -403,10 +405,11 @@ def compute_cumulative_curve(
         load: 荷重の配列
         markers: サイクル番号の配列（省略時は `compute_cycle_markers(load)`）
         side: "positive"（正側）または "negative"（負側）
-        return_index: 各点の元の行 index も返すか（追加した荷重 0 の点は元の行がないため -1）
+        return_index: 各点の元の行の位置も返すか（小数の index。追加した荷重 0 の点は前後の行の間の小数の位置で、
+            行の間にない外挿の点は NaN）
 
     Returns:
-        累積曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行 index)
+        累積曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行の位置)
 
     Raises:
         ValueError: side が未知の場合
@@ -418,7 +421,7 @@ def compute_cumulative_curve(
         >>> load = np.array([0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0])
         >>> d_cum, p_cum, rows = compute_cumulative_curve(disp, load, return_index=True)
         >>> d_cum, p_cum, rows
-        (array([0.  , 1.  , 2.  , 1.5 , 1.  , 1.  , 1.75, 3.25]), array([ 0., 10., 20., 10.,  0.,  0., 15., 22.]), array([ 0,  1,  2,  3, -1, -1,  6,  7]))
+        (array([0.  , 1.  , 2.  , 1.5 , 1.  , 1.  , 1.75, 3.25]), array([ 0., 10., 20., 10.,  0.,  0., 15., 22.]), array([0.  , 1.  , 2.  , 3.  , 3.5 , 5.25, 6.  , 7.  ]))
     """
     return _on_side(_positive_cumulative_curve, displacement, load, side, return_index, markers=markers)
 
@@ -428,11 +431,15 @@ class Excursion(NamedTuple):
 
     rows は区間に入る元の行の index、start / end は区間の前後に補う荷重 0 の点の変位です
     （補わない端は None。端の行の荷重がちょうど 0 の場合と、データの末尾で荷重 0 に届いていない場合）。
+    start_position / end_position はその点の行の位置（小数の index）で、前後の行の直線補間で求めた点は
+    その2行の間の位置、端の2行を延長して求めた点は NaN です（補わない端は None）。
     """
 
     rows: np.ndarray
     start: Optional[float]
     end: Optional[float]
+    start_position: Optional[float] = None
+    end_position: Optional[float] = None
 
 
 def compute_excursions(
@@ -473,19 +480,22 @@ def compute_excursions(
         >>> load = np.array([0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0])
         >>> [(e.rows.tolist(), e.start, e.end) for e in compute_excursions(disp, load)]
         [([0, 1, 2, 3], None, 1.0), ([6, 7], 0.25, None)]
+        >>> [(e.start_position, e.end_position) for e in compute_excursions(disp, load)]
+        [(None, 3.5), (5.25, None)]
         >>> [(e.rows.tolist(), e.start, e.end) for e in compute_excursions(disp, load, side="negative")]
         [([4, 5], 1.0, 0.25)]
     """
     sign = _side_sign(side)
     d, p = sign * np.asarray(displacement, dtype=float), sign * np.asarray(load, dtype=float)
-    return [Excursion(rows, None if x_s is None else sign * x_s + 0.0, None if x_e is None else sign * x_e + 0.0)
-            for rows, x_s, x_e in _positive_excursions(d, p, markers)]
+    return [Excursion(rows, None if s is None else sign * s[0] + 0.0, None if e is None else sign * e[0] + 0.0,
+                      None if s is None else s[1], None if e is None else e[1])
+            for rows, s, e in _positive_excursions(d, p, markers)]
 
 
 def _positive_excursions(
     displacement: np.ndarray, load: np.ndarray, markers: Optional[np.ndarray],
-) -> List[Tuple[np.ndarray, Optional[float], Optional[float]]]:
-    """正側の区間ごとの (行 index, 前に補う荷重 0 の点の変位, 後ろに補う荷重 0 の点の変位)"""
+) -> List[Tuple[np.ndarray, Optional[_ZeroPoint], Optional[_ZeroPoint]]]:
+    """正側の区間ごとの (行 index, 前に補う荷重 0 の点, 後ろに補う荷重 0 の点)。点は (変位, 行の位置)"""
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
     m = np.asarray(_markers_or_default(p, markers), dtype=float)
@@ -510,8 +520,11 @@ def _positive_excursions(
 
     position = {int(i): k for k, i in enumerate(valid)}
 
-    def zero_point(rows: List[int], at_start: bool) -> Optional[float]:
-        """区間の端に補う荷重 0 の点の変位（端の行の荷重が 0 か、データの末尾で荷重 0 に届いていなければ None）"""
+    def zero_point(rows: List[int], at_start: bool) -> Optional[_ZeroPoint]:
+        """区間の端に補う荷重 0 の点の (変位, 行の位置)（端の行の荷重が 0 か、データの末尾で荷重 0 に届いていなければ None）
+
+        行の位置は、前後の行の直線補間で求めた点はその2行の間の位置、端の2行を延長して求めた点は NaN。
+        """
         edge = rows[0] if at_start else rows[-1]
         if p[edge] == 0:
             return None
@@ -521,13 +534,13 @@ def _positive_excursions(
                 return None
             # データの先頭（載荷の始まり）は弾性とみなし、区間の最初の2行を延長する
             x, _ = _extend_edge(d[rows].tolist(), p[rows].tolist(), 0.0, "y", "start")
-            return float(x)
+            return float(x), np.nan
         other = valid[k]
         if p[other] < 0:
             t = p[edge] / (p[edge] - p[other])
-            return float(d[edge] + t * (d[other] - d[edge]))
+            return float(d[edge] + t * (d[other] - d[edge])), float(edge + t * (other - edge))
         x, _ = _extend_edge(d[rows].tolist(), p[rows].tolist(), 0.0, "y", "start" if at_start else "end")
-        return float(x)
+        return float(x), np.nan
 
     return [(np.asarray(rows, dtype=np.int64), zero_point(rows, True), zero_point(rows, False))
             for rows in runs if np.any(p[rows] > 0)]
@@ -552,16 +565,26 @@ def chain_offsets(firsts: List[float], lasts: List[float]) -> List[float]:
     return offsets
 
 
-_Entry = Tuple[int, float, float]  # (元の行 index。補った点は -1, 変位, 荷重)
+# (元の行 index。補った点は -1, 変位, 荷重, 行の位置。補った点は小数の index で、行の間にない点は NaN)
+_Entry = Tuple[int, float, float, float]
 
 
-def _excursion_entries(d: np.ndarray, p: np.ndarray, rows: np.ndarray, x_s: Optional[float],
-                       x_e: Optional[float]) -> List[_Entry]:
+def _row_entries(d: np.ndarray, p: np.ndarray, rows: Any) -> List[_Entry]:
+    return [(int(r), float(d[r]), float(p[r]), float(r)) for r in rows]
+
+
+def _shifted(entries: List[_Entry], offset: float) -> List[_Entry]:
+    """変位を offset だけずらした点の列"""
+    return [(row, x + offset, y, pos) for row, x, y, pos in entries]
+
+
+def _excursion_entries(d: np.ndarray, p: np.ndarray, rows: np.ndarray, start: Optional[_ZeroPoint],
+                       end: Optional[_ZeroPoint]) -> List[_Entry]:
     """区間の点の列（前後に補う荷重 0 の点を含む）"""
-    entries: List[_Entry] = [] if x_s is None else [(-1, x_s, 0.0)]
-    entries.extend((int(r), float(d[r]), float(p[r])) for r in rows)
-    if x_e is not None:
-        entries.append((-1, x_e, 0.0))
+    entries: List[_Entry] = [] if start is None else [(-1, start[0], 0.0, start[1])]
+    entries.extend(_row_entries(d, p, rows))
+    if end is not None:
+        entries.append((-1, end[0], 0.0, end[1]))
     return entries
 
 
@@ -585,7 +608,7 @@ def _clip_entries(entries: List[_Entry], lower: Optional[float] = None, upper: O
         bound = lower if lower is not None and min(a[2], b[2]) < lower else upper
         assert bound is not None
         t = (bound - a[2]) / (b[2] - a[2])
-        return (-1, a[1] + t * (b[1] - a[1]), float(bound))
+        return (-1, a[1] + t * (b[1] - a[1]), float(bound), a[3] + t * (b[3] - a[3]))
 
     pieces: List[List[_Entry]] = []  # 範囲内に続けている部分ごと
     current: Optional[List[_Entry]] = None
@@ -609,7 +632,7 @@ def _clip_entries(entries: List[_Entry], lower: Optional[float] = None, upper: O
     for piece in pieces:
         if close_gaps and out:
             offset = out[-1][1] - piece[0][1]
-            piece = [(row, x + offset, y) for row, x, y in piece]
+            piece = _shifted(piece, offset)
             if (piece[0][1], piece[0][2]) == (out[-1][1], out[-1][2]):
                 piece = piece[1:]
         out.extend(piece)
@@ -646,7 +669,7 @@ def _append_distinct(curve: List[_Entry], points: List[_Entry]) -> None:
 
 def _entries_to_arrays(entries: List[_Entry]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     return (np.asarray([e[1] for e in entries], dtype=float), np.asarray([e[2] for e in entries], dtype=float),
-            np.asarray([e[0] for e in entries], dtype=np.int64))
+            np.asarray([e[3] for e in entries], dtype=float))
 
 
 def _unloading_stiffness_entries(entries: List[_Entry]) -> float:
@@ -664,8 +687,8 @@ def _append_unloading(part: List[_Entry], stiffness: float) -> List[_Entry]:
     """終点から剛性 stiffness で荷重 0 まで戻した点を加える（終点の荷重が 0、または剛性が求められなければそのまま）"""
     if not part or part[-1][2] == 0 or not np.isfinite(stiffness) or stiffness == 0:
         return part
-    _, x, y = part[-1]
-    return part + [(-1, x - y / stiffness, 0.0)]
+    _, x, y, _ = part[-1]
+    return part + [(-1, x - y / stiffness, 0.0, np.nan)]
 
 
 def compute_unloading_stiffness(displacement: np.ndarray, load: np.ndarray) -> float:
@@ -693,7 +716,7 @@ def compute_unloading_stiffness(displacement: np.ndarray, load: np.ndarray) -> f
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
     valid = np.flatnonzero(~(np.isnan(d) | np.isnan(p)))
-    return _unloading_stiffness_entries([(int(i), float(d[i]), float(p[i])) for i in valid])
+    return _unloading_stiffness_entries(_row_entries(d, p, valid))
 
 
 def compute_load_clip(
@@ -721,14 +744,15 @@ def compute_load_clip(
         close_gaps: 範囲の外に出ていた間の変位を詰めるか
 
     Returns:
-        (変位, 荷重, 元の index)。補った境界の点の index は -1
+        (変位, 荷重, 元の行の位置)。行の位置は小数の index で、補った境界の点は前後の点の位置の直線補間です
+        （元の行の点は整数。荷重・変位が欠損の行をはさんで補った点は、まれに整数になります）
 
     Examples:
         >>> from tascpy.numeric.hysteresis import compute_load_clip
         >>> import numpy as np
         >>> d, p, rows = compute_load_clip(np.array([0.0, 1.0, 2.0, 3.0]), np.array([0.0, 10.0, 20.0, 30.0]), lower=15.0)
         >>> d, p, rows
-        (array([1.5, 2. , 3. ]), array([15., 20., 30.]), array([-1,  2,  3]))
+        (array([1.5, 2. , 3. ]), array([15., 20., 30.]), array([1.5, 2. , 3. ]))
 
         荷重 30 を超えて戻る曲線を、30 以下で切り出します。close_gaps=True なら、戻った部分 (4.714 から) を
         出た点 (3.0, 30) に続くようにずらします。
@@ -741,7 +765,7 @@ def compute_load_clip(
     """
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
-    entries = [(int(i), float(d[i]), float(p[i])) for i in np.flatnonzero(~(np.isnan(d) | np.isnan(p)))]
+    entries = _row_entries(d, p, np.flatnonzero(~(np.isnan(d) | np.isnan(p))))
     return _entries_to_arrays(_clip_entries(entries, lower=lower, upper=upper, close_gaps=close_gaps))
 
 
@@ -781,10 +805,11 @@ def compute_bauschinger_curve(
         load: 荷重の配列
         markers: サイクル番号の配列（省略時は `compute_cycle_markers(load)`）
         side: "positive"（正側）または "negative"（負側）
-        return_index: 各点の元の行 index も返すか（補間で補った点は -1）
+        return_index: 各点の元の行の位置も返すか（小数の index。補間で補った点は前後の行の間の小数の位置で、
+            除荷剛性で戻した点など行の間にない点は NaN）
 
     Returns:
-        曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行 index)
+        曲線の (変位, 荷重)。return_index=True なら (変位, 荷重, 元の行の位置)
 
     Raises:
         ValueError: side が未知の場合
@@ -810,8 +835,8 @@ def _positive_bauschinger_curve(displacement: np.ndarray, load: np.ndarray,
     p = np.asarray(load, dtype=float)
     parts: List[List[_Entry]] = []
     p_max = 0.0
-    for rows, x_s, x_e in _positive_excursions(d, p, markers):
-        entries = _excursion_entries(d, p, rows, x_s, x_e)
+    for rows, start, end in _positive_excursions(d, p, markers):
+        entries = _excursion_entries(d, p, rows, start, end)
         if p_max > 0:
             part = _clip_entries(_until_peak_entries(entries, by_load=False), upper=p_max, close_gaps=True)
             parts.append(_append_unloading(part, _unloading_stiffness_entries(entries)))
@@ -819,7 +844,7 @@ def _positive_bauschinger_curve(displacement: np.ndarray, load: np.ndarray,
     offsets = _chain_entries(parts)
     curve: List[_Entry] = []
     for part, offset in zip(parts, offsets):
-        _append_distinct(curve, [(row, x + offset, y) for row, x, y in part])
+        _append_distinct(curve, _shifted(part, offset))
     return _entries_to_arrays(curve)
 
 
@@ -827,14 +852,6 @@ def _positive_cumulative_curve(displacement: np.ndarray, load: np.ndarray,
                                markers: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     d = np.asarray(displacement, dtype=float)
     p = np.asarray(load, dtype=float)
-    pieces = []
-    for rows, x_s, x_e in _positive_excursions(d, p, markers):
-        seg_d = ([] if x_s is None else [x_s]) + d[rows].tolist() + ([] if x_e is None else [x_e])
-        seg_p = ([] if x_s is None else [0.0]) + p[rows].tolist() + ([] if x_e is None else [0.0])
-        seg_rows = ([] if x_s is None else [-1]) + rows.tolist() + ([] if x_e is None else [-1])
-        pieces.append((seg_d, seg_p, seg_rows))
-    offsets = chain_offsets([seg_d[0] for seg_d, _, _ in pieces], [seg_d[-1] for seg_d, _, _ in pieces])
-    d_cum = [x + offset for (seg_d, _, _), offset in zip(pieces, offsets) for x in seg_d]
-    p_cum = [y for _, seg_p, _ in pieces for y in seg_p]
-    rows_out = [r for _, _, seg_rows in pieces for r in seg_rows]
-    return np.asarray(d_cum, dtype=float), np.asarray(p_cum, dtype=float), np.asarray(rows_out, dtype=np.int64)
+    pieces = [_excursion_entries(d, p, rows, start, end) for rows, start, end in _positive_excursions(d, p, markers)]
+    offsets = chain_offsets([piece[0][1] for piece in pieces], [piece[-1][1] for piece in pieces])
+    return _entries_to_arrays([e for piece, offset in zip(pieces, offsets) for e in _shifted(piece, offset)])

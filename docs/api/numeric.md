@@ -36,3 +36,6 @@ d_cum, p_cum = compute_cumulative_curve(disp, load)
 
 ## Spatial
 ::: tascpy.numeric.spatial
+
+## Position
+::: tascpy.numeric.position

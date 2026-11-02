@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from tascpy.numeric.position import interpolate_positions
 from tascpy.numeric.hysteresis import (
     _extend_edge,
     chain_offsets,
@@ -277,9 +278,11 @@ def test_skeleton_curve_return_index(decrease_type):
     d2, p2, rows = compute_skeleton_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED, has_decrease=True,
                                           decrease_type=decrease_type, return_index=True)
     assert_curves_equal((d2, p2), (d, p))
-    real = rows >= 0
-    np.testing.assert_allclose(CYCLIC_LOADS[rows[real]], p[real])
+    real = rows == np.round(rows)  # 元の行の点は整数の位置（補った点は小数か NaN）
+    np.testing.assert_allclose(CYCLIC_LOADS[rows[real].astype(int)], p[real])
     assert len(np.unique(rows[real])) == real.sum()
+    np.testing.assert_allclose(interpolate_positions(CYCLIC_LOADS, rows[~real & ~np.isnan(rows)]),
+                               p[~real & ~np.isnan(rows)])  # 補った点の荷重は、その位置での補間値
 
 
 def test_skeleton_curve_envelope_does_not_repeat_peak():
@@ -292,8 +295,8 @@ def test_skeleton_curve_envelope_does_not_repeat_peak():
 def test_cumulative_curve_return_index():
     d, p, rows = compute_cumulative_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED, return_index=True)
     assert_curves_equal((d, p), compute_cumulative_curve(CYCLIC_DISPS, CYCLIC_LOADS, ONE_BASED))
-    real = rows >= 0
-    np.testing.assert_allclose(CYCLIC_LOADS[rows[real]], p[real])
+    real = rows == np.round(rows)
+    np.testing.assert_allclose(CYCLIC_LOADS[rows[real].astype(int)], p[real])
     np.testing.assert_allclose(p[~real], 0.0)
 
 
@@ -342,7 +345,8 @@ class TestExcursions:
         assert [(e.start, e.end) for e in excursions] == [(None, 1.0), (0.25, None)]
         d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
         np.testing.assert_allclose(d, [0.0, 1.0, 2.0, 1.5, 1.0, 1.0, 1.75, 3.25])
-        np.testing.assert_array_equal(rows, [0, 1, 2, 3, -1, -1, 6, 7])
+        np.testing.assert_array_equal(rows, [0, 1, 2, 3, 3.5, 5.25, 6, 7])  # 補った点は前後の行の間の位置
+        assert [(e.start_position, e.end_position) for e in excursions] == [(None, 3.5), (5.25, None)]
 
     def test_negative_side_keeps_original_sign(self):
         disp = np.array([0.0, 1.0, 2.0, 1.5, 0.5, 0.0, 1.0, 2.5])
@@ -365,14 +369,15 @@ class TestExcursions:
         excursions = compute_excursions(disp, load)
         assert excursions[0].start == pytest.approx(0.0) and excursions[-1].end is None
         d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
-        assert rows[0] == -1 and rows[-1] == 6
+        assert np.isnan(rows[0]) and rows[-1] == 6  # 延長した点は行の間にないので NaN
+        assert np.isnan(excursions[0].start_position)
         np.testing.assert_allclose(d[:2], [0.0, 0.2])  # 延長した荷重 0 の点が 0 で、元の行の変位はずれない
 
     def test_exact_zero_rows_are_not_duplicated(self):
         disp = np.array([0.0, 1.0, 0.5, -0.5, -1.0, 0.0, 1.5])
         load = np.array([0.0, 10.0, 0.0, -10.0, -20.0, 0.0, 15.0])
         d, p, rows = compute_cumulative_curve(disp, load, return_index=True)
-        assert -1 not in rows[:-1].tolist()
+        np.testing.assert_array_equal(rows[:-1], np.round(rows[:-1]))  # 荷重 0 の行があるので補わない
         np.testing.assert_allclose(d[:4], [0.0, 1.0, 0.5, 0.5])  # 2つ目の区間は荷重 0 の行 (0.0) を 0.5 に重ねる
 
     def test_missing_rows_are_skipped(self):
@@ -482,12 +487,12 @@ class TestLoadClip:
         d, p, rows = compute_load_clip(self.d, self.p, lower=15.0)
         np.testing.assert_allclose(d, [1.5, 2.0, 3.0, 4.0])
         np.testing.assert_allclose(p, [15.0, 20.0, 30.0, 40.0])
-        np.testing.assert_array_equal(rows, [-1, 2, 3, 4])
+        np.testing.assert_array_equal(rows, [1.5, 2, 3, 4])
 
     def test_upper_and_both(self):
         d, p, rows = compute_load_clip(self.d, self.p, lower=5.0, upper=25.0)
         np.testing.assert_allclose(p, [5.0, 10.0, 20.0, 25.0])
-        np.testing.assert_array_equal(rows, [-1, 1, 2, -1])
+        np.testing.assert_array_equal(rows, [0.5, 1, 2, 2.5])
 
     def test_exact_boundary_row_is_not_duplicated(self):
         d, p, rows = compute_load_clip(self.d, self.p, lower=20.0)
@@ -496,7 +501,7 @@ class TestLoadClip:
     def test_leaving_and_reentering(self):
         d, p, rows = compute_load_clip(np.arange(5.0), np.array([0.0, 20.0, 0.0, 20.0, 0.0]), lower=10.0)
         np.testing.assert_allclose(d, [0.5, 1.0, 1.5, 2.5, 3.0, 3.5])
-        np.testing.assert_array_equal(rows, [-1, 1, -1, -1, 3, -1])
+        np.testing.assert_array_equal(rows, [0.5, 1, 1.5, 2.5, 3, 3.5])
 
     def test_missing_points_are_skipped_and_empty(self):
         d, p, rows = compute_load_clip(np.array([0.0, np.nan, 2.0]), np.array([0.0, 10.0, 20.0]), lower=5.0)
@@ -569,7 +574,7 @@ class TestBauschingerGap:
         # 最後は (4.286, 20) から、この区間の除荷剛性 20/(6-5) = 20 で荷重 0 まで戻す
         np.testing.assert_allclose(d, [0.0, 2.0, 3.0, 3.0 + 2 / 7, 3.0 + 2 / 7 + 1.0, 3.0 + 2 / 7])
         np.testing.assert_allclose(p, [0.0, 20.0, 30.0, 28.0, 20.0, 0.0])
-        np.testing.assert_array_equal(rows, [5, 6, 7, 9, 10, -1])  # 戻った境界の点は、出た点 (3.0, 30) と重なるので除く
+        np.testing.assert_array_equal(rows, [5, 6, 7, 9, 10, np.nan])  # 戻った境界の点は、出た点 (3.0, 30) と重なるので除く
 
     def test_clip_without_close_gaps_keeps_original_displacement(self):
         d, p, rows = compute_load_clip(self.disp[5:11], self.load[5:11], upper=30.0)

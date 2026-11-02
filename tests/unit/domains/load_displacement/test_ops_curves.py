@@ -1,12 +1,14 @@
 """荷重-変位ドメインの曲線生成（skeleton_curve / cumulative_curve）のテスト"""
 
 import numpy as np
+import polars as pl
 import pytest
 
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains import as_load_displacement
 from tascpy.domains.load_displacement import LoadDisplacementCollection
 from tascpy.numeric.hysteresis import compute_bauschinger_curve, compute_cumulative_curve, compute_skeleton_curve
+from tascpy.numeric.position import interpolate_positions
 
 LOADS = [0, 10, 20, 10, 0, -10, -20, -10, 0, 15, 30, 15, 0, -15, -30]
 DISPS = [0, 1, 2, 1, 0, -1, -2, -1, 0, 1.5, 3, 1.5, 0, -1.5, -3]
@@ -28,7 +30,7 @@ def test_skeleton_curve_matches_numeric(cyclic, decrease_type):
                                         has_decrease=True, decrease_type=decrease_type, return_index=True)
     np.testing.assert_allclose(curve.displacement_data, d)
     np.testing.assert_allclose(curve.load_data, p)
-    np.testing.assert_array_equal(curve["source_step"].values, np.array(STEPS)[rows])
+    np.testing.assert_allclose(curve["source_step"].values, interpolate_positions(STEPS, rows))
 
 
 def test_skeleton_curve_is_load_displacement_collection(cyclic):
@@ -82,8 +84,7 @@ def test_cumulative_curve(cyclic):
     np.testing.assert_allclose(curve.displacement_data, d)
     np.testing.assert_allclose(curve.load_data, p)
     source = curve["source_step"].values
-    assert np.isnan(source[rows < 0]).all()
-    np.testing.assert_array_equal(source[rows >= 0], np.array(STEPS)[rows[rows >= 0]])
+    np.testing.assert_allclose(source, interpolate_positions(STEPS, rows))
 
 
 @pytest.mark.parametrize("method", ["to_skeleton_curve", "to_cumulative_curve"])
@@ -94,8 +95,7 @@ def test_curve_side_negative_matches_numeric(cyclic, method):
     assert isinstance(curve, LoadDisplacementCollection)
     np.testing.assert_allclose(curve.displacement_data, d)
     np.testing.assert_allclose(curve.load_data, p)
-    expected_steps = [cyclic.step[i].item() if i >= 0 else None for i in rows]
-    assert curve["source_step"].to_list() == expected_steps
+    np.testing.assert_allclose(curve["source_step"].values, interpolate_positions(cyclic.step, rows))
 
 
 @pytest.mark.parametrize("side", ["positive", "negative"])
@@ -109,14 +109,16 @@ def test_excursions_chained_equal_cumulative_curve(cyclic, side):
     np.testing.assert_array_equal(joined.step.astype(float), curve["source_step"].values)
 
 
-def test_excursion_zero_rows_keep_other_columns_missing():
+def test_excursion_zero_rows_have_interpolated_step_and_missing_other_columns():
     col = ColumnCollection({"load": [0.0, 10.0, 20.0, 10.0, -10.0, -5.0, 15.0, 22.0],
                             "disp": [0.0, 1.0, 2.0, 1.5, 0.5, 0.0, 1.0, 2.5], "other": np.arange(8.0)},
                            step=list(range(1, 9)), units={"load": "kN", "disp": "mm"}, metadata={"specimen": "A"})
     ld = as_load_displacement(col, "load", "disp")
     first, second = ld.ops.split_by_excursions().end()
-    np.testing.assert_array_equal(first.step.astype(float), [1, 2, 3, 4, np.nan])  # 終点の荷重 0 の点を補う
-    np.testing.assert_array_equal(second.step.astype(float), [np.nan, 7, 8])       # 始点の荷重 0 の点を補う
+    # 補った荷重 0 の点のステップは前後の行のステップの補間（終点は行 3 と 4 の中間、始点は行 5 から 6 へ 3/4）
+    np.testing.assert_array_equal(first.step, [1, 2, 3, 4, 4.5])
+    np.testing.assert_array_equal(second.step, [6.25, 7, 8])
+    assert first.df["step"].dtype == pl.Float64
     np.testing.assert_allclose(first.displacement_data[-1], 1.0)
     np.testing.assert_allclose(second.displacement_data[0], 0.25)
     assert first.load_data[-1] == 0.0 and np.isnan(first["other"].values[-1])
@@ -186,10 +188,21 @@ def test_clip_load_inserted_rows():
     clipped = as_load_displacement(col, "load", "disp").ops.clip_load(lower=15.0, upper=25.0).end()
     np.testing.assert_allclose(clipped.load_data, [15.0, 20.0, 25.0])
     np.testing.assert_allclose(clipped.displacement_data, [1.5, 2.0, 2.5])
-    np.testing.assert_array_equal(clipped.step.astype(float), [np.nan, 3, np.nan])
+    np.testing.assert_array_equal(clipped.step, [2.5, 3, 3.5])
     assert np.isnan(clipped["other"].values[[0, 2]]).all() and clipped["other"].values[1] == 3.0
     assert clipped["load"].unit == "kN" and clipped.metadata["specimen"] == "A"
     assert len(as_load_displacement(col, "load", "disp").ops.clip_load(lower=100.0).end()) == 0
+
+
+def test_clip_load_point_on_missing_row_is_added_point():
+    # 欠損の行 2, 3 をはさむ行 1 と 4 の間で荷重 20 を横切る点は、ちょうど行 2 の位置になるが、行 2 そのものではない
+    col = ColumnCollection({"load": [0.0, 10.0, None, None, 40.0], "disp": [0.0, 1.0, None, None, 4.0],
+                            "other": [1.0, 2.0, 3.0, 4.0, 5.0]}, step=[10, 20, 30, 40, 50])
+    clipped = as_load_displacement(col, "load", "disp").ops.clip_load(lower=20.0).end()
+    np.testing.assert_allclose(clipped.load_data, [20.0, 40.0])
+    np.testing.assert_allclose(clipped.displacement_data, [2.0, 4.0])
+    np.testing.assert_array_equal(clipped.step, [30, 50])
+    assert np.isnan(clipped["other"].values[0])  # 補った点なので他の列は欠損
 
 
 

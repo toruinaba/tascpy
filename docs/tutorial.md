@@ -71,7 +71,7 @@
 
 ```
 
-このデータは荷重 4 kN の点から始まるので、曲線の最初の点（荷重 0 の点）は最初の2点を延長して補った点で、`source_step` は欠損です。
+このデータは荷重 4 kN の点から始まるので、曲線の最初の点（荷重 0 の点）は最初の2点を延長して補った点で、データの行の間にないため `source_step` は欠損です。前後の行の間で補間して補った点（つなぎ目の、荷重がそれまでの最大荷重に等しい点など）の `source_step` は、前後の行のステップを補間した小数です。
 
 負側のスケルトン曲線は `side="negative"` で求めます（荷重・変位とも負の値です）。`to_cumulative_curve` / `to_bauschinger_curve` も同じく `side=` を受け取ります。
 
@@ -110,12 +110,13 @@ True
 
 ```
 
-元データの他の列（サイクル番号など）が必要なときは、`source_step` で元データから行を取り出します（補った点は除きます）。
+元データの他の列（サイクル番号など）が必要なときは、`source_step` で元データから行を取り出します（補った点は除き、整数のステップの点だけを使います）。
 
 ```pycon
 >>> source = skeleton["source_step"].values
->>> rows = cycled.ops.select(steps=source[~np.isnan(source)].tolist()).end()
->>> np.allclose(rows["荷重"].values, skeleton.load_data[~np.isnan(source)]), sorted(set(rows["荷重_cycle"].values.tolist()))
+>>> on_row = source == np.round(source)  # 補った点（小数・欠損）は False
+>>> rows = cycled.ops.select(steps=source[on_row].tolist()).end()
+>>> np.allclose(rows["荷重"].values, skeleton.load_data[on_row]), sorted(set(rows["荷重_cycle"].values.tolist()))
 (True, [1.0, 2.0, 3.0])
 
 ```
@@ -194,6 +195,15 @@ array([ 80., 106., 114.,  90.])
 >>> peaks = cycles.collect(lambda o: o.nearest_row("荷重", o.end()["荷重"].max())).to_table()
 >>> type(peaks).__name__, peaks.end()["変位"].values, peaks.end()["source_step"].values
 ('LoadDisplacementOps', array([2., 4., 6., 0.]), array([ 19.,  59.,  99., 139.]))
+
+```
+
+値に最も近い行ではなく、列の値がちょうどその値になる位置の行が欲しいときは `row_where` を使います。列の値がその値をまたぐ前後の行を直線補間した行で、数値の列は補間値、数値でない列は None、ステップは前後の行のステップを補間した小数です。候補が複数あるときは、時系列順の `occurrence` 番目（既定は最初）を選びます。各サイクルで最初に荷重 50 kN に達したときの変位は次のとおりです。
+
+```pycon
+>>> at_50 = cycles.collect(lambda o: o.row_where("荷重", 50.0)).to_table().end()
+>>> at_50["変位"].values.round(2), at_50["source_step"].values.round(2)
+(array([ 1.25,  1.25, -0.1 , -1.9 ]), array([ 11.5 ,  49.83,  86.8 , 132.67]))
 
 ```
 
