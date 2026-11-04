@@ -7,14 +7,21 @@ import unicodedata
 from typing import Hashable, Iterable, List, Tuple
 
 
-def normalize(text: object) -> str:
+def normalize(text: object, *, casefold: bool = True) -> str:
     """表記の揺れを吸収した比較用の文字列（NFKC で全角・半角をそろえ、大文字小文字と空白の違いを無視する）
+
+    Args:
+        text: 元の文字列
+        casefold: 大文字小文字の違いを無視するか（単位は mN と MN が別物なので False にする）
 
     Examples:
         >>> normalize("ＳＧ１　荷重（kN）")
         'sg1 荷重(kn)'
+        >>> normalize("µε", casefold=False) == normalize("με", casefold=False)   # マイクロ記号とギリシャ文字
+        True
     """
-    return " ".join(unicodedata.normalize("NFKC", str(text)).casefold().split())
+    text = unicodedata.normalize("NFKC", str(text))
+    return " ".join((text.casefold() if casefold else text).split())
 
 
 Candidate = Tuple[str, str, Hashable]

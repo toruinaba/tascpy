@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import copy
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional, Self, Sequence, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Self, Sequence, Type, TypeVar, Union
 
 import numpy as np
 import polars as pl
 
 from .column import KEEP, Column, ColumnMeta, to_series
-from .names import missing_message
+from .names import missing_message, normalize
 from .result import AnalysisResult
 from .row import Row
 
@@ -382,6 +382,61 @@ class ColumnCollection:
             label = f"attrs.{key}" if key in table else key
             table[label] = to_series(label, [self._meta[n].attrs.get(key) for n in names])
         return pl.DataFrame(list(table.values()))
+
+    def find(
+        self,
+        text: Optional[str] = None,
+        *,
+        unit: Union[str, Sequence[str], None] = None,
+        min_abs: Optional[float] = None,
+        dead: Optional[bool] = None,
+        where: Optional[Callable[[Column], bool]] = None,
+    ) -> List[str]:
+        """条件に合うデータ列の名前を、列の順に返す（条件はすべて満たすものだけ）
+
+        結果は `select` に渡して使います。条件を指定しなければ全列を返します。
+
+        Args:
+            text: 列名・チャンネル名・attrs の値のいずれかに含まれる文字列
+                （全角と半角、大文字と小文字、空白の違いは無視する）
+            unit: 単位（複数指定するといずれか。全角と半角の違いは無視し、大文字と小文字は区別する）
+            min_abs: 絶対値の最大がこの値以上の数値列（`catalog()` の `abs_max`）
+            dead: True なら全欠損・定数の列、False ならそれ以外（`catalog()` の `n_unique` が 1 以下かどうか）
+            where: 列（`Column`）を受け取って真偽を返す関数
+
+        Examples:
+            >>> coll = ColumnCollection({"SG1": [0.0, 1500.0], "SG2": [0.0, 200.0], "SG3": [None, None]},
+            ...                         units={"SG1": "με", "SG2": "µε"})
+            >>> coll.find(unit="με")                      # マイクロ記号の µε も一致する
+            ['SG1', 'SG2']
+            >>> coll.find("sg", min_abs=1000), coll.find(dead=True)
+            (['SG1'], ['SG3'])
+            >>> coll.select(coll.find(where=lambda c: c.max() is not None and c.max() > 100)).columns
+            ['SG1', 'SG2']
+        """
+        names = self.columns
+        if text is not None:
+            target = normalize(text)
+            names = [n for n in names if any(target in normalize(v) for v in self._search_texts(n))]
+        if unit is not None:
+            units = {normalize(u, casefold=False) for u in ([unit] if isinstance(unit, str) else unit)}
+            names = [n for n in names
+                     if self._meta[n].unit is not None and normalize(self._meta[n].unit, casefold=False) in units]
+        if min_abs is not None or dead is not None:
+            stats = {row["name"]: row for row in self.select(names).catalog().iter_rows(named=True)}
+            if min_abs is not None:
+                names = [n for n in names if stats[n]["abs_max"] is not None and stats[n]["abs_max"] >= min_abs]
+            if dead is not None:
+                names = [n for n in names if (stats[n]["n_unique"] <= 1) == dead]
+        if where is not None:
+            names = [n for n in names if where(self[n])]
+        return names
+
+    def _search_texts(self, name: str) -> List[str]:
+        """`find(text=...)` で探す文字列（列名・チャンネル名・attrs の値）"""
+        meta = self._meta[name]
+        texts = [name] + ([meta.ch] if meta.ch else [])
+        return texts + [str(v) for v in meta.attrs.values() if v is not None and v != ""]
 
     def __repr__(self) -> str:
         names = self.columns
