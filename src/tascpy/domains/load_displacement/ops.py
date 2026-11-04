@@ -221,11 +221,12 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
 
         index が -1 の点は、変位・荷重と、行の位置で補間したステップ（小数。位置が NaN なら欠損）だけを持つ行
         （他の列は欠損）にする。点の行を加えるとステップの列は Float64 になる（ステップが数値でなければ欠損のまま）。
+        元の行の点は、変位が NaN でなければその値に置き換える（`clip_load(close_gaps=True)` でずらした変位など）。
         """
         c = self._c
         added = [(x, y, pos) for row, x, y, pos in entries if row < 0]
         if not added:
-            return c.take([row for row, *_ in entries])
+            return self._with_displacement(c.take([row for row, *_ in entries]), entries)
         numeric_step = c.df["step"].dtype.is_numeric()
         dtype = pl.Float64 if numeric_step else c.df["step"].dtype
         steps = (interpolate_positions(c.step.astype(float), [pos for _, _, pos in added]) if numeric_step
@@ -250,7 +251,17 @@ class LoadDisplacementOps(CoreOps[LoadDisplacementCollection]):
                 c.load_column: [float(y)], c.displacement_column: [float(x)],
             }))
         flush()
-        return c._replace(df=pl.concat(frames, how="diagonal_relaxed").select(c.df.columns))
+        return self._with_displacement(
+            c._replace(df=pl.concat(frames, how="diagonal_relaxed").select(c.df.columns)), entries)
+
+    def _with_displacement(self, collection: LoadDisplacementCollection, entries: list) -> LoadDisplacementCollection:
+        """点の並びの変位（NaN でないもの）で変位列を置き換える（NaN の点は元の値のまま）"""
+        x = np.array([e[1] for e in entries], dtype=float)
+        if np.isnan(x).all():
+            return collection
+        name = collection.displacement_column
+        values = np.where(np.isnan(x), collection.displacement_data, x)
+        return collection._replace(df=collection.df.with_columns(pl.Series(name, values, dtype=pl.Float64)))
 
     def _entries(self, d: np.ndarray, p: np.ndarray, positions: np.ndarray) -> list:
         """numeric の (変位, 荷重, 行の位置) を `_assemble` の点の並びにする

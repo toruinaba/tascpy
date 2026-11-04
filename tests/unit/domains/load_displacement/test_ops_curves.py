@@ -7,7 +7,12 @@ import pytest
 from tascpy.core.collection import ColumnCollection
 from tascpy.domains import as_load_displacement
 from tascpy.domains.load_displacement import LoadDisplacementCollection
-from tascpy.numeric.hysteresis import compute_bauschinger_curve, compute_cumulative_curve, compute_skeleton_curve
+from tascpy.numeric.hysteresis import (
+    compute_bauschinger_curve,
+    compute_cumulative_curve,
+    compute_load_clip,
+    compute_skeleton_curve,
+)
 from tascpy.numeric.position import interpolate_positions
 
 LOADS = [0, 10, 20, 10, 0, -10, -20, -10, 0, 15, 30, 15, 0, -15, -30]
@@ -219,3 +224,37 @@ def test_unloading_stiffness_and_append_unloading():
     assert np.isnan(part.step.astype(float)[-1]) and np.isnan(part["other"].values[-1])
     assert len(ld.ops.append_unloading(40.0).end()) == len(ld)        # 最後の点の荷重が 0 なら何もしない
     assert len(ld.ops.until_peak().append_unloading(np.nan).end()) == 3  # 剛性が NaN なら何もしない
+
+
+@pytest.mark.parametrize("load", [
+    [0.0, 30.0, 35.0, 28.0, 20.0],  # 戻る点を補間で補う
+    [0.0, 30.0, 35.0, 30.0, 20.0],  # 戻るときも境界の行を通る（補う点はない）
+])
+def test_clip_load_close_gaps_matches_numeric(load):
+    col = ColumnCollection({"load": load, "disp": [0.0, 3.0, 4.0, 5.0, 6.0], "other": [1.0, 2.0, 3.0, 4.0, 5.0]},
+                           step=[1, 2, 3, 4, 5])
+    ld = as_load_displacement(col, "load", "disp")
+    clipped = ld.ops.clip_load(upper=30.0, close_gaps=True).end()
+    d, p, positions = compute_load_clip(ld.displacement_data, ld.load_data, upper=30.0, close_gaps=True)
+    np.testing.assert_allclose(clipped.displacement_data, d)  # 戻った部分の変位は詰めた値
+    np.testing.assert_allclose(clipped.load_data, p)
+    np.testing.assert_allclose(clipped.step, interpolate_positions(ld.step, positions))
+    np.testing.assert_allclose(clipped["other"].values[-1], 5.0)  # 元の行の他の列はそのまま
+
+
+def test_bauschinger_composition_with_gap():
+    # 2 つ目の区間で最大荷重 30 を超えて戻る（詰める変位がある）場合も、組み立てと to_bauschinger_curve が一致する
+    col = ColumnCollection({"load": [0.0, 20.0, 30.0, 0.0, -20.0, 0.0, 20.0, 30.0, 35.0, 28.0, 20.0, 0.0],
+                            "disp": [0.0, 1.0, 2.0, 1.0, -1.0, 0.0, 2.0, 3.0, 4.0, 5.0, 6.0, 5.0]})
+    ld = as_load_displacement(col, "load", "disp")
+
+    def below(p_max, o):
+        part = (o.clip_load(lower=np.inf) if p_max == 0 else
+                o.until_peak().clip_load(upper=p_max, close_gaps=True).append_unloading(o.unloading_stiffness()))
+        return part, max(p_max, _peak(o, "positive"))
+
+    joined = ld.ops.split_by_excursions().scan(below, 0.0).chain("disp").concat().end()
+    curve = ld.ops.to_bauschinger_curve().end()
+    d, p = _dedupe(joined.displacement_data, joined.load_data)
+    np.testing.assert_allclose(d, curve.displacement_data)
+    np.testing.assert_allclose(p, curve.load_data)
