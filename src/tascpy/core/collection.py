@@ -10,6 +10,7 @@ import numpy as np
 import polars as pl
 
 from .column import KEEP, Column, ColumnMeta, to_series
+from .names import missing_message
 from .result import AnalysisResult
 from .row import Row
 
@@ -176,7 +177,20 @@ class ColumnCollection:
     @staticmethod
     def _require(name: str, names: Iterable[str]) -> None:
         if name not in names:
-            raise KeyError(f"列 '{name}' が存在しません")
+            raise KeyError(missing_message("列", name, ((n, repr(n), n) for n in names)))
+
+    def _missing_column(self, name: str) -> KeyError:
+        """列 name が見つからないときの KeyError（列名・チャンネル名から近い候補を添える）"""
+        candidates = [(n, repr(n), n) for n in self._meta]
+        candidates += [(m.ch, f"{n!r}（ch {m.ch!r}）", n) for n, m in self._meta.items() if m.ch]
+        hint = f"（インデックス列は coll.{name} で取得します）" if name in INDEX_COLUMNS else ""
+        return KeyError(missing_message("列", name, candidates) + hint)
+
+    def _missing_ch(self, ch: str) -> KeyError:
+        """チャンネル ch が見つからないときの KeyError（チャンネル名・列名から近い候補を添える）"""
+        candidates = [(m.ch, repr(m.ch), n) for n, m in self._meta.items() if m.ch]
+        candidates += [(n, f"{m.ch!r}（列 {n!r}）", n) for n, m in self._meta.items() if m.ch]
+        return KeyError(missing_message("チャンネル", ch, candidates))
 
     # ── アクセサ ───────────────────────────────
 
@@ -257,8 +271,7 @@ class ColumnCollection:
         """`coll["列名"]` → Column、`coll[i]` → Row、`coll[a:b]` → ColumnCollection"""
         if isinstance(key, str):
             if key not in self._meta:
-                hint = f"（インデックス列は coll.{key} で取得します）" if key in INDEX_COLUMNS else ""
-                raise KeyError(f"列 '{key}' が存在しません{hint}")
+                raise self._missing_column(key)
             return Column._wrap(self._df[key], self._meta[key])
         if isinstance(key, (int, np.integer)):
             n = len(self)
@@ -274,7 +287,7 @@ class ColumnCollection:
         for name, m in self._meta.items():
             if m.ch == ch:
                 return self[name]
-        raise KeyError(f"チャンネル '{ch}' の列が存在しません")
+        raise self._missing_ch(ch)
 
     def iter_rows(self) -> Iterator[Row]:
         for values in self._df.iter_rows(named=True):
@@ -307,6 +320,68 @@ class ColumnCollection:
                 info.update(mean=col.mean(), std=col.std(), min=col.min(), max=col.max())
             stats[name] = info
         return stats
+
+    def catalog(self) -> pl.DataFrame:
+        """データ列の一覧表（1列を1行として、列の順に並べた DataFrame）
+
+        列数が多いデータで、列の構成を確かめたり、条件に合う列を探したりするための表です。
+        polars の式で絞り込み、`select` に渡して使います。
+
+        | 列 | 内容 |
+        |---|---|
+        | `ch` / `name` / `unit` / `dtype` | チャンネル名・列名・単位・データ型 |
+        | `n_valid` / `null_count` | 欠損でない値の数・欠損の数 |
+        | `n_unique` | 欠損を除いた値の種類数（0 なら全欠損、1 なら定数。断線などの疑い） |
+        | `min` / `max` / `abs_max` | 最小・最大・絶対値の最大（数値列のみ、それ以外は欠損） |
+        | `abs_max_step` | 絶対値が最大になる行のステップ |
+        | attrs のキー | 列メタの attrs の各項目（標準の列と同名のキーは `attrs.` を前に付ける） |
+
+        読み込み時に列名を補ったり変えたりした列は、attrs の `raw_name` に元の名前（空欄なら ""）が入ります。
+
+        Examples:
+            >>> coll = ColumnCollection({"SG1": [0.0, 1500.0], "SG2": [0.0, 200.0], "SG3": [None, None]},
+            ...                         units={"SG1": "με", "SG2": "με"})
+            >>> cat = coll.catalog()
+            >>> cat.filter(pl.col("n_unique") <= 1)["name"].to_list()    # 全欠損・定数の列
+            ['SG3']
+            >>> coll.select(cat.filter((pl.col("unit") == "με") & (pl.col("abs_max") > 1000))["name"]).columns
+            ['SG1']
+        """
+        names = self.columns
+        df = self._df
+        numeric = [n for n in names if df[n].dtype.is_numeric()]
+
+        def stat(expr: Any) -> Dict[str, Any]:
+            if not numeric:
+                return {}
+            return df.select(expr(pl.col(n)).alias(n) for n in numeric).row(0, named=True)
+
+        mins, maxs = stat(lambda e: e.min()), stat(lambda e: e.max())
+        abs_maxs, abs_args = stat(lambda e: e.abs().max()), stat(lambda e: e.abs().arg_max())
+        uniques = df.select(pl.col(n).drop_nulls().n_unique().alias(n) for n in names).row(0, named=True) if names else {}
+        nulls = {n: df[n].null_count() for n in names}
+        steps = df["step"]
+
+        table: Dict[str, pl.Series] = {
+            "ch": pl.Series("ch", [self._meta[n].ch for n in names], dtype=pl.String),
+            "name": pl.Series("name", names, dtype=pl.String),
+            "unit": pl.Series("unit", [self._meta[n].unit for n in names], dtype=pl.String),
+            "dtype": pl.Series("dtype", [str(df[n].dtype) for n in names], dtype=pl.String),
+            "n_valid": pl.Series("n_valid", [len(self) - nulls[n] for n in names], dtype=pl.Int64),
+            "null_count": pl.Series("null_count", [nulls[n] for n in names], dtype=pl.Int64),
+            "n_unique": pl.Series("n_unique", [uniques[n] for n in names], dtype=pl.Int64),
+            "min": pl.Series("min", [mins.get(n) for n in names], dtype=pl.Float64),
+            "max": pl.Series("max", [maxs.get(n) for n in names], dtype=pl.Float64),
+            "abs_max": pl.Series("abs_max", [abs_maxs.get(n) for n in names], dtype=pl.Float64),
+            "abs_max_step": pl.Series(
+                "abs_max_step", [None if abs_args.get(n) is None else steps[abs_args[n]] for n in names],
+                dtype=steps.dtype),
+        }
+        keys = dict.fromkeys(k for n in names for k in self._meta[n].attrs)
+        for key in keys:
+            label = f"attrs.{key}" if key in table else key
+            table[label] = to_series(label, [self._meta[n].attrs.get(key) for n in names])
+        return pl.DataFrame(list(table.values()))
 
     def __repr__(self) -> str:
         names = self.columns

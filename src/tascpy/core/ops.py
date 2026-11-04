@@ -159,7 +159,7 @@ class CoreOps(Generic[C_co]):
         names = self._c.columns if columns is None else list(columns)
         for name in names:
             if name not in self._c:
-                raise KeyError(f"列 '{name}' が存在しません")
+                raise self._c._missing_column(name)
         return names
 
     def _with_column(self, name: str, values: Any, unit: Optional[str], ch: Optional[str],

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterator, Mapping, Optional
 
 from .column import ColumnMeta
+from .names import missing_message
 
 
 class Row(Mapping[str, Any]):
@@ -22,7 +23,7 @@ class Row(Mapping[str, Any]):
 
     def __getitem__(self, key: str) -> Any:
         if key not in self._values:
-            raise KeyError(f"列 '{key}' が存在しません")
+            raise KeyError(missing_message("列", key, ((n, repr(n), n) for n in self._values)))
         return self._values[key]
 
     def __iter__(self) -> Iterator[str]:
