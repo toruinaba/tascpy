@@ -170,6 +170,44 @@ class TestRead:
         assert cat.height == 0
         assert cat.schema["abs_max"] == pl.Float64
 
+    @pytest.fixture
+    def gauges(self):
+        return ColumnCollection({
+            "荷重": Column("荷重", [0.0, 100.0, -120.0], unit="kN", ch="@1"),
+            "SG-A": Column("SG-A", [0.0, 1500.0, -800.0], unit="με", ch="@2", attrs={"部位": "柱A 上端"}),
+            "SG-B": Column("SG-B", [0.0, -300.0, 200.0], unit="µε", ch="@3", attrs={"部位": "柱B"}),
+            "@4": Column("@4", [None, None, None], unit="με", ch="@4", attrs={"raw_name": ""}),
+            "flat": Column("flat", [7.0, 7.0, 7.0], unit="mN", ch="@5"),
+            "memo": Column("memo", ["a", "b", "c"], ch="@6"),
+        })
+
+    def test_find_without_conditions_returns_all(self, gauges):
+        assert gauges.find() == gauges.columns
+
+    def test_find_text_searches_name_ch_and_attrs(self, gauges):
+        assert gauges.find("ｓｇ") == ["SG-A", "SG-B"]              # 全角・大文字小文字を無視
+        assert gauges.find("@4") == ["@4"]                            # ch
+        assert gauges.find("柱a") == ["SG-A"]                          # attrs の値
+        assert gauges.find("柱") == ["SG-A", "SG-B"]
+        assert gauges.find("なし") == []
+
+    def test_find_unit_normalizes_width_but_keeps_case(self, gauges):
+        assert gauges.find(unit="με") == ["SG-A", "SG-B", "@4"]       # µ（マイクロ記号）も一致
+        assert gauges.find(unit=["kN", "mN"]) == ["荷重", "flat"]
+        assert gauges.find(unit="MN") == []                           # mN と MN は別物
+        assert gauges.find(unit="ｋＮ") == ["荷重"]
+
+    def test_find_by_response_and_dead(self, gauges):
+        assert gauges.find(min_abs=1000) == ["SG-A"]
+        assert gauges.find(min_abs=100) == ["荷重", "SG-A", "SG-B"]  # 非数値・全欠損の列は含まない
+        assert gauges.find(dead=True) == ["@4", "flat"]
+        assert gauges.find(dead=False) == ["荷重", "SG-A", "SG-B", "memo"]
+
+    def test_find_combines_conditions_and_where(self, gauges):
+        assert gauges.find("sg", unit="με", min_abs=500) == ["SG-A"]
+        assert gauges.find(where=lambda c: c.ch in ("@1", "@6")) == ["荷重", "memo"]
+        assert gauges.select(gauges.find(unit="με", dead=False)).columns == ["SG-A", "SG-B"]
+
     def test_missing_column_suggests_names_and_channels(self):
         c = ColumnCollection({"荷重(kN)": Column("荷重(kN)", [1.0], ch="@1"),
                               "SG1": Column("SG1", [1.0], ch="@2")})

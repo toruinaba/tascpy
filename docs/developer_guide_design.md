@@ -39,6 +39,7 @@ coll.results   # {名前: AnalysisResult}
 | `coll.columns` | データ列名のリスト |
 | `coll.units` | `{列名: 単位}` |
 | `coll.catalog()` | `pl.DataFrame`（1列を1行とした列の一覧。ch・単位・欠損数・統計量・attrs） |
+| `coll.find(text, unit=, min_abs=, dead=, where=)` | 条件に合う列名のリスト（`select` に渡す） |
 | `coll.results["stiffness"]` | `with_result` で付けた解析結果（ops の値への集約は結果を返すだけで、自動では付けない） |
 
 `coll[...]` は列名だけを受け付けます。チャンネル名や解析結果を暗黙に探すことはしません。見つからないときの KeyError には、列名とチャンネル名から近い候補を添えます（`tascpy.core.names` で NFKC・大文字小文字・空白を正規化して比較）。
