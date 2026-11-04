@@ -143,6 +143,51 @@ class TestRead:
         assert info["P"]["max"] == 30.0
         assert "mean" not in info["s"]
 
+    def test_catalog(self):
+        c = ColumnCollection({
+            "P": Column("P", [0.0, -40.0, None, 30.0], unit="kN", ch="1"),
+            "dead": Column("dead", [None, None, None, None], ch="2"),
+            "flat": Column("flat", [5.0, 5.0, 5.0, None], ch="3", attrs={"raw_name": "", "unit": "x"}),
+            "s": Column("s", ["a", "b", None, "a"], ch="4", attrs={"部位": "柱A"}),
+        }, step=[10, 20, 30, 40])
+        cat = c.catalog()
+        assert cat.columns == ["ch", "name", "unit", "dtype", "n_valid", "null_count", "n_unique", "min", "max",
+                               "abs_max", "abs_max_step", "raw_name", "attrs.unit", "部位"]
+        assert cat["name"].to_list() == ["P", "dead", "flat", "s"]
+        assert cat["ch"].to_list() == ["1", "2", "3", "4"]
+        assert cat["n_valid"].to_list() == [3, 0, 3, 3]
+        assert cat["n_unique"].to_list() == [3, 0, 1, 2]
+        assert cat["min"].to_list() == [-40.0, None, 5.0, None]
+        assert cat["abs_max"].to_list() == [40.0, None, 5.0, None]
+        assert cat["abs_max_step"].to_list() == [20, None, 10, None]
+        assert cat["raw_name"].to_list() == [None, None, "", None]
+        assert cat["部位"].to_list() == [None, None, None, "柱A"]
+        # 絞り込んだ結果をそのまま select に渡せる
+        assert c.select(cat.filter(pl.col("n_unique") <= 1)["name"]).columns == ["dead", "flat"]
+
+    def test_catalog_empty(self):
+        cat = ColumnCollection().catalog()
+        assert cat.height == 0
+        assert cat.schema["abs_max"] == pl.Float64
+
+    def test_missing_column_suggests_names_and_channels(self):
+        c = ColumnCollection({"荷重(kN)": Column("荷重(kN)", [1.0], ch="@1"),
+                              "SG1": Column("SG1", [1.0], ch="@2")})
+        with pytest.raises(KeyError, match=r"列 'ＳＧ１' が存在しません（候補: 'SG1'）"):
+            c["ＳＧ１"]
+        with pytest.raises(KeyError, match=r"候補: '荷重\(kN\)'"):
+            c["荷重"]
+        with pytest.raises(KeyError, match=r"'SG1'（ch '@2'）"):
+            c["@2"]
+        with pytest.raises(KeyError, match=r"チャンネル '2' が存在しません（候補: '@2'）"):
+            c.by_ch("2")
+        with pytest.raises(KeyError, match=r"'@2'（列 'SG1'）"):
+            c.by_ch("sg1")
+        with pytest.raises(KeyError, match=r"候補: 'SG1'"):
+            c.ops.select(columns=["sg1"])
+        with pytest.raises(KeyError, match=r"候補: 'SG1'"):
+            c[0]["SG 1"]
+
     def test_metadata_and_results_are_read_only(self, coll):
         with pytest.raises(TypeError):
             coll.metadata["x"] = 1

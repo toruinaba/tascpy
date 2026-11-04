@@ -17,6 +17,7 @@ import polars as pl
 
 from ..collection import INDEX_COLUMNS, ColumnCollection
 from ..column import Column
+from ..names import missing_message
 from .formats import get_format
 
 MISSING_TOKENS = ("none", "null", "", "nan", "na")
@@ -83,15 +84,20 @@ def _header_row(lines: List[str], index: Optional[int], delimiter: str, start: i
 def _unique_names(names: List[str]) -> List[str]:
     taken: set[str] = set(INDEX_COLUMNS)
     result = []
+    renamed = []
     for name in names:
         unique, n = name, 1
         while unique in taken:
             n += 1
             unique = f"{name}_{n}"
         if unique != name:
-            warnings.warn(f"列名 '{name}' が重複しているか予約名のため '{unique}' に変更しました", stacklevel=4)
+            renamed.append(f"'{name}' → '{unique}'")
         taken.add(unique)
         result.append(unique)
+    if renamed:
+        shown = ", ".join(renamed[:5]) + (f" ほか {len(renamed) - 5} 列" if len(renamed) > 5 else "")
+        warnings.warn(f"列名が重複しているか予約名のため {len(renamed)} 列の名前を変更しました: {shown}"
+                      "（元の名前は catalog() の raw_name で確認できます）", stacklevel=4)
     return result
 
 
@@ -137,13 +143,15 @@ def _parse(text: str, config: Dict[str, Any], format_name: str,
     units = _header_row(lines, config["unit_row"], delimiter, start)
     width = max(len(chs), len(names), len(units))
     chs, names, units = ([*row, *[""] * (width - len(row))] for row in (chs, names, units))
+    raw_names = names
     names = _unique_names([name or ch or f"column{start + i}" for i, (name, ch) in enumerate(zip(names, chs))])
 
     picked = list(range(width))
     if selected_columns is not None:
         unknown = [s for s in selected_columns if s not in names and s not in chs]
         if unknown:
-            raise KeyError(f"指定された列が見つかりません: {unknown}")
+            candidates = [(n, repr(n), n) for n in names] + [(c, f"{n!r}（ch {c!r}）", n) for n, c in zip(names, chs) if c]
+            raise KeyError("; ".join(missing_message("指定された列", s, candidates) for s in unknown))
         picked = [i for i in picked if names[i] in selected_columns or chs[i] in selected_columns]
 
     body = [line for line in lines[config["data_start_row"]:] if line.strip()]
@@ -157,7 +165,8 @@ def _parse(text: str, config: Dict[str, Any], format_name: str,
     raw = raw.select(_cleaned(c) for c in raw.columns)
 
     columns = {
-        names[i]: Column(names[i], _typed_values(raw[f"f{start + i}"]), unit=units[i] or None, ch=chs[i] or None)
+        names[i]: Column(names[i], _typed_values(raw[f"f{start + i}"]), unit=units[i] or None, ch=chs[i] or None,
+                         attrs=None if names[i] == raw_names[i] else {"raw_name": raw_names[i]})
         for i in picked
     }
     index = {key: raw[f"f{col}"] for key, col in index_cols.items() if col is not None}

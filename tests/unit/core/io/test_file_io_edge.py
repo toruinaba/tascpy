@@ -111,18 +111,32 @@ def test_blank_lines_are_skipped():
 
 def test_header_names_fallback_and_dedupe():
     data = "DATA\nCH\tC1\tC2\tC3\tC4\tC5\nNAME\tA\tA\t\ttime\nUNIT\tkN\n1\t1\t2\t3\t4\t5\t6\n"
-    with pytest.warns(UserWarning):
+    with pytest.warns(UserWarning) as record:
         loaded = load_collection(io.StringIO(data), format_name="standard", data_start_col=1, date_col=None, time_col=None)
     # 名前が空欄なら ch、名前行が短ければ ch で補う。重複・予約名には接尾辞。ヘッダーのない列は無視
     assert loaded.columns == ["A", "A_2", "C3", "time_2", "C5"]
     assert loaded.units == {"A": "kN", "A_2": None, "C3": None, "time_2": None, "C5": None}
     assert loaded["C5"].to_list() == [5.0]
+    # 改名の警告は1回にまとめる
+    assert len(record) == 1 and "2 列" in str(record[0].message)
+    # 補ったり変えたりした名前は、元の名前を attrs の raw_name に残す
+    assert loaded.catalog()["raw_name"].to_list() == [None, "A", "", "time", ""]
+
+
+def test_rename_warning_lists_first_names_only():
+    names = "\t".join(["A"] * 8)
+    data = f"DATA\nCH\t{names}\nNAME\t{names}\nUNIT\n1\t" + "\t".join(["1"] * 8) + "\n"
+    with pytest.warns(UserWarning, match="7 列の名前を変更しました: .* ほか 2 列"):
+        load_collection(io.StringIO(data), format_name="standard", data_start_col=1, date_col=None, time_col=None)
 
 
 def test_unknown_selected_column():
     data = "DATA\nCH\tCH1\nNAME\tc\nUNIT\t\n1\t1\n"
-    with pytest.raises(KeyError):
-        load_collection(io.StringIO(data), format_name="standard", selected_columns=["x"], data_start_col=1,
+    with pytest.raises(KeyError, match=r"指定された列 'C' が存在しません（候補: 'c'）"):
+        load_collection(io.StringIO(data), format_name="standard", selected_columns=["C"], data_start_col=1,
+                        date_col=None, time_col=None)
+    with pytest.raises(KeyError, match=r"'c'（ch 'CH1'）"):
+        load_collection(io.StringIO(data), format_name="standard", selected_columns=["ch1"], data_start_col=1,
                         date_col=None, time_col=None)
 
 

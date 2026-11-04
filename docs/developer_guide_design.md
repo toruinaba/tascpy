@@ -38,9 +38,12 @@ coll.results   # {名前: AnalysisResult}
 | `coll.step` / `coll.date` / `coll.time` | `np.ndarray`（`date` と `time` は存在しなければ `None`） |
 | `coll.columns` | データ列名のリスト |
 | `coll.units` | `{列名: 単位}` |
+| `coll.catalog()` | `pl.DataFrame`（1列を1行とした列の一覧。ch・単位・欠損数・統計量・attrs） |
 | `coll.results["stiffness"]` | `with_result` で付けた解析結果（ops の値への集約は結果を返すだけで、自動では付けない） |
 
-`coll[...]` は列名だけを受け付けます。チャンネル名や解析結果を暗黙に探すことはしません。
+`coll[...]` は列名だけを受け付けます。チャンネル名や解析結果を暗黙に探すことはしません。見つからないときの KeyError には、列名とチャンネル名から近い候補を添えます（`tascpy.core.names` で NFKC・大文字小文字・空白を正規化して比較）。
+
+TASC 形式の読み込みでは、名前が空欄の列は ch 名などで補い、重複・予約名の列には接尾辞を付けます。このように名前を補ったり変えたりした列は、元の名前（空欄なら `""`）を attrs の `raw_name` に残します。
 
 ### 書き込み（新しいコレクションを返す）
 

@@ -41,6 +41,28 @@
 
 ```
 
+列が数百あるようなデータでは、`catalog()` で列の一覧表（1列を1行とした polars の DataFrame）を作ると構成をつかみやすくなります。チャンネル名・単位・欠損の数・最大値などが並ぶので、polars の式で絞り込んで `select` に渡せます。`n_unique` が 0 や 1 の列（全欠損・定数）は、断線などを疑う手がかりになります。
+
+```pycon
+>>> import polars as pl
+>>> cat = col.catalog()
+>>> cat.select("name", "unit", "abs_max", "abs_max_step").rows()
+[('荷重', 'kN', 114.0, 99), ('変位', 'mm', 6.0, 99)]
+>>> col.select(cat.filter(pl.col("unit") == "kN")["name"]).columns
+['荷重']
+
+```
+
+列名を間違えると、エラーに近い名前の候補が出ます。全角と半角、大文字と小文字の違いは区別しません。
+
+```pycon
+>>> col["荷重(kN)"]
+Traceback (most recent call last):
+    ...
+KeyError: "列 '荷重(kN)' が存在しません（候補: '荷重'）"
+
+```
+
 ## 3. 荷重-変位ドメインに変換する
 
 `end_as` に変換関数 `tascpy.as_load_displacement` と、荷重列・変位列を渡します。チェーンはここで終わり、荷重-変位ドメインのコレクションが返ります。その `ops` では `to_skeleton_curve` や `yield_point` などの操作が使えるようになります（IDE でも補完されます）。
