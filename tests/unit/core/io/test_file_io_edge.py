@@ -124,10 +124,20 @@ def test_header_names_fallback_and_dedupe():
 
 
 def test_rename_warning_lists_first_names_only():
-    names = "\t".join(["A"] * 8)
-    data = f"DATA\nCH\t{names}\nNAME\t{names}\nUNIT\n1\t" + "\t".join(["1"] * 8) + "\n"
+    chs, names = "\t".join(f"C{i}" for i in range(8)), "\t".join(["A"] * 8)
+    data = f"DATA\nCH\t{chs}\nNAME\t{names}\nUNIT\n1\t" + "\t".join(["1"] * 8) + "\n"
     with pytest.warns(UserWarning, match="7 列の名前を変更しました: .* ほか 2 列"):
         load_collection(io.StringIO(data), format_name="standard", data_start_col=1, date_col=None, time_col=None)
+
+
+def test_duplicate_channels_in_file_are_rejected():
+    data = "DATA\nCH\tC1\tC1\tC2\nNAME\ta\tb\tc\nUNIT\n1\t1\t2\t3\n"
+    with pytest.raises(ValueError, match=r"チャンネル名が重複しています: 'C1'"):
+        load_collection(io.StringIO(data), format_name="standard", data_start_col=1, date_col=None, time_col=None)
+    # 重複していても、その一方だけを選んで読み込むことはできる
+    loaded = load_collection(io.StringIO(data), format_name="standard", selected_columns=["a", "c"],
+                             data_start_col=1, date_col=None, time_col=None)
+    assert loaded.columns == ["a", "c"]
 
 
 def test_unknown_selected_column():

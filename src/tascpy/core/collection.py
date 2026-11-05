@@ -39,6 +39,19 @@ def _check_data_name(name: str) -> None:
         raise ValueError(f"'{name}' はインデックス列の予約名のため、データ列名には使えません")
 
 
+def _check_unique_channels(meta: Mapping[str, ColumnMeta]) -> None:
+    """チャンネル名（None 以外）が列の間で重ならないこと"""
+    owners: Dict[str, List[str]] = {}
+    for name, m in meta.items():
+        if m.ch is not None:
+            owners.setdefault(m.ch, []).append(name)
+    duplicated = {ch: names for ch, names in owners.items() if len(names) > 1}
+    if duplicated:
+        detail = ", ".join(f"'{ch}'（列 {names}）" for ch, names in duplicated.items())
+        raise ValueError(f"チャンネル名が重複しています: {detail}"
+                         "（列をコピーするときは with_column(..., ch=None) のようにチャンネル名を外してください）")
+
+
 class ColumnCollection:
     """列メタデータ（単位・チャンネル・属性）付きの不変な表
 
@@ -132,6 +145,7 @@ class ColumnCollection:
 
     def _set(self, df: pl.DataFrame, meta: Dict[str, ColumnMeta],
              metadata: Dict[str, Any], results: Dict[str, AnalysisResult]) -> None:
+        _check_unique_channels(meta)
         self._df = df
         self._meta = meta
         self._metadata = metadata
@@ -449,7 +463,20 @@ class ColumnCollection:
     # ── 変更（新しいコレクションを返す） ─────────────
 
     def with_column(self, name: str, values: Any, *, unit: Any = KEEP, ch: Any = KEEP, attrs: Any = KEEP) -> Self:
-        """列を追加または上書きする（上書き時、指定しなかったメタは引き継ぐ）"""
+        """列を追加または上書きする
+
+        上書き時は、指定しなかったメタを既存の列から引き継ぎます。新しい列に `Column` を渡した場合は、
+        その `Column` のメタを引き継ぎます。チャンネル名は列の間で一意なので、同じ表の列をコピーするときは
+        `ch=None` を指定してください。
+
+        Raises:
+            ValueError: 長さが行数と一致しない場合、チャンネル名が他の列と重なる場合
+
+        Examples:
+            >>> coll = ColumnCollection({"P": Column("P", [1.0, 2.0], unit="kN", ch="@1")})
+            >>> coll.with_column("P_copy", coll["P"], ch=None)["P_copy"].unit
+            'kN'
+        """
         _check_data_name(name)
         series = to_series(name, values)
         if len(series) != len(self):
