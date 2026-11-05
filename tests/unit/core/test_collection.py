@@ -37,6 +37,29 @@ class TestConstruction:
         assert c.meta["a"] == ColumnMeta(unit="N", ch="CH1")
         assert c["a"].name == "a"
 
+    def test_channels_must_be_unique(self):
+        a, b = Column("a", [1.0], ch="@1"), Column("b", [2.0], ch="@1")
+        with pytest.raises(ValueError, match=r"チャンネル名が重複しています: '@1'（列 \['a', 'b'\]）"):
+            ColumnCollection({"a": a, "b": b})
+        with pytest.raises(ValueError, match="チャンネル名が重複"):
+            ColumnCollection({"a": [1.0], "b": [2.0]}, meta={"a": ColumnMeta(ch="X"), "b": ColumnMeta(ch="X")})
+        # ch のない列（計算で作った列など）はいくつあってもよい
+        assert ColumnCollection({"a": [1.0], "b": [2.0], "c": [3.0]}).columns == ["a", "b", "c"]
+
+    def test_operations_cannot_duplicate_channels(self):
+        c = ColumnCollection({"P": Column("P", [1.0, 2.0], unit="kN", ch="@1"), "d": Column("d", [0.0, 1.0], ch="@2")})
+        with pytest.raises(ValueError, match="ch=None"):
+            c.with_column("P2", c["P"])                       # コピーはメタを引き継ぐので、ch を外す
+        copied = c.with_column("P2", c["P"], ch=None)
+        assert copied["P2"].unit == "kN" and copied["P2"].ch is None
+        with pytest.raises(ValueError, match="チャンネル名が重複"):
+            c.with_meta("d", ch="@1")
+        with pytest.raises(ValueError, match="チャンネル名が重複"):
+            c.ops.add("P", "d", result_column="sum", ch="@2")
+        assert c.ops.add("P", "d", result_column="sum").end()["sum"].ch is None
+        assert c.rename({"P": "荷重"})["荷重"].ch == "@1"      # 名前の変更では ch を保つ
+        assert c.with_column("P", [5.0, 6.0])["P"].ch == "@1"  # 上書きでも ch を保つ
+
     def test_units_and_meta_override(self):
         c = ColumnCollection({"a": Column("a", [1.0], unit="N")}, units={"a": "kN"})
         assert c["a"].unit == "kN"
